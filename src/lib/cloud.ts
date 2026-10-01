@@ -116,3 +116,26 @@ export async function saveToCloud(id: string, keyframeBlobs: Record<number, Blob
   if (failed?.error) throw failed.error;
   await updateAnalysis(id, { cloud: { syncedAt: new Date().toISOString() } });
 }
+
+/** Load a saved analysis from the account (owner or a linked coach), for any device. */
+export async function loadCloudAnalysis(id: string) {
+  const sb = supabase();
+  const [{ data: row }, { data: payloadRow }, { data: obsRow }] = await Promise.all([
+    sb.from("analyses").select("id, title, recorded_at, owner_id").eq("id", id).maybeSingle(),
+    sb.from("analysis_payloads").select("payload").eq("analysis_id", id).maybeSingle(),
+    sb.from("observations").select("storage_path").eq("analysis_id", id).maybeSingle(),
+  ]);
+  if (!row || !payloadRow || !obsRow) return null;
+  const file = await sb.storage.from("tracks").download(obsRow.storage_path);
+  if (file.error || !file.data) return null;
+  const obs = await decodeTracks(new Uint8Array(await file.data.arrayBuffer()));
+  const { data: media } = await sb.from("media_objects").select("path").eq("analysis_id", id).eq("bucket", "evidence");
+  const keyframes: Record<number, string> = {};
+  for (const m of media ?? []) {
+    const f = /frame_(\d+)\.webp$/.exec(m.path)?.[1];
+    if (!f) continue;
+    const signed = await sb.storage.from("evidence").createSignedUrl(m.path, 3600);
+    if (signed.data) keyframes[Number(f)] = signed.data.signedUrl;
+  }
+  return { title: row.title ?? "Saved shot", recordedAt: row.recorded_at as string, ownerId: row.owner_id as string, payload: payloadRow.payload as import("@/engine/types").AnalysisPayload, obs, keyframes };
+}

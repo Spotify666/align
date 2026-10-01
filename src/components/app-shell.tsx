@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 btn btn-primary">
         Skip to content
       </a>
-      <header className="sticky top-0 z-40 border-b border-line bg-carbon/85 backdrop-blur supports-[backdrop-filter]:bg-carbon/70">
+      <header className="sticky top-0 z-40 border-b border-line bg-carbon/85 backdrop-blur supports-[backdrop-filter]:bg-carbon/70 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2" aria-label="Align home">
             <Mark />
@@ -86,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      <main id="main" className="flex-1 pb-24 md:pb-0">
+      <main id="main" className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
         {children}
       </main>
 

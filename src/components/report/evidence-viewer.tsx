@@ -18,6 +18,8 @@ const Scene3D = dynamic(() => import("./scene-3d"), {
 export type ViewMode = "original" | "overlay" | "3d" | "compare";
 export interface EvidenceViewerHandle {
   seek: (frame: number, highlight?: string) => void;
+  /** PNG of the current 2D evidence frame (for the PDF), or null in 3D mode. */
+  snapshot: () => string | null;
 }
 
 interface Props {
@@ -77,6 +79,13 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
       setHighlight(h ?? null);
       if (mode === "3d" || mode === "compare") setMode("overlay");
       wrap.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    },
+    snapshot: () => {
+      try {
+        return canvas.current ? canvas.current.toDataURL("image/png") : null;
+      } catch {
+        return null;
+      }
     },
   }));
 

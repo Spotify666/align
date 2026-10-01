@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   description:
     "Shot analysis for cricket, starting with the front-foot defence. Reconstruct body, bat and ball, confirm the shot before grading it, then train one measurable priority.",
   applicationName: "Align",
+  appleWebApp: { capable: true, title: "Align", statusBarStyle: "black-translucent" },
+  icons: { apple: "/apple-touch-icon.png" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

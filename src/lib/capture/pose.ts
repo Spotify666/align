@@ -27,6 +27,10 @@ const MP_INDEX: Record<(typeof JOINTS)[number], number> = {
 };
 
 let landmarker: Promise<PL> | null = null;
+// MediaPipe VIDEO mode needs strictly increasing timestamps across every call on
+// one landmarker instance (quality probe, tracking, live preview alike).
+let lastTimestamp = 0;
+const nextTimestamp = (requested: number) => (lastTimestamp = Math.max(lastTimestamp + 1, Math.round(requested)));
 
 export function loadPose(): Promise<PL> {
   if (!landmarker) {
@@ -65,7 +69,7 @@ export interface PoseFrame {
  * to the previous batter position (identity continuity), else the larger one.
  */
 export function detectFrame(pose: PL, source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement, timestampMs: number, prevHip: [number, number] | null): PoseFrame & { hip: [number, number] | null } {
-  const res = pose.detectForVideo(source, timestampMs);
+  const res = pose.detectForVideo(source, nextTimestamp(timestampMs));
   const people = res.landmarks.filter((l) => avgVis(l) > 0.5).length;
   if (!res.landmarks.length) return { body: JOINTS.map(() => null), depth: JOINTS.map(() => 0), people, hip: prevHip };
   let pick = 0;

@@ -63,3 +63,17 @@ describe("registry", () => {
     for (const m of METRICS) expect(`${m.name} ${m.meaning} ${m.relevance}`).not.toMatch(/biomarker|diagnos|injur/i);
   });
 });
+
+describe("classification stability across 40 noise seeds", () => {
+  const rate = (key: string, expected: string) => {
+    const spec = FIXTURE_SPECS.find((s) => s.key === key)!;
+    let hits = 0;
+    for (let seed = 1; seed <= 40; seed++) if (analyze(generate({ ...spec.options, seed }), opts).analysis_status === expected) hits++;
+    return hits / 40;
+  };
+  it("rejects pulls and drives, accepts defences, at least 95% of the time", () => {
+    expect(rate("pull", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
+    expect(rate("drive", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
+    expect(rate("valid_ffd", "valid")).toBeGreaterThanOrEqual(0.95);
+  });
+});

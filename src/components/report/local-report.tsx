@@ -7,6 +7,8 @@ import { decodeTracks } from "@/engine/tracks-codec";
 import { buildBaseline, compareToBaseline, type BaselineComparison } from "@/engine/baseline";
 import type { AnalysisPayload, CaptureObservation } from "@/engine/types";
 import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, type StoredAnalysis } from "@/lib/store";
+import { loadCloudAnalysis } from "@/lib/cloud";
+import { Annotations } from "../coach/annotations";
 import { sessionMedia } from "@/lib/session-media";
 import { ReportView } from "./report-view";
 import { CloudSave } from "../cloud/cloud-save";
@@ -22,6 +24,7 @@ type State =
       keyframes: Record<number, string>;
       baseline: BaselineComparison[];
       reference: { obs: CaptureObservation; offset: number; label: string } | null;
+      remote?: boolean;
     };
 
 export function LocalReport({ id }: { id: string }) {
@@ -33,7 +36,12 @@ export function LocalReport({ id }: { id: string }) {
     (async () => {
       const stored = await getAnalysis(id);
       const tracks = await getTracks(id);
-      if (!stored || !tracks) return alive && setState({ kind: "missing" });
+      if (!stored || !tracks) {
+        const cloud = await loadCloudAnalysis(id).catch(() => null);
+        if (!cloud) return alive && setState({ kind: "missing" });
+        const stub: StoredAnalysis = { id, createdAt: cloud.payload.created_at, recordedAt: cloud.recordedAt, payload: cloud.payload, title: cloud.title, notes: "", tags: [], representative: false, cloud: { syncedAt: cloud.recordedAt } };
+        return alive && setState({ kind: "ready", stored: stub, obs: cloud.obs, keyframes: cloud.keyframes, baseline: [], reference: null, remote: true });
+      }
       const obs = await decodeTracks(tracks);
       const keyframes = await getKeyframes(id, stored.payload.evidence_frames);
       // Personal baseline from earlier valid front-foot defences on this device.
@@ -74,6 +82,7 @@ export function LocalReport({ id }: { id: string }) {
   const media = sessionMedia.get(id);
   const p: AnalysisPayload = state.stored.payload;
   return (
+    <>
     <ReportView
       payload={p}
       obs={state.obs}
@@ -84,7 +93,7 @@ export function LocalReport({ id }: { id: string }) {
       reference={state.reference}
       title={state.stored.title}
       actions={
-        <>
+        state.remote ? null : <>
           <CloudSave id={id} />
           <button
             className="btn btn-ghost !min-h-9 !py-1.5 text-sm"
@@ -99,5 +108,11 @@ export function LocalReport({ id }: { id: string }) {
         </>
       }
     />
+    {state.stored.cloud && (
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 pb-10">
+        <Annotations analysisId={id} payload={p} />
+      </div>
+    )}
+    </>
   );
 }
