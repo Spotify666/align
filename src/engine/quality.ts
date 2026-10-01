@@ -184,7 +184,7 @@ export function assessCapture(obs: CaptureObservation): CaptureQuality {
     status: obs.calibration.metresPerUnit ? "pass" : obs.athlete.heightCm ? "warn" : "warn",
     value: obs.calibration.metresPerUnit ? "Calibrated" : obs.athlete.heightCm ? "From your height (estimate)" : "Not set",
     requirement: "Stumps marked, or your height in your profile",
-    correction: "Mark the stumps base and top in the setup step, or add your height to your profile.",
+    correction: "Add your height in your profile so distances are in metres (or mark the stumps on the report).",
   });
 
   const scored = checks.filter((c) => c.status !== "not_applicable");

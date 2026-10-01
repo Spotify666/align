@@ -32,7 +32,7 @@ export default function Home() {
             <Link href="/analyse" className="btn btn-primary w-full sm:w-auto text-base !px-5">Analyse front-foot defence</Link>
             <Link href="/sample/valid_ffd" className="btn btn-ghost w-full sm:w-auto text-base !px-5">See a sample report</Link>
           </div>
-          <p className="mt-5 text-sm text-fg-subtle">Video stays on your phone · About 3 minutes · Says “not enough information” when it isn’t sure</p>
+          <p className="mt-5 text-sm text-fg-subtle">Video stays on your phone · Fully automatic · Says “not enough information” when it isn’t sure</p>
         </div>
 
         {/* Product window */}
@@ -45,7 +45,7 @@ export default function Home() {
             </div>
             <div className="grid lg:grid-cols-[1.45fr_1fr]">
               <div className="min-w-0 aspect-[4/3] sm:aspect-[16/10] lg:aspect-auto lg:min-h-[420px]">
-                <HeroVisual obs={valid.obs} from={trigger} to={Math.min(valid.obs.body.length - 1, contact + 30)} />
+                <HeroVisual obs={valid.obs} from={trigger} to={Math.min(valid.obs.body.length - 1, contact + 36)} still={contact} />
               </div>
               <div className="flex flex-col gap-4 border-t border-line p-5 text-left lg:border-l lg:border-t-0">
                 <span className="chip w-fit border-ok/40 text-ok"><Check size={14} /> Valid front-foot defence</span>
@@ -78,22 +78,22 @@ export default function Home() {
         <Reveal>
           <p className="eyebrow">How to analyse your front-foot defence</p>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="display text-3xl sm:text-5xl max-w-2xl">Four steps. About three minutes.</h2>
+            <h2 className="display text-3xl sm:text-5xl max-w-2xl">Film it. Upload it. Align does the rest.</h2>
             <Link href="/guide" className="btn btn-ghost">Read the full guide</Link>
           </div>
         </Reveal>
         <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { Icon: RecordIcon, t: "Record in slow motion", d: "Phone side-on at hip height, 6–8 m away, on a stand. Use your camera's Slo-mo mode." },
-            { Icon: Upload, t: "Upload the clip", d: "We check frame rate, light, blur and framing before anything is processed." },
-            { Icon: Target, t: "Confirm bat and ball", d: "Tap the ball at bounce and contact, and the bat on a few frames. About a minute." },
-            { Icon: Trend, t: "Read and train", d: "See the verdict, your measures and one drill. Re-record to see the change." },
-          ].map(({ Icon, t, d }, i) => (
+            { Icon: RecordIcon, k: "Film", t: "Record in slow motion", d: "Phone side-on at hip height, 6–8 m away, on a stand — or from behind the bowler. Long clips are fine." },
+            { Icon: Upload, k: "Upload", t: "Add the clip", d: "One tap. No trimming, no settings." },
+            { Icon: Target, k: "Automatic", t: "Align finds everything", d: "The shot, the batter holding the bat, the camera angle — then checks the recording and tracks the body." },
+            { Icon: Trend, k: "Train", t: "Read and train", d: "The verdict, your measures and one drill. Re-record to see the change." },
+          ].map(({ Icon, k, t, d }, i) => (
             <Reveal key={t} delay={i * 0.05}>
               <li className="card card-hover h-full p-6">
                 <div className="flex items-center justify-between">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand"><Icon size={20} /></span>
-                  <span className="num text-sm text-fg-subtle">0{i + 1}</span>
+                  <span className="text-xs font-medium uppercase tracking-wide text-fg-subtle">{k}</span>
                 </div>
                 <h3 className="mt-5 text-lg font-semibold tracking-tight">{t}</h3>
                 <p className="mt-2 text-sm text-fg-muted">{d}</p>

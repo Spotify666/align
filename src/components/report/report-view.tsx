@@ -24,10 +24,12 @@ interface Props {
   reference?: { obs: CaptureObservation; offset: number; label: string } | null;
   narrative?: Report;
   actions?: React.ReactNode;
+  /** Shown under the verdict (e.g. an offer to add bat and ball marks). */
+  notice?: React.ReactNode;
   title?: string;
 }
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, title }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, title }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [aiReport, setAiReport] = useState<Report | null>(null);
   const [aiState, setAiState] = useState<"idle" | "loading" | "unavailable" | "fallback">("idle");
@@ -89,6 +91,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             )}
           </div>
           <h1 id="verdict" className="display mt-4 text-[1.7rem] leading-[1.1] sm:text-4xl lg:text-5xl max-w-4xl">{p.headline}</h1>
+          {notice}
           {!isValid ? (
             <p className="mt-4 flex flex-col gap-0.5 rounded-lg border border-line-strong bg-surface/70 px-3 py-2 text-sm sm:inline-flex sm:flex-row sm:items-center sm:gap-2 sm:text-base">
               <strong>Technique score withheld.</strong>

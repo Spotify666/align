@@ -7,7 +7,7 @@ Status as of 2026-10-01. Align is a new product: it does not reuse CricShot code
 | Area | State | Evidence |
 |---|---|---|
 | Analysis engine | Deterministic, versioned, validity-first pipeline for the front-foot defence (FFD) | `src/engine/*`, 92 unit tests |
-| Capture | In-browser: any-length clips scanned for shots, camera cuts skipped, batter picked by tap, side-on / bowler's end / behind, pose on a crop around the batter, photos (1–12), guided bat/ball marking | `src/lib/capture/*`, `tests/e2e/capture-flow.mjs` |
+| Capture | Fully automatic after upload: any-length clips scanned for shots, camera cuts skipped, batter found (bat-holder cues), camera position guessed, quality gate with automatic retry, crop that follows the batter; "Change" links for corrections; photos (1–12); optional bat/ball marking from the report | `src/lib/capture/*`, `tests/e2e/capture-flow.mjs` |
 | Report | Verdict-first report, evidence viewer (video, tracked, 3D, compare), metrics with ranges, drills, PDF | `src/components/report/*`, `src/lib/pdf.ts` |
 | Storage | IndexedDB on device; optional Supabase save with RLS, private buckets, retention purge | `src/lib/store.ts`, `supabase/` |
 | LLM | Optional rewrite of the template report through a strict contract; template is the default | `src/engine/llm/*`, `src/app/api/report` |
@@ -16,7 +16,7 @@ Status as of 2026-10-01. Align is a new product: it does not reuse CricShot code
 ## Gaps that matter
 
 1. **No real-athlete validation yet.** Thresholds and coaching ranges are provisional. No accuracy figure is published.
-2. **Bat and ball are user-marked**, not detected. This is reliable but needs about a minute of work.
+2. **Bat and ball are not detected automatically.** The on-device detector sees bats only weakly (used as a hint for who is batting) and balls rarely. Without marks a video gives "shot uncertain" with ungraded body observations; marking from the report unlocks the full verdict. A trained bat/ball detector is the next capture milestone.
 3. **Classifier is uncalibrated.** It is a transparent prototype-band model. Calibration needs labelled clips.
 4. **3D Session tier** (two calibrated phones) is a preview. Depth-dependent measures show "not measured" on one phone.
 6. **Front-on accuracy** rests on MediaPipe's monocular depth estimate. It is validated on synthetic data only; real-clip validation is part of Phase 2.

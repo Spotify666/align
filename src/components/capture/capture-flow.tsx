@@ -7,44 +7,63 @@ import { AnimatePresence, motion } from "motion/react";
 import { analyze } from "@/engine/analyze";
 import { assessCapture } from "@/engine/quality";
 import { encodeTracks, quantise } from "@/engine/tracks-codec";
-import { J, type CameraPoint, type CaptureObservation, type CaptureQuality, type ImgPoint, type PhotoPhase, type Tier } from "@/engine/types";
+import { J, type CameraPoint, type CaptureObservation, type CaptureQuality, type ImgPoint, type Tier } from "@/engine/types";
 import { readVideoTrack, type VideoTrackInfo } from "@/lib/capture/mp4";
 import { FrameQualitySampler } from "@/lib/capture/frame-quality";
-import { detectFrame, detectStill, loadPersonDetector, loadPose, loadStillPose, roiAround, seek, type Roi } from "@/lib/capture/pose";
-import { batterCandidates, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
+import {
+  batterLikeness,
+  bodyBox,
+  detectFrame,
+  detectPeople,
+  detectStill,
+  Follower,
+  loadPersonDetector,
+  loadPose,
+  loadStillPose,
+  roiAround,
+  seek,
+  type Box,
+  type PoseFrame,
+  type Roi,
+} from "@/lib/capture/pose";
+import { batterCandidates, boxAt, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
 import { guessView } from "@/lib/capture/view-guess";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
 import { loadProfile, saveAnalysis, saveProfile, type LocalProfile } from "@/lib/store";
-import { isSessionUrl, sessionMedia } from "@/lib/session-media";
+import { isSessionUrl, sessionCapture, sessionMedia } from "@/lib/session-media";
 import { CaptureChecklist } from "../report/panels";
 import { CameraPlacementDiagram, LiveFramingCheck } from "./setup-guide";
 import { MarkEvidence } from "./mark-evidence";
 import { MomentPicker } from "./moment-picker";
 import { BatterPicker } from "./batter-picker";
 import { ViewPicker } from "./view-picker";
-import { PhotoReview } from "./photo-review";
 import { Check, Chevron, Lock, Upload, Record as RecordIcon, Target } from "../icons";
 
-type Phase =
-  | "intent"
-  | "tier"
-  | "setup"
-  | "source"
-  | "reading"
-  | "scanning"
-  | "moment"
-  | "batter"
-  | "view"
-  | "checking"
-  | "gate"
-  | "tracking"
-  | "mark"
-  | "photos"
-  | "processing"
-  | "error";
-
+// One screen to add a clip; everything after that runs on its own. Each automatic
+// decision (which shot, which person, where the camera was) is shown as it is made,
+// with a "Change" link — the athlete corrects only what is wrong.
+type Phase = "add" | "working" | "shot" | "batter" | "view" | "blocked" | "mark" | "error";
+type StageKey = "read" | "shot" | "batter" | "camera" | "check" | "track" | "report";
+type StageState = "waiting" | "active" | "done";
 type ViewChoice = "side_on" | "front_on" | "behind";
+
+const VIDEO_STAGES: Array<[StageKey, string]> = [
+  ["read", "Reading the video"],
+  ["shot", "Finding the shot"],
+  ["batter", "Finding the batter"],
+  ["camera", "Camera position"],
+  ["check", "Checking the recording"],
+  ["track", "Tracking the body"],
+  ["report", "Building your report"],
+];
+const PHOTO_STAGES: Array<[StageKey, string]> = [
+  ["read", "Reading the photos"],
+  ["batter", "Finding the batter"],
+  ["camera", "Camera position"],
+  ["report", "Building your report"],
+];
+const VIEW_TEXT: Record<ViewChoice, string> = { side_on: "side-on", front_on: "bowler's end", behind: "behind the batter" };
 
 interface Meta {
   width: number;
@@ -53,27 +72,33 @@ interface Meta {
   fpsSource: CaptureObservation["media"]["fpsSource"];
   durationSec: number;
 }
+interface Win {
+  start: number;
+  end: number;
+  peak: number;
+}
 
 const MAX_FRAMES = 300;
 const WINDOW_SEC = 2.5;
 const GATE_SAMPLES = 12;
-const STAGES = ["Tracking batter", "Finding bat and ball", "Reconstructing movement", "Classifying shot", "Computing measures", "Preparing report"];
+const MAX_AUTO_TRIES = 3;
 const VIDEO_EXT = /\.(mp4|m4v|mov|webm|mkv|3gp|3g2|avi|wmv|flv|mts|m2ts|ts)$/i;
+const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 export function CaptureFlow() {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("intent");
+  const [phase, setPhase] = useState<Phase>("add");
   const [profile, setProfile] = useState<LocalProfile>(() => loadProfile());
   const [tier] = useState<Tier>("quick");
   const [guardianOk, setGuardianOk] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [meta, setMeta] = useState<Meta | null>(null);
-  const [slow, setSlow] = useState(1);
+  const [slow, setSlowState] = useState(1);
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
   const [pick, setPick] = useState(0);
-  const [win, setWin] = useState<{ start: number; end: number; peak: number } | null>(null);
+  const [win, setWin] = useState<Win | null>(null);
   const [cands, setCands] = useState<BatterCandidate[]>([]);
   const [batter, setBatter] = useState(0);
   const [still, setStill] = useState<string | null>(null);
@@ -84,10 +109,12 @@ export function CaptureFlow() {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [tracking, setTracking] = useState<TrackingResult | null>(null);
   const [marks, setMarks] = useState<Marks>(EMPTY_MARKS);
-  const [photos, setPhotos] = useState<PhotoLoad | null>(null);
-  const [stage, setStage] = useState(0);
+  const [photoMode, setPhotoMode] = useState(false);
+  const [stages, setStages] = useState<Partial<Record<StageKey, StageState>>>({});
+  const [notes, setNotes] = useState<Partial<Record<StageKey, string>>>({});
   const [error, setError] = useState<{ title: string; body: string } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [remark, setRemark] = useState<{ id: string; title: string; createdAt: string; recordedAt: string } | null>(null);
   const video = useRef<HTMLVideoElement | null>(null);
   const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
   const bindVideo = (el: HTMLVideoElement | null) => {
@@ -95,30 +122,94 @@ export function CaptureFlow() {
     setVideoEl((cur) => (cur === el ? cur : el));
   };
   const mediaTimesRef = useRef<number[]>([]);
+  // The running pipeline outlives the render that started it: read file and URL from refs.
+  const fileRef = useRef<File | null>(null);
+  const urlRef = useRef<string | null>(null);
   const [mediaTimes, setMediaTimes] = useState<number[]>([]);
   const abort = useRef<AbortController | null>(null);
+  // The current automatic run. Every await checks it, so "Change" cancels cleanly.
+  const run = useRef(0);
+  // Latest choices, readable from inside a running pipeline.
+  const job = useRef({
+    meta: null as Meta | null,
+    scan: null as ScanResult | null,
+    win: null as Win | null,
+    cands: [] as BatterCandidate[],
+    batter: 0,
+    view: "side_on" as ViewChoice,
+    bowlerSide: "right" as "left" | "right",
+    viewChosen: false,
+    shotChosen: false,
+    slow: 1,
+    tried: [] as number[],
+  });
 
   useEffect(() => () => {
     if (url && !isSessionUrl(url)) URL.revokeObjectURL(url);
   }, [url]);
-  useEffect(() => () => abort.current?.abort(), []);
+  useEffect(() => () => {
+    abort.current?.abort();
+    run.current++;
+  }, []);
+
+  // Opened from a report to add bat and ball marks (same browser session only).
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("mark");
+    const cap = id ? sessionCapture.get(id) : null;
+    const media = id ? sessionMedia.get(id) : null;
+    const v = video.current;
+    if (!id || !cap || !media || !v) return;
+    (async () => {
+      v.src = media.url;
+      await loaded(v).catch(() => undefined);
+      setUrl(media.url);
+      urlRef.current = media.url;
+      setTracking(cap.tracking);
+      mediaTimesRef.current = media.mediaTimes ?? [];
+      setMediaTimes(media.mediaTimes ?? []);
+      setMarks({ ...EMPTY_MARKS, view: cap.view, bowlerSide: cap.bowlerSide });
+      setView(cap.view);
+      setBowlerSide(cap.bowlerSide);
+      setRemark({ id, title: cap.title, createdAt: cap.createdAt, recordedAt: cap.recordedAt });
+      setPhase("mark");
+    })();
+  }, []);
 
   const minor = profile.ageBand === "u13" || profile.ageBand === "13_15" || profile.ageBand === "16_18";
-  const realFps = meta?.containerFps ? meta.containerFps * slow : null;
-  const windowMedia = WINDOW_SEC * slow;
+  const consented = profile.consentProcessing && (!minor || guardianOk);
   const aspect = meta ? meta.width / meta.height : 16 / 9;
+  const realFps = meta?.containerFps ? meta.containerFps * slow : null;
+  const stageList = photoMode ? PHOTO_STAGES : VIDEO_STAGES;
+
   const fail = (title: string, body: string) => {
+    run.current++;
     setError({ title, body });
     setPhase("error");
   };
-  const roi = (): Roi => {
-    const c = cands[batter];
-    if (!c || !meta) return { x: 0, y: 0, w: 1, h: 1 };
-    return roiAround(c.extent, aspect, 0.3);
+  const stage = (k: StageKey, st: StageState, note?: string) => {
+    setStages((s) => ({ ...s, [k]: st }));
+    if (note !== undefined) setNotes((n) => ({ ...n, [k]: note }));
+  };
+  const resetStages = (from: StageKey) => {
+    const keys = VIDEO_STAGES.map(([k]) => k);
+    const after = keys.slice(keys.indexOf(from));
+    setStages((s) => Object.fromEntries(Object.entries(s).filter(([k]) => !after.includes(k as StageKey))));
+    setNotes((n) => Object.fromEntries(Object.entries(n).filter(([k]) => !after.includes(k as StageKey))));
+  };
+  const setSlow = (s: number) => {
+    job.current.slow = s;
+    setSlowState(s);
+  };
+  const chooseWin = (w: Win, i: number) => {
+    job.current.win = w;
+    setWin(w);
+    setPick(i);
   };
 
   function resetClip() {
     abort.current?.abort();
+    run.current++;
+    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [] };
     setScan(null);
     setScanProgress(0);
     setWin(null);
@@ -128,17 +219,26 @@ export function CaptureFlow() {
     setGate(null);
     setTracking(null);
     setMarks(EMPTY_MARKS);
-    setPhotos(null);
-    setSlow(1);
+    setSlowState(1);
+    setStages({});
+    setNotes({});
+    setGuess(null);
+    setProgress({ done: 0, total: 0 });
   }
 
-  // ---------- Video: read → scan → choose shot ----------
-  async function onVideo(f: File) {
+  // ---------- Video: read → scan → shot ----------
+  async function startVideo(f: File) {
     resetClip();
+    const id = ++run.current;
+    const alive = () => id === run.current;
+    setPhotoMode(false);
     setFile(f);
+    fileRef.current = f;
     const u = URL.createObjectURL(f);
     setUrl(u);
-    setPhase("reading");
+    urlRef.current = u;
+    setPhase("working");
+    stage("read", "active");
     const track = await readVideoTrack(f);
     const v = video.current!;
     try {
@@ -148,6 +248,7 @@ export function CaptureFlow() {
       const msg = decodeMessage(f, track);
       return fail(msg.title, msg.body);
     }
+    if (!alive()) return;
     if (!v.videoWidth || !v.videoHeight) return fail("No picture in this file", "The file plays but has no video image (audio only?). Choose the original video from your camera roll.");
     if (!Number.isFinite(v.duration) || v.duration < 0.5) return fail("Clip too short", "The clip must include the whole shot — start before the ball is bowled and stop after the follow-through.");
     let fps = track?.fps ?? null;
@@ -156,130 +257,186 @@ export function CaptureFlow() {
       fps = await estimatePlaybackFps(v);
       fpsSource = fps ? "playback" : "unknown";
     }
+    if (!alive()) return;
     const m: Meta = { width: v.videoWidth, height: v.videoHeight, containerFps: fps, fpsSource, durationSec: v.duration };
+    job.current.meta = m;
     setMeta(m);
+    stage("read", "done", `${m.width}×${m.height} · ${fps ? `${Math.round(fps)} fps` : "frame rate unknown"} · ${m.durationSec.toFixed(1)} s`);
 
-    setPhase("scanning");
+    stage("shot", "active");
     try {
       const det = await loadPersonDetector();
       abort.current = new AbortController();
       const scanned = await scanVideo(v, det, WINDOW_SEC, setScanProgress, abort.current.signal);
-      if (abort.current.signal.aborted) return;
+      if (!alive() || abort.current.signal.aborted) return;
       const res = { ...scanned, windows: await verifyWindows(v, await loadStillPose(), scanned) };
+      if (!alive()) return;
+      job.current.scan = res;
       setScan(res);
-      const best = res.windows.reduce((b, w, i) => (w.score > (res.windows[b]?.score ?? -1) ? i : b), 0);
-      setPick(best);
+      const best = bestWindow(res, []);
       const w = res.windows[best];
-      setWin(w ? { start: w.start, end: w.end, peak: w.peak } : { start: 0, end: Math.min(m.durationSec, WINDOW_SEC), peak: Math.min(m.durationSec, WINDOW_SEC) / 2 });
-      setPhase("moment");
+      chooseWin(w ? { start: w.start, end: w.end, peak: w.peak } : { start: 0, end: Math.min(m.durationSec, WINDOW_SEC), peak: Math.min(m.durationSec, WINDOW_SEC) / 2 }, best);
+      job.current.tried = [best];
+      stage("shot", "done", shotNote(res, best));
+      await fromBatter(id);
     } catch (e) {
-      fail("Couldn't scan this clip", e instanceof Error ? e.message : "The on-device vision model failed to load. Check your connection and try again.");
+      if (alive()) fail("Couldn't scan this clip", e instanceof Error ? e.message : "The on-device vision model failed to load. Check your connection and try again.");
     }
   }
 
-  const chooseWindow = (i: number) => {
-    const w = scan?.windows[i];
-    if (!w) return;
-    setPick(i);
-    setWin({ start: w.start, end: Math.min(meta!.durationSec, w.start + Math.max(w.end - w.start, windowMedia)), peak: w.peak });
-  };
-
-  async function confirmMoment() {
-    if (!win || !scan || !meta) return;
+  // ---------- Batter → camera → check → track, each resumable after a "Change" ----------
+  async function fromBatter(id: number) {
+    const alive = () => id === run.current;
+    const { scan: sc, win: w, meta: m } = job.current;
+    if (!sc || !w || !m) return;
     const v = video.current!;
-    const { at, candidates } = batterCandidates(scan.samples, win);
-    const cs = await verifyCandidates(v, candidates, win, at, aspect);
+    stage("batter", "active");
+    const { at, candidates } = batterCandidates(sc.samples, w);
+    const cs = await verifyCandidates(v, candidates, w, at, m.width / m.height);
+    if (!alive()) return;
+    job.current.cands = cs;
+    job.current.batter = 0;
     setCands(cs);
     setBatter(0);
     await seek(v, at);
     setStill(snapshot(v));
-    if (cs.length > 1) setPhase("batter");
-    else await prepareView(cs, 0);
+    stage(
+      "batter",
+      "done",
+      cs.length > 1 ? `${cs.length} people in view — following the one batting` : cs.length ? "Found the batter" : "No clear person found — using the whole frame",
+    );
+    await fromCamera(id);
   }
 
-  async function prepareView(cs: BatterCandidate[] = cands, b = batter) {
-    if (!win || !meta) return;
-    const v = video.current!;
-    const r = cs[b] ? roiAround(cs[b].extent, aspect, 0.3) : { x: 0, y: 0, w: 1, h: 1 };
-    const stillPose = await loadStillPose();
-    // Stance and stroke: the stride at the stroke makes the front side's direction clearest.
-    const frames = [];
-    for (const t of [win.peak, win.start + (win.end - win.start) * 0.12]) {
-      await seek(v, t);
-      frames.push(detectStill(stillPose, v, r));
-    }
-    const g = guessView(frames, profile.handedness);
-    setStill(snapshot(v));
-    if (g) {
-      const choice: ViewChoice = g.view === "front_on" || g.view === "behind" ? g.view : "side_on";
-      setGuess(choice);
-      setView(choice);
-      setBowlerSide(g.bowlerSide);
-    }
-    setPhase("view");
-  }
-
-  // ---------- Quality gate on the chosen window ----------
-  async function runGate() {
-    if (!meta || !win) return;
-    setPhase("checking");
-    try {
+  async function fromCamera(id: number) {
+    const alive = () => id === run.current;
+    const j = job.current;
+    if (!j.win || !j.meta) return;
+    stage("camera", "active");
+    if (!j.viewChosen) {
       const v = video.current!;
       const stillPose = await loadStillPose();
-      const r = roi();
-      const sampler = new FrameQualitySampler(aspect);
-      const body: ImgPoint[][] = [];
-      const quality = [];
-      let people = 1;
-      const len = Math.min(win.end, meta.durationSec) - win.start;
-      const times = Array.from({ length: GATE_SAMPLES }, (_, i) => win.start + (len * (i + 0.5)) / GATE_SAMPLES);
-      for (let i = 0; i < times.length; i++) {
-        await seek(v, times[i]!);
-        quality.push(sampler.sample(v, i));
-        const p = detectStill(stillPose, v, r);
-        people = Math.max(people, p.people);
-        body.push(p.body);
+      const c = j.cands[j.batter];
+      const frames = [];
+      // Stance and stroke: the stride at the stroke makes the front side's direction clearest.
+      for (const t of [j.win.peak, j.win.start + (j.win.end - j.win.start) * 0.12]) {
+        await seek(v, t);
+        if (!alive()) return;
+        frames.push(detectStill(stillPose, v, cropFor(c, t, j.meta)));
       }
-      const probe: CaptureObservation = {
-        schema: "align.observation/1",
-        id: "probe",
-        source: "browser_capture",
-        demo: false,
-        media: { kind: "video", width: meta.width, height: meta.height, fps: realFps, fpsSource: meta.fpsSource, durationMs: (len / slow) * 1000, frameCount: body.length },
-        tier,
-        athlete: { handedness: profile.handedness, heightCm: profile.heightCm },
-        camera: { view, bowlerSide },
-        calibration: { source: "none", metresPerUnit: null, stumpsX: null, groundY: null },
-        // People overlapping the batter's region, not everyone on the field.
-        quality: { frames: quality, maxPeople: people },
-        t: times.map((t) => t * 1000),
-        body,
-        bat: { source: "none", handle: body.map(() => null), toe: body.map(() => null) },
-        ball: { source: "none", points: body.map(() => null) },
-        marks: { bounceFrame: null, contactFrame: null },
-      };
-      setGate(assessCapture(probe));
-      setPhase("gate");
+      const g = guessView(frames, profile.handedness);
+      const choice: ViewChoice = g && (g.view === "front_on" || g.view === "behind") ? g.view : "side_on";
+      setGuess(g ? choice : null);
+      j.view = choice;
+      setView(choice);
+      if (g) {
+        j.bowlerSide = g.bowlerSide;
+        setBowlerSide(g.bowlerSide);
+      }
+    }
+    stage("camera", "done", `${VIEW_TEXT[j.view][0]!.toUpperCase()}${VIEW_TEXT[j.view].slice(1)}${j.viewChosen ? " (your choice)" : ""}`);
+    await fromCheck(id);
+  }
+
+  async function fromCheck(id: number) {
+    const alive = () => id === run.current;
+    const j = job.current;
+    if (!j.win || !j.meta || !j.scan) return;
+    stage("check", "active");
+    try {
+      const q = await runGate(j.win, j.meta, j.cands[j.batter]);
+      if (!alive()) return;
+      setGate(q);
+      if (q.status === "fail") {
+        // Try the next-best shot on its own before asking the athlete to do anything.
+        const next = bestWindow(j.scan, j.tried);
+        if (next >= 0 && j.tried.length < MAX_AUTO_TRIES && !j.shotChosen) {
+          const w = j.scan.windows[next]!;
+          j.tried.push(next);
+          chooseWin({ start: w.start, end: w.end, peak: w.peak }, next);
+          stage("shot", "done", `${shotNote(j.scan, next)} · the first one wasn't clear enough`);
+          resetStages("batter");
+          return fromBatter(id);
+        }
+        stage("check", "done", "Not usable");
+        setPhase("blocked");
+        return;
+      }
+      const warns = q.checks.filter((c) => c.status === "warn").length;
+      stage("check", "done", q.status === "pass" ? "Recording looks good" : `Usable · ${warns} ${warns === 1 ? "note" : "notes"} in the report`);
+      await track(id);
     } catch (e) {
-      fail("Couldn't check this clip", e instanceof Error ? e.message : "The quality check failed on this device.");
+      if (alive()) fail("Couldn't check this clip", e instanceof Error ? e.message : "The quality check failed on this device.");
     }
   }
 
-  // ---------- Track the batter over the window ----------
-  async function track() {
-    if (!meta || !win) return;
-    setPhase("tracking");
+  /** Quality check on sampled frames of the shot, following the batter. */
+  async function runGate(w: Win, m: Meta, c: BatterCandidate | undefined): Promise<CaptureQuality> {
+    const v = video.current!;
+    const stillPose = await loadStillPose();
+    const a = m.width / m.height;
+    const sampler = new FrameQualitySampler(a);
+    const body: ImgPoint[][] = [];
+    const quality = [];
+    let people = 1;
+    const len = Math.min(w.end, m.durationSec) - w.start;
+    const times = Array.from({ length: GATE_SAMPLES }, (_, i) => w.start + (len * (i + 0.5)) / GATE_SAMPLES);
+    let follow: Roi | null = null;
+    for (let i = 0; i < times.length; i++) {
+      await seek(v, times[i]!);
+      quality.push(sampler.sample(v, i));
+      // Where the scan saw the batter at this moment, else where pose last found them.
+      let p = detectStill(stillPose, v, cropFor(c, times[i]!, m));
+      if (!bodyBox(p.body) && follow) p = detectStill(stillPose, v, follow);
+      const b = bodyBox(p.body);
+      if (b) follow = roiAround(b, a, 0.32);
+      people = Math.max(people, p.people);
+      body.push(p.body);
+    }
+    const s = job.current.slow;
+    const probe: CaptureObservation = {
+      schema: "align.observation/1",
+      id: "probe",
+      source: "browser_capture",
+      demo: false,
+      media: { kind: "video", width: m.width, height: m.height, fps: m.containerFps ? m.containerFps * s : null, fpsSource: m.fpsSource, durationMs: (len / s) * 1000, frameCount: body.length },
+      tier,
+      athlete: { handedness: profile.handedness, heightCm: profile.heightCm },
+      camera: { view: job.current.view, bowlerSide: job.current.bowlerSide },
+      calibration: { source: "none", metresPerUnit: null, stumpsX: null, groundY: null },
+      // People overlapping the batter's region, not everyone on the field.
+      quality: { frames: quality, maxPeople: people },
+      t: times.map((t) => t * 1000),
+      body,
+      bat: { source: "none", handle: body.map(() => null), toe: body.map(() => null) },
+      ball: { source: "none", points: body.map(() => null) },
+      marks: { bounceFrame: null, contactFrame: null },
+    };
+    return assessCapture(probe);
+  }
+
+  /** Track the batter frame by frame over the shot, then build the report. */
+  async function track(id: number) {
+    const alive = () => id === run.current;
+    const j = job.current;
+    const w = j.win;
+    const m = j.meta;
+    if (!m || !w) return;
+    stage("track", "active");
     try {
-      const pose = await loadPose();
-      const r = roi();
-      const cFps = meta.containerFps ?? 30;
-      const rFps = cFps * slow;
-      const windowLen = Math.min(meta.durationSec - win.start, win.end - win.start);
+      const [firstPose, det] = await Promise.all([loadPose(), loadPersonDetector()]);
+      let pose = firstPose;
+      let cpuTried = false;
+      const c = j.cands[j.batter];
+      const a = m.width / m.height;
+      const cFps = m.containerFps ?? 30;
+      const rFps = cFps * j.slow;
+      const windowLen = Math.min(m.durationSec - w.start, w.end - w.start);
       const containerFrames = Math.max(2, Math.floor(windowLen * cFps));
       const stride = Math.max(1, Math.ceil(containerFrames / MAX_FRAMES));
       const count = Math.floor(containerFrames / stride);
       const v = video.current!;
-      const sampler = new FrameQualitySampler(aspect);
+      const sampler = new FrameQualitySampler(a);
       const world: CameraPoint[][] = [];
       const out: TrackingResult = {
         t: [],
@@ -289,20 +446,39 @@ export function CaptureFlow() {
         people: 1,
         quality: [],
         fps: rFps / stride,
-        fpsSource: meta.fpsSource,
-        width: meta.width,
-        height: meta.height,
+        fpsSource: m.fpsSource,
+        width: m.width,
+        height: m.height,
         durationMs: ((count * stride) / rFps) * 1000,
         kind: "video",
       };
-      const mediaTimes: number[] = [];
+      const times: number[] = [];
+      const follower = new Follower(c ? (boxAt(c, w.start, 1) ?? c.box) : { x: 0, y: 0, w: 1, h: 1 }, a);
       let prevHip: [number, number] | null = null;
+      let seen = 0;
       setProgress({ done: 0, total: count });
       for (let i = 0; i < count; i++) {
-        const mt = win.start + (i * stride + 0.5) / cFps;
-        mediaTimes.push(mt);
+        if (!alive()) return;
+        if (i === 12 && seen === 0 && !cpuTried) {
+          // Some phones' GPU path loads but returns nothing: start again on the CPU path.
+          cpuTried = true;
+          pose = await loadPose({ cpu: true });
+          [out.body, out.depth, out.quality, out.t, world.length, times.length, seen, prevHip, i] = [[], [], [], [], 0, 0, 0, null, 0];
+          follower.roi = roiAround(c ? (boxAt(c, w.start, 1) ?? c.box) : { x: 0, y: 0, w: 1, h: 1 }, a, 0.32);
+        }
+        const mt = w.start + (i * stride + 0.5) / cFps;
+        times.push(mt);
         await seek(v, mt);
-        const p = detectFrame(pose, v, 10 + Math.round(mt * 1000), prevHip, r);
+        let p: PoseFrame = detectFrame(pose, v, 10 + Math.round(mt * 1000), prevHip, follower.roi);
+        if (!follower.see(p) && follower.isLost) {
+          // Lost (cut, zoom, occlusion): re-anchor on the scan's box, else the detector.
+          const anchor = c ? boxAt(c, mt, 0.3) : null;
+          if (anchor) follower.roi = roiAround(anchor, a, 0.32);
+          else follower.reacquire(detectPeople(det, v));
+          p = detectFrame(pose, v, 11 + Math.round(mt * 1000), prevHip, follower.roi);
+          follower.see(p);
+        }
+        if (bodyBox(p.body)) seen++;
         prevHip = p.hip;
         out.body.push(p.body);
         world.push(p.world);
@@ -313,50 +489,58 @@ export function CaptureFlow() {
         if (i % 4 === 0) setProgress({ done: i + 1, total: count });
       }
       setProgress({ done: count, total: count });
-      mediaTimesRef.current = mediaTimes;
-      setMediaTimes(mediaTimes);
+      mediaTimesRef.current = times;
+      setMediaTimes(times);
       setTracking(out);
-      setMarks({ ...EMPTY_MARKS, view, bowlerSide });
-      setPhase("mark");
+      stage("track", "done", `${count} frames · body found in ${Math.round((seen / Math.max(1, count)) * 100)}%`);
+      const fm = { ...EMPTY_MARKS, view: j.view, bowlerSide: j.bowlerSide };
+      setMarks(fm);
+      await finish(fm, out);
     } catch (e) {
-      fail("Tracking stopped", e instanceof Error ? e.message : "Tracking failed on this device. Close other apps and try again.");
+      if (alive()) fail("Tracking stopped", e instanceof Error ? e.message : "Tracking failed on this device. Close other apps and try again.");
     }
   }
 
-  // ---------- Photos ----------
-  async function onPhotos(files: File[]) {
+  // ---------- Photos: read → batter → report ----------
+  async function startPhotos(files: File[]) {
     resetClip();
+    const id = ++run.current;
+    setPhotoMode(true);
     setFile(files[0] ?? null);
+    fileRef.current = files[0] ?? null;
     setUrl(null);
+    urlRef.current = null;
     setMeta(null);
-    setPhase("reading");
+    setPhase("working");
+    stage("read", "active");
     setProgress({ done: 0, total: files.length });
     try {
-      const res = await loadPhotos(files, (done, total) => setProgress({ done, total }));
+      const res = await loadPhotos(files, (done, total) => {
+        setProgress({ done, total });
+        if (done > 0) stage("batter", "active");
+      });
+      if (id !== run.current) return;
       if (!res.items.length) {
         return fail(
           files.length === 1 ? "This photo can't be used" : "None of these photos can be used",
           res.failed.map((f) => `${f.name}: ${f.reason}`).join("\n") || "No photo could be decoded.",
         );
       }
-      setPhotos(res);
+      stage("read", "done", `${res.items.length} ${res.items.length === 1 ? "photo" : "photos"}${res.failed.length ? ` · ${res.failed.length} skipped` : ""}`);
+      const found = res.items.filter((i) => i.frame).length;
+      if (!found) return fail("No batter found", "We couldn't find a whole batter in any photo. Use photos where the batter is fully in frame, head to feet.");
+      stage("batter", "done", found === res.items.length ? "Found in every photo" : `Found in ${found} of ${res.items.length}`);
       const g = guessView(res.items.map((i) => i.frame), profile.handedness);
-      if (g) {
-        const choice: ViewChoice = g.view === "front_on" || g.view === "behind" ? g.view : "side_on";
-        setGuess(choice);
-        setView(choice);
-        setBowlerSide(g.bowlerSide);
-      }
-      setPhase("photos");
+      const choice: ViewChoice = g && (g.view === "front_on" || g.view === "behind") ? g.view : "side_on";
+      stage("camera", "done", `${VIEW_TEXT[choice][0]!.toUpperCase()}${VIEW_TEXT[choice].slice(1)}`);
+      await analysePhotos(res, choice, g?.bowlerSide ?? "right");
     } catch (e) {
-      fail("Couldn't read the photos", e instanceof Error ? e.message : "The on-device vision model failed to load. Check your connection and try again.");
+      if (id === run.current) fail("Couldn't read the photos", e instanceof Error ? e.message : "The on-device vision model failed to load. Check your connection and try again.");
     }
   }
 
-  async function analysePhotos() {
-    if (!photos) return;
+  async function analysePhotos(photos: PhotoLoad, v: ViewChoice, side: "left" | "right") {
     const use = photos.items.filter((i) => i.frame);
-    if (!use.length) return fail("No batter found", "We couldn't find a whole batter in any photo. Use photos where the batter is fully in frame, head to feet.");
     const sampler = new FrameQualitySampler(photos.width / photos.height);
     const keyframes: Record<number, Blob> = {};
     for (let i = 0; i < use.length; i++) {
@@ -379,45 +563,32 @@ export function CaptureFlow() {
       kind: "photo",
     };
     setTracking(tr);
-    await finish({ ...EMPTY_MARKS, view, bowlerSide }, tr, keyframes);
+    await finish({ ...EMPTY_MARKS, view: v, bowlerSide: side }, tr, keyframes);
   }
 
   // ---------- Analyse, store locally, open the report ----------
   async function finish(finalMarks: Marks, tr: TrackingResult | null = tracking, photoKeyframes?: Record<number, Blob>) {
     if (!tr) return;
-    setPhase("processing");
+    stage("report", "active");
     try {
-      const id = crypto.randomUUID();
-      for (let s = 1; s <= 3; s++) {
-        setStage(s);
-        await new Promise((r) => setTimeout(r, 120));
-      }
+      const id = remark?.id ?? crypto.randomUUID();
       const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: profile.handedness, heightCm: profile.heightCm });
       const obs = quantise(raw);
-      setStage(4);
-      const createdAt = new Date().toISOString();
+      const createdAt = remark?.createdAt ?? new Date().toISOString();
       const payload = analyze(obs, { analysisId: id, createdAt });
-      setStage(5);
       const gz = await encodeTracks(obs);
       const keyframes = photoKeyframes ?? (tr.kind === "video" ? await grabKeyframes(video.current!, mediaTimesRef.current, payload.evidence_frames) : {});
-      const name = file?.name?.replace(/\.[^.]+$/, "");
-      await saveAnalysis(
-        {
-          id,
-          createdAt,
-          recordedAt: file?.lastModified ? new Date(file.lastModified).toISOString() : createdAt,
-          payload,
-          title: tr.kind === "photo" ? (tr.body.length > 1 ? `${tr.body.length} photos` : (name ?? "Photo")) : (name ?? "Front-foot defence"),
-          notes: "",
-          tags: [],
-          representative: false,
-          cloud: null,
-        },
-        gz,
-        keyframes,
-      );
-      if (url && tr.kind === "video") sessionMedia.set(id, { url, mediaTimes: mediaTimesRef.current });
-      setStage(6);
+      const f = fileRef.current;
+      const clipUrl = urlRef.current;
+      const name = f?.name?.replace(/\.[^.]+$/, "");
+      const title = remark?.title ?? (tr.kind === "photo" ? (tr.body.length > 1 ? `${tr.body.length} photos` : (name ?? "Photo")) : (name ?? "Front-foot defence"));
+      const recordedAt = remark?.recordedAt ?? (f?.lastModified ? new Date(f.lastModified).toISOString() : createdAt);
+      await saveAnalysis({ id, createdAt, recordedAt, payload, title, notes: "", tags: [], representative: false, cloud: null }, gz, keyframes);
+      if (clipUrl && tr.kind === "video") {
+        sessionMedia.set(id, { url: clipUrl, mediaTimes: mediaTimesRef.current });
+        sessionCapture.set(id, { tracking: tr, view: finalMarks.view === "front_on" || finalMarks.view === "behind" ? finalMarks.view : "side_on", bowlerSide: finalMarks.bowlerSide, title, createdAt, recordedAt });
+      }
+      stage("report", "done");
       router.push(`/report/${id}`);
     } catch (e) {
       fail("Analysis failed", e instanceof Error ? e.message : "Something went wrong while preparing the report.");
@@ -429,419 +600,414 @@ export function CaptureFlow() {
     if (!files.length) return;
     const images = files.filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif)$/i.test(f.name));
     const vid = files.find((f) => f.type.startsWith("video/") || VIDEO_EXT.test(f.name));
-    if (vid) return onVideo(vid);
-    if (images.length) return onPhotos(images);
+    if (vid) return startVideo(vid);
+    if (images.length) return startPhotos(images);
     fail("Unsupported file", `${files[0]!.name} isn't a video or photo this app can read. Use MP4 or MOV videos, or JPEG, PNG or WebP photos.`);
+  };
+
+  // ---------- Corrections: cancel the run, ask, resume from that point ----------
+  const openChange = (p: "shot" | "batter" | "view") => {
+    run.current++;
+    abort.current?.abort();
+    setPhase(p);
+  };
+  const resume = (from: "batter" | "camera" | "check") => {
+    const id = ++run.current;
+    resetStages(from);
+    setPhase("working");
+    if (from === "batter") void fromBatter(id);
+    else if (from === "camera") void fromCamera(id);
+    else void fromCheck(id);
   };
 
   // ---------- UI ----------
   return (
     <>
       <video ref={bindVideo} muted playsInline preload="auto" className="hidden" />
-      <Shell step={STEP_OF[phase]} photos={!!photos && phase !== "source"}>
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-10">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={phase}
             className="space-y-6"
-            initial={{ opacity: 0, x: 14 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -14 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
           >
-      {phase === "intent" && (
-        <>
-          <p className="eyebrow">New analysis</p>
-          <h1 className="display text-[2.4rem] sm:text-5xl">What are you working on?</h1>
-          <button
-            className="card card-hover group w-full p-5 text-left border-brand/60 ring-1 ring-brand/30 transition-shadow"
-            onClick={() => setPhase("tier")}
-          >
-            <span className="flex items-center justify-between gap-3">
-              <span className="text-lg font-semibold">Front-foot defence</span>
-              <span className="chip border-ok/50 text-ok">Supported</span>
-            </span>
-            <span className="mt-1 block text-sm text-fg-muted">We first confirm the shot really is a forward defence, then measure it.</span>
-            <span className="btn btn-primary mt-4 w-full sm:w-auto">
-              Start <Chevron size={16} className="transition-transform group-hover:translate-x-0.5" />
-            </span>
-          </button>
-          <div className="card p-5">
-            <p className="font-semibold">What happens next · about 3 minutes</p>
-            <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-              {[
-                "Add a video (any length) or a few photos",
-                "We find the shot and the batter in it",
-                "Confirm where the phone was",
-                "We check the recording before processing",
-                "Your body is tracked on your phone",
-                "You tap the ball and bat on a few frames",
-                "You get the verdict, measures and one drill",
-              ].map((t, i) => (
-                <li key={t} className="flex gap-2.5"><span className="num flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[0.65rem] font-semibold text-brand">{i + 1}</span><span className="text-fg-muted">{t}</span></li>
-              ))}
-            </ol>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-fg-muted">Coming after validation</p>
-            <ul className="mt-2 flex flex-wrap gap-1.5">
-              {["Drives", "Pull and hook", "Cut", "Sweep", "Back-foot defence"].map((s) => (
-                <li key={s} className="chip border-line text-fg-subtle"><Lock size={12} /> {s}</li>
-              ))}
-            </ul>
-            <p className="mt-2 text-sm text-fg-subtle">Uploading these now still works: they are recognised and the defence score is withheld.</p>
-          </div>
-        </>
-      )}
+            {phase === "add" && (
+              <>
+                <div>
+                  <p className="eyebrow">Front-foot defence</p>
+                  <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Add your shot</h1>
+                  <p className="mt-2 text-fg-muted">A video of any length — one ball, a net session or match footage — or a few photos. Align finds the shot, the batter and the camera angle on its own.</p>
+                </div>
 
-      {phase === "tier" && (
-        <>
-          <h1 className="display text-[2.4rem] sm:text-5xl">How will you capture it?</h1>
-          <div className="grid gap-3">
-            <button className="card p-5 text-left border-brand/60 ring-1 ring-brand/40" onClick={() => setPhase("setup")}>
-              <span className="flex items-center justify-between"><span className="text-lg font-semibold">Quick Check</span><span className="chip border-ok/50 text-ok">Recommended now</span></span>
-              <span className="mt-1 block text-sm text-fg-muted">One phone — side-on or from the bowler&apos;s end — or a few photos. Shot family, timing and 2D measures; depth values are labelled estimates.</span>
-            </button>
-            <Link href="/sample/session3d" className="card p-5 block">
-              <span className="flex items-center justify-between"><span className="text-lg font-semibold">3D Session</span><span className="chip border-warn/50 text-warn">Preview · demo only</span></span>
-              <span className="mt-1 block text-sm text-fg-muted">Two synced, calibrated phones for triangulated 3D. See how it reports with demo data; live two-phone sync is not available yet.</span>
-            </Link>
-            <div className="card p-5 opacity-60">
-              <span className="flex items-center justify-between"><span className="text-lg font-semibold">Lab / Academy</span><span className="chip border-line-strong text-fg-subtle">Planned</span></span>
-              <span className="mt-1 block text-sm text-fg-muted">Multi-camera, optional bat sensor and force data.</span>
-            </div>
-          </div>
-        </>
-      )}
+                <div className="card p-4 space-y-3">
+                  <label className="flex items-start gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-brand)]"
+                      checked={profile.consentProcessing}
+                      onChange={(e) => {
+                        const p = { ...profile, consentProcessing: e.target.checked };
+                        setProfile(p);
+                        saveProfile(p);
+                      }}
+                    />
+                    <span>
+                      Analyse my movement on this device. <span className="text-fg-muted">The video never leaves your phone; only movement tracks and the report are kept.</span>{" "}
+                      <Link href="/privacy" className="underline">Privacy</Link>
+                    </span>
+                  </label>
+                  {minor && (
+                    <label className="flex items-start gap-3 text-sm">
+                      <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-brand)]" checked={guardianOk} onChange={(e) => setGuardianOk(e.target.checked)} />
+                      <span>I am under 18 and a parent or guardian has agreed to this.</span>
+                    </label>
+                  )}
+                </div>
 
-      {phase === "setup" && (
-        <>
-          <h1 className="display text-[2.4rem] sm:text-5xl">Set up the camera</h1>
-          <CameraPlacementDiagram />
-          <ul className="grid gap-2 text-sm">
-            {[
-              "Slow-motion mode (120 or 240 fps) if your phone has it",
-              "Phone fixed on a tripod or wedged still",
-              "Best: square-on to the batter at hip height, 6–8 m away. Also fine: from behind the bowler",
-              "Batter head to feet, whole bat and the bounce zone in frame",
-              "Start before the ball is released; stop after the follow-through",
-              "Nobody standing between the camera and the batter",
-            ].map((t) => (
-              <li key={t} className="flex gap-2"><Check size={16} className="text-brand mt-0.5 shrink-0" /> {t}</li>
-            ))}
-          </ul>
-          <LiveFramingCheck />
-          <div className="card p-4 space-y-3">
-            <p className="font-semibold flex items-center gap-2"><Lock size={16} /> Privacy, before you upload</p>
-            <ul className="text-sm text-fg-muted list-disc pl-5 space-y-1">
-              <li>Your video or photos are processed on this device. They are not uploaded.</li>
-              <li>We keep only movement tracks (~20 KB), a few still frames and the report, on this device.</li>
-              <li>Cloud saving, coach sharing and any use for model training are separate choices you make later.</li>
-            </ul>
-            <label className="flex items-start gap-3 text-sm">
-              <input type="checkbox" className="mt-1 h-5 w-5 accent-[var(--color-brand)]" checked={profile.consentProcessing}
-                onChange={(e) => { const p = { ...profile, consentProcessing: e.target.checked }; setProfile(p); saveProfile(p); }} />
-              <span>I agree to my movement (biometric) data being processed on this device to produce this analysis.</span>
-            </label>
-            {minor && (
-              <label className="flex items-start gap-3 text-sm">
-                <input type="checkbox" className="mt-1 h-5 w-5 accent-[var(--color-brand)]" checked={guardianOk} onChange={(e) => setGuardianOk(e.target.checked)} />
-                <span>I am under 18 and a parent or guardian has agreed to this.</span>
-              </label>
+                <div
+                  className={`grid gap-3 rounded-2xl sm:grid-cols-3 ${dragging ? "outline-2 outline-dashed outline-brand outline-offset-4" : ""} ${consented ? "" : "opacity-50"}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (consented) setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    if (consented) onFiles(e.dataTransfer.files);
+                  }}
+                  aria-disabled={!consented}
+                >
+                  <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
+                    <Upload size={26} className="text-brand" />
+                    <span className="font-semibold">Choose a video</span>
+                    <span className="text-xs text-fg-subtle">MP4, MOV or WebM · slow-motion is best</span>
+                    <input type="file" disabled={!consented} accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.3gp" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
+                  </label>
+                  <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
+                    <Target size={26} className="text-data" />
+                    <span className="font-semibold">Choose photos</span>
+                    <span className="text-xs text-fg-subtle">1–12 photos · posture screen</span>
+                    <input type="file" disabled={!consented} accept="image/*,.heic,.heif" multiple className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
+                  </label>
+                  <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
+                    <RecordIcon size={26} className="text-bad" />
+                    <span className="font-semibold">Record now</span>
+                    <span className="text-xs text-fg-subtle">Opens your camera</span>
+                    <input type="file" disabled={!consented} accept="video/*" capture="environment" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
+                  </label>
+                </div>
+                {!consented && <p className="text-sm text-fg-muted">Tick the box above to add a video or photos.</p>}
+
+                <details className="card p-4 group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between font-semibold">
+                    How to film it for the best result
+                    <Chevron size={18} className="transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div className="mt-4 space-y-4">
+                    <CameraPlacementDiagram />
+                    <ul className="grid gap-2 text-sm">
+                      {[
+                        "Slow-motion mode (120 or 240 fps) if your phone has it",
+                        "Phone fixed on a tripod or wedged still",
+                        "Square-on to the batter at hip height, 6–8 m away — or from behind the bowler",
+                        "Batter head to feet, the whole bat and the bounce zone in frame",
+                      ].map((t) => (
+                        <li key={t} className="flex gap-2"><Check size={16} className="text-brand mt-0.5 shrink-0" /> {t}</li>
+                      ))}
+                    </ul>
+                    <LiveFramingCheck />
+                  </div>
+                </details>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-fg-subtle">
+                  <span>
+                    Batting {profile.handedness}-handed{profile.heightCm ? `, ${profile.heightCm} cm` : ""} · <Link href="/profile" className="underline">change</Link>
+                  </span>
+                  <Link href="/sample/session3d" className="underline">Two-phone 3D session (preview)</Link>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-fg-muted">Other shots, after validation</p>
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {["Drives", "Pull and hook", "Cut", "Sweep", "Back-foot defence"].map((s) => (
+                      <li key={s} className="chip border-line text-fg-subtle"><Lock size={12} /> {s}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-sm text-fg-subtle">Upload them anyway: they are recognised, and the defence score is withheld.</p>
+                </div>
+              </>
             )}
-            <p className="text-xs text-fg-subtle">
-              Batting {profile.handedness}-handed{profile.heightCm ? `, ${profile.heightCm} cm` : ", height not set"} · <Link href="/profile" className="underline">change in profile</Link>
-            </p>
-          </div>
-          <button className="btn btn-primary w-full" disabled={!profile.consentProcessing || (minor && !guardianOk)} onClick={() => setPhase("source")}>
-            Continue
-          </button>
-        </>
-      )}
 
-      {phase === "source" && (
-        <>
-          <h1 className="display text-[2.4rem] sm:text-5xl">Add your front-foot defence</h1>
-          <p className="text-fg-muted">A video of any length — a single shot, a practice session or match footage — or one or more photos.</p>
-          <div
-            className={`grid gap-3 rounded-2xl sm:grid-cols-3 ${dragging ? "outline-2 outline-dashed outline-brand outline-offset-4" : ""}`}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setDragging(false); onFiles(e.dataTransfer.files); }}
-          >
-            <label className="card card-hover p-5 cursor-pointer flex flex-col items-center gap-2 text-center sm:col-span-1">
-              <Upload size={26} className="text-brand" />
-              <span className="font-semibold">Choose a video</span>
-              <span className="text-xs text-fg-subtle">MP4, MOV or WebM · slow-motion is best</span>
-              <input type="file" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.3gp" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
-            </label>
-            <label className="card card-hover p-5 cursor-pointer flex flex-col items-center gap-2 text-center">
-              <Target size={26} className="text-data" />
-              <span className="font-semibold">Choose photos</span>
-              <span className="text-xs text-fg-subtle">1–12 photos · posture screen</span>
-              <input type="file" accept="image/*,.heic,.heif" multiple className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
-            </label>
-            <label className="card card-hover p-5 cursor-pointer flex flex-col items-center gap-2 text-center">
-              <RecordIcon size={26} className="text-bad" />
-              <span className="font-semibold">Record now</span>
-              <span className="text-xs text-fg-subtle">Opens your camera</span>
-              <input type="file" accept="video/*" capture="environment" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
-            </label>
-          </div>
-          <ul className="grid gap-1.5 text-xs text-fg-subtle">
-            <li>Long clips are fine: we find each shot and you pick one.</li>
-            <li>More than one person in view is fine: you tap the batter.</li>
-            <li>Photos give posture observations only — no shot verdict, timing, bat or ball.</li>
-          </ul>
-        </>
-      )}
-
-      {phase === "reading" && (
-        <>
-          <h1 className="display text-4xl">{photos === null && progress.total > 0 ? "Reading your photos…" : "Opening the file…"}</h1>
-          <p className="text-fg-muted">{progress.total > 0 ? `Finding the batter in photo ${Math.min(progress.done + 1, progress.total)} of ${progress.total}.` : "Reading frame rate, size and format."}</p>
-          <div className="h-1.5 w-full overflow-hidden rounded bg-line">
-            <div className="h-full bg-brand transition-all" style={{ width: progress.total ? `${(progress.done / progress.total) * 100}%` : "30%" }} />
-          </div>
-        </>
-      )}
-
-      {phase === "scanning" && (
-        <>
-          <p className="eyebrow">Moment</p>
-          <h1 className="display text-4xl">Finding the shot…</h1>
-          <p className="text-fg-muted">Looking for the batter and the stroke{meta && meta.durationSec > 15 ? " across the whole clip" : ""}. Camera cuts, replays and close-ups are skipped.</p>
-          <div className="h-1.5 w-full overflow-hidden rounded bg-line" role="progressbar" aria-valuenow={Math.round(scanProgress * 100)} aria-valuemax={100}>
-            <div className="h-full bg-brand transition-all" style={{ width: `${Math.max(4, scanProgress * 100)}%` }} />
-          </div>
-          <p className="num text-sm text-fg-subtle">{Math.round(scanProgress * 100)}%{meta ? ` · ${meta.durationSec.toFixed(0)} s clip` : ""}</p>
-        </>
-      )}
-
-      {phase === "moment" && scan && win && url && meta && (
-        <>
-          <MomentPicker
-            url={url}
-            windows={scan.windows}
-            selected={pick}
-            onSelect={chooseWindow}
-            current={win}
-            onAdjust={(s) => setWin((w) => (w ? { start: s, end: Math.min(meta.durationSec, s + (w.end - w.start)), peak: Math.min(Math.max(w.peak, s), s + (w.end - w.start)) } : w))}
-            duration={meta.durationSec}
-            windowMedia={windowMedia}
-            scannedTo={scan.scannedTo}
-            cuts={scan.cuts}
-          />
-          <div className="flex flex-wrap gap-3">
-            <button className="btn btn-primary flex-1 sm:flex-none" onClick={confirmMoment}>Use this shot</button>
-            <button className="btn btn-ghost" onClick={() => setPhase("source")}>Choose another file</button>
-          </div>
-        </>
-      )}
-
-      {phase === "batter" && still && (
-        <>
-          <BatterPicker image={still} aspect={aspect} candidates={cands} selected={batter} onSelect={setBatter} />
-          <button className="btn btn-primary w-full sm:w-auto" onClick={() => prepareView(cands, batter)}>Track this person</button>
-        </>
-      )}
-
-      {phase === "view" && (
-        <>
-          <ViewPicker view={view} bowlerSide={bowlerSide} suggested={guess} onView={setView} onBowlerSide={setBowlerSide} image={still} aspect={aspect} />
-          <button className="btn btn-primary w-full sm:w-auto" onClick={runGate}>Check the recording</button>
-        </>
-      )}
-
-      {phase === "checking" && (
-        <>
-          <h1 className="display text-4xl">Checking the recording…</h1>
-          <p className="text-fg-muted">Sampling the shot for light, blur, shake and whether the whole batter is in frame.</p>
-          <div className="h-1 w-full overflow-hidden rounded bg-line"><div className="h-full w-1/3 animate-pulse bg-brand" /></div>
-        </>
-      )}
-
-      {phase === "gate" && gate && meta && win && (
-        <>
-          <p className="eyebrow">Quality check</p>
-          <h1 className="display text-4xl">{gate.status === "fail" ? "This shot can't be analysed" : gate.status === "warn" ? "Usable, with warnings" : "Recording looks good"}</h1>
-          <dl className="grid grid-cols-3 gap-3 text-sm">
-            <div className="card p-3"><dt className="text-fg-subtle">Frame rate</dt><dd className="num text-lg">{realFps ? `${Math.round(realFps)} fps` : "unknown"}</dd><dd className="text-xs text-fg-subtle">{meta.fpsSource === "container" ? "from file" : meta.fpsSource === "playback" ? "estimated" : ""}</dd></div>
-            <div className="card p-3"><dt className="text-fg-subtle">Resolution</dt><dd className="num text-lg">{meta.width}×{meta.height}</dd></div>
-            <div className="card p-3"><dt className="text-fg-subtle">Shot window</dt><dd className="num text-lg">{((win.end - win.start) / slow).toFixed(1)} s</dd><dd className="text-xs text-fg-subtle">of a {meta.durationSec.toFixed(0)} s clip</dd></div>
-          </dl>
-          <label className="block text-sm">
-            <span className="text-fg-muted">Was this exported as a slowed-down video (slow motion baked in)?</span>
-            <select className="field mt-1" value={slow} onChange={(e) => {
-              const s = Number(e.target.value);
-              setSlow(s);
-              setWin((w) => (w ? { ...w, end: Math.min(meta.durationSec, w.start + WINDOW_SEC * s) } : w));
-            }}>
-              <option value={1}>No — plays at real speed (or it&apos;s a native high-fps file)</option>
-              <option value={4}>Yes — 4× slowed (120 fps slow-mo)</option>
-              <option value={8}>Yes — 8× slowed (240 fps slow-mo)</option>
-            </select>
-          </label>
-          <div className="card px-4"><CaptureChecklist checks={gate.checks} /></div>
-          <div className="flex flex-wrap gap-3">
-            {gate.status !== "fail" ? (
-              <button className="btn btn-primary" onClick={track}>Track the batter</button>
-            ) : (
-              <p className="text-sm text-fg-muted w-full">Nothing has been processed. Try another shot from this clip, or fix the items above and record again.</p>
+            {phase === "working" && (
+              <>
+                <div>
+                  <p className="eyebrow">Analysing{file ? ` · ${file.name}` : ""}</p>
+                  <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">{stages.report === "active" ? "Building your report…" : "Working on it…"}</h1>
+                  <p className="mt-2 text-fg-muted">Everything runs on this device. Keep this screen open.</p>
+                </div>
+                <ol className="card divide-y divide-line" aria-label="Analysis progress">
+                  {stageList.map(([k, label]) => {
+                    const st = stages[k] ?? "waiting";
+                    const change =
+                      st === "done" && !photoMode
+                        ? k === "shot" && (scan?.windows.length ?? 0) > 1
+                          ? () => openChange("shot")
+                          : k === "batter" && cands.length > 1
+                            ? () => openChange("batter")
+                            : k === "camera"
+                              ? () => openChange("view")
+                              : null
+                        : null;
+                    const pct =
+                      k === "shot" ? scanProgress : (k === "track" || (photoMode && k === "read")) && progress.total ? progress.done / progress.total : null;
+                    return (
+                      <li key={k} className="flex items-start gap-3 px-4 py-3" aria-current={st === "active" ? "step" : undefined}>
+                        <StageIcon state={st} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <span className={st === "waiting" ? "text-fg-subtle" : "font-medium"}>{label}</span>
+                            {change && (
+                              <button onClick={change} className="shrink-0 text-sm font-medium text-brand hover:underline">
+                                Change
+                              </button>
+                            )}
+                          </div>
+                          {notes[k] && <p className="mt-0.5 text-sm text-fg-muted">{notes[k]}</p>}
+                          {st === "active" && pct !== null && (
+                            <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-line" role="progressbar" aria-valuenow={Math.round(pct * 100)} aria-valuemax={100}>
+                              <div className="h-full bg-brand transition-all" style={{ width: `${Math.max(3, pct * 100)}%` }} />
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+                {!photoMode && meta && (meta.containerFps ?? 0) <= 60 && stages.check === "done" && (
+                  <SlowExport slow={slow} onChange={(s) => {
+                    setSlow(s);
+                    const w = job.current.win;
+                    if (w && meta) chooseWin({ ...w, end: Math.min(meta.durationSec, w.start + WINDOW_SEC * s) }, pick);
+                    resume("check");
+                  }} />
+                )}
+                <button className="btn btn-quiet" onClick={() => { resetClip(); setPhase("add"); }}>Cancel</button>
+              </>
             )}
-            {scan && scan.windows.length > 1 && <button className="btn btn-ghost" onClick={() => setPhase("moment")}>Pick another shot</button>}
-            <button className="btn btn-ghost" onClick={() => setPhase("view")}>Change camera position</button>
-            <button className="btn btn-quiet" onClick={() => { resetClip(); setPhase("source"); }}>Use another file</button>
-          </div>
-        </>
-      )}
 
-      {phase === "tracking" && (
-        <>
-          <h1 className="display text-4xl">Tracking batter</h1>
-          <p className="text-fg-muted">Running pose tracking on this device. Keep this screen open.</p>
-          <div className="h-2 w-full overflow-hidden rounded bg-line" role="progressbar" aria-valuenow={progress.done} aria-valuemax={progress.total}>
-            <div className="h-full bg-brand transition-all" style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 5}%` }} />
-          </div>
-          <p className="num text-sm text-fg-subtle">{progress.total ? `frame ${progress.done} of ${progress.total}` : "loading the pose model…"}</p>
-        </>
-      )}
+            {phase === "shot" && scan && win && url && meta && (
+              <>
+                <MomentPicker
+                  url={url}
+                  windows={scan.windows}
+                  selected={pick}
+                  onSelect={(i) => {
+                    const w = scan.windows[i];
+                    if (w) chooseWin({ start: w.start, end: Math.min(meta.durationSec, w.start + Math.max(w.end - w.start, WINDOW_SEC * slow)), peak: w.peak }, i);
+                  }}
+                  current={win}
+                  onAdjust={(s) => {
+                    const w = job.current.win;
+                    if (w) chooseWin({ start: s, end: Math.min(meta.durationSec, s + (w.end - w.start)), peak: Math.min(Math.max(w.peak, s), s + (w.end - w.start)) }, pick);
+                  }}
+                  duration={meta.durationSec}
+                  windowMedia={WINDOW_SEC * slow}
+                  scannedTo={scan.scannedTo}
+                  cuts={scan.cuts}
+                />
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className="btn btn-primary flex-1 sm:flex-none"
+                    onClick={() => {
+                      job.current.tried = [pick];
+                      job.current.shotChosen = true;
+                      stage("shot", "done", `${shotNote(scan, pick)} (your choice)`);
+                      resume("batter");
+                    }}
+                  >
+                    Use this shot
+                  </button>
+                </div>
+              </>
+            )}
 
-      {phase === "mark" && tracking && videoEl && (
-        <MarkEvidence video={videoEl} tracking={tracking} mediaTimes={mediaTimes} marks={marks} onChange={setMarks} onDone={(m) => finish(m)} />
-      )}
+            {phase === "batter" && still && (
+              <>
+                <BatterPicker image={still} aspect={aspect} candidates={cands} selected={batter} onSelect={(i) => { setBatter(i); job.current.batter = i; }} />
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className="btn btn-primary w-full sm:w-auto"
+                    onClick={() => {
+                      stage("batter", "done", "The person you picked");
+                      resume("camera");
+                    }}
+                  >
+                    Follow this person
+                  </button>
+                </div>
+              </>
+            )}
 
-      {phase === "photos" && photos && (
-        <>
-          <PhotoReview
-            items={photos.items}
-            failed={photos.failed}
-            onPhase={(id, ph: PhotoPhase | null) => setPhotos((p) => (p ? { ...p, items: p.items.map((i) => (i.id === id ? { ...i, phase: ph } : i)) } : p))}
-            onRemove={(id) => setPhotos((p) => (p ? { ...p, items: p.items.filter((i) => i.id !== id) } : p))}
-          />
-          <div className="card p-4">
-            <ViewPicker compact view={view} bowlerSide={bowlerSide} suggested={guess} onView={setView} onBowlerSide={setBowlerSide} />
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button className="btn btn-primary flex-1 sm:flex-none" disabled={!photos.items.some((i) => i.frame)} onClick={analysePhotos}>
-              Analyse {photos.items.filter((i) => i.frame).length === 1 ? "photo" : `${photos.items.filter((i) => i.frame).length} photos`}
-            </button>
-            <button className="btn btn-ghost" onClick={() => { resetClip(); setPhase("source"); }}>Choose other files</button>
-          </div>
-        </>
-      )}
+            {phase === "view" && (
+              <>
+                <ViewPicker
+                  view={view}
+                  bowlerSide={bowlerSide}
+                  suggested={guess}
+                  onView={(v) => { setView(v); job.current.view = v; }}
+                  onBowlerSide={(s) => { setBowlerSide(s); job.current.bowlerSide = s; }}
+                  image={still}
+                  aspect={aspect}
+                />
+                <button
+                  className="btn btn-primary w-full sm:w-auto"
+                  onClick={() => {
+                    job.current.viewChosen = true;
+                    resume("camera");
+                  }}
+                >
+                  Use this camera position
+                </button>
+              </>
+            )}
 
-      {phase === "processing" && (
-        <>
-          <h1 className="display text-4xl">Preparing your report</h1>
-          <ol className="space-y-2">
-            {STAGES.map((s, i) => (
-              <li key={s} className={`flex items-center gap-3 ${i < stage ? "text-fg" : "text-fg-subtle"}`}>
-                <span className={`h-5 w-5 rounded-full border ${i < stage ? "bg-brand border-brand" : i === stage ? "border-brand animate-pulse" : "border-line-strong"}`} aria-hidden />
-                {s}
-                <span className="sr-only">{i < stage ? "done" : i === stage ? "in progress" : "waiting"}</span>
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
+            {phase === "blocked" && gate && meta && win && (
+              <>
+                <div>
+                  <p className="eyebrow">Recording check</p>
+                  <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">We can&apos;t analyse this clip yet</h1>
+                  <p className="mt-2 text-fg-muted">
+                    {gate.checks.find((c) => c.status === "fail")?.correction ?? "The recording doesn't show enough of the batter."} Nothing has been processed or saved.
+                  </p>
+                </div>
+                <dl className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="card p-3"><dt className="text-fg-subtle">Frame rate</dt><dd className="num text-lg">{realFps ? `${Math.round(realFps)} fps` : "unknown"}</dd></div>
+                  <div className="card p-3"><dt className="text-fg-subtle">Resolution</dt><dd className="num text-lg">{meta.width}×{meta.height}</dd></div>
+                  <div className="card p-3"><dt className="text-fg-subtle">Shot</dt><dd className="num text-lg">{fmtTime(win.start)}</dd><dd className="text-xs text-fg-subtle">of {fmtTime(meta.durationSec)}</dd></div>
+                </dl>
+                <div className="card px-4"><CaptureChecklist checks={gate.checks} /></div>
+                <div className="flex flex-wrap gap-3">
+                  {scan && scan.windows.length > 1 && <button className="btn btn-primary" onClick={() => openChange("shot")}>Pick the shot myself</button>}
+                  {cands.length > 1 && <button className="btn btn-ghost" onClick={() => openChange("batter")}>Pick the batter</button>}
+                  <button className="btn btn-ghost" onClick={() => openChange("view")}>Change camera position</button>
+                  <button className="btn btn-quiet" onClick={() => { resetClip(); setPhase("add"); }}>Use another file</button>
+                </div>
+                {(meta.containerFps ?? 0) <= 60 && <SlowExport slow={slow} onChange={(s) => {
+                  setSlow(s);
+                  chooseWin({ ...win, end: Math.min(meta.durationSec, win.start + WINDOW_SEC * s) }, pick);
+                  resume("check");
+                }} />}
+              </>
+            )}
 
-      {phase === "error" && error && (
-        <>
-          <h1 className="display text-4xl">{error.title}</h1>
-          <p className="whitespace-pre-line text-fg-muted">{error.body}</p>
-          <div className="flex flex-wrap gap-3">
-            <button className="btn btn-primary" onClick={() => { resetClip(); setPhase("source"); }}>Try another file</button>
-            <Link className="btn btn-ghost" href="/guide">Recording tips</Link>
-          </div>
-        </>
-      )}
+            {phase === "mark" && tracking && videoEl && (
+              <MarkEvidence video={videoEl} tracking={tracking} mediaTimes={mediaTimes} marks={marks} onChange={setMarks} onDone={(m) => { setPhase("working"); void finish(m); }} />
+            )}
+
+            {phase === "error" && error && (
+              <>
+                <h1 className="display text-4xl">{error.title}</h1>
+                <p className="whitespace-pre-line text-fg-muted">{error.body}</p>
+                <div className="flex flex-wrap gap-3">
+                  <button className="btn btn-primary" onClick={() => { resetClip(); setPhase("add"); }}>Try another file</button>
+                  <Link className="btn btn-ghost" href="/guide">Recording tips</Link>
+                </div>
+              </>
+            )}
           </motion.div>
         </AnimatePresence>
-      </Shell>
+      </div>
     </>
   );
 }
 
-const STEP_NAMES = ["Shot", "Method", "Setup", "Clip", "Moment", "Check", "Track", "Mark", "Report"];
-const PHOTO_STEP_NAMES = ["Shot", "Method", "Setup", "Photos", "Review", "Report"];
-const STEP_OF: Record<Phase, number> = {
-  intent: 0,
-  tier: 1,
-  setup: 2,
-  source: 3,
-  reading: 3,
-  scanning: 4,
-  moment: 4,
-  batter: 4,
-  view: 4,
-  checking: 5,
-  gate: 5,
-  tracking: 6,
-  mark: 7,
-  photos: 4,
-  processing: 8,
-  error: 3,
-};
+function StageIcon({ state }: { state: StageState }) {
+  if (state === "done")
+    return (
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-brand-fg" aria-label="done">
+        <Check size={13} />
+      </span>
+    );
+  if (state === "active")
+    return <span className="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand border-t-transparent" aria-label="in progress" />;
+  return <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-line-strong" aria-label="waiting" />;
+}
 
-function Shell({ children, step, photos }: { children: React.ReactNode; step: number; photos: boolean }) {
-  const names = photos ? PHOTO_STEP_NAMES : STEP_NAMES;
-  const at = photos ? (step >= 8 ? 5 : Math.min(step, 4)) : step;
+function SlowExport({ slow, onChange }: { slow: number; onChange: (s: number) => void }) {
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-10">
-      <div className="mb-7 space-y-2.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-fg-subtle">
-            Step {at + 1} of {names.length} · <span className="font-medium text-fg">{names[at]}</span>
-          </span>
-          <Link href="/guide" className="text-fg-subtle underline-offset-2 hover:text-fg hover:underline">How it works</Link>
-        </div>
-        <ol className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${names.length}, minmax(0, 1fr))` }} aria-label="Progress">
-          {names.map((s, i) => (
-            <li key={s} className="min-w-0" aria-current={i === at ? "step" : undefined}>
-              <motion.div
-                className="h-1.5 rounded-full"
-                initial={false}
-                animate={{ backgroundColor: i <= at ? "var(--color-brand)" : "var(--color-line)" }}
-                transition={{ duration: 0.3 }}
-              />
-              <span className={`mt-1.5 hidden truncate text-[0.68rem] sm:block ${i === at ? "text-fg font-medium" : "text-fg-subtle"}`}>{s}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
-      {children}
-    </div>
+    <label className="block text-sm">
+      <span className="text-fg-muted">Was this clip saved as a slowed-down video (slow motion baked in)?</span>
+      <select className="field mt-1" value={slow} onChange={(e) => onChange(Number(e.target.value))}>
+        <option value={1}>No — it plays at real speed</option>
+        <option value={4}>Yes — 4× slowed (120 fps slow-mo)</option>
+        <option value={8}>Yes — 8× slowed (240 fps slow-mo)</option>
+      </select>
+    </label>
   );
 }
 
+/** The best shot not tried yet: verified first, then by score. -1 when none is left. */
+function bestWindow(res: ScanResult, tried: number[]): number {
+  let best = -1;
+  res.windows.forEach((w, i) => {
+    if (tried.includes(i)) return;
+    const b = res.windows[best];
+    if (!b || Number(!!w.verified) > Number(!!b.verified) || (!!w.verified === !!b.verified && w.score > b.score)) best = i;
+  });
+  return best;
+}
+
+function shotNote(res: ScanResult, i: number): string {
+  const w = res.windows[i];
+  if (!w) return "Using the whole clip";
+  const n = res.windows.length;
+  return n > 1 ? `Shot at ${fmtTime(w.peak)} — best of ${n} found` : `Shot at ${fmtTime(w.peak)}`;
+}
+
+/** Crop around the batter at media time `t`: where the scan saw them then, else their extent. */
+function cropFor(c: BatterCandidate | undefined, t: number, m: Meta): Roi {
+  if (!c) return { x: 0, y: 0, w: 1, h: 1 };
+  const b: Box | Roi = boxAt(c, t) ?? c.extent;
+  return roiAround(b, m.width / m.height, 0.32);
+}
+
 /**
- * Keep only detections that hold a real, whole person: pose must find a confident body
- * whose hips sit inside the box, early in the window and at the stroke. Stumps, nets or
- * a hand at the frame edge drop out; the best-verified person comes first.
+ * Rank the people who could be the batter. Pose must find a real, whole person (stumps,
+ * nets or a hand at the frame edge drop out). Then the one who looks like batting wins:
+ * both hands together on a handle, not crouched like the keeper, a bat seen at the hands,
+ * in view through the shot.
  */
-async function verifyCandidates(v: HTMLVideoElement, cs: BatterCandidate[], win: { start: number; end: number; peak: number }, at: number, aspect: number): Promise<BatterCandidate[]> {
+async function verifyCandidates(v: HTMLVideoElement, cs: BatterCandidate[], win: Win, at: number, aspect: number): Promise<BatterCandidate[]> {
   if (!cs.length) return cs;
   const stillPose = await loadStillPose();
   const KEY = [J.nose, J.left_shoulder, J.right_shoulder, J.left_hip, J.right_hip, J.left_knee, J.right_knee, J.left_ankle, J.right_ankle];
-  const quality = cs.slice(0, 6).map(() => 0);
-  // At the boxes' own frame each box is checked; the stance frame uses the person's extent.
-  for (const [t, own] of [[at, true], [win.start + (win.end - win.start) * 0.12, false]] as const) {
+  const top = cs.slice(0, 6);
+  const quality = top.map(() => 0);
+  const likeness = top.map(() => 0);
+  for (const t of [at, win.start + (win.end - win.start) * 0.12, win.start + (win.end - win.start) * 0.5]) {
     await seek(v, t);
-    cs.slice(0, 6).forEach((c, i) => {
-      const r = roiAround(own ? c.box : c.extent, aspect, 0.3);
-      const p = detectStill(stillPose, v, r);
+    top.forEach((c, i) => {
+      const b = boxAt(c, t);
+      if (!b) return;
+      const p = detectStill(stillPose, v, roiAround(b, aspect, 0.3));
       const vis = KEY.reduce((s, k) => s + (p.body[k]?.[2] ?? 0), 0) / KEY.length;
       const hip = p.hip;
-      const e = own ? c.box : c.extent;
-      const inside = !!hip && hip[0] >= e.x - e.w * 0.15 && hip[0] <= e.x + e.w * 1.15 && hip[1] >= e.y && hip[1] <= e.y + e.h;
+      const inside = !!hip && hip[0] >= b.x - b.w * 0.15 && hip[0] <= b.x + b.w * 1.15 && hip[1] >= b.y && hip[1] <= b.y + b.h;
       quality[i] = Math.max(quality[i]!, inside ? vis : vis * 0.3);
+      if (inside && vis >= 0.5) likeness[i] = Math.max(likeness[i]!, batterLikeness(p.body, aspect));
     });
   }
-  const ranked = cs
-    .slice(0, 6)
-    .map((c, i) => ({ c, q: quality[i]! }))
-    .filter((x) => x.q >= 0.55)
-    .sort((a, b) => b.q * Math.sqrt(b.c.box.h) * (0.5 + b.c.persistence) - a.q * Math.sqrt(a.c.box.h) * (0.5 + a.c.persistence))
+  const score = (i: number) => {
+    const c = top[i]!;
+    return quality[i]! * Math.sqrt(c.box.h) * (0.5 + c.persistence) * (0.25 + likeness[i]!) * (1 + 1.5 * c.bat);
+  };
+  const ranked = top
+    .map((c, i) => ({ c, i }))
+    .filter((x) => quality[x.i]! >= 0.55)
+    .sort((a, b) => score(b.i) - score(a.i))
     .map((x) => x.c);
   return ranked.length ? ranked : cs;
 }

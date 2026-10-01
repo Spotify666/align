@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { CaptureObservation } from "@/engine/types";
-import { BONES, worldFrames, type V3, type WorldFrames } from "@/lib/viz";
+import { BONES, smoothWorld, worldFrames, type V3, type WorldFrames } from "@/lib/viz";
 import { J } from "@/engine/types";
 
 const COLORS = {
@@ -27,7 +27,17 @@ interface Props {
   autoRotate?: boolean;
   className?: string;
   label?: string;
+  /** Loop these frames on the scene's own clock (slow motion), instead of following `frame`. */
+  play?: { from: number; to: number; speed?: number };
+  /** false: no drag or zoom, and touch scrolls the page (for a decorative hero). */
+  interactive?: boolean;
+  framing?: "wide" | "close";
 }
+
+const lerp3 = (a: V3 | null | undefined, b: V3 | null | undefined, t: number): V3 | null => {
+  if (a && b) return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  return (t < 0.5 ? (a ?? b) : (b ?? a)) ?? null;
+};
 
 function setSegments(geom: THREE.BufferGeometry, segs: Array<[V3, V3] | null>) {
   const pos = geom.getAttribute("position") as THREE.BufferAttribute;
@@ -41,19 +51,35 @@ function setSegments(geom: THREE.BufferGeometry, segs: Array<[V3, V3] | null>) {
   geom.computeBoundingSphere();
 }
 
-function skeletonSegments(w: WorldFrames, frame: number) {
-  const js = w.joints[frame];
+/** Joints at a fractional frame, interpolated between the two nearest frames. */
+function jointsAt(w: WorldFrames, f: number): (V3 | null)[] {
+  const n = w.joints.length;
+  const i0 = Math.max(0, Math.min(n - 1, Math.floor(f)));
+  const i1 = Math.min(n - 1, i0 + 1);
+  const t = Math.max(0, Math.min(1, f - i0));
+  const a = w.joints[i0] ?? [];
+  const b = w.joints[i1] ?? [];
+  return a.map((p, j) => lerp3(p, b[j], t));
+}
+
+function skeletonSegments(js: (V3 | null)[]) {
   return BONES.map(([a, b]) => {
-    const pa = js?.[J[a]];
-    const pb = js?.[J[b]];
+    const pa = js[J[a]];
+    const pb = js[J[b]];
     return pa && pb ? ([pa, pb] as [V3, V3]) : null;
   });
 }
 
-export default function Scene3D({ obs, frame, reference, autoRotate = false, className, label }: Props) {
+const HOLD_S = 1.1; // pause on the finished shot before looping
+const FADE_S = 0.35;
+
+export default function Scene3D({ obs, frame, reference, autoRotate = false, className, label, play, interactive = true, framing = "wide" }: Props) {
   const mount = useRef<HTMLDivElement>(null);
-  const world = useMemo(() => worldFrames(obs), [obs]);
-  const refWorld = useMemo(() => (reference ? worldFrames(reference.obs) : null), [reference]);
+  const world = useMemo(() => smoothWorld(worldFrames(obs), obs.media.fps), [obs]);
+  const refWorld = useMemo(() => (reference ? smoothWorld(worldFrames(reference.obs), reference.obs.media.fps) : null), [reference]);
+  const playFrom = play?.from;
+  const playTo = play?.to;
+  const playSpeed = play?.speed ?? 0.35;
   const api = useRef<{ update: (f: number) => void } | null>(null);
 
   useEffect(() => {
@@ -69,9 +95,12 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(COLORS.bg, 9, 22);
     const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
-    camera.position.set(4.6, 1.9, 5.4);
+    if (framing === "close") camera.position.set(3.5, 1.55, 4.1);
+    else camera.position.set(4.6, 1.9, 5.4);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(1.1, 0.85, 0);
+    controls.target.set(framing === "close" ? 0.9 : 1.1, 0.85, 0);
+    controls.enabled = interactive;
+    if (!interactive) renderer.domElement.style.touchAction = "pan-y";
     controls.enableDamping = true;
     controls.minDistance = 2.5;
     controls.maxDistance = 14;
@@ -137,11 +166,27 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
     scene.add(bat);
 
     // Ball and trajectory.
-    const ballPts = world.ball.filter((b): b is V3 => !!b);
-    if (ballPts.length > 1) {
-      const g = new THREE.BufferGeometry().setFromPoints(ballPts.map((p) => new THREE.Vector3(...p)));
-      scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: COLORS.trail, transparent: true, opacity: 0.55 })));
-    }
+    // While playing, the trail grows with the ball; otherwise the whole path is shown.
+    const ballIdx = world.ball.flatMap((b, i) => (b ? [i] : []));
+    const trailGeom = new THREE.BufferGeometry();
+    trailGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array((ballIdx.length + 1) * 3), 3));
+    const trailMat = new THREE.LineBasicMaterial({ color: COLORS.trail, transparent: true, opacity: 0.55 });
+    const trail = new THREE.Line(trailGeom, trailMat);
+    trail.frustumCulled = false;
+    trail.visible = ballIdx.length > 1;
+    scene.add(trail);
+    const setTrail = (f: number, current: V3 | null) => {
+      const pos = trailGeom.getAttribute("position") as THREE.BufferAttribute;
+      let k = 0;
+      for (const i of ballIdx) {
+        if (playing && i > f) break;
+        const p = world.ball[i]!;
+        pos.setXYZ(k++, p[0], p[1], p[2]);
+      }
+      if (playing && current && k > 0) pos.setXYZ(k++, current[0], current[1], current[2]);
+      trailGeom.setDrawRange(0, k);
+      pos.needsUpdate = true;
+    };
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.036, 16, 12), new THREE.MeshStandardMaterial({ color: COLORS.ball, roughness: 0.4 }));
     scene.add(ball);
 
@@ -161,11 +206,17 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
     }
 
     const m4 = new THREE.Matrix4();
+    const playing = playFrom !== undefined && playTo !== undefined && playTo > playFrom && !reduce;
+    const at = <T,>(xs: T[], f: number, pick: (a: T, b: T, t: number) => T) => {
+      const i0 = Math.max(0, Math.min(xs.length - 1, Math.floor(f)));
+      const i1 = Math.min(xs.length - 1, i0 + 1);
+      return pick(xs[i0]!, xs[i1]!, Math.max(0, Math.min(1, f - i0)));
+    };
     const update = (f: number) => {
       const fr = Math.max(0, Math.min(world.joints.length - 1, f));
-      setSegments(boneGeom, skeletonSegments(world, fr));
+      const js = jointsAt(world, fr);
+      setSegments(boneGeom, skeletonSegments(js));
       bones.computeLineDistances();
-      const js = world.joints[fr] ?? [];
       js.forEach((p, i) => {
         m4.makeTranslation(p ? p[0] : 0, p ? p[1] : -10, p ? p[2] : 0);
         jointMesh.setMatrixAt(i, m4);
@@ -175,7 +226,7 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
       head.visible = !!nose;
       if (nose) head.position.set(nose[0] - 0.06, nose[1], nose[2]);
 
-      const b = world.bat[fr];
+      const b = at(world.bat, fr, (p, q, t) => (p && q ? ([lerp3(p[0], q[0], t)!, lerp3(p[1], q[1], t)!] as [V3, V3]) : t < 0.5 ? (p ?? q) : (q ?? p)));
       bat.visible = !!b;
       if (b) {
         const [h, t] = b;
@@ -186,11 +237,13 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
         bat.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir.normalize());
       }
 
-      const bp = world.ball[fr];
+      // The ball only shows where it was seen: no bridging across gaps.
+      const bp = world.ball[Math.floor(fr)] && world.ball[Math.ceil(fr)] ? at(world.ball, fr, lerp3) : (world.ball[Math.round(fr)] ?? null);
       ball.visible = !!bp;
       if (bp) ball.position.set(...bp);
+      setTrail(fr, bp);
 
-      const c = world.centre[fr];
+      const c = at(world.centre, fr, lerp3);
       const fa = js[J.left_ankle];
       const ba = js[J.right_ankle];
       const segs: Array<[V3, V3] | null> = [c ? [c, [c[0], 0.01, c[2]]] : null, fa && ba ? [[fa[0], 0.01, fa[2]], [ba[0], 0.01, ba[2]]] : null];
@@ -199,11 +252,21 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
 
       if (refWorld && refBones && reference) {
         const rf = Math.max(0, Math.min(refWorld.joints.length - 1, fr + reference.offset));
-        setSegments(refBones.geometry, skeletonSegments(refWorld, rf));
+        setSegments(refBones.geometry, skeletonSegments(jointsAt(refWorld, rf)));
       }
     };
     api.current = { update };
-    update(frame);
+    update(playing ? playFrom! : frame);
+
+    // Fade the figure out and back in around the loop point, so the replay never snaps.
+    const fading = [boneMat, jointMesh.material, head.material, bat.material, ball.material, trailMat, com.material] as THREE.Material[];
+    const baseOpacity = fading.map((m) => m.opacity);
+    fading.forEach((m) => (m.transparent = true));
+    const setAlpha = (a: number) => fading.forEach((m, i) => (m.opacity = baseOpacity[i]! * a));
+    const fps = obs.media.fps && obs.media.fps > 0 ? obs.media.fps : 30;
+    const runS = playing ? (playTo! - playFrom!) / fps / playSpeed : 0;
+    let clock = 0;
+    let last = performance.now();
 
     const resize = () => {
       const w = el.clientWidth;
@@ -224,8 +287,18 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
     io.observe(el);
     const loop = () => {
       raf = requestAnimationFrame(loop);
+      const now = performance.now();
+      const dt = Math.min(0.1, (now - last) / 1000); // a hidden tab never jumps the clock
+      last = now;
       if (!visible) return;
-      controls.update();
+      if (playing) {
+        clock = (clock + dt) % (runS + HOLD_S);
+        const p = Math.min(1, clock / runS);
+        update(playFrom! + p * (playTo! - playFrom!));
+        const tail = runS + HOLD_S - clock;
+        setAlpha(Math.min(1, clock / FADE_S, tail / FADE_S));
+      }
+      controls.update(dt);
       renderer.render(scene, camera);
     };
     loop();
@@ -248,11 +321,11 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
     };
     // Rebuild only when the data changes; frame updates go through api.current.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [world, refWorld, autoRotate]);
+  }, [world, refWorld, autoRotate, playFrom, playTo, playSpeed, interactive, framing]);
 
   useEffect(() => {
-    api.current?.update(frame);
-  }, [frame]);
+    if (playFrom === undefined) api.current?.update(frame);
+  }, [frame, playFrom]);
 
   return (
     <div className={className ?? "relative h-full w-full"}>
