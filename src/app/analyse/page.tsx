@@ -1,7 +1,8 @@
-import { ComingNext } from "@/components/common/coming-next";
+import type { Metadata } from "next";
+import { CaptureFlowClient } from "@/components/capture/capture-flow-client";
 
-export const metadata = { title: "New analysis" };
+export const metadata: Metadata = { title: "Analyse front-foot defence" };
 
-export default function Page() {
-  return <ComingNext eyebrow="New analysis" title="Capture one delivery." points={["Shot goal and capture tier", "Guided side-on setup with live framing checks", "Record or upload, with detected frame rate and resolution", "Quality gate before any processing", "On-device pose tracking and bat/ball marking", "Validity-first result and report"]} />;
+export default function AnalysePage() {
+  return <CaptureFlowClient />;
 }

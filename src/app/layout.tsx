@@ -10,7 +10,7 @@ const plex = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], 
 export const metadata: Metadata = {
   title: { default: "Align — cricket movement intelligence", template: "%s · Align" },
   description:
-    "Capture one delivery. Reconstruct body, bat and ball. Confirm the shot before grading it, then train one measurable priority.",
+    "Shot analysis for cricket, starting with the front-foot defence. Reconstruct body, bat and ball, confirm the shot before grading it, then train one measurable priority.",
   applicationName: "Align",
 };
 

@@ -22,13 +22,13 @@ export default function Home() {
           <div>
             <p className="eyebrow">Cricket movement intelligence</p>
             <h1 className="display mt-4 text-[3.1rem] sm:text-7xl lg:text-[5.4rem]">
-              See the delivery your body <span className="text-gold">actually</span> played.
+              See the shot your body <span className="text-gold">actually</span> played.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-muted">
-              Align reconstructs your movement, bat path and ball context — then turns the evidence into one clear training priority.
+              Align reconstructs your movement, bat path and ball context, confirms the shot you actually played, then turns the evidence into one clear training priority. Starting with the front-foot defence.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/analyse" className="btn btn-primary text-base">Analyse a delivery</Link>
+              <Link href="/analyse" className="btn btn-primary text-base">Analyse front-foot defence</Link>
               <Link href="/sample/valid_ffd" className="btn btn-ghost text-base">See a sample report</Link>
             </div>
             <p className="mt-6 max-w-lg text-sm text-subtle border-l-2 border-gold/60 pl-3">
@@ -209,10 +209,10 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 py-16 text-center">
-        <h2 className="display text-5xl">Capture one delivery.</h2>
-        <p className="mt-3 text-muted">Reconstruct body, bat and ball. Understand what happened, why it matters, and what to train next.</p>
+        <h2 className="display text-5xl">Capture one shot.</h2>
+        <p className="mt-3 text-muted">Reconstruct body, bat and ball. Confirm the shot, understand why it happened, and know what to train next.</p>
         <div className="mt-6 flex justify-center gap-3 flex-wrap">
-          <Link href="/analyse" className="btn btn-primary">Analyse a delivery</Link>
+          <Link href="/analyse" className="btn btn-primary">Analyse front-foot defence</Link>
           <Link href="/sample" className="btn btn-ghost">All sample reports</Link>
         </div>
       </section>

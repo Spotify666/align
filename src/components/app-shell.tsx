@@ -57,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <User size={16} /> Profile
             </Link>
             <Link href="/analyse" className="hidden sm:inline-flex btn btn-primary !min-h-9 !py-1.5 text-sm">
-              Analyse a delivery
+              Analyse front-foot defence
             </Link>
             <button
               className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line"

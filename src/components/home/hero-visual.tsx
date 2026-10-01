@@ -6,7 +6,7 @@ import type { CaptureObservation } from "@/engine/types";
 
 const Scene3D = dynamic(() => import("../report/scene-3d"), { ssr: false });
 
-/** The flagship lattice: a delivery replayed as body, bat and ball. DEMO DATA. */
+/** The flagship lattice: a front-foot defence replayed as body, bat and ball. DEMO DATA. */
 export function HeroVisual({ obs, from, to }: { obs: CaptureObservation; from: number; to: number }) {
   const [frame, setFrame] = useState(to - 8);
   useEffect(() => {

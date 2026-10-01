@@ -24,13 +24,15 @@ interface Props {
   obs: CaptureObservation;
   payload: AnalysisPayload;
   videoUrl?: string | null;
+  /** Media time (s) of each analysed frame when it differs from obs.t (trimmed or slowed clips). */
+  mediaTimes?: number[] | null;
   keyframes?: Record<number, string>;
   reference?: { obs: CaptureObservation; offset: number; label: string } | null;
 }
 
 const COL = { body: "#5ed6e6", bat: "#d7a62a", ball: "#e2463a", trail: "rgba(94,214,230,0.55)", low: "rgba(167,176,184,0.5)", lime: "#b7f34a", coral: "#f06b5f", text: "#f3f0e8", gold: "#d7a62a" };
 
-export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function EvidenceViewer({ obs, payload, videoUrl, keyframes, reference }, ref) {
+export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function EvidenceViewer({ obs, payload, videoUrl, mediaTimes, keyframes, reference }, ref) {
   const n = obs.body.length;
   const contact = payload.events.find((e) => e.type === "contact");
   const [frame, setFrame] = useState(() => (contact ? contact.frame : Math.min(n - 1, Math.round(n * 0.5))));
@@ -281,14 +283,14 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
   useEffect(() => {
     const v = video.current;
     if (v && videoUrl && !playing) {
-      const target = (obs.t[frame] ?? 0) / 1000;
+      const target = mediaTimes?.[frame] ?? (obs.t[frame] ?? 0) / 1000;
       if (Math.abs(v.currentTime - target) > 0.002) {
         v.currentTime = target;
         return;
       }
     }
     draw();
-  }, [frame, draw, videoUrl, obs.t, playing]);
+  }, [frame, draw, videoUrl, obs.t, mediaTimes, playing]);
 
   useEffect(() => {
     const onResize = () => draw();
@@ -342,7 +344,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
               disabled={m.disabled}
               onClick={() => setMode(m.id)}
               className={`min-h-9 rounded-md px-3 text-sm ${mode === m.id ? "bg-raised text-text" : "text-muted"} disabled:opacity-40`}
-              title={m.disabled ? "Needs a reference delivery" : undefined}
+              title={m.disabled ? "Needs a reference shot" : undefined}
             >
               {m.label}
             </button>

@@ -17,6 +17,7 @@ interface Props {
   payload: AnalysisPayload;
   obs: CaptureObservation;
   videoUrl?: string | null;
+  mediaTimes?: number[] | null;
   keyframes?: Record<number, string>;
   baseline?: BaselineComparison[];
   reference?: { obs: CaptureObservation; offset: number; label: string } | null;
@@ -25,7 +26,7 @@ interface Props {
   title?: string;
 }
 
-export function ReportView({ payload: p, obs, videoUrl, keyframes, baseline, reference, narrative, actions, title }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, title }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const report = useMemo(() => narrative ?? templateReport(p), [narrative, p]);
   const meta = STATUS_META[statusKey(p)];
@@ -116,7 +117,7 @@ export function ReportView({ payload: p, obs, videoUrl, keyframes, baseline, ref
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
-        <EvidenceViewer ref={viewer} obs={obs} payload={p} videoUrl={videoUrl} keyframes={keyframes} reference={reference} />
+        <EvidenceViewer ref={viewer} obs={obs} payload={p} videoUrl={videoUrl} mediaTimes={mediaTimes} keyframes={keyframes} reference={reference} />
 
         <aside className="flex flex-col gap-4">
           {isValid && (

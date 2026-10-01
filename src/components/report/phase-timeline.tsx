@@ -63,7 +63,7 @@ export function PhaseTimeline({
         value={frame}
         onChange={(e) => onSeek(Number(e.target.value))}
         className="w-full accent-[var(--color-gold)] h-8"
-        aria-label="Scrub through the delivery"
+        aria-label="Scrub through the shot"
         aria-valuetext={`Frame ${frame + 1} of ${frames}, ${(((times[frame] ?? 0) - t0) / 1000).toFixed(3)} seconds`}
       />
       <div className="tick-rule opacity-60" aria-hidden />
