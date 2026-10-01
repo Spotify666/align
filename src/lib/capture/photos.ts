@@ -5,7 +5,7 @@
 // Photos are posture screens only — the engine never claims shot type, timing, bat or ball.
 
 import type { PhotoPhase } from "@/engine/types";
-import { detectPeople, detectStill, loadPersonDetector, loadStillPose, roiAround, type Box, type PoseFrame } from "./pose";
+import { batterLikeness, detectObjects, detectStill, loadPersonDetector, loadStillPose, roiAround, type Box, type PoseFrame } from "./pose";
 import { fullBodyBox } from "./scan";
 
 export interface PhotoItem {
@@ -91,10 +91,19 @@ export async function loadPhotos(files: File[], onProgress: (done: number, total
     ctx.drawImage(bmp, (width - dw) / 2, (height - dh) / 2, dw, dh);
     bmp.close();
 
-    const people = detectPeople(det, canvas);
-    const batter = people.filter(fullBodyBox).sort((a, b) => b.h - a.h)[0] ?? people[0] ?? null;
+    const { people, bats } = detectObjects(det, canvas);
+    // The batter: of the whole people in view, the one who looks most like batting
+    // (both hands on a bat, not crouched), then the largest.
+    let batter: Box | null = null;
     let frame: PoseFrame | null = null;
-    if (batter) frame = detectStill(pose, canvas, roiAround(batter, width / height, 0.3));
+    let best = -1;
+    const pool = (people.filter(fullBodyBox).length ? people.filter(fullBodyBox) : people).slice(0, 4);
+    for (const b of pool) {
+      const f = detectStill(pose, canvas, roiAround(b, width / height, 0.3));
+      if (!f.body.some((p) => p && p[2] > 0.5)) continue;
+      const score = batterLikeness(f.body, width / height, bats) * Math.sqrt(b.h);
+      if (score > best) [best, batter, frame] = [score, b, f];
+    }
     if (!frame || !frame.body.some((p) => p && p[2] > 0.5)) frame = detectStill(pose, canvas);
     if (!frame.body.some((p) => p && p[2] > 0.5)) frame = null;
     items.push({ id: `${k}-${file.name}`, name: file.name, canvas, frame, people: people.length, batter, phase: null });

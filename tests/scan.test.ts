@@ -11,7 +11,7 @@ function clip(duration: number, strokes: number[], opts: { cutAt?: number[]; peo
   for (let t = 0; t <= duration; t += 0.2) {
     const m = strokes.reduce((a, s) => a + Math.exp(-((t - s) ** 2) / 0.08), 0) * 0.1 + 0.005;
     const cut = (opts.cutAt ?? []).some((c) => Math.abs(c - t) < 0.1);
-    out.push({ t, people: opts.people ? opts.people(t) : [batter], motion: cut ? 0 : m, cut, thumb: "" });
+    out.push({ t, people: opts.people ? opts.people(t) : [batter], bats: [], motion: cut ? 0 : m, cut, thumb: "" });
   }
   return out;
 }

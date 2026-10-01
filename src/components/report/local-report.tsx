@@ -9,7 +9,7 @@ import type { AnalysisPayload, CaptureObservation } from "@/engine/types";
 import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, type StoredAnalysis } from "@/lib/store";
 import { deleteFromCloud, loadCloudAnalysis } from "@/lib/cloud";
 import { Annotations } from "../coach/annotations";
-import { sessionMedia } from "@/lib/session-media";
+import { sessionCapture, sessionMedia } from "@/lib/session-media";
 import { ReportView } from "./report-view";
 import { CloudSave } from "../cloud/cloud-save";
 import { Trash } from "../icons";
@@ -81,6 +81,9 @@ export function LocalReport({ id }: { id: string }) {
 
   const media = sessionMedia.get(id);
   const p: AnalysisPayload = state.stored.payload;
+  // Bat and ball are hard to see automatically; while the clip is still open in this
+  // session, the athlete can add them to unlock a full verdict.
+  const canMark = !!media && sessionCapture.has(id) && p.mode !== "posture_screen" && (state.obs.ball.source === "none" || state.obs.bat.source === "none");
   return (
     <>
     <ReportView
@@ -92,6 +95,19 @@ export function LocalReport({ id }: { id: string }) {
       baseline={state.baseline}
       reference={state.reference}
       title={state.stored.title}
+      notice={
+        canMark ? (
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-brand/40 bg-surface/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Want the full verdict?</p>
+              <p className="text-sm text-fg-muted">
+                Align couldn&apos;t see the {state.obs.ball.source === "none" && state.obs.bat.source === "none" ? "ball and bat" : state.obs.ball.source === "none" ? "ball" : "bat"} clearly enough on its own. Tap them on a few frames (about 30 seconds) to confirm the shot and unlock the score.
+              </p>
+            </div>
+            <Link href={`/analyse?mark=${id}`} className="btn btn-primary shrink-0">Add ball and bat</Link>
+          </div>
+        ) : null
+      }
       actions={
         state.remote ? null : <>
           <CloudSave id={id} />

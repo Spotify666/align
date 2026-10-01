@@ -9,7 +9,7 @@
 //    broadcast frame gets the same pixels as one filling the screen.
 
 import type { ObjectDetector as OD, PoseLandmarker as PL, PoseLandmarkerResult } from "@mediapipe/tasks-vision";
-import { JOINTS, type CameraPoint, type ImgPoint } from "@/engine/types";
+import { J, JOINTS, type CameraPoint, type ImgPoint } from "@/engine/types";
 
 // MediaPipe's 33-landmark indices for the joints the engine uses.
 const MP_INDEX: Record<(typeof JOINTS)[number], number> = {
@@ -116,9 +116,10 @@ export function loadPersonDetector(): Promise<OD> {
         ObjectDetector.createFromOptions(f, {
           baseOptions: { modelAssetPath: "/models/efficientdet_lite0.tflite", delegate: d },
           runningMode: "IMAGE",
-          categoryAllowlist: ["person"],
-          scoreThreshold: 0.3,
-          maxResults: 8,
+          // Bats are found weakly (COCO has no cricket bat), so they only hint which person bats.
+          categoryAllowlist: ["person", "baseball bat", "tennis racket"],
+          scoreThreshold: 0.12,
+          maxResults: 12,
         }),
         // A small model: CPU is fast enough everywhere and avoids GPU paths that return nothing.
         "CPU",
@@ -129,22 +130,32 @@ export function loadPersonDetector(): Promise<OD> {
   return detector;
 }
 
-/** People in a frame, largest first. `source` dimensions define the normalisation. */
-export function detectPeople(det: OD, source: HTMLCanvasElement | HTMLImageElement | HTMLVideoElement | ImageBitmap): Box[] {
+/** People (largest first) and bat-like objects in a frame. `source` dimensions define the normalisation. */
+export function detectObjects(det: OD, source: HTMLCanvasElement | HTMLImageElement | HTMLVideoElement | ImageBitmap): { people: Box[]; bats: Box[] } {
   const W = "videoWidth" in source ? source.videoWidth : source.width;
   const H = "videoHeight" in source ? source.videoHeight : source.height;
-  if (!W || !H) return [];
-  return det
-    .detect(source)
-    .detections.map((d) => ({
+  if (!W || !H) return { people: [], bats: [] };
+  const all = det.detect(source).detections.map((d) => ({
+    kind: d.categories[0]?.categoryName ?? "",
+    box: {
       x: (d.boundingBox?.originX ?? 0) / W,
       y: (d.boundingBox?.originY ?? 0) / H,
       w: (d.boundingBox?.width ?? 0) / W,
       h: (d.boundingBox?.height ?? 0) / H,
       score: d.categories[0]?.score ?? 0,
-    }))
-    .filter((b) => b.w > 0.01 && b.h > 0.03)
-    .sort((a, b) => b.w * b.h - a.w * a.h);
+    },
+  }));
+  return {
+    people: all
+      .filter((d) => d.kind === "person" && d.box.score >= 0.3 && d.box.w > 0.01 && d.box.h > 0.03)
+      .map((d) => d.box)
+      .sort((a, b) => b.w * b.h - a.w * a.h),
+    bats: all.filter((d) => d.kind !== "person").map((d) => d.box),
+  };
+}
+
+export function detectPeople(det: OD, source: HTMLCanvasElement | HTMLImageElement | HTMLVideoElement | ImageBitmap): Box[] {
+  return detectObjects(det, source).people;
 }
 
 // MediaPipe VIDEO mode needs strictly increasing timestamps across every call on
@@ -265,6 +276,105 @@ export function detectStill(pose: PL, source: HTMLVideoElement | HTMLImageElemen
   const full = roi.w >= 0.98 && roi.h >= 0.98;
   const input = full ? source : crop(source, roi);
   return toFrame(pose.detect(input), full ? FULL : roi, null);
+}
+
+/** Bounding box of the confidently seen joints, or null when too little of the body is seen. */
+export function bodyBox(body: ImgPoint[], minConf = 0.4): Roi | null {
+  const pts = body.filter((p): p is NonNullable<ImgPoint> => !!p && p[2] >= minConf);
+  if (pts.length < 8) return null;
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
+/**
+ * Keeps the crop on the batter frame by frame: re-centred and re-sized from the last
+ * pose, so pans and broadcast zooms don't push the body out of the crop. When the body
+ * is lost, the person detector re-finds the batter nearest to where they were.
+ */
+export class Follower {
+  roi: Roi;
+  private lost = 0;
+  constructor(
+    start: Roi,
+    private aspect: number,
+    private margin = 0.32,
+  ) {
+    this.roi = roiAround(start, aspect, margin);
+  }
+  get isLost() {
+    return this.lost >= 2;
+  }
+  /** Update from this frame's pose. Returns whether the batter was seen. */
+  see(frame: PoseFrame): boolean {
+    const b = bodyBox(frame.body);
+    if (!b) {
+      this.lost++;
+      return false;
+    }
+    this.lost = 0;
+    const t = roiAround(b, this.aspect, this.margin);
+    // Follow quickly but never jump: size changes at most ×1.5 per frame.
+    const k = Math.max(2 / 3, Math.min(1.5, t.h / Math.max(1e-3, this.roi.h)));
+    const h = Math.min(1, this.roi.h * k);
+    const w = Math.min(1, h / this.aspect);
+    const cx = this.roi.x + this.roi.w / 2 + (t.x + t.w / 2 - (this.roi.x + this.roi.w / 2)) * 0.7;
+    const cy = this.roi.y + this.roi.h / 2 + (t.y + t.h / 2 - (this.roi.y + this.roi.h / 2)) * 0.7;
+    this.roi = { x: clamp01(cx - w / 2, w), y: clamp01(cy - h / 2, h), w, h };
+    return true;
+  }
+  /** Re-find the batter among detected people: the one nearest the last crop. */
+  reacquire(people: Box[]) {
+    const cx = this.roi.x + this.roi.w / 2;
+    const cy = this.roi.y + this.roi.h / 2;
+    const best = people
+      .filter((b) => b.h >= this.roi.h * 0.2)
+      .map((b) => ({ b, d: Math.hypot(b.x + b.w / 2 - cx, b.y + b.h / 2 - cy) }))
+      .sort((a, b) => a.d - b.d)[0];
+    if (best && best.d < Math.max(this.roi.w, this.roi.h)) {
+      this.roi = roiAround(best.b, this.aspect, this.margin);
+      this.lost = 0;
+    }
+  }
+}
+
+/**
+ * How much a pose looks like the person batting: both hands together on a handle, not
+ * crouched like the keeper, and (when the detector saw one) a bat at the hands. The
+ * bowler's and fielders' hands are apart; the umpire and non-striker rarely hold a bat
+ * in both hands. About 0.1 (unlike a batter) to 1.6 (bat in both hands).
+ */
+export function batterLikeness(body: ImgPoint[], aspect: number, bats: Box[] = []): number {
+  const g = (j: number) => {
+    const p = body[j];
+    return p && p[2] >= 0.35 ? p : null;
+  };
+  const dist = (a: NonNullable<ImgPoint>, b: NonNullable<ImgPoint>) => Math.hypot((a[0] - b[0]) * aspect, a[1] - b[1]);
+  const lw = g(J.left_wrist);
+  const rw = g(J.right_wrist);
+  const ls = g(J.left_shoulder);
+  const rs = g(J.right_shoulder);
+  let hands = 0.5;
+  if (lw && rw && ls && rs) {
+    const r = dist(lw, rw) / Math.max(1e-3, dist(ls, rs));
+    hands = r < 0.9 ? 1 : r < 1.6 ? 0.55 : 0.25;
+  }
+  let crouch = 1;
+  const nose = g(J.nose);
+  const lh = g(J.left_hip);
+  const rh = g(J.right_hip);
+  const ank = [g(J.left_ankle), g(J.right_ankle)].filter((p): p is NonNullable<ImgPoint> => !!p);
+  if (nose && lh && rh && ank.length) {
+    const ankY = Math.max(...ank.map((p) => p[1]));
+    const ratio = (ankY - (lh[1] + rh[1]) / 2) / Math.max(1e-3, ankY - nose[1]);
+    if (ratio < 0.3) crouch = 0.35;
+  }
+  let bat = 1;
+  const hand = lw && rw ? [(lw[0] + rw[0]) / 2, (lw[1] + rw[1]) / 2] : (lw ?? rw);
+  if (hand && bats.some((b) => hand[0] >= b.x - b.w * 0.4 && hand[0] <= b.x + b.w * 1.4 && hand[1] >= b.y - b.h * 0.4 && hand[1] <= b.y + b.h * 1.4)) bat = 1.6;
+  return hands * crouch * bat;
 }
 
 function avgVis(l: Array<{ visibility?: number }>) {

@@ -18,21 +18,25 @@
 | `/design-system` | Tokens and components |
 | `/signin`, `/auth/callback` | Magic-link sign-in |
 
-## Capture flow (9 steps for video, 6 for photos, shown in a labelled stepper)
+## Capture flow (one screen to add, then automatic)
 
-1. **Shot**: front-foot defence (other shots shown as coming after validation).
-2. **Method**: Quick Check (one phone) or 3D Session (preview).
-3. **Setup**: camera placement diagram; consent to on-device processing.
-4. **Clip**: video of any length, or 1–12 photos; drag-and-drop on desktop.
-5. **Moment**:
-   - scan; pick the shot when there are several;
-   - tap the batter when others are in view;
-   - confirm the camera position (suggested).
-   - Photos instead get a review screen: tag stance / stride / contact / finish, or remove a photo.
-6. **Check**: quality gate on the chosen shot. Fail → concrete fixes, nothing processed; try another shot.
-7. **Track**: body tracked on the device, on a crop around the batter.
-8. **Mark**: stumps, bounce, contact, ball after, bat on 4 frames (each skippable).
-9. **Report**: verdict first, then evidence, domains, measures, plan, limits, PDF.
+**Add** — upload a video (any length) or 1–12 photos, or record. On-device processing consent is a checkbox on the same screen; filming tips are collapsed below it.
+
+**Automatic run**, shown as a live list of named stages, each with what was decided:
+
+| Stage | What Align decides | Correction |
+|---|---|---|
+| Reading the video | size, real frame rate, codec | — |
+| Finding the shot | best verified shot window; camera cuts, replays and close-ups skipped | "Change" → shot picker |
+| Finding the batter | the person batting: both hands together on a handle, not crouched, bat seen at the hands, in view through the shot | "Change" → tap the batter (only when several people) |
+| Camera position | side-on / bowler's end / behind, from 3D pose | "Change" → camera picker |
+| Checking the recording | quality gate; if a shot fails, the next-best shot is tried automatically (up to 3) | only on failure: concrete fixes, nothing processed |
+| Tracking the body | crop follows the batter frame by frame (pans, zooms); lost → re-anchored on the scan or the person detector; GPU → CPU fallback | — |
+| Building your report | engine, keyframes, local save | — |
+
+Photos: Reading the photos → Finding the batter → Camera position → Building your report.
+
+**Optional, from the report**: when the ball or bat wasn't seen, "Add ball and bat" opens marking (stumps, bounce, contact, ball after, bat) on the same clip while it is still open in this session, then updates the same report.
 
 ## Report reading order
 

@@ -11,6 +11,8 @@ import { MarkHint } from "../guide/mark-illustrations";
 type Step = "stumps" | "bounce" | "contact" | "after" | "bat" | "done";
 const ORDER: Step[] = ["stumps", "bounce", "contact", "after", "bat", "done"];
 
+const SHORT: Record<Exclude<Step, "done">, string> = { stumps: "Stumps", bounce: "Bounce", contact: "Contact", after: "Ball after", bat: "Bat" };
+
 const COPY: Record<Exclude<Step, "done">, { title: string; body: string; skip: string }> = {
   stumps: { title: "Mark the stumps", body: "Tap the base of the batter's stumps, then the top. This gives the pitch scale.", skip: "Stumps not visible" },
   bounce: { title: "Find the bounce", body: "Scrub to the frame where the ball hits the pitch, then tap the ball.", skip: "Bounce not visible" },
@@ -176,9 +178,14 @@ export function MarkEvidence({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="num text-xs text-fg-subtle">
-          Step {ORDER.indexOf(step) + 1} of {ORDER.length - 1} · everything you mark is labelled “marked by you” in the report
-        </p>
+        <ol className="flex flex-wrap items-center gap-1 text-xs" aria-label="What to mark">
+          {ORDER.filter((s): s is Exclude<Step, "done"> => s !== "done").map((s, i) => (
+            <li key={s} className="flex items-center gap-1" aria-current={s === step ? "step" : undefined}>
+              {i > 0 && <span aria-hidden className="text-fg-subtle">›</span>}
+              <span className={s === step ? "font-semibold text-fg" : ORDER.indexOf(s) < ORDER.indexOf(step) ? "text-brand" : "text-fg-subtle"}>{SHORT[s]}</span>
+            </li>
+          ))}
+        </ol>
         <button className="chip border-line text-fg-muted min-h-9" onClick={() => setZoom((z) => !z)} aria-pressed={zoom}>
           {zoom ? "Batter view" : "Full frame"}
         </button>

@@ -6,12 +6,14 @@
 
 import type { ObjectDetector as OD, PoseLandmarker as PL } from "@mediapipe/tasks-vision";
 import { J } from "@/engine/types";
-import { detectPeople, detectStill, roiAround, seek, type Box, type Roi } from "./pose";
+import { detectObjects, detectStill, roiAround, seek, type Box, type Roi } from "./pose";
 
 export interface ScanSample {
   /** Media time, seconds. */
   t: number;
   people: Box[];
+  /** Bat-like detections (weak; a hint for who is batting). */
+  bats: Box[];
   /** Mean absolute luma change since the previous sample around the main person (0..1). */
   motion: number;
   /** A camera cut happened between the previous sample and this one. */
@@ -73,7 +75,7 @@ export async function scanVideo(
 
   const process = (t: number) => {
     dctx.drawImage(video, 0, 0, detCanvas.width, detCanvas.height);
-    const people = detectPeople(det, detCanvas);
+    const { people, bats } = detectObjects(det, detCanvas);
     lctx.drawImage(detCanvas, 0, 0, lumaCanvas.width, lumaCanvas.height);
     const px = lctx.getImageData(0, 0, lumaCanvas.width, lumaCanvas.height).data;
     const luma = new Float32Array(lumaCanvas.width * lumaCanvas.height);
@@ -111,7 +113,7 @@ export async function scanVideo(
     prevLuma = luma;
     prevHist = hist;
     tctx.drawImage(detCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
-    samples.push({ t, people, motion, cut, thumb: thumbCanvas.toDataURL("image/jpeg", 0.6) });
+    samples.push({ t, people, bats, motion, cut, thumb: thumbCanvas.toDataURL("image/jpeg", 0.6) });
     onProgress(Math.min(1, t / limit));
   };
 
@@ -295,6 +297,17 @@ export interface BatterCandidate {
   persistence: number;
   /** Union of this person's boxes across the window: where to crop for tracking. */
   extent: Roi;
+  /** Share of samples where a bat was detected on this person. */
+  bat: number;
+  /** This person's box in each scan sample where they were matched. */
+  track: Array<{ t: number; box: Box }>;
+}
+
+/** The candidate's box from the scan sample nearest `t` (within `maxGap` seconds). */
+export function boxAt(c: BatterCandidate, t: number, maxGap = 0.4): Box | null {
+  let best: { t: number; box: Box } | null = null;
+  for (const s of c.track) if (!best || Math.abs(s.t - t) < Math.abs(best.t - t)) best = s;
+  return best && Math.abs(best.t - t) <= maxGap ? best.box : null;
 }
 
 const iou = (a: Box | Roi, b: Box | Roi) => {
@@ -319,22 +332,31 @@ export function batterCandidates(samples: ScanSample[], win: { start: number; en
   const ref = (withPeople.length ? withPeople : inside).reduce((best, s) => (Math.abs(s.t - win.peak) < Math.abs(best.t - win.peak) ? s : best));
   const cands = ref.people.map((seed) => {
     let seen = 0;
+    let withBat = 0;
+    const track: Array<{ t: number; box: Box }> = [];
     let ext: Roi = { x: seed.x, y: seed.y, w: seed.w, h: seed.h };
-    // Follow this person outward from the reference frame in both directions.
-    const order = [...inside].sort((a, b) => Math.abs(a.t - ref.t) - Math.abs(b.t - ref.t));
-    let last: Box = seed;
-    for (const s of order) {
-      const match = s.people.reduce<Box | null>((best, b) => (iou(b, last) > Math.max(0.2, best ? iou(best, last) : 0) ? b : best), null);
-      if (!match) continue;
-      seen++;
-      last = match;
-      const x0 = Math.min(ext.x, match.x);
-      const y0 = Math.min(ext.y, match.y);
-      ext = { x: x0, y: y0, w: Math.max(ext.x + ext.w, match.x + match.w) - x0, h: Math.max(ext.y + ext.h, match.y + match.h) - y0 };
+    // Follow this person forward and backward from the reference frame (separately, so a
+    // zoom or pan only has to be followed one small step at a time).
+    const fwd = inside.filter((s) => s.t > ref.t).sort((a, b) => a.t - b.t);
+    const back = inside.filter((s) => s.t < ref.t).sort((a, b) => b.t - a.t);
+    for (const dir of [[ref, ...fwd], back]) {
+      let last: Box = seed;
+      for (const s of dir) {
+        const match = s === ref ? seed : s.people.reduce<Box | null>((best, b) => (iou(b, last) > Math.max(0.2, best ? iou(best, last) : 0) ? b : best), null);
+        if (!match) continue;
+        seen++;
+        last = match;
+        track.push({ t: s.t, box: match });
+        const g = grow(match, 0.25);
+        if ((s.bats ?? []).some((b) => iou(b, g) > 0 && b.x + b.w / 2 >= g.x && b.x + b.w / 2 <= g.x + g.w)) withBat++;
+        const x0 = Math.min(ext.x, match.x);
+        const y0 = Math.min(ext.y, match.y);
+        ext = { x: x0, y: y0, w: Math.max(ext.x + ext.w, match.x + match.w) - x0, h: Math.max(ext.y + ext.h, match.y + match.h) - y0 };
+      }
     }
-    return { box: seed, persistence: seen / inside.length, extent: ext };
+    return { box: seed, persistence: seen / inside.length, extent: ext, bat: seen ? withBat / seen : 0, track: track.sort((a, b) => a.t - b.t) };
   });
-  const score = (c: BatterCandidate) => c.persistence * Math.sqrt(c.box.h) * c.box.score * (fullBodyBox(c.box) ? 1.4 : 0.7);
+  const score = (c: BatterCandidate) => c.persistence * Math.sqrt(c.box.h) * c.box.score * (fullBodyBox(c.box) ? 1.4 : 0.7) * (1 + c.bat);
   const ranked = cands.filter((c) => c.persistence >= 0.25).sort((a, b) => score(b) - score(a));
   // One person can produce two overlapping boxes mid-stroke: keep the stronger.
   return { at: ref.t, candidates: ranked.filter((c, i) => ranked.slice(0, i).every((d) => iou(c.box, d.box) < 0.45)) };
