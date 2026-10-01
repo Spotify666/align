@@ -1,0 +1,7 @@
+project_id = "uwhgahpsivwkvxmbchmk"
+
+[functions.retention-purge]
+verify_jwt = false
+
+[functions.account-delete]
+verify_jwt = true

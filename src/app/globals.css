@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+/* Editorial sports-performance lab. Gold is an accent for authority and selection,
+   never a wash; measurement semantics use lime / amber / coral / steel plus icons. */
+@theme {
+  --color-carbon: #0a0d10;
+  --color-graphite: #151a20;
+  --color-panel: #10151a;
+  --color-raised: #1a2128;
+  --color-line: #252e37;
+  --color-line-strong: #36414c;
+  --color-paper: #f3f0e8;
+  --color-paper-2: #e8e3d6;
+  --color-ink: #12161a;
+  --color-ink-muted: #4a5159;
+  --color-text: #f3f0e8;
+  --color-muted: #a7b0b8;
+  --color-subtle: #8a949e;
+  --color-gold: #d7a62a;
+  --color-gold-soft: #e9c66d;
+  --color-lime: #b7f34a;
+  --color-cyan: #5ed6e6;
+  --color-coral: #f06b5f;
+  --color-amber: #f2b84b;
+  --color-steel: #9aa6b2;
+
+  --font-display: var(--font-archivo), "Arial Narrow", system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-card: 14px;
+  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 40px -18px rgb(0 0 0 / 0.7);
+
+  --animate-draw: draw 1.6s ease-out both;
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: var(--len, 400);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@layer base {
+  html {
+    background: var(--color-carbon);
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-carbon);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.55;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--color-gold) 40%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  button,
+  [role="button"],
+  summary {
+    cursor: pointer;
+  }
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .display {
+    font-family: var(--font-display);
+    font-stretch: 78%;
+    font-weight: 750;
+    letter-spacing: -0.012em;
+    line-height: 0.98;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-gold);
+  }
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .card {
+    background: var(--color-panel);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-lift);
+  }
+  .rule {
+    border-color: var(--color-line);
+  }
+  .tick-rule {
+    background-image: repeating-linear-gradient(90deg, var(--color-line-strong) 0 1px, transparent 1px 12px);
+    height: 6px;
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(var(--color-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    background-position: -1px -1px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.65rem 1.15rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .btn-primary {
+    background: var(--color-gold);
+    color: var(--color-ink);
+  }
+  .btn-primary:hover {
+    background: var(--color-gold-soft);
+  }
+  .btn-ghost {
+    border: 1px solid var(--color-line-strong);
+    color: var(--color-text);
+  }
+  .btn-ghost:hover {
+    border-color: var(--color-muted);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid var(--color-line-strong);
+    white-space: nowrap;
+  }
+  .demo-badge {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    padding: 0.15rem 0.45rem;
+    border: 1px dashed var(--color-amber);
+    color: var(--color-amber);
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .field {
+    width: 100%;
+    min-height: 44px;
+    background: var(--color-graphite);
+    border: 1px solid var(--color-line-strong);
+    border-radius: 10px;
+    padding: 0.55rem 0.8rem;
+    color: var(--color-text);
+  }
+  .paper {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
