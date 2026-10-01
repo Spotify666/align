@@ -21,6 +21,11 @@ const MODELS = [
     file: "pose_landmarker_full.task",
     url: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
   },
+  {
+    // Person boxes: finds small or distant batters so pose can run on a crop.
+    file: "efficientdet_lite0.tflite",
+    url: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite",
+  },
 ];
 
 async function exists(path) {

@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 const [, , base = "http://localhost:3000", out = "qa"] = process.argv;
 await mkdir(out, { recursive: true });
-const PAGES = ["/", "/guide", "/analyse", "/sample/valid_ffd", "/sample/pull", "/sample/occluded", "/sessions", "/progress", "/profile", "/coach", "/science", "/privacy", "/design-system"];
+const PAGES = ["/", "/guide", "/analyse", "/sample/valid_ffd", "/sample/pull", "/sample/occluded", "/sample/front_on_ffd", "/sample/no_ball", "/sessions", "/progress", "/profile", "/coach", "/science", "/privacy", "/design-system"];
 const DEVICES = [
   ["phone", { width: 390, height: 844 }, true],
   ["phone-landscape", { width: 844, height: 390 }, true],

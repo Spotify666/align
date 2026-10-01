@@ -3,7 +3,9 @@
 
 import { clamp, mean } from "./math";
 import { th } from "./registry";
-import { J, type CaptureObservation, type CaptureQuality, type QualityCheck } from "./types";
+import { J, type CaptureObservation, type CaptureQuality, type ImgPoint, type QualityCheck } from "./types";
+
+const CORE_JOINTS = ["nose", "left_shoulder", "right_shoulder", "left_hip", "right_hip"] as const;
 
 const KEY_JOINTS = [
   "nose",
@@ -19,21 +21,41 @@ const KEY_JOINTS = [
   "right_wrist",
 ] as const;
 
+/**
+ * Share of frames where the whole batter is in frame: head, shoulders and hips tracked,
+ * and each foot (ankle, heel or toe) visible inside the image. Self-occlusion of a knee
+ * or wrist behind the bat or the other leg is normal while batting and does not count
+ * as "out of frame".
+ */
 export function bodyCoverage(obs: CaptureObservation): { coverage: number; meanConfidence: number } {
   const minConf = th("tracking.joint_min_conf");
+  const footConf = minConf * 0.7;
   let full = 0;
   const confs: number[] = [];
+  const ok = (p: ImgPoint, c: number) => !!p && p[2] >= c && p[1] <= 1.0 && p[1] >= -0.02 && p[0] >= -0.02 && p[0] <= 1.02;
   for (const frame of obs.body) {
-    let ok = true;
+    const core = CORE_JOINTS.every((j) => ok(frame[J[j]] ?? null, minConf));
+    const feet = (["left", "right"] as const).every((side) =>
+      (["ankle", "heel", "foot"] as const).some((part) => ok(frame[J[`${side}_${part}`]] ?? null, footConf)),
+    );
+    const present = KEY_JOINTS.map((j) => frame[J[j]]?.[2] ?? 0);
+    const meanC = present.reduce((a, b) => a + b, 0) / present.length;
+    if (core && feet && meanC >= 0.45) full++;
     for (const j of KEY_JOINTS) {
       const p = frame[J[j]];
-      if (!p || p[2] < minConf) ok = false;
       if (p) confs.push(p[2]);
     }
-    if (ok) full++;
   }
   return { coverage: obs.body.length ? full / obs.body.length : 0, meanConfidence: confs.length ? mean(confs) : 0 };
 }
+
+const VIEW_TEXT: Record<CaptureObservation["camera"]["view"], string> = {
+  side_on: "Side-on",
+  front_on: "Front-on (bowler's end)",
+  behind: "Behind the batter",
+  oblique: "Diagonal",
+  unknown: "Not set",
+};
 
 export function assessCapture(obs: CaptureObservation): CaptureQuality {
   const checks: QualityCheck[] = [];
@@ -143,13 +165,17 @@ export function assessCapture(obs: CaptureObservation): CaptureQuality {
     correction: "Ask the keeper and others to stand clear of the frame, or move the camera so they are out of view.",
   });
 
+  const view = obs.camera.view;
   checks.push({
     id: "chk_camera_view",
     label: "Camera angle",
-    status: obs.camera.view === "side_on" || obs.camera.view === "oblique" ? "pass" : "warn",
-    value: obs.camera.view.replace("_", "-"),
-    requirement: "Side-on, square to the pitch, at hip height",
-    correction: "Place the phone square-on to the batter at hip height, about 6–8 m away.",
+    status: view === "side_on" || view === "front_on" ? "pass" : "warn",
+    value: VIEW_TEXT[view],
+    requirement: "Side-on at hip height (best), or front-on from behind the bowler",
+    correction:
+      view === "behind"
+        ? "From behind the batter the body hides the bat and ball at contact — film side-on, or from behind the bowler."
+        : "Place the phone square-on to the batter at hip height, about 6–8 m away.",
   });
 
   checks.push({

@@ -19,6 +19,20 @@ describe("release gate: no pull may receive a front-foot-defence technique score
   variants.push(["no ball", generate({ ...pullSpec.options, withBall: false, id: "pull_noball" })]);
   variants.push(["noisy", generate({ ...pullSpec.options, noise: 0.012, id: "pull_noisy" })]);
   variants.push(["photo", generate({ ...pullSpec.options, photoAtContact: true, id: "pull_photo" })]);
+  // Filmed along the pitch: forward axis from the 3D estimate, several signals unobservable.
+  for (let seed = 1; seed <= 15; seed++) variants.push([`front-on seed ${seed}`, generate({ ...pullSpec.options, view: "front_on", seed, id: `pull_fo_${seed}` })]);
+  for (let seed = 1; seed <= 5; seed++) variants.push([`behind seed ${seed}`, generate({ ...pullSpec.options, view: "behind", seed, id: `pull_bh_${seed}` })]);
+  variants.push(["front-on left-handed", generate({ ...pullSpec.options, view: "front_on", handedness: "left", id: "pull_fo_lh" })]);
+  variants.push(["front-on 30 fps", generate({ ...pullSpec.options, view: "front_on", fps: 30, id: "pull_fo_30" })]);
+  variants.push(["front-on no ball", generate({ ...pullSpec.options, view: "front_on", withBall: false, id: "pull_fo_noball" })]);
+  variants.push(["front-on noisy", generate({ ...pullSpec.options, view: "front_on", noise: 0.012, id: "pull_fo_noisy" })]);
+  // The athlete picks the wrong camera position: the forward axis is then wrong.
+  const relabel = (o: CaptureObservation, view: CaptureObservation["camera"]["view"]): CaptureObservation => ({ ...o, camera: { ...o.camera, view } });
+  for (let seed = 1; seed <= 4; seed++) {
+    variants.push([`front-on labelled behind ${seed}`, relabel(generate({ ...pullSpec.options, view: "front_on", seed, id: `pull_fo_bh_${seed}` }), "behind")]);
+    variants.push([`front-on labelled side-on ${seed}`, relabel(generate({ ...pullSpec.options, view: "front_on", seed, id: `pull_fo_so_${seed}` }), "side_on")]);
+    variants.push([`side-on labelled front-on ${seed}`, relabel(generate({ ...pullSpec.options, seed, id: `pull_so_fo_${seed}` }), "front_on")]);
+  }
 
   it.each(variants)("%s", (_, obs) => {
     const p = analyze(obs, opts);
@@ -66,7 +80,7 @@ describe("registry", () => {
   it("has the current registry published by a migration (run scripts/registry-sql.mjs)", () => {
     const dir = "supabase/migrations";
     const sql = readdirSync(dir).map((f) => readFileSync(`${dir}/${f}`, "utf8")).join("\n");
-    expect(sql).toContain(`'${REGISTRY_HASH}'`);
+    expect(sql.includes(`'${REGISTRY_HASH}'`), `no migration publishes registry ${REGISTRY_HASH}`).toBe(true);
   });
 });
 
@@ -81,5 +95,19 @@ describe("classification stability across 40 noise seeds", () => {
     expect(rate("pull", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
     expect(rate("drive", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
     expect(rate("valid_ffd", "valid")).toBeGreaterThanOrEqual(0.95);
+  });
+  it("filmed front-on: rejects pulls and drives, accepts defences, at least 95% of the time", () => {
+    expect(rate("front_on_pull", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
+    expect(rate("front_on_drive", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
+    expect(rate("front_on_ffd", "valid")).toBeGreaterThanOrEqual(0.95);
+  });
+  it("never accepts a drive filmed front-on, whatever camera position is chosen", () => {
+    const spec = FIXTURE_SPECS.find((s) => s.key === "front_on_drive")!;
+    for (let seed = 1; seed <= 20; seed++) {
+      for (const view of ["front_on", "behind", "side_on"] as const) {
+        const o = generate({ ...spec.options, seed });
+        expect(analyze({ ...o, camera: { ...o.camera, view } }, opts).analysis_status).not.toBe("valid");
+      }
+    }
   });
 });

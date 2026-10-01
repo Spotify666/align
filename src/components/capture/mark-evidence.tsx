@@ -7,11 +7,11 @@ import { BONES } from "@/lib/viz";
 import { J } from "@/engine/types";
 import { MarkHint } from "../guide/mark-illustrations";
 
-type Step = "side" | "stumps" | "bounce" | "contact" | "after" | "bat" | "done";
-const ORDER: Step[] = ["side", "stumps", "bounce", "contact", "after", "bat", "done"];
+// Camera position and bowler side are chosen before tracking, so marking starts at the stumps.
+type Step = "stumps" | "bounce" | "contact" | "after" | "bat" | "done";
+const ORDER: Step[] = ["stumps", "bounce", "contact", "after", "bat", "done"];
 
 const COPY: Record<Exclude<Step, "done">, { title: string; body: string; skip: string }> = {
-  side: { title: "Which side is the bowler?", body: "This sets “forward” for the analysis, so left-handers and either camera side work.", skip: "" },
   stumps: { title: "Mark the stumps", body: "Tap the base of the batter's stumps, then the top. This gives the pitch scale.", skip: "Stumps not visible" },
   bounce: { title: "Find the bounce", body: "Scrub to the frame where the ball hits the pitch, then tap the ball.", skip: "Bounce not visible" },
   contact: { title: "Find contact", body: "Scrub to where bat meets ball, then tap the ball.", skip: "Can't see contact" },
@@ -22,18 +22,21 @@ const COPY: Record<Exclude<Step, "done">, { title: string; body: string; skip: s
 export function MarkEvidence({
   video,
   tracking,
+  mediaTimes,
   marks,
   onChange,
   onDone,
 }: {
   video: HTMLVideoElement;
   tracking: TrackingResult;
+  /** Clip time (s) of each tracked frame: the shot window rarely starts at 0:00. */
+  mediaTimes: number[];
   marks: Marks;
   onChange: (m: Marks) => void;
   onDone: (final: Marks) => void;
 }) {
   const n = tracking.t.length;
-  const [step, setStep] = useState<Step>("side");
+  const [step, setStep] = useState<Step>("stumps");
   const [frame, setFrame] = useState(Math.round(n / 2));
   const [pending, setPending] = useState<[number, number] | null>(null);
   const [zoom, setZoom] = useState(true);
@@ -122,11 +125,11 @@ export function MarkEvidence({
 
   useEffect(() => {
     let alive = true;
-    seek(video, (tracking.t[frame] ?? 0) / 1000 + 0.0005).then(() => alive && draw());
+    seek(video, (mediaTimes[frame] ?? (tracking.t[frame] ?? 0) / 1000) + 0.0005).then(() => alive && draw());
     return () => {
       alive = false;
     };
-  }, [frame, video, tracking.t, draw]);
+  }, [frame, video, tracking.t, mediaTimes, draw]);
 
   // Move to a step and jump to a sensible frame for it.
   const goTo = (target: Step, m: Marks = marks) => {
@@ -166,7 +169,7 @@ export function MarkEvidence({
 
   if (step === "done") return null;
   const copy = COPY[step];
-  const tappable = step !== "side";
+  const tappable = true;
   const ready =
     (step === "bounce" && marks.bounce) || (step === "contact" && marks.contact) || (step === "after" && marks.ballAfter);
 
@@ -174,7 +177,7 @@ export function MarkEvidence({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="num text-xs text-fg-subtle">
-          Step {ORDER.indexOf(step) + 1} of 6 · everything you mark is labelled “marked by you” in the report
+          Step {ORDER.indexOf(step) + 1} of {ORDER.length - 1} · everything you mark is labelled “marked by you” in the report
         </p>
         <button className="chip border-line text-fg-muted min-h-9" onClick={() => setZoom((z) => !z)} aria-pressed={zoom}>
           {zoom ? "Batter view" : "Full frame"}
@@ -197,7 +200,7 @@ export function MarkEvidence({
         />
       </div>
 
-      {step !== "side" && step !== "stumps" && (
+      {step !== "stumps" && (
         <div className="flex items-center gap-2">
           <button className="chip border-line min-h-11 px-3" onClick={() => setFrame((f) => Math.max(0, f - 1))} aria-label="Previous frame">−1</button>
           <input type="range" min={0} max={n - 1} value={frame} onChange={(e) => setFrame(Number(e.target.value))} className="flex-1 h-11 accent-[var(--color-brand)]" aria-label="Choose frame" />
@@ -206,29 +209,20 @@ export function MarkEvidence({
       )}
 
       <div className="flex flex-wrap gap-2">
-        {step === "side" ? (
-          <>
-            <button className="btn btn-ghost flex-1" onClick={() => { const m = { ...marks, bowlerSide: "left" as const }; onChange(m); next(m); }}>← Bowler on the left</button>
-            <button className="btn btn-ghost flex-1" onClick={() => { const m = { ...marks, bowlerSide: "right" as const }; onChange(m); next(m); }}>Bowler on the right →</button>
-          </>
-        ) : (
-          <>
-            {ready && <button className="btn btn-primary" onClick={() => next()}>Confirm and continue</button>}
-            {step === "stumps" && marks.stumpsBase && !marks.stumpsTop && <span className="text-sm text-brand self-center">Base marked — now tap the top.</span>}
-            {copy.skip && (
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  const m = step === "stumps" ? { ...marks, stumpsBase: null, stumpsTop: null } : marks;
-                  if (step === "stumps") onChange(m);
-                  if (step === "bat") setPending(null);
-                  next(m);
-                }}
-              >
-                {step === "bat" && marks.bat.length ? "Finish bat marking" : copy.skip}
-              </button>
-            )}
-          </>
+        {ready && <button className="btn btn-primary" onClick={() => next()}>Confirm and continue</button>}
+        {step === "stumps" && marks.stumpsBase && !marks.stumpsTop && <span className="text-sm text-brand self-center">Base marked — now tap the top.</span>}
+        {copy.skip && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              const m = step === "stumps" ? { ...marks, stumpsBase: null, stumpsTop: null } : marks;
+              if (step === "stumps") onChange(m);
+              if (step === "bat") setPending(null);
+              next(m);
+            }}
+          >
+            {step === "bat" && marks.bat.length ? "Finish bat marking" : copy.skip}
+          </button>
         )}
       </div>
     </div>

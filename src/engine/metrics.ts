@@ -22,6 +22,7 @@ const REQUIREMENT_TEXT: Record<Requirement, string> = {
   contact: "contact was not located reliably",
   bounce: "the bounce was not seen",
   baseline: "it needs at least 6 valid deliveries",
+  side_view: "it needs a side-on camera (this clip was filmed along the pitch)",
 };
 
 export interface MetricContext {
@@ -47,6 +48,7 @@ function avail(ctx: MetricContext): Record<Requirement, boolean> {
     contact: ctx.postureFrame !== undefined || (!!contact && contact.confidence >= 0.5),
     bounce: !!events.byType.bounce,
     baseline: false,
+    side_view: scene.plane === "sagittal",
   };
 }
 
@@ -229,7 +231,8 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
         unc = twoD ? 6 : 3;
         conf = Math.min(scene.batHandle[cf]?.c ?? 0.6, scene.batToe[cf]?.c ?? 0.6);
         estimated = twoD;
-        if (twoD) limitation = "2D projection: a bat angled toward or away from the camera looks more vertical than it is.";
+        if (scene.plane === "frontal") limitation = "Filmed along the pitch: this is the bat's sideways tilt; its forward tilt is not visible.";
+        else if (twoD) limitation = "2D projection: a bat angled toward or away from the camera looks more vertical than it is.";
         ev = evidence(contact?.id, `frame_${cf}`);
         break;
       }
@@ -283,6 +286,10 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
     if (!Number.isFinite(value)) {
       out.push({ ...base, reason: "Not measured: the required landmarks were not visible at the needed frames." });
       continue;
+    }
+    if (scene.plane === "frontal" && def.requires.includes("body")) {
+      estimated = true;
+      limitation = [limitation, "Filmed along the pitch: forward distances come from a 3D pose estimate."].filter(Boolean).join(" ");
     }
     if (estimated && scene.scaleSource === "athlete_height" && /m\/s|cm/.test(def.unit)) {
       limitation = [limitation, "Scale estimated from your height."].filter(Boolean).join(" ");

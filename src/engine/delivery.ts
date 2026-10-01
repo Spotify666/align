@@ -33,7 +33,7 @@ export function estimateDelivery(scene: Scene, events: EventSet): DeliveryContex
   let bounceUncertaintyM: number | null = null;
   if (bounce) {
     const p = scene.ball[bounce.frame];
-    if (p && scene.unit === "m") {
+    if (p && scene.unit === "m" && scene.plane === "sagittal") {
       bounceDistanceM = p.f;
       // Uncertainty grows when scale comes from athlete height or stumps are estimated.
       bounceUncertaintyM =
@@ -50,7 +50,7 @@ export function estimateDelivery(scene: Scene, events: EventSet): DeliveryContex
   if (contactBall) {
     heightRel = contactBall.u / scene.stature;
     evidenceIds.push(contact!.id);
-  } else {
+  } else if (scene.plane === "sagittal") {
     let bestI = -1;
     let bestD = Infinity;
     for (let i = 0; i < scene.n; i++) {
@@ -119,6 +119,11 @@ export function estimateDelivery(scene: Scene, events: EventSet): DeliveryContex
     lengthLabel,
     confidence,
     evidenceIds,
-    reason: bounce ? undefined : "Bounce not seen — length inferred from arrival height only.",
+    reason:
+      scene.plane === "frontal"
+        ? "Filmed along the pitch: bounce distance can't be measured — length inferred from arrival height only."
+        : bounce
+          ? undefined
+          : "Bounce not seen — length inferred from arrival height only.",
   };
 }

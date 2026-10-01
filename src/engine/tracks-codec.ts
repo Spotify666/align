@@ -3,17 +3,19 @@
 // A 2 s, 120 fps clip is ~15–25 KB instead of ~400 KB of JSON. The engine always
 // analyses the *decoded* observation, so stored tracks reproduce the report exactly.
 
-import type { CaptureObservation, ImgPoint, WorldPoint } from "./types";
+import type { CameraPoint, CaptureObservation, ImgPoint, WorldPoint } from "./types";
 
 const MAGIC = 0x414c4731; // "ALG1"
 const POS_LO = -0.5;
 const POS_SPAN = 2; // normalised image coords in [-0.5, 1.5]
 const WORLD_MM = 1000;
 
-type Header = Omit<CaptureObservation, "t" | "body" | "body3d" | "vizDepth" | "bat" | "ball"> & {
+type Header = Omit<CaptureObservation, "t" | "body" | "body3d" | "vizDepth" | "poseWorld" | "bat" | "ball"> & {
   frames: number;
   joints: number;
   has3d: boolean;
+  /** Optional trailing sections (older files simply end before them). */
+  hasPoseWorld?: boolean;
   hasVizDepth: boolean;
   batSource: CaptureObservation["bat"]["source"];
   ballSource: CaptureObservation["ball"]["source"];
@@ -45,8 +47,8 @@ function readPoints(count: number, pos: Uint16Array, conf: Uint8Array, offset: n
 export function encodeRaw(obs: CaptureObservation): Uint8Array {
   const frames = obs.body.length;
   const joints = obs.body[0]?.length ?? 0;
-  const { t, body, body3d, vizDepth, bat, ball, ...rest } = obs;
-  const header: Header = { ...rest, frames, joints, has3d: !!body3d, hasVizDepth: !!vizDepth, batSource: bat.source, ballSource: ball.source };
+  const { t, body, body3d, vizDepth, poseWorld, bat, ball, ...rest } = obs;
+  const header: Header = { ...rest, frames, joints, has3d: !!body3d, hasVizDepth: !!vizDepth, hasPoseWorld: !!poseWorld, batSource: bat.source, ballSource: ball.source };
   const headerBytes = new TextEncoder().encode(JSON.stringify(header));
 
   const pointCount = frames * joints + frames * 3; // body + handle + toe + ball
@@ -58,21 +60,27 @@ export function encodeRaw(obs: CaptureObservation): Uint8Array {
   writePoints(ball.points, pos, conf, frames * joints + 2 * frames);
 
   const times = new Float32Array(t);
-  const world = body3d ? new Int16Array(frames * joints * 3) : new Int16Array(0);
-  const worldConf = body3d ? new Uint8Array(frames * joints) : new Uint8Array(0);
-  body3d?.forEach((f, i) =>
-    f.forEach((p, j) => {
-      if (!p) return;
-      const k = i * joints + j;
-      for (let a = 0; a < 3; a++) world[k * 3 + a] = Math.max(-32767, Math.min(32767, Math.round(p[a]! * WORLD_MM)));
-      worldConf[k] = qConf(p[3]);
-    }),
-  );
+  const packXyz = (src: ReadonlyArray<ReadonlyArray<WorldPoint | CameraPoint>> | undefined) => {
+    const xyz = new Int16Array(src ? frames * joints * 3 : 0);
+    const c = new Uint8Array(src ? frames * joints : 0);
+    src?.forEach((f, i) =>
+      f.forEach((p, j) => {
+        if (!p) return;
+        const k = i * joints + j;
+        for (let a = 0; a < 3; a++) xyz[k * 3 + a] = Math.max(-32767, Math.min(32767, Math.round(p[a]! * WORLD_MM)));
+        c[k] = qConf(p[3]);
+      }),
+    );
+    return [xyz, c] as const;
+  };
+  const [world, worldConf] = packXyz(body3d);
+  const [pw, pwConf] = packXyz(poseWorld);
 
   const depth = new Int16Array(vizDepth ? frames * joints : 0);
   vizDepth?.forEach((f, i) => f.forEach((d, j) => (depth[i * joints + j] = Math.max(-32767, Math.min(32767, Math.round(d * WORLD_MM))))));
 
   const sections = [new Uint8Array(times.buffer), new Uint8Array(pos.buffer), conf, new Uint8Array(world.buffer), worldConf, new Uint8Array(depth.buffer)];
+  if (poseWorld) sections.push(new Uint8Array(pw.buffer), pwConf);
   const total = 12 + headerBytes.length + sections.reduce((s, b) => s + 4 + b.length, 0);
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
@@ -108,19 +116,22 @@ export function decodeRaw(bytes: Uint8Array): CaptureObservation {
   const world = new Int16Array(next().buffer);
   const worldConf = next();
   const depth = new Int16Array(next().buffer);
-  const { frames, joints, has3d, hasVizDepth, batSource, ballSource, ...rest } = header;
+  const { frames, joints, has3d, hasVizDepth, hasPoseWorld, batSource, ballSource, ...rest } = header;
+  const pw = hasPoseWorld ? new Int16Array(next().buffer) : null;
+  const pwConf = hasPoseWorld ? next() : null;
 
   const body = Array.from({ length: frames }, (_, i) => readPoints(joints, pos, conf, i * joints));
-  const body3d: WorldPoint[][] | undefined = has3d
-    ? Array.from({ length: frames }, (_, i) =>
-        Array.from({ length: joints }, (_, j) => {
-          const k = i * joints + j;
-          const c = worldConf[k]!;
-          if (c === 0) return null;
-          return [world[k * 3]! / WORLD_MM, world[k * 3 + 1]! / WORLD_MM, world[k * 3 + 2]! / WORLD_MM, dqConf(c)] as const;
-        }),
-      )
-    : undefined;
+  const unpackXyz = (xyz: Int16Array, c: Uint8Array) =>
+    Array.from({ length: frames }, (_, i) =>
+      Array.from({ length: joints }, (_, j) => {
+        const k = i * joints + j;
+        const q = c[k]!;
+        if (q === 0) return null;
+        return [xyz[k * 3]! / WORLD_MM, xyz[k * 3 + 1]! / WORLD_MM, xyz[k * 3 + 2]! / WORLD_MM, dqConf(q)] as const;
+      }),
+    );
+  const body3d: WorldPoint[][] | undefined = has3d ? unpackXyz(world, worldConf) : undefined;
+  const poseWorld: CameraPoint[][] | undefined = pw && pwConf ? unpackXyz(pw, pwConf) : undefined;
 
   return {
     ...rest,
@@ -128,6 +139,7 @@ export function decodeRaw(bytes: Uint8Array): CaptureObservation {
     body,
     body3d,
     vizDepth: hasVizDepth ? Array.from({ length: frames }, (_, i) => Array.from({ length: joints }, (_, j) => depth[i * joints + j]! / WORLD_MM)) : undefined,
+    ...(poseWorld ? { poseWorld } : {}),
     bat: {
       source: batSource,
       handle: readPoints(frames, pos, conf, frames * joints),

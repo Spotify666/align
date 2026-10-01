@@ -310,6 +310,24 @@ export const FIXTURE_SPECS: FixtureSpec[] = [
     }),
   },
   {
+    key: "front_on_ffd",
+    title: "Front-on defence (filmed from behind the bowler)",
+    expectation: "valid or uncertain — forward measures are 3D estimates; never a different-shot verdict",
+    options: { ...common, id: "fx_front_on_ffd", label: "Front-on defence", seed: 13, handedness: "right", script: ffdScript(ATTEMPT), view: "front_on" },
+  },
+  {
+    key: "front_on_pull",
+    title: "Front-on pull shot",
+    expectation: "invalid_for_requested_analysis or uncertain — never scored",
+    options: { ...common, id: "fx_front_on_pull", label: "Front-on pull shot", seed: 23, handedness: "right", script: pullScript(), view: "front_on" },
+  },
+  {
+    key: "front_on_drive",
+    title: "Front-on drive",
+    expectation: "invalid_for_requested_analysis or uncertain — never scored",
+    options: { ...common, id: "fx_front_on_drive", label: "Front-on drive", seed: 34, handedness: "right", script: driveScript(), view: "front_on" },
+  },
+  {
     key: "session3d",
     title: "3D Session preview (two calibrated phones)",
     expectation: "valid — depth-dependent measures available (preview, not validated)",

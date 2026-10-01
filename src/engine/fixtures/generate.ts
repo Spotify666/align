@@ -4,7 +4,7 @@
 // It exists to exercise every engine path, not to stand in for real athletes.
 
 import { clamp, gaussian, rng } from "../math";
-import { JOINTS, type CaptureObservation, type ImgPoint, type Joint, type TrackSource, type WorldPoint } from "../types";
+import { JOINTS, type CameraPoint, type CaptureObservation, type ImgPoint, type Joint, type TrackSource, type WorldPoint } from "../types";
 
 type V3 = [number, number, number]; // forward (toward bowler), up, lateral (+ = off side), metres
 type Key<T> = Array<[t: number, v: T]>;
@@ -104,6 +104,12 @@ export interface GenerateOptions {
   maxPeople?: number;
   marks?: { bounce?: boolean; contact?: boolean };
   batSource?: TrackSource;
+  /**
+   * Camera placement. "front_on": portrait phone zoomed in from behind the bowler's
+   * stumps, looking down the pitch; the observation then carries a noisy monocular 3D
+   * estimate (like MediaPipe world landmarks) and no pitch calibration.
+   */
+  view?: "side_on" | "front_on" | "behind";
 }
 
 const CAMERA = { depth: 7.2, centreF: 2.9, height: 1.0, viewWidthM: 8.4 };
@@ -119,6 +125,26 @@ function project(p: V3): [number, number] {
   const xu = ASPECT / 2 + (fx * (p[0] - CAMERA.centreF)) / depth;
   const yu = 0.5 - (fx * (p[1] - CAMERA.height)) / depth;
   return [xu / ASPECT, yu];
+}
+
+/** Front-on camera: behind the bowler's stumps, portrait, zoomed so the batter fills about half the frame. */
+const FRONT = { f: 24, height: 1.0, viewHeightM: 3.6, aspect: 9 / 16 };
+function projectFront(p: V3): [number, number] {
+  const depth = FRONT.f - p[0];
+  const k = (FRONT.f - 0.5) / FRONT.viewHeightM;
+  const xu = FRONT.aspect / 2 + (k * -p[2]) / depth;
+  const yu = 0.5 - (k * (p[1] - FRONT.height)) / depth;
+  return [xu / FRONT.aspect, yu];
+}
+
+/** Behind the batter: on the pitch line beyond the keeper, looking toward the bowler. */
+const BEHIND = { f: -7, height: 1.2, viewHeightM: 3.4, aspect: 9 / 16 };
+function projectBehind(p: V3): [number, number] {
+  const depth = p[0] - BEHIND.f;
+  const k = (0.5 - BEHIND.f) / BEHIND.viewHeightM;
+  const xu = BEHIND.aspect / 2 + (k * p[2]) / depth;
+  const yu = 0.5 - (k * (p[1] - BEHIND.height)) / depth;
+  return [xu / BEHIND.aspect, yu];
 }
 
 export const FIXTURE_CALIBRATION = (() => {
@@ -206,9 +232,15 @@ export function generate(opts: GenerateOptions): CaptureObservation {
   const toe: ImgPoint[] = [];
   const ball: ImgPoint[] = [];
 
+  const behind = opts.view === "behind";
+  const frontOn = opts.view === "front_on" || behind; // any view along the pitch
+  const proj = behind ? projectBehind : opts.view === "front_on" ? projectFront : project;
+  const aspect = frontOn ? FRONT.aspect : ASPECT;
+  const RW = rng(opts.seed ^ 0x3d3d); // separate stream for the monocular 3D estimate
+  const poseWorld: CameraPoint[][] = [];
   const jitter = (p: [number, number], c: number): ImgPoint => {
     const sd = noise * (1.4 - c);
-    return [p[0] + (gaussian(R) * sd) / ASPECT, p[1] + gaussian(R) * sd, c];
+    return [p[0] + (gaussian(R) * sd) / aspect, p[1] + gaussian(R) * sd, c];
   };
 
   for (const t of times) {
@@ -269,15 +301,23 @@ export function generate(opts: GenerateOptions): CaptureObservation {
       !!opts.occlusion && t >= opts.occlusion.fromT && t <= opts.occlusion.toT && opts.occlusion.joints.includes(j);
     const frame: ImgPoint[] = [];
     const frame3d: WorldPoint[] = [];
+    const frameCam: CameraPoint[] = [];
+    const hipMid = mul(add(fHip, bHip), 0.5);
     for (const j of JOINTS) {
       const w = world[j];
       const farSide = j.startsWith("right_") && !j.includes("shoulder");
       const c = occluded(j) ? 0.25 : farSide ? 0.78 : 0.93;
-      frame.push(jitter(project(w), c));
+      frame.push(jitter(proj(w), c));
       frame3d.push([w[0], w[1], w[2], c]);
+      // Monocular estimate in camera axes (x right, y down, z away), hip-centred:
+      // depth is compressed and noisier than the image-plane axes, as with real models.
+      const r = sub(w, hipMid);
+      const sx = behind ? 1 : -1; // camera right is the off side from behind, the leg side from the bowler's end
+      frameCam.push([sx * r[2] + gaussian(RW) * 0.015, -r[1] + gaussian(RW) * 0.015, sx * r[0] * 0.88 + gaussian(RW) * 0.035, c]);
     }
     body.push(frame);
     body3d.push(frame3d);
+    poseWorld.push(frameCam);
     // Simulated monocular depth estimate for the viewer: true lateral plus noise.
     vizDepth.push(JOINTS.map((j) => world[j][2] + gaussian(RD) * 0.04));
 
@@ -286,16 +326,21 @@ export function generate(opts: GenerateOptions): CaptureObservation {
       handle.push(null);
       toe.push(null);
     } else {
-      handle.push(jitter(project(hd), 0.85));
-      toe.push(jitter(project(add(hd, mul(bd, BAT_LEN))), 0.8));
+      handle.push(jitter(proj(hd), 0.85));
+      toe.push(jitter(proj(add(hd, mul(bd, BAT_LEN))), 0.8));
     }
 
     const bp = ballAt(s.ball, t, contactT, contactP);
     const ballOccluded = !!opts.occlusion?.dropBall && t >= opts.occlusion.fromT && t <= contactT + 0.05;
-    if (!bp || opts.withBall === false || !s.ball.visible || ballOccluded || bp[0] > CAMERA.centreF + CAMERA.viewWidthM / 2 || bp[0] < -1.2) {
+    const offStage = behind
+      ? bp !== null && bp[0] < -0.4
+      : frontOn
+        ? bp !== null && FRONT.f - bp[0] < 6
+        : bp !== null && (bp[0] > CAMERA.centreF + CAMERA.viewWidthM / 2 || bp[0] < -1.2);
+    if (!bp || opts.withBall === false || !s.ball.visible || ballOccluded || offStage) {
       ball.push(null);
     } else {
-      const ip = project(bp);
+      const ip = proj(bp);
       ball.push(ip[0] >= 0 && ip[0] <= 1 && ip[1] >= 0 && ip[1] <= 1 ? jitter(ip, 0.8) : null);
     }
   }
@@ -308,6 +353,7 @@ export function generate(opts: GenerateOptions): CaptureObservation {
   let outBall = ball;
   let out3d = body3d;
   let outDepth = vizDepth;
+  let outCam = poseWorld;
   let bowlerSide: "left" | "right" = "right";
   let stumpsX = FIXTURE_CALIBRATION.stumpsX;
   if (opts.handedness === "left") {
@@ -316,6 +362,12 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     outBody = body.map((fr) => JOINTS.map((j) => mirror(fr[JOINTS.indexOf(swap(j))] ?? null)));
     out3d = body3d.map((fr) => JOINTS.map((j) => fr[JOINTS.indexOf(swap(j))] ?? null));
     outDepth = vizDepth.map((fr) => JOINTS.map((j) => fr[JOINTS.indexOf(swap(j))] ?? 0));
+    outCam = poseWorld.map((fr) =>
+      JOINTS.map((j) => {
+        const p = fr[JOINTS.indexOf(swap(j))] ?? null;
+        return p ? ([-p[0], p[1], p[2], p[3]] as const) : null;
+      }),
+    );
     outHandle = handle.map(mirror);
     outToe = toe.map(mirror);
     outBall = ball.map(mirror);
@@ -338,8 +390,8 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     label: opts.label,
     media: {
       kind: opts.photoAtContact ? "photo" : "video",
-      width: 1920,
-      height: 1080,
+      width: frontOn ? 1080 : 1920,
+      height: frontOn ? 1920 : 1080,
       fps: opts.photoAtContact ? null : fps,
       fpsSource: opts.photoAtContact ? "unknown" : "fixture",
       durationMs: opts.photoAtContact ? 0 : Math.round(opts.durationS * 1000),
@@ -347,13 +399,16 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     },
     tier: opts.tier ?? "quick",
     athlete: { handedness: opts.handedness, heightCm: Math.round(H * 100) },
-    camera: { view: "side_on", bowlerSide },
-    calibration: { source: "fixture", metresPerUnit: FIXTURE_CALIBRATION.metresPerUnit, stumpsX, groundY: FIXTURE_CALIBRATION.groundY },
+    camera: { view: behind ? "behind" : frontOn ? "front_on" : "side_on", bowlerSide },
+    calibration: frontOn
+      ? { source: "none", metresPerUnit: null, stumpsX: null, groundY: null }
+      : { source: "fixture", metresPerUnit: FIXTURE_CALIBRATION.metresPerUnit, stumpsX, groundY: FIXTURE_CALIBRATION.groundY },
     quality: { frames: qualityFrames, maxPeople: opts.maxPeople ?? 1 },
     t: times.map((t) => Math.round(t * 1000 * 100) / 100),
     body: outBody,
     body3d: opts.include3d ? out3d : undefined,
     vizDepth: outDepth,
+    ...(frontOn ? { poseWorld: outCam } : {}),
     bat: { source: opts.withBat === false ? "none" : (opts.batSource ?? "fixture"), handle: outHandle, toe: outToe },
     ball: { source: opts.withBall === false || !s.ball.visible ? "none" : "fixture", points: outBall },
     marks: {

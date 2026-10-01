@@ -4,8 +4,15 @@
 
 ```
 Phone browser
-  ├─ Capture: file → MP4/MOV fps parse → frame quality → quality gate (engine.assessCapture)
-  ├─ Tracking: MediaPipe Pose (WASM, self-hosted) → body tracks; user marks bat, ball, stumps
+  ├─ Read: MP4/MOV fps + codec parse; clear fixes for HEVC/AV1/AVI/MKV a browser can't decode
+  ├─ Scan: whole clip (≤ 5 min) → person boxes (EfficientDet-Lite0), motion, camera cuts
+  │     → candidate shot windows, each verified by pose (head to feet in view)
+  ├─ Batter: candidates verified by pose; athlete taps the batter when several remain
+  ├─ Camera: side-on / bowler's end / behind, suggested from 3D pose, athlete confirms
+  ├─ Gate: quality checks on the chosen window (engine.assessCapture)
+  ├─ Tracking: MediaPipe Pose on an upscaled crop around the batter → 2D body + 3D estimate
+  ├─ Marks: athlete marks stumps, bounce, contact, bat (each skippable)
+  ├─ Photos: 1–12 stills, EXIF-aware decode, letterboxed, batter found, pose → posture screen
   ├─ Engine (pure TS, deterministic): scene → events → delivery → features → classify
   │     → status policy → metrics → domains → priorities → plan → template report
   ├─ Storage: IndexedDB (analyses, align-tracks-v1 binary tracks, WebP keyframes)
@@ -20,6 +27,9 @@ Next.js 16 (App Router) on Vercel. All analysis runs on the device; the server o
 - Output: `AnalysisPayload` with `analysis_status`, `observed_shot`, `shot_probabilities`, `events`, `features`, `metrics`, `domains`, `technique_index`, `plan`, `limitations`, `evidence_frames`, `versions`, `input_hash`, `result_hash`.
 - Deterministic: canonical JSON + SHA-256, seeded PRNG. `result_hash` excludes id and timestamp.
 - Batter-centric frame: forward = toward the bowler; left-handers are mirrored semantically, not visually.
+- Side-on: forward is the image x-axis. Front-on or behind: forward comes from the monocular 3D estimate (`poseWorld`, MediaPipe world landmarks), relative to the back ankle in the same frame. Bat and ball stay in image-plane coordinates and are never compared with body forward positions. Side-view-only metrics are marked `side_view` in the registry.
+- Photo sets: each photo is analysed on its own (posture metrics only). The payload carries `photo_set`, and its headline measures come from the photo tagged "contact".
+- Uncertain shots carry ungraded `observations` (no ranges, no score). A different shot carries none.
 - Scale: stumps (0.711 m) → athlete height → stature units.
 
 ## Storage format

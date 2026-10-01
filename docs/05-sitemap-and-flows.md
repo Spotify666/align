@@ -18,16 +18,21 @@
 | `/design-system` | Tokens and components |
 | `/signin`, `/auth/callback` | Magic-link sign-in |
 
-## Capture flow (8 steps, shown in a labelled stepper)
+## Capture flow (9 steps for video, 6 for photos, shown in a labelled stepper)
 
-1. **Shot** — front-foot defence (others shown as coming after validation).
-2. **Tier** — Quick Check (one phone) or 3D Session (preview).
-3. **Setup** — camera placement diagram; consent to on-device processing.
-4. **Video** — pick or record; frame rate read from the file.
-5. **Check** — quality gate. Fail → concrete fixes, nothing processed.
-6. **Track** — choose a ≤ 2.5 s window; body tracked on the device.
-7. **Mark** — bowler side, stumps, bounce, contact, ball after, bat on 4 frames (each skippable).
-8. **Report** — verdict first, then evidence, domains, measures, plan, limits, PDF.
+1. **Shot**: front-foot defence (other shots shown as coming after validation).
+2. **Method**: Quick Check (one phone) or 3D Session (preview).
+3. **Setup**: camera placement diagram; consent to on-device processing.
+4. **Clip**: video of any length, or 1–12 photos; drag-and-drop on desktop.
+5. **Moment**:
+   - scan; pick the shot when there are several;
+   - tap the batter when others are in view;
+   - confirm the camera position (suggested).
+   - Photos instead get a review screen: tag stance / stride / contact / finish, or remove a photo.
+6. **Check**: quality gate on the chosen shot. Fail → concrete fixes, nothing processed; try another shot.
+7. **Track**: body tracked on the device, on a crop around the batter.
+8. **Mark**: stumps, bounce, contact, ball after, bat on 4 frames (each skippable).
+9. **Report**: verdict first, then evidence, domains, measures, plan, limits, PDF.
 
 ## Report reading order
 

@@ -7,6 +7,8 @@ export interface VideoTrackInfo {
   durationSec: number;
   width: number | null;
   height: number | null;
+  /** Sample-entry fourcc, e.g. "avc1" (H.264), "hvc1"/"hev1" (HEVC), "av01", "vp09". */
+  codec: string | null;
 }
 
 async function readRange(file: Blob, start: number, len: number): Promise<DataView> {
@@ -96,8 +98,10 @@ export async function readVideoTrack(file: Blob): Promise<VideoTrackInfo | null>
         width = moov.getUint32(wOff) >> 16;
         height = moov.getUint32(wOff + 4) >> 16;
       }
+      const stsd = find(moov, trak.body, trak.e, ["mdia", "minf", "stbl", "stsd"]);
+      const codec = stsd && stsd.body + 16 <= stsd.e ? type(moov, stsd.body + 12).trim() || null : null;
       if (!frames || !durationSec) continue;
-      return { fps: frames / durationSec, frameCount: frames, durationSec, width, height };
+      return { fps: frames / durationSec, frameCount: frames, durationSec, width, height, codec };
     }
     return null;
   } catch {

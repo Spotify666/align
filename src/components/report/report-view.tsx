@@ -82,6 +82,11 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             {p.shot_probabilities && <ConfidenceChip label="Shot" value={p.observed_shot?.probability ?? p.shot_probabilities.front_foot_defence} note="uncalibrated" />}
             <ConfidenceChip label="Capture" value={p.capture_confidence} />
             <span className="chip border-line-strong text-fg-muted">Requested: front-foot defence</span>
+            {p.camera_view && p.camera_view !== "side_on" && (
+              <span className="chip border-line-strong text-fg-muted">
+                Camera: {p.camera_view === "front_on" ? "bowler's end" : p.camera_view === "behind" ? "behind batter" : p.camera_view.replace("_", " ")}
+              </span>
+            )}
           </div>
           <h1 id="verdict" className="display mt-4 text-[1.7rem] leading-[1.1] sm:text-4xl lg:text-5xl max-w-4xl">{p.headline}</h1>
           {!isValid ? (
@@ -259,16 +264,73 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           <div className="card px-4">
             <CaptureChecklist checks={p.capture.checks} />
           </div>
-          {p.mode === "posture_screen" && p.metrics.some((m) => m.value !== null) && (
-            <div className="space-y-3 pt-2">
-              <h3 className="text-sm text-fg-subtle">Posture observations from the photo (estimates, not graded)</h3>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {p.metrics.map((m) => (
-                  <MetricCard key={m.id} m={m} />
-                ))}
-              </div>
+        </section>
+      )}
+
+      {p.mode === "posture_screen" && p.metrics.some((m) => m.value !== null) && (
+        <section aria-labelledby="posture-h" className="space-y-4">
+          <SectionHead
+            id="posture-h"
+            eyebrow="Posture screen"
+            title={p.photo_set ? "What the photos show" : "What the photo shows"}
+            note="Estimates from still images. Not graded: a photo can't confirm the shot or the moment of contact."
+          />
+          {p.photo_set && (
+            <div className="card overflow-x-auto">
+              <table className="w-full min-w-[30rem] text-sm">
+                <caption className="sr-only">Posture observations for each photo</caption>
+                <thead>
+                  <tr className="border-b border-line text-left text-xs text-fg-subtle">
+                    <th className="px-4 py-2.5 font-medium">Photo</th>
+                    {p.photo_set[0]!.observations.map((m) => (
+                      <th key={m.id} className="px-3 py-2.5 font-medium">{m.name}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {p.photo_set.map((ph) => (
+                    <tr key={ph.frame}>
+                      <td className="px-4 py-2.5">
+                        <button className="font-medium text-brand hover:underline" onClick={() => seek(ph.frame)}>
+                          Photo {ph.frame + 1}
+                        </button>
+                        {ph.phase && <span className="ml-1.5 text-fg-subtle capitalize">· {ph.phase}</span>}
+                      </td>
+                      {ph.observations.map((m) => (
+                        <td key={m.id} className="num px-3 py-2.5">
+                          {m.value !== null ? `${m.value.toFixed(m.decimals)} ${m.unit.replace("× stature", "×H")}` : <span className="text-fg-subtle">—</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
+          <h3 className="text-sm text-fg-subtle">
+            {p.photo_set ? `Key photo (${p.photo_set.find((x) => x.phase === "contact") ? "tagged contact" : "most complete"})` : "Observations"}
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {p.metrics.map((m) => (
+              <MetricCard key={m.id} m={m} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {p.observations && p.observations.length > 0 && (
+        <section aria-labelledby="obs-h" className="space-y-4">
+          <SectionHead
+            id="obs-h"
+            eyebrow="Observations"
+            title="What we could still see"
+            note="Body positions from the tracked frames. Not graded and no score: the shot wasn't confirmed as a front-foot defence."
+          />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {p.observations.map((m) => (
+              <MetricCard key={m.id} m={m} onEvidence={seek} />
+            ))}
+          </div>
         </section>
       )}
 

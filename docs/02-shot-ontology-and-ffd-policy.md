@@ -20,6 +20,10 @@ Temperature-softened prototype likelihoods (T = 1.4). They are **not calibrated 
 | P(unknown) | ≤ 0.10 |
 | Evidence coverage | ≥ 0.75 |
 
+### Filmed along the pitch (front-on or behind the batter)
+
+Back-foot travel, bat speed and ball speed can't be observed from these views, by geometry rather than by tracking failure. Those features are left out, never estimated, and acceptance instead requires coverage ≥ **0.72**. That is nearly every remaining signal (the maximum possible is 0.748). The other acceptance rules are unchanged.
+
 ## Rejection — "different shot detected"
 
 | Rule | Threshold |
@@ -41,7 +45,9 @@ False acceptance (scoring a pull as a defence) is release-blocking. False reject
 ## Release gates (CI)
 
 - 31 pull variants (seeds, frame rates, handedness, missing bat or ball, noise): none may be scored.
-- 40-seed stability ≥ 95% for pull → rejected, drive → rejected, valid → accepted.
+- The same gate for front-on and behind-the-batter pulls, including clips analysed with the **wrong** camera position.
+- 40-seed stability ≥ 95% for pull → rejected, drive → rejected, valid → accepted, side-on and front-on.
+- A front-on drive is never accepted, whichever camera position is chosen.
 - Same input → same `result_hash`.
 
 All thresholds live in `src/engine/registry.ts` with a unit and rationale, and are published to `registry_versions` by migration.
