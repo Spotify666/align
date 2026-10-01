@@ -7,7 +7,6 @@ import { POLICY_VERSION } from "./supabase/config";
 import { getAnalysis, getTracks, updateAnalysis } from "./store";
 import { templateReport } from "@/engine/report";
 import { decodeTracks } from "@/engine/tracks-codec";
-import { METRICS, REGISTRY_HASH, THRESHOLDS, ENGINE_VERSION, METRIC_VERSION } from "@/engine/registry";
 
 async function sha256Hex(bytes: Uint8Array) {
   const d = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
@@ -42,10 +41,6 @@ export async function saveToCloud(id: string, keyframeBlobs: Record<number, Blob
   const uid = user.id;
 
   await sb.from("profiles").upsert({ id: uid }, { onConflict: "id", ignoreDuplicates: true });
-  await sb.from("registry_versions").upsert(
-    { hash: REGISTRY_HASH, engine_version: ENGINE_VERSION, metric_version: METRIC_VERSION, content: { thresholds: THRESHOLDS, metrics: METRICS } },
-    { onConflict: "hash", ignoreDuplicates: true },
-  );
 
   const { error: aErr } = await sb.from("analyses").insert({
     id,
@@ -138,4 +133,22 @@ export async function loadCloudAnalysis(id: string) {
     if (signed.data) keyframes[Number(f)] = signed.data.signedUrl;
   }
   return { title: row.title ?? "Saved shot", recordedAt: row.recorded_at as string, ownerId: row.owner_id as string, payload: payloadRow.payload as import("@/engine/types").AnalysisPayload, obs, keyframes };
+}
+
+/** Delete a saved analysis from the account: its storage objects, then the row (children cascade). */
+export async function deleteFromCloud(id: string) {
+  const sb = supabase();
+  const [{ data: obsRow }, { data: media }] = await Promise.all([
+    sb.from("observations").select("storage_path").eq("analysis_id", id).maybeSingle(),
+    sb.from("media_objects").select("bucket, path").eq("analysis_id", id),
+  ]);
+  const byBucket = new Map<string, string[]>();
+  if (obsRow?.storage_path) byBucket.set("tracks", [obsRow.storage_path]);
+  for (const m of media ?? []) byBucket.set(m.bucket, [...(byBucket.get(m.bucket) ?? []), m.path]);
+  for (const [bucket, paths] of byBucket) {
+    const { error } = await sb.storage.from(bucket).remove(paths);
+    if (error) throw error;
+  }
+  const { error } = await sb.from("analyses").delete().eq("id", id);
+  if (error) throw error;
 }

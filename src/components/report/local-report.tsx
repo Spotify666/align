@@ -7,7 +7,7 @@ import { decodeTracks } from "@/engine/tracks-codec";
 import { buildBaseline, compareToBaseline, type BaselineComparison } from "@/engine/baseline";
 import type { AnalysisPayload, CaptureObservation } from "@/engine/types";
 import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, type StoredAnalysis } from "@/lib/store";
-import { loadCloudAnalysis } from "@/lib/cloud";
+import { deleteFromCloud, loadCloudAnalysis } from "@/lib/cloud";
 import { Annotations } from "../coach/annotations";
 import { sessionMedia } from "@/lib/session-media";
 import { ReportView } from "./report-view";
@@ -98,7 +98,16 @@ export function LocalReport({ id }: { id: string }) {
           <button
             className="btn btn-ghost !min-h-9 !py-1.5 text-sm"
             onClick={async () => {
-              if (!confirm("Delete this analysis from this device? This cannot be undone.")) return;
+              const inCloud = !!state.stored.cloud;
+              if (!confirm(inCloud ? "Delete this analysis from this device and from your account? This cannot be undone." : "Delete this analysis from this device? This cannot be undone.")) return;
+              if (inCloud) {
+                try {
+                  await deleteFromCloud(id);
+                } catch (e) {
+                  alert(`Couldn't delete the saved copy: ${e instanceof Error ? e.message : "unknown error"}. Nothing was deleted.`);
+                  return;
+                }
+              }
               await deleteAnalysis(id);
               router.push("/sessions");
             }}
