@@ -17,15 +17,15 @@ export default function PrivacyPage() {
       <header className="space-y-3">
         <p className="eyebrow">Privacy and data</p>
         <h1 className="display text-5xl">Your video, your decision.</h1>
-        <p className="text-muted">Plain-language summary. Movement data from video is biometric data, so every use is a separate choice you can change.</p>
+        <p className="text-fg-muted">Plain-language summary. Movement data from video is biometric data, so every use is a separate choice you can change.</p>
       </header>
 
       <section className="space-y-3">
         <h2 className="display text-3xl">What is kept, and where</h2>
         <div className="overflow-x-auto card">
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-subtle border-b border-line"><th className="p-3 font-normal">Data</th><th className="p-3 font-normal">What it is</th><th className="p-3 font-normal">Where it lives</th></tr></thead>
-            <tbody>{rows.map(([a, b, c]) => <tr key={a} className="border-b border-line last:border-0 align-top"><td className="p-3 font-medium">{a}</td><td className="p-3 text-muted">{b}</td><td className="p-3 text-muted">{c}</td></tr>)}</tbody>
+            <thead><tr className="text-left text-fg-subtle border-b border-line"><th className="p-3 font-normal">Data</th><th className="p-3 font-normal">What it is</th><th className="p-3 font-normal">Where it lives</th></tr></thead>
+            <tbody>{rows.map(([a, b, c]) => <tr key={a} className="border-b border-line last:border-0 align-top"><td className="p-3 font-medium">{a}</td><td className="p-3 text-fg-muted">{b}</td><td className="p-3 text-fg-muted">{c}</td></tr>)}</tbody>
           </table>
         </div>
       </section>
@@ -39,13 +39,13 @@ export default function PrivacyPage() {
           ["Security", "Encrypted in transit (TLS) and at rest. Database rules make every row visible only to its owner and consented coaches."],
           ["Not medical", "Align describes technique. It does not diagnose, predict injury or replace a physiotherapist."],
         ].map(([t, d]) => (
-          <div key={t} className="card p-5"><p className="font-semibold">{t}</p><p className="mt-1 text-sm text-muted">{d}</p></div>
+          <div key={t} className="card p-5"><p className="font-semibold">{t}</p><p className="mt-1 text-sm text-fg-muted">{d}</p></div>
         ))}
       </section>
 
       <section className="card p-5 space-y-2">
         <h2 className="font-semibold">Your controls</h2>
-        <p className="text-sm text-muted">Export everything as a file, delete everything on this device, delete your account and all saved data, change video retention, and switch each consent on or off.</p>
+        <p className="text-sm text-fg-muted">Export everything as a file, delete everything on this device, delete your account and all saved data, change video retention, and switch each consent on or off.</p>
         <Link href="/profile" className="btn btn-primary w-fit">Open data controls</Link>
       </section>
     </div>

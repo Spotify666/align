@@ -54,13 +54,13 @@ export function TrendChart({
     <figure className="card p-4">
       <figcaption className="flex items-baseline justify-between gap-2">
         <span className="font-semibold">{title}</span>
-        <span className="num text-sm text-muted">{last ? `${fmt(last.value)} ${unit}` : "—"}</span>
+        <span className="num text-sm text-fg-muted">{last ? `${fmt(last.value)} ${unit}` : "—"}</span>
       </figcaption>
       {table ? (
         <table className="mt-3 w-full text-sm num">
           <caption className="sr-only">{title} by session</caption>
           <thead>
-            <tr className="text-subtle text-left"><th className="font-normal">Date</th><th className="font-normal">Value</th><th className="font-normal">±</th></tr>
+            <tr className="text-fg-subtle text-left"><th className="font-normal">Date</th><th className="font-normal">Value</th><th className="font-normal">±</th></tr>
           </thead>
           <tbody>
             {points.map((p) => (
@@ -78,25 +78,25 @@ export function TrendChart({
             {ticks.map((t) => (
               <g key={t}>
                 <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="var(--color-line)" strokeWidth="1" />
-                <text x={pad.l - 6} y={y(t) + 3} textAnchor="end" fontSize="9" fill="var(--color-subtle)" className="num">{fmt(t)}</text>
+                <text x={pad.l - 6} y={y(t) + 3} textAnchor="end" fontSize="9" fill="var(--color-fg-subtle)" className="num">{fmt(t)}</text>
               </g>
             ))}
             {range && (
-              <rect x={pad.l} width={W - pad.l - pad.r} y={y(range.hi)} height={Math.max(1, y(range.lo) - y(range.hi))} fill="color-mix(in srgb, var(--color-lime) 12%, transparent)" />
+              <rect x={pad.l} width={W - pad.l - pad.r} y={y(range.hi)} height={Math.max(1, y(range.lo) - y(range.hi))} fill="color-mix(in srgb, var(--color-ok) 12%, transparent)" />
             )}
             {baseline && Number.isFinite(baseline.sd) && (
               <rect x={pad.l} width={W - pad.l - pad.r} y={y(baseline.mean + baseline.sd)} height={Math.max(1, y(baseline.mean - baseline.sd) - y(baseline.mean + baseline.sd))}
-                fill="none" stroke="var(--color-cyan)" strokeDasharray="4 3" strokeWidth="1" opacity="0.7" />
+                fill="none" stroke="var(--color-data)" strokeDasharray="4 3" strokeWidth="1" opacity="0.7" />
             )}
             {points.length > 1 && (
-              <polyline points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")} fill="none" stroke="var(--color-cyan)" strokeWidth="2" strokeLinejoin="round" />
+              <polyline points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")} fill="none" stroke="var(--color-data)" strokeWidth="2" strokeLinejoin="round" />
             )}
             {points.map((p, i) => (
               <g key={p.id}>
                 {p.uncertainty !== null && (
-                  <line x1={x(i)} x2={x(i)} y1={y(p.value - p.uncertainty)} y2={y(p.value + p.uncertainty)} stroke="var(--color-muted)" strokeWidth="1.2" />
+                  <line x1={x(i)} x2={x(i)} y1={y(p.value - p.uncertainty)} y2={y(p.value + p.uncertainty)} stroke="var(--color-fg-muted)" strokeWidth="1.2" />
                 )}
-                <circle cx={x(i)} cy={y(p.value)} r={hover === i ? 6 : 4.5} fill="var(--color-cyan)" stroke="var(--color-panel)" strokeWidth="2" />
+                <circle cx={x(i)} cy={y(p.value)} r={hover === i ? 6 : 4.5} fill="var(--color-data)" stroke="var(--color-surface)" strokeWidth="2" />
                 <circle
                   cx={x(i)}
                   cy={y(p.value)}
@@ -115,21 +115,21 @@ export function TrendChart({
                 />
               </g>
             ))}
-            <text x={pad.l} y={H - 6} fontSize="9" fill="var(--color-subtle)">{points[0] ? new Date(points[0].date).toLocaleDateString() : ""}</text>
-            <text x={W - pad.r} y={H - 6} fontSize="9" textAnchor="end" fill="var(--color-subtle)">{last ? new Date(last.date).toLocaleDateString() : ""}</text>
+            <text x={pad.l} y={H - 6} fontSize="9" fill="var(--color-fg-subtle)">{points[0] ? new Date(points[0].date).toLocaleDateString() : ""}</text>
+            <text x={W - pad.r} y={H - 6} fontSize="9" textAnchor="end" fill="var(--color-fg-subtle)">{last ? new Date(last.date).toLocaleDateString() : ""}</text>
           </svg>
           {hover !== null && points[hover] && (
-            <div className="pointer-events-none absolute -top-1 rounded-md border border-line-strong bg-carbon px-2 py-1 text-xs num shadow-lg"
+            <div className="pointer-events-none absolute -top-1 rounded-md border border-line-strong bg-bg px-2 py-1 text-xs num shadow-lg"
               style={{ left: `${(x(hover) / W) * 100}%`, transform: "translate(-50%, -100%)" }}>
-              {new Date(points[hover].date).toLocaleDateString()} · <span className="text-text">{fmt(points[hover].value)} {unit}</span>
-              {points[hover].uncertainty !== null && <span className="text-subtle"> ± {fmt(points[hover].uncertainty!)}</span>}
+              {new Date(points[hover].date).toLocaleDateString()} · <span className="text-fg">{fmt(points[hover].value)} {unit}</span>
+              {points[hover].uncertainty !== null && <span className="text-fg-subtle"> ± {fmt(points[hover].uncertainty!)}</span>}
             </div>
           )}
         </div>
       )}
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-subtle">
-        {range && <span><span className="inline-block h-2 w-3 bg-lime/25 align-middle mr-1" />coaching range (provisional)</span>}
-        {baseline && <span><span className="inline-block h-2 w-3 border border-dashed border-cyan align-middle mr-1" />your baseline</span>}
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-fg-subtle">
+        {range && <span><span className="inline-block h-2 w-3 bg-ok/25 align-middle mr-1" />coaching range (provisional)</span>}
+        {baseline && <span><span className="inline-block h-2 w-3 border border-dashed border-data align-middle mr-1" />your baseline</span>}
         <button className="ml-auto underline min-h-8" onClick={() => setTable((t) => !t)}>{table ? "Chart" : "Table"}</button>
       </div>
     </figure>

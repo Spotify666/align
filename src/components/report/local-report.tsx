@@ -69,12 +69,12 @@ export function LocalReport({ id }: { id: string }) {
     };
   }, [id]);
 
-  if (state.kind === "loading") return <p className="mx-auto max-w-7xl px-4 py-16 text-muted">Loading report…</p>;
+  if (state.kind === "loading") return <p className="mx-auto max-w-7xl px-4 py-16 text-fg-muted">Loading report…</p>;
   if (state.kind === "missing")
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 space-y-4">
         <h1 className="display text-4xl">Report not on this device</h1>
-        <p className="text-muted">Reports live on the device that made them unless you saved them to your account. Sign in on that device, or open it from Sessions.</p>
+        <p className="text-fg-muted">Reports live on the device that made them unless you saved them to your account. Sign in on that device, or open it from Sessions.</p>
         <Link href="/sessions" className="btn btn-primary">Open sessions</Link>
       </div>
     );

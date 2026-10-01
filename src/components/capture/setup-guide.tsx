@@ -27,7 +27,7 @@ export function CameraPlacementDiagram() {
           </marker>
         </defs>
       </svg>
-      <figcaption className="mt-2 text-sm text-muted">
+      <figcaption className="mt-2 text-sm text-fg-muted">
         Square-on to the batter, landscape, on a tripod or wedged still. Keep the batter, bat, stumps and the bounce zone in frame for the whole delivery.
       </figcaption>
     </figure>
@@ -43,8 +43,8 @@ type LiveCheck = { body: "pass" | "warn" | "fail"; level: "pass" | "warn"; lands
 function Row({ ok, label }: { ok: "pass" | "warn" | "fail"; label: string }) {
   const Icon = ok === "pass" ? Check : ok === "fail" ? CameraOff : Question;
   return (
-    <li className={`flex items-center gap-2 ${ok === "pass" ? "text-lime" : ok === "fail" ? "text-coral" : "text-amber"}`}>
-      <Icon size={16} /> <span className="text-text">{label}</span>
+    <li className={`flex items-center gap-2 ${ok === "pass" ? "text-ok" : ok === "fail" ? "text-bad" : "text-warn"}`}>
+      <Icon size={16} /> <span className="text-fg">{label}</span>
     </li>
   );
 }
@@ -101,7 +101,7 @@ export function LiveFramingCheck() {
 
   return (
     <div className="card overflow-hidden">
-      <div className="relative bg-graphite aspect-video">
+      <div className="relative bg-sunken aspect-video">
         <video ref={video} playsInline muted className={`absolute inset-0 h-full w-full object-cover ${on ? "" : "hidden"}`} />
         <svg viewBox="0 0 160 90" className="absolute inset-0 h-full w-full pointer-events-none" aria-hidden>
           <line x1="0" y1="78" x2="160" y2="78" stroke="#d7a62a" strokeDasharray="2 2" strokeWidth="0.5" />
@@ -112,9 +112,9 @@ export function LiveFramingCheck() {
         {!on && (
           <div className="absolute inset-0 grid place-items-center p-4 text-center">
             <div>
-              <p className="text-sm text-muted">Optional: check framing with your camera. Nothing is recorded or uploaded.</p>
+              <p className="text-sm text-fg-muted">Optional: check framing with your camera. Nothing is recorded or uploaded.</p>
               <button className="btn btn-ghost mt-3" onClick={() => { setErr(null); setOn(true); }}>Start framing check</button>
-              {err && <p className="mt-2 text-xs text-coral">{err}</p>}
+              {err && <p className="mt-2 text-xs text-bad">{err}</p>}
             </div>
           </div>
         )}

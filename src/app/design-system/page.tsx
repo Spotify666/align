@@ -24,7 +24,7 @@ const TOKENS: Array<[string, string, string]> = [
 const Block = ({ title, rules, children }: { title: string; rules: string; children: React.ReactNode }) => (
   <section className="space-y-3">
     <h2 className="display text-3xl">{title}</h2>
-    <p className="text-sm text-muted max-w-3xl">{rules}</p>
+    <p className="text-sm text-fg-muted max-w-3xl">{rules}</p>
     {children}
   </section>
 );
@@ -40,7 +40,7 @@ export default function DesignSystemPage() {
       <header className="space-y-2">
         <p className="eyebrow">Design system · Editorial sports-performance lab</p>
         <h1 className="display text-5xl">Components and states</h1>
-        <p className="text-muted max-w-3xl">Precise, calm, disciplined. Gold marks authority and selection, never “good”. Measurement states always pair colour with an icon and words. Every state below is rendered from the real engine on DEMO DATA.</p>
+        <p className="text-fg-muted max-w-3xl">Precise, calm, disciplined. Gold marks authority and selection, never “good”. Measurement states always pair colour with an icon and words. Every state below is rendered from the real engine on DEMO DATA.</p>
       </header>
 
       <Block title="Tokens" rules="Contrast: body text on carbon ≥ 12:1; muted text ≥ 7:1; subtle text ≥ 5:1. Display: Archivo condensed. UI: Inter. Data: IBM Plex Mono with tabular numerals.">
@@ -48,7 +48,7 @@ export default function DesignSystemPage() {
           {TOKENS.map(([n, hex, use]) => (
             <li key={n} className="card overflow-hidden">
               <div className="h-14" style={{ background: hex }} />
-              <div className="p-2 text-xs"><p className="font-semibold">{n}</p><p className="num text-subtle">{hex}</p><p className="text-muted">{use}</p></div>
+              <div className="p-2 text-xs"><p className="font-semibold">{n}</p><p className="num text-fg-subtle">{hex}</p><p className="text-fg-muted">{use}</p></div>
             </li>
           ))}
         </ul>
@@ -61,7 +61,7 @@ export default function DesignSystemPage() {
             return (
               <li key={k} className={`card border p-4 ${m.ring} ${m.bg}`}>
                 <span className={`chip ${m.ring} ${m.tone}`}><m.Icon size={14} /> {m.label}</span>
-                <p className="mt-2 text-sm text-muted">{k === "valid" ? "Domains, measures and plan follow." : "Technique score withheld — with the reason and what to do next."}</p>
+                <p className="mt-2 text-sm text-fg-muted">{k === "valid" ? "Domains, measures and plan follow." : "Technique score withheld — with the reason and what to do next."}</p>
               </li>
             );
           })}
@@ -98,9 +98,9 @@ export default function DesignSystemPage() {
 
       <Block title="Empty, loading and failed states" rules="Every list and page has all three.">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="card p-5 text-center"><p className="display text-2xl">Nothing recorded yet</p><p className="text-sm text-muted mt-1">Record your first shot.</p></div>
-          <div className="card p-5"><p className="text-sm text-muted">Loading…</p><div className="mt-3 h-1 rounded bg-line overflow-hidden"><div className="h-full w-1/3 bg-gold animate-pulse" /></div></div>
-          <div className="card p-5 border-coral/50"><p className="font-semibold text-coral">Something went wrong</p><p className="text-sm text-muted mt-1">Plain cause, then a retry.</p></div>
+          <div className="card p-5 text-center"><p className="display text-2xl">Nothing recorded yet</p><p className="text-sm text-fg-muted mt-1">Record your first shot.</p></div>
+          <div className="card p-5"><p className="text-sm text-fg-muted">Loading…</p><div className="mt-3 h-1 rounded bg-line overflow-hidden"><div className="h-full w-1/3 bg-brand animate-pulse" /></div></div>
+          <div className="card p-5 border-bad/50"><p className="font-semibold text-bad">Something went wrong</p><p className="text-sm text-fg-muted mt-1">Plain cause, then a retry.</p></div>
         </div>
       </Block>
     </div>

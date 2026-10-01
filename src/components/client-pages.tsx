@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-const Loading = () => <p className="mx-auto max-w-7xl px-4 py-12 text-muted">Loading…</p>;
+const Loading = () => <p className="mx-auto max-w-7xl px-4 py-12 text-fg-muted">Loading…</p>;
 
 // These pages read on-device storage, so they render on the client only.
 export const ProfileClient = dynamic(() => import("./profile/profile-page").then((m) => m.ProfilePage), { ssr: false, loading: Loading });

@@ -5,6 +5,7 @@ import { seek } from "@/lib/capture/pose";
 import type { Marks, TrackingResult } from "@/lib/capture/build-observation";
 import { BONES } from "@/lib/viz";
 import { J } from "@/engine/types";
+import { MarkHint } from "../guide/mark-illustrations";
 
 type Step = "side" | "stumps" | "bounce" | "contact" | "after" | "bat" | "done";
 const ORDER: Step[] = ["side", "stumps", "bounce", "contact", "after", "bat", "done"];
@@ -172,17 +173,22 @@ export function MarkEvidence({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="num text-xs text-subtle">
+        <p className="num text-xs text-fg-subtle">
           Step {ORDER.indexOf(step) + 1} of 6 · everything you mark is labelled “marked by you” in the report
         </p>
-        <button className="chip border-line text-muted min-h-9" onClick={() => setZoom((z) => !z)} aria-pressed={zoom}>
+        <button className="chip border-line text-fg-muted min-h-9" onClick={() => setZoom((z) => !z)} aria-pressed={zoom}>
           {zoom ? "Batter view" : "Full frame"}
         </button>
       </div>
-      <h2 className="display text-3xl">{copy.title}{step === "bat" && ` · ${Math.min(batIndex + 1, batFrames.length)} of ${batFrames.length}`}</h2>
-      <p className="text-muted">{step === "bat" && pending ? "Now tap the toe of the bat." : copy.body}</p>
+      <div className="grid gap-4 sm:grid-cols-[1fr_11rem] sm:items-center">
+        <div>
+          <h2 className="display text-3xl">{copy.title}{step === "bat" && ` · ${Math.min(batIndex + 1, batFrames.length)} of ${batFrames.length}`}</h2>
+          <p className="mt-2 text-fg-muted">{step === "bat" && pending ? "Now tap the toe of the bat." : copy.body}</p>
+        </div>
+        <div className="max-w-[11rem]" aria-hidden>{MarkHint[step]()}</div>
+      </div>
 
-      <div className="relative w-full overflow-hidden rounded-xl border border-line bg-graphite" style={{ aspectRatio: zoom ? "1" : `${aspect}` }}>
+      <div className="relative w-full overflow-hidden rounded-xl border border-line bg-sunken" style={{ aspectRatio: zoom ? "1" : `${aspect}` }}>
         <canvas
           ref={canvas}
           onPointerUp={tappable ? onTap : undefined}
@@ -194,7 +200,7 @@ export function MarkEvidence({
       {step !== "side" && step !== "stumps" && (
         <div className="flex items-center gap-2">
           <button className="chip border-line min-h-11 px-3" onClick={() => setFrame((f) => Math.max(0, f - 1))} aria-label="Previous frame">−1</button>
-          <input type="range" min={0} max={n - 1} value={frame} onChange={(e) => setFrame(Number(e.target.value))} className="flex-1 h-11 accent-[var(--color-gold)]" aria-label="Choose frame" />
+          <input type="range" min={0} max={n - 1} value={frame} onChange={(e) => setFrame(Number(e.target.value))} className="flex-1 h-11 accent-[var(--color-brand)]" aria-label="Choose frame" />
           <button className="chip border-line min-h-11 px-3" onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} aria-label="Next frame">+1</button>
         </div>
       )}
@@ -208,7 +214,7 @@ export function MarkEvidence({
         ) : (
           <>
             {ready && <button className="btn btn-primary" onClick={() => next()}>Confirm and continue</button>}
-            {step === "stumps" && marks.stumpsBase && !marks.stumpsTop && <span className="text-sm text-gold self-center">Base marked — now tap the top.</span>}
+            {step === "stumps" && marks.stumpsBase && !marks.stumpsTop && <span className="text-sm text-brand self-center">Base marked — now tap the top.</span>}
             {copy.skip && (
               <button
                 className="btn btn-ghost"

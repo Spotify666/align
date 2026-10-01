@@ -41,11 +41,11 @@ export function CloudSave({ id }: { id: string }) {
         <Upload size={16} /> Save to account
       </Link>
     );
-  if (s === "saved") return <span className="chip border-lime/50 text-lime">Saved to account</span>;
+  if (s === "saved") return <span className="chip border-ok/50 text-ok">Saved to account</span>;
   if (s === "confirm")
     return (
       <span className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-muted">Store tracks, stills and report in your account (no video)?</span>
+        <span className="text-fg-muted">Store tracks, stills and report in your account (no video)?</span>
         <button className="btn btn-primary !min-h-9 !py-1.5" onClick={async () => { await setConsent("cloud_storage", true); await go(); }}>Agree and save</button>
         <button className="btn btn-ghost !min-h-9 !py-1.5" onClick={() => setS("ready")}>Cancel</button>
       </span>
@@ -55,7 +55,7 @@ export function CloudSave({ id }: { id: string }) {
       <button className="btn btn-ghost !min-h-9 !py-1.5 text-sm" onClick={go} disabled={s === "saving"}>
         <Upload size={16} /> {s === "saving" ? "Saving…" : "Save to account"}
       </button>
-      {s === "error" && <span className="text-xs text-coral" role="alert">{msg}</span>}
+      {s === "error" && <span className="text-xs text-bad" role="alert">{msg}</span>}
     </span>
   );
 }

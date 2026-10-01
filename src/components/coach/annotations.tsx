@@ -52,15 +52,15 @@ export function Annotations({ analysisId, payload }: { analysisId: string; paylo
   return (
     <section className="card p-5 space-y-3" aria-labelledby="notes-h">
       <h2 id="notes-h" className="font-semibold">Coach and athlete notes</h2>
-      <p className="text-xs text-subtle">Notes and shot calls sit beside the model result and never change it.</p>
+      <p className="text-xs text-fg-subtle">Notes and shot calls sit beside the model result and never change it.</p>
       <ul className="space-y-2">
         {rows.map((r) => (
-          <li key={r.id} className="text-sm border-l-2 border-gold/50 pl-3">
-            <span className="text-subtle num text-xs">{new Date(r.created_at).toLocaleString()} · {r.author_id === me ? "you" : "coach"} · {KINDS.find((k) => k.id === r.kind)?.label}</span>
+          <li key={r.id} className="text-sm border-l-2 border-brand/50 pl-3">
+            <span className="text-fg-subtle num text-xs">{new Date(r.created_at).toLocaleString()} · {r.author_id === me ? "you" : "coach"} · {KINDS.find((k) => k.id === r.kind)?.label}</span>
             <p>{r.body.choiceLabel ? <strong>{r.body.choiceLabel}. </strong> : null}{r.body.text}</p>
           </li>
         ))}
-        {!rows.length && <li className="text-sm text-muted">No notes yet.</li>}
+        {!rows.length && <li className="text-sm text-fg-muted">No notes yet.</li>}
       </ul>
       <form
         className="grid gap-2 sm:grid-cols-[10rem_1fr]"
@@ -90,7 +90,7 @@ export function Annotations({ analysisId, payload }: { analysisId: string; paylo
         )}
         <textarea className="field sm:col-span-2 min-h-20" value={text} onChange={(e) => setText(e.target.value)} placeholder="What did you see?" maxLength={2000} required aria-label="Note" />
         <button className="btn btn-primary sm:col-span-2 sm:justify-self-start">Add</button>
-        {err && <p className="text-sm text-coral sm:col-span-2" role="alert">{err}</p>}
+        {err && <p className="text-sm text-bad sm:col-span-2" role="alert">{err}</p>}
       </form>
     </section>
   );

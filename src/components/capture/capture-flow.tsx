@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { analyze } from "@/engine/analyze";
 import { assessCapture } from "@/engine/quality";
 import { encodeTracks, quantise } from "@/engine/tracks-codec";
@@ -16,7 +17,7 @@ import { isSessionUrl, sessionMedia } from "@/lib/session-media";
 import { CaptureChecklist } from "../report/panels";
 import { CameraPlacementDiagram, LiveFramingCheck } from "./setup-guide";
 import { MarkEvidence } from "./mark-evidence";
-import { Check, Lock, Upload, Record as RecordIcon } from "../icons";
+import { Check, Chevron, Lock, Upload, Record as RecordIcon } from "../icons";
 
 type Phase = "intent" | "tier" | "setup" | "source" | "checking" | "gate" | "trim" | "tracking" | "side" | "mark" | "processing" | "error";
 
@@ -261,54 +262,84 @@ export function CaptureFlow() {
   return (
     <>
       <video ref={bindVideo} muted playsInline preload="auto" className="hidden" />
+      <Shell step={STEP_OF[phase]}>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={phase}
+            className="space-y-6"
+            initial={{ opacity: 0, x: 14 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -14 }}
+            transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+          >
       {phase === "intent" && (
-        <Shell step={0}>
+        <>
           <p className="eyebrow">New analysis</p>
-          <h1 className="display text-5xl">What are you working on?</h1>
-          <ul className="grid gap-3">
-            <li>
-              <button className="card w-full p-5 text-left border-gold/60 ring-1 ring-gold/40" onClick={() => setPhase("tier")}>
-                <span className="flex items-center justify-between gap-3">
-                  <span className="text-lg font-semibold">Front-foot defence</span>
-                  <span className="chip border-lime/50 text-lime">Supported</span>
-                </span>
-                <span className="mt-1 block text-sm text-muted">We first confirm the shot really is a forward defence, then measure it.</span>
-              </button>
-            </li>
-            {["Drives", "Pull and hook", "Cut", "Sweep", "Back-foot defence"].map((s) => (
-              <li key={s} className="card p-4 flex items-center justify-between opacity-60">
-                <span>{s}</span>
-                <span className="chip border-line-strong text-subtle"><Lock size={12} /> After validation</span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-sm text-subtle">Other shots unlock only when their data, measures and coaching content pass the same validation bar. Uploading them now still works: they will be recognised and the defence score withheld.</p>
-        </Shell>
+          <h1 className="display text-[2.4rem] sm:text-5xl">What are you working on?</h1>
+          <button
+            className="card card-hover group w-full p-5 text-left border-brand/60 ring-1 ring-brand/30 transition-shadow"
+            onClick={() => setPhase("tier")}
+          >
+            <span className="flex items-center justify-between gap-3">
+              <span className="text-lg font-semibold">Front-foot defence</span>
+              <span className="chip border-ok/50 text-ok">Supported</span>
+            </span>
+            <span className="mt-1 block text-sm text-fg-muted">We first confirm the shot really is a forward defence, then measure it.</span>
+            <span className="btn btn-primary mt-4 w-full sm:w-auto">
+              Start <Chevron size={16} className="transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </button>
+          <div className="card p-5">
+            <p className="font-semibold">What happens next · about 3 minutes</p>
+            <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+              {[
+                "Pick one phone (Quick Check)",
+                "Set the camera: side-on, slow motion",
+                "Add your clip — it stays on your phone",
+                "We check the recording before processing",
+                "Your body is tracked on your phone",
+                "You tap the ball and bat on a few frames",
+                "You get the verdict, measures and one drill",
+              ].map((t, i) => (
+                <li key={t} className="flex gap-2.5"><span className="num flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[0.65rem] font-semibold text-brand">{i + 1}</span><span className="text-fg-muted">{t}</span></li>
+              ))}
+            </ol>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-fg-muted">Coming after validation</p>
+            <ul className="mt-2 flex flex-wrap gap-1.5">
+              {["Drives", "Pull and hook", "Cut", "Sweep", "Back-foot defence"].map((s) => (
+                <li key={s} className="chip border-line text-fg-subtle"><Lock size={12} /> {s}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-sm text-fg-subtle">Uploading these now still works: they are recognised and the defence score is withheld.</p>
+          </div>
+        </>
       )}
 
       {phase === "tier" && (
-        <Shell step={1}>
-          <h1 className="display text-5xl">How will you capture it?</h1>
+        <>
+          <h1 className="display text-[2.4rem] sm:text-5xl">How will you capture it?</h1>
           <div className="grid gap-3">
-            <button className="card p-5 text-left border-gold/60 ring-1 ring-gold/40" onClick={() => setPhase("setup")}>
-              <span className="flex items-center justify-between"><span className="text-lg font-semibold">Quick Check</span><span className="chip border-lime/50 text-lime">Recommended now</span></span>
-              <span className="mt-1 block text-sm text-muted">One phone in slow-motion. Shot family, timing windows and 2D measures; depth values are labelled estimates.</span>
+            <button className="card p-5 text-left border-brand/60 ring-1 ring-brand/40" onClick={() => setPhase("setup")}>
+              <span className="flex items-center justify-between"><span className="text-lg font-semibold">Quick Check</span><span className="chip border-ok/50 text-ok">Recommended now</span></span>
+              <span className="mt-1 block text-sm text-fg-muted">One phone in slow-motion. Shot family, timing windows and 2D measures; depth values are labelled estimates.</span>
             </button>
             <Link href="/sample/session3d" className="card p-5 block">
-              <span className="flex items-center justify-between"><span className="text-lg font-semibold">3D Session</span><span className="chip border-amber/50 text-amber">Preview · demo only</span></span>
-              <span className="mt-1 block text-sm text-muted">Two synced, calibrated phones for triangulated 3D. See how it reports with demo data; live two-phone sync is not available yet.</span>
+              <span className="flex items-center justify-between"><span className="text-lg font-semibold">3D Session</span><span className="chip border-warn/50 text-warn">Preview · demo only</span></span>
+              <span className="mt-1 block text-sm text-fg-muted">Two synced, calibrated phones for triangulated 3D. See how it reports with demo data; live two-phone sync is not available yet.</span>
             </Link>
             <div className="card p-5 opacity-60">
-              <span className="flex items-center justify-between"><span className="text-lg font-semibold">Lab / Academy</span><span className="chip border-line-strong text-subtle">Planned</span></span>
-              <span className="mt-1 block text-sm text-muted">Multi-camera, optional bat sensor and force data.</span>
+              <span className="flex items-center justify-between"><span className="text-lg font-semibold">Lab / Academy</span><span className="chip border-line-strong text-fg-subtle">Planned</span></span>
+              <span className="mt-1 block text-sm text-fg-muted">Multi-camera, optional bat sensor and force data.</span>
             </div>
           </div>
-        </Shell>
+        </>
       )}
 
       {phase === "setup" && (
-        <Shell step={2}>
-          <h1 className="display text-5xl">Set up the camera</h1>
+        <>
+          <h1 className="display text-[2.4rem] sm:text-5xl">Set up the camera</h1>
           <CameraPlacementDiagram />
           <ul className="grid gap-2 text-sm">
             {[
@@ -319,80 +350,80 @@ export function CaptureFlow() {
               "Start before the ball is released; stop after the follow-through",
               "Nobody standing between the camera and the batter",
             ].map((t) => (
-              <li key={t} className="flex gap-2"><Check size={16} className="text-gold mt-0.5 shrink-0" /> {t}</li>
+              <li key={t} className="flex gap-2"><Check size={16} className="text-brand mt-0.5 shrink-0" /> {t}</li>
             ))}
           </ul>
           <LiveFramingCheck />
           <div className="card p-4 space-y-3">
             <p className="font-semibold flex items-center gap-2"><Lock size={16} /> Privacy, before you upload</p>
-            <ul className="text-sm text-muted list-disc pl-5 space-y-1">
+            <ul className="text-sm text-fg-muted list-disc pl-5 space-y-1">
               <li>Your video is processed on this device. It is not uploaded.</li>
               <li>We keep only movement tracks (~20 KB), a few still frames and the report, on this device.</li>
               <li>Cloud saving, coach sharing and any use for model training are separate choices you make later.</li>
             </ul>
             <label className="flex items-start gap-3 text-sm">
-              <input type="checkbox" className="mt-1 h-5 w-5 accent-[var(--color-gold)]" checked={profile.consentProcessing}
+              <input type="checkbox" className="mt-1 h-5 w-5 accent-[var(--color-brand)]" checked={profile.consentProcessing}
                 onChange={(e) => { const p = { ...profile, consentProcessing: e.target.checked }; setProfile(p); saveProfile(p); }} />
               <span>I agree to my movement (biometric) data being processed on this device to produce this analysis.</span>
             </label>
             {minor && (
               <label className="flex items-start gap-3 text-sm">
-                <input type="checkbox" className="mt-1 h-5 w-5 accent-[var(--color-gold)]" checked={guardianOk} onChange={(e) => setGuardianOk(e.target.checked)} />
+                <input type="checkbox" className="mt-1 h-5 w-5 accent-[var(--color-brand)]" checked={guardianOk} onChange={(e) => setGuardianOk(e.target.checked)} />
                 <span>I am under 18 and a parent or guardian has agreed to this.</span>
               </label>
             )}
-            <p className="text-xs text-subtle">
+            <p className="text-xs text-fg-subtle">
               Batting {profile.handedness}-handed{profile.heightCm ? `, ${profile.heightCm} cm` : ", height not set"} · <Link href="/profile" className="underline">change in profile</Link>
             </p>
           </div>
           <button className="btn btn-primary w-full" disabled={!profile.consentProcessing || (minor && !guardianOk)} onClick={() => setPhase("source")}>
             Continue to video
           </button>
-        </Shell>
+        </>
       )}
 
       {phase === "source" && (
-        <Shell step={3}>
-          <h1 className="display text-5xl">Add your front-foot defence clip</h1>
-          <p className="text-muted">Record in your camera app&apos;s slow-motion mode, then choose the clip. MP4 or MOV, under about 30 seconds.</p>
+        <>
+          <h1 className="display text-[2.4rem] sm:text-5xl">Add your front-foot defence clip</h1>
+          <p className="text-fg-muted">Record in your camera app&apos;s slow-motion mode, then choose the clip. MP4 or MOV, under about 30 seconds.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="card p-6 cursor-pointer flex flex-col items-center gap-2 text-center hover:border-line-strong">
-              <Upload size={26} className="text-gold" />
+              <Upload size={26} className="text-brand" />
               <span className="font-semibold">Choose a video</span>
-              <span className="text-xs text-subtle">Best: slow-motion clip from your camera app</span>
+              <span className="text-xs text-fg-subtle">Best: slow-motion clip from your camera app</span>
               <input type="file" accept="video/*,image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
             </label>
             <label className="card p-6 cursor-pointer flex flex-col items-center gap-2 text-center hover:border-line-strong">
-              <RecordIcon size={26} className="text-coral" />
+              <RecordIcon size={26} className="text-bad" />
               <span className="font-semibold">Record now</span>
-              <span className="text-xs text-subtle">Opens your camera (often 30 fps — timing measures may be withheld)</span>
+              <span className="text-xs text-fg-subtle">Opens your camera (often 30 fps — timing measures may be withheld)</span>
               <input type="file" accept="video/*" capture="environment" className="sr-only" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
             </label>
           </div>
-          <p className="text-xs text-subtle">A photo is accepted as a posture screen only: no shot identity, timing, bat or ball claims.</p>
-        </Shell>
+          <p className="text-xs text-fg-subtle">A photo is accepted as a posture screen only: no shot identity, timing, bat or ball claims.</p>
+        </>
       )}
 
       {phase === "checking" && (
-        <Shell step={4}>
+        <>
           <h1 className="display text-4xl">Checking the recording…</h1>
-          <p className="text-muted">Reading frame rate and resolution, sampling frames for light, blur, shake and full-body visibility.</p>
-          <div className="h-1 w-full overflow-hidden rounded bg-line"><div className="h-full w-1/3 animate-pulse bg-gold" /></div>
-        </Shell>
+          <p className="text-fg-muted">Reading frame rate and resolution, sampling frames for light, blur, shake and full-body visibility.</p>
+          <div className="h-1 w-full overflow-hidden rounded bg-line"><div className="h-full w-1/3 animate-pulse bg-brand" /></div>
+        </>
       )}
 
       {phase === "gate" && gate && meta && (
-        <Shell step={4}>
+        <>
           <p className="eyebrow">Quality gate</p>
           <h1 className="display text-4xl">{gate.status === "fail" ? "This recording can't be analysed" : gate.status === "warn" ? "Usable, with warnings" : "Recording looks good"}</h1>
           <dl className="grid grid-cols-3 gap-3 text-sm">
-            <div className="card p-3"><dt className="text-subtle">Frame rate</dt><dd className="num text-lg">{realFps ? `${Math.round(realFps)} fps` : "unknown"}</dd><dd className="text-xs text-subtle">{meta.fpsSource === "container" ? "from file" : meta.fpsSource === "playback" ? "estimated" : ""}</dd></div>
-            <div className="card p-3"><dt className="text-subtle">Resolution</dt><dd className="num text-lg">{meta.width}×{meta.height}</dd></div>
-            <div className="card p-3"><dt className="text-subtle">Length</dt><dd className="num text-lg">{meta.kind === "photo" ? "photo" : `${meta.durationSec.toFixed(1)} s`}</dd></div>
+            <div className="card p-3"><dt className="text-fg-subtle">Frame rate</dt><dd className="num text-lg">{realFps ? `${Math.round(realFps)} fps` : "unknown"}</dd><dd className="text-xs text-fg-subtle">{meta.fpsSource === "container" ? "from file" : meta.fpsSource === "playback" ? "estimated" : ""}</dd></div>
+            <div className="card p-3"><dt className="text-fg-subtle">Resolution</dt><dd className="num text-lg">{meta.width}×{meta.height}</dd></div>
+            <div className="card p-3"><dt className="text-fg-subtle">Length</dt><dd className="num text-lg">{meta.kind === "photo" ? "photo" : `${meta.durationSec.toFixed(1)} s`}</dd></div>
           </dl>
           {meta.kind === "video" && (
             <label className="block text-sm">
-              <span className="text-muted">Was this exported as a slowed-down video (slow-motion baked in)?</span>
+              <span className="text-fg-muted">Was this exported as a slowed-down video (slow-motion baked in)?</span>
               <select className="field mt-1" value={slow} onChange={(e) => { setSlow(Number(e.target.value)); }}>
                 <option value={1}>No — plays at real speed (or it&apos;s a native high-fps file)</option>
                 <option value={4}>Yes — 4× slowed (120 fps slow-mo)</option>
@@ -407,87 +438,109 @@ export function CaptureFlow() {
                 {meta.kind === "photo" ? "Continue with posture screen" : "Continue"}
               </button>
             ) : (
-              <p className="text-sm text-muted w-full">Nothing has been processed — fix the items above and record again.</p>
+              <p className="text-sm text-fg-muted w-full">Nothing has been processed — fix the items above and record again.</p>
             )}
             <button className="btn btn-ghost" onClick={() => { setGate(null); setFile(null); setPhase("source"); }}>Record again</button>
           </div>
-        </Shell>
+        </>
       )}
 
       {phase === "trim" && meta && (
-        <Shell step={4}>
+        <>
           <h1 className="display text-4xl">Choose the moment of the shot</h1>
-          <p className="text-muted">We analyse {WINDOW_SEC} seconds of real time. Slide so the window starts just before the ball is released.</p>
+          <p className="text-fg-muted">We analyse {WINDOW_SEC} seconds of real time. Slide so the window starts just before the ball is released.</p>
           <TrimPreview video={videoEl} start={start} />
           <input type="range" min={0} max={Math.max(0, meta.durationSec - WINDOW_SEC * slow)} step={0.01} value={start}
-            onChange={(e) => setStart(Number(e.target.value))} className="w-full h-11 accent-[var(--color-gold)]" aria-label="Window start" />
-          <p className="num text-sm text-subtle">{start.toFixed(2)} s → {(start + WINDOW_SEC * slow).toFixed(2)} s</p>
+            onChange={(e) => setStart(Number(e.target.value))} className="w-full h-11 accent-[var(--color-brand)]" aria-label="Window start" />
+          <p className="num text-sm text-fg-subtle">{start.toFixed(2)} s → {(start + WINDOW_SEC * slow).toFixed(2)} s</p>
           <button className="btn btn-primary w-full" onClick={track}>Track this window</button>
-        </Shell>
+        </>
       )}
 
       {phase === "tracking" && (
-        <Shell step={5}>
+        <>
           <h1 className="display text-4xl">Tracking batter</h1>
-          <p className="text-muted">Running pose tracking on this device. Keep this screen open.</p>
+          <p className="text-fg-muted">Running pose tracking on this device. Keep this screen open.</p>
           <div className="h-2 w-full overflow-hidden rounded bg-line" role="progressbar" aria-valuenow={progress.done} aria-valuemax={progress.total}>
-            <div className="h-full bg-gold transition-all" style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 5}%` }} />
+            <div className="h-full bg-brand transition-all" style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 5}%` }} />
           </div>
-          <p className="num text-sm text-subtle">{progress.total ? `frame ${progress.done} of ${progress.total}` : "loading the pose model…"}</p>
-        </Shell>
+          <p className="num text-sm text-fg-subtle">{progress.total ? `frame ${progress.done} of ${progress.total}` : "loading the pose model…"}</p>
+        </>
       )}
 
       {phase === "side" && (
-        <Shell step={6}>
+        <>
           <h1 className="display text-4xl">Which side is the bowler?</h1>
-          <p className="text-muted">In the photo, is the bowler&apos;s end to the left or the right?</p>
+          <p className="text-fg-muted">In the photo, is the bowler&apos;s end to the left or the right?</p>
           <div className="flex gap-3">
             <button className="btn btn-ghost flex-1" onClick={() => finish({ ...EMPTY_MARKS, bowlerSide: "left" })}>← Left</button>
             <button className="btn btn-ghost flex-1" onClick={() => finish({ ...EMPTY_MARKS, bowlerSide: "right" })}>Right →</button>
           </div>
-        </Shell>
+        </>
       )}
 
       {phase === "mark" && tracking && videoEl && (
-        <Shell step={6}>
+        <>
           <MarkEvidence video={videoEl} tracking={tracking} marks={marks} onChange={setMarks} onDone={(m) => finish(m)} />
-        </Shell>
+        </>
       )}
 
       {phase === "processing" && (
-        <Shell step={7}>
+        <>
           <h1 className="display text-4xl">Preparing your report</h1>
           <ol className="space-y-2">
             {STAGES.map((s, i) => (
-              <li key={s} className={`flex items-center gap-3 ${i < stage ? "text-text" : "text-subtle"}`}>
-                <span className={`h-5 w-5 rounded-full border ${i < stage ? "bg-gold border-gold" : i === stage ? "border-gold animate-pulse" : "border-line-strong"}`} aria-hidden />
+              <li key={s} className={`flex items-center gap-3 ${i < stage ? "text-fg" : "text-fg-subtle"}`}>
+                <span className={`h-5 w-5 rounded-full border ${i < stage ? "bg-brand border-brand" : i === stage ? "border-brand animate-pulse" : "border-line-strong"}`} aria-hidden />
                 {s}
                 <span className="sr-only">{i < stage ? "done" : i === stage ? "in progress" : "waiting"}</span>
               </li>
             ))}
           </ol>
-        </Shell>
+        </>
       )}
 
       {phase === "error" && (
-        <Shell step={3}>
+        <>
           <h1 className="display text-4xl">Something went wrong</h1>
-          <p className="text-muted">{error}</p>
+          <p className="text-fg-muted">{error}</p>
           <button className="btn btn-primary" onClick={() => setPhase("source")}>Try another file</button>
-        </Shell>
+        </>
       )}
+          </motion.div>
+        </AnimatePresence>
+      </Shell>
     </>
   );
 }
 
+const STEP_NAMES = ["Shot", "Method", "Setup", "Clip", "Check", "Track", "Mark", "Report"];
+const STEP_OF: Record<Phase, number> = { intent: 0, tier: 1, setup: 2, source: 3, checking: 4, gate: 4, trim: 4, tracking: 5, side: 6, mark: 6, processing: 7, error: 3 };
+
 function Shell({ children, step }: { children: React.ReactNode; step: number }) {
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 space-y-6">
-      <ol className="flex gap-1" aria-label="Progress">
-        {["Shot", "Method", "Setup", "Clip", "Check", "Track", "Mark", "Result"].map((s, i) => (
-          <li key={s} className={`h-1 flex-1 rounded-full ${i <= step ? "bg-gold" : "bg-line"}`} title={s} />
-        ))}
-      </ol>
+    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-10">
+      <div className="mb-7 space-y-2.5">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-fg-subtle">
+            Step {step + 1} of {STEP_NAMES.length} · <span className="font-medium text-fg">{STEP_NAMES[step]}</span>
+          </span>
+          <Link href="/guide" className="text-fg-subtle underline-offset-2 hover:text-fg hover:underline">How it works</Link>
+        </div>
+        <ol className="grid grid-cols-8 gap-1.5" aria-label="Progress">
+          {STEP_NAMES.map((s, i) => (
+            <li key={s} className="min-w-0" aria-current={i === step ? "step" : undefined}>
+              <motion.div
+                className="h-1.5 rounded-full"
+                initial={false}
+                animate={{ backgroundColor: i <= step ? "var(--color-brand)" : "var(--color-line)" }}
+                transition={{ duration: 0.3 }}
+              />
+              <span className={`mt-1.5 hidden truncate text-[0.68rem] sm:block ${i === step ? "text-fg font-medium" : "text-fg-subtle"}`}>{s}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
       {children}
     </div>
   );
@@ -509,7 +562,7 @@ function TrimPreview({ video, start }: { video: HTMLVideoElement | null; start: 
       alive = false;
     };
   }, [video, start]);
-  return <canvas ref={c} className="w-full rounded-xl border border-line bg-graphite" aria-label="Frame at window start" />;
+  return <canvas ref={c} className="w-full rounded-xl border border-line bg-sunken" aria-label="Frame at window start" />;
 }
 
 async function estimatePlaybackFps(v: HTMLVideoElement): Promise<number | null> {

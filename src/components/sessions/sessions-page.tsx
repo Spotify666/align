@@ -48,7 +48,7 @@ export function SessionsPage() {
     setItems((xs) => xs?.map((x) => (x.id === id ? { ...x, ...p } : x)) ?? null);
   };
 
-  if (items === null) return <p className="mx-auto max-w-7xl px-4 py-12 text-muted">Loading…</p>;
+  if (items === null) return <p className="mx-auto max-w-7xl px-4 py-12 text-fg-muted">Loading…</p>;
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 py-10 space-y-6">
@@ -73,7 +73,7 @@ export function SessionsPage() {
       {items.length === 0 && cloudOnly.length === 0 ? (
         <div className="card p-8 text-center space-y-3">
           <p className="display text-3xl">Nothing recorded yet</p>
-          <p className="text-muted">Your analyses stay on this device. Sample reports show every outcome.</p>
+          <p className="text-fg-muted">Your analyses stay on this device. Sample reports show every outcome.</p>
           <div className="flex justify-center gap-3 flex-wrap">
             <Link href="/analyse" className="btn btn-primary">Record your first shot</Link>
             <Link href="/sample" className="btn btn-ghost">Sample reports</Link>
@@ -88,9 +88,9 @@ export function SessionsPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   <StatusPill payload={p} />
                   <Link href={`/report/${a.id}`} className="font-semibold hover:underline">{a.title}</Link>
-                  <span className="num text-xs text-subtle">{new Date(a.recordedAt).toLocaleString()}</span>
-                  {a.cloud && <span className="chip border-lime/40 text-lime">in account</span>}
-                  <span className="ml-auto text-sm text-muted">
+                  <span className="num text-xs text-fg-subtle">{new Date(a.recordedAt).toLocaleString()}</span>
+                  {a.cloud && <span className="chip border-ok/40 text-ok">in account</span>}
+                  <span className="ml-auto text-sm text-fg-muted">
                     {p.analysis_status === "invalid_for_requested_analysis" && p.observed_shot
                       ? `Played: ${p.observed_shot.label === "unknown" ? p.observed_shot.display : SHOT_DISPLAY[p.observed_shot.label]}`
                       : p.priorities[0]
@@ -99,23 +99,23 @@ export function SessionsPage() {
                   </span>
                 </div>
                 <details className="mt-2">
-                  <summary className="text-sm text-subtle min-h-9">Notes, tags and baseline</summary>
+                  <summary className="text-sm text-fg-subtle min-h-9">Notes, tags and baseline</summary>
                   <div className="mt-2 grid gap-3 sm:grid-cols-2">
                     <label className="text-sm">
-                      <span className="text-muted">Title</span>
+                      <span className="text-fg-muted">Title</span>
                       <input className="field mt-1" defaultValue={a.title} maxLength={120} onBlur={(e) => patch(a.id, { title: e.target.value })} />
                     </label>
                     <label className="text-sm">
-                      <span className="text-muted">Tags (comma separated)</span>
+                      <span className="text-fg-muted">Tags (comma separated)</span>
                       <input className="field mt-1" defaultValue={a.tags.join(", ")} onBlur={(e) => patch(a.id, { tags: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) })} />
                     </label>
                     <label className="text-sm sm:col-span-2">
-                      <span className="text-muted">Notes</span>
+                      <span className="text-fg-muted">Notes</span>
                       <textarea className="field mt-1 min-h-20" defaultValue={a.notes} maxLength={4000} onBlur={(e) => patch(a.id, { notes: e.target.value })} />
                     </label>
                     {p.analysis_status === "valid" && (
                       <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" className="h-5 w-5 accent-[var(--color-gold)]" checked={a.representative} onChange={(e) => patch(a.id, { representative: e.target.checked })} />
+                        <input type="checkbox" className="h-5 w-5 accent-[var(--color-brand)]" checked={a.representative} onChange={(e) => patch(a.id, { representative: e.target.checked })} />
                         Representative attempt — use for my baseline
                       </label>
                     )}
@@ -128,8 +128,8 @@ export function SessionsPage() {
             <li key={c.id} className="card p-4 flex flex-wrap items-center gap-3">
               <StatusPill payload={{ analysis_status: c.status, mode: "video" }} />
               <Link href={`/report/${c.id}`} className="font-semibold hover:underline">{c.title ?? "Saved shot"}</Link>
-              <span className="num text-xs text-subtle">{new Date(c.recorded_at).toLocaleString()}</span>
-              <span className="chip border-cyan/40 text-cyan">account only</span>
+              <span className="num text-xs text-fg-subtle">{new Date(c.recorded_at).toLocaleString()}</span>
+              <span className="chip border-data/40 text-data">account only</span>
             </li>
           ))}
         </ul>

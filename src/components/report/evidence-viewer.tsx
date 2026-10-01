@@ -12,7 +12,7 @@ import { Pause, Play } from "../icons";
 
 const Scene3D = dynamic(() => import("./scene-3d"), {
   ssr: false,
-  loading: () => <div className="absolute inset-0 grid place-items-center text-sm text-subtle">Loading 3D…</div>,
+  loading: () => <div className="absolute inset-0 grid place-items-center text-sm text-fg-subtle">Loading 3D…</div>,
 });
 
 export type ViewMode = "original" | "overlay" | "3d" | "compare";
@@ -335,16 +335,16 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
   }, [playing, slow, n, obs.media.fps, isPhoto]);
 
   const modes: Array<{ id: ViewMode; label: string; disabled?: boolean }> = [
-    { id: "original", label: videoUrl || keyframes ? "Original" : "Pitch only" },
-    { id: "overlay", label: videoUrl || keyframes ? "Tracked" : "Reconstruction" },
+    { id: "original", label: videoUrl || keyframes ? "Video" : "Pitch" },
+    { id: "overlay", label: "Tracked" },
     { id: "3d", label: "3D" },
     { id: "compare", label: "Compare", disabled: !reference },
   ];
 
   return (
     <section ref={wrap} aria-label="Evidence viewer" className="card overflow-hidden">
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
-        <div role="tablist" aria-label="View" className="flex rounded-lg border border-line p-0.5">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2.5">
+        <div role="tablist" aria-label="View" className="grid w-full grid-cols-4 rounded-xl border border-line bg-sunken p-0.5 sm:w-auto">
           {modes.map((m) => (
             <button
               key={m.id}
@@ -352,7 +352,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
               aria-selected={mode === m.id}
               disabled={m.disabled}
               onClick={() => setMode(m.id)}
-              className={`min-h-9 rounded-md px-3 text-sm ${mode === m.id ? "bg-raised text-text" : "text-muted"} disabled:opacity-40`}
+              className={`min-h-9 whitespace-nowrap rounded-[10px] px-3 text-sm transition-colors ${mode === m.id ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg"} disabled:opacity-40`}
               title={m.disabled ? "Needs a reference shot" : undefined}
             >
               {m.label}
@@ -362,22 +362,22 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
         {(mode === "overlay" || mode === "original") && (
           <div className="flex flex-wrap gap-1 text-xs" role="group" aria-label="Layers">
             {(Object.keys(layers) as Array<keyof typeof layers>).map((k) => (
-              <label key={k} className="chip cursor-pointer border-line text-muted has-[:checked]:text-text">
-                <input type="checkbox" className="accent-[var(--color-gold)]" checked={layers[k]} onChange={() => setLayers((l) => ({ ...l, [k]: !l[k] }))} />
+              <label key={k} className="chip cursor-pointer border-line text-fg-muted has-[:checked]:text-fg">
+                <input type="checkbox" className="accent-[var(--color-brand)]" checked={layers[k]} onChange={() => setLayers((l) => ({ ...l, [k]: !l[k] }))} />
                 {k === "centre" ? "centre / base" : k}
               </label>
             ))}
           </div>
         )}
         {(mode === "overlay" || mode === "original") && (
-          <button onClick={() => setZoom((z) => !z)} className="chip border-line text-muted min-h-9" aria-pressed={zoom}>
-            {zoom ? "Batter view" : "Full frame"}
+          <button onClick={() => setZoom((z) => !z)} className="chip border-line text-fg-muted min-h-9" aria-pressed={zoom}>
+            {zoom ? "Zoomed to batter" : "Zoom to batter"}
           </button>
         )}
         {payload.demo && <span className="demo-badge ml-auto">DEMO DATA · no video</span>}
       </div>
 
-      <div className="relative w-full bg-graphite" style={{ aspectRatio: `${aspect}` }}>
+      <div className="stage relative w-full" style={{ aspectRatio: `${aspect}` }}>
         {videoUrl && (
           <video ref={video} src={videoUrl} muted playsInline preload="auto" className="hidden" onSeeked={draw} onLoadedData={draw} />
         )}
@@ -392,7 +392,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
           <canvas ref={canvas} className="absolute inset-0 h-full w-full" role="img" aria-label={`Frame ${frame + 1}: tracked body, bat and ball overlay`} />
         )}
         {highlight && mode === "overlay" && (
-          <button onClick={() => setHighlight(null)} className="absolute right-2 top-2 chip border-gold/60 bg-carbon/80 text-gold">
+          <button onClick={() => setHighlight(null)} className="absolute right-2 top-2 chip !bg-black/70 !border-white/20 !text-white">
             {highlight.replaceAll("_", " ")} · clear
           </button>
         )}
@@ -404,11 +404,11 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
             <button onClick={() => setPlaying((p) => !p)} className="btn btn-ghost !min-h-10 !px-3" aria-label={playing ? "Pause" : "Play"}>
               {playing ? <Pause size={16} /> : <Play size={16} />}
             </button>
-            <button onClick={() => setSlow((s) => !s)} className="chip border-line text-muted min-h-9" aria-pressed={slow}>
+            <button onClick={() => setSlow((s) => !s)} className="chip border-line text-fg-muted min-h-9" aria-pressed={slow}>
               {slow ? "¼ speed" : "1× speed"}
             </button>
-            <button onClick={() => setFrame((f) => Math.max(0, f - 1))} className="chip border-line text-muted min-h-9" aria-label="Previous frame">−1 f</button>
-            <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} className="chip border-line text-muted min-h-9" aria-label="Next frame">+1 f</button>
+            <button onClick={() => setFrame((f) => Math.max(0, f - 1))} className="chip border-line text-fg-muted min-h-9" aria-label="Previous frame">−1 f</button>
+            <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} className="chip border-line text-fg-muted min-h-9" aria-label="Next frame">+1 f</button>
           </div>
           <PhaseTimeline events={payload.events} frames={n} frame={frame} times={obs.t} onSeek={(f) => { setPlaying(false); setFrame(f); }} />
         </div>

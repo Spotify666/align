@@ -44,20 +44,20 @@ export function CoachPage() {
     });
   }, []);
 
-  if (user === undefined) return <p className="mx-auto max-w-7xl px-4 py-12 text-muted">Loading…</p>;
+  if (user === undefined) return <p className="mx-auto max-w-7xl px-4 py-12 text-fg-muted">Loading…</p>;
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 space-y-8">
       <header>
         <p className="eyebrow">Coach workspace</p>
         <h1 className="display text-5xl mt-2">Consistent evidence across a squad.</h1>
-        <p className="mt-3 text-muted max-w-2xl">Players stay in control: they link you with your invite code and choose what to save. Your notes and shot calls sit beside the model result and never overwrite it.</p>
+        <p className="mt-3 text-fg-muted max-w-2xl">Players stay in control: they link you with your invite code and choose what to save. Your notes and shot calls sit beside the model result and never overwrite it.</p>
       </header>
 
       {!user ? (
         <div className="card p-6 space-y-3">
           <p className="font-semibold flex items-center gap-2"><Users /> Sign in to coach</p>
-          <ol className="list-decimal pl-5 text-sm text-muted space-y-1">
+          <ol className="list-decimal pl-5 text-sm text-fg-muted space-y-1">
             <li>Sign in and create an invite code here.</li>
             <li>Your player enters the code in their Profile — that is their consent to share.</li>
             <li>Their saved front-foot defences appear in your review queue.</li>
@@ -83,12 +83,12 @@ export function CoachPage() {
             >
               Create invite code
             </button>
-            {msg && <p className="text-sm text-coral">{msg}</p>}
+            {msg && <p className="text-sm text-bad">{msg}</p>}
             <ul className="space-y-1">
               {codes.map((c) => (
                 <li key={c.code} className="flex flex-wrap items-center gap-3 text-sm">
                   <span className="num text-lg tracking-wider">{c.code}</span>
-                  <span className="text-subtle">expires {new Date(c.expires_at).toLocaleDateString()}</span>
+                  <span className="text-fg-subtle">expires {new Date(c.expires_at).toLocaleDateString()}</span>
                   <button className="chip border-line min-h-9" onClick={() => navigator.clipboard?.writeText(c.code)}>Copy</button>
                 </li>
               ))}
@@ -98,13 +98,13 @@ export function CoachPage() {
           <section className="space-y-3">
             <h2 className="display text-3xl">Roster</h2>
             {players.length === 0 ? (
-              <p className="text-muted">No players linked yet.</p>
+              <p className="text-fg-muted">No players linked yet.</p>
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2">
                 {players.map((p) => (
                   <li key={p.player_id} className="card p-4 flex items-center justify-between">
                     <span>{p.name ?? `Player ${p.player_id.slice(0, 6)}`}</span>
-                    <span className={`chip ${p.status === "active" ? "border-lime/40 text-lime" : "border-line-strong text-subtle"}`}>{p.status}</span>
+                    <span className={`chip ${p.status === "active" ? "border-ok/40 text-ok" : "border-line-strong text-fg-subtle"}`}>{p.status}</span>
                   </li>
                 ))}
               </ul>
@@ -114,15 +114,15 @@ export function CoachPage() {
           <section className="space-y-3">
             <h2 className="display text-3xl">Review queue</h2>
             {queue.length === 0 ? (
-              <p className="text-muted">Saved shots from linked players appear here.</p>
+              <p className="text-fg-muted">Saved shots from linked players appear here.</p>
             ) : (
               <ul className="space-y-2">
                 {queue.map((q) => (
                   <li key={q.id} className="card p-4 flex flex-wrap items-center gap-3">
                     <StatusPill payload={{ analysis_status: q.status, mode: "video" }} />
                     <Link href={`/report/${q.id}`} className="font-semibold hover:underline">{q.title ?? "Shot"}</Link>
-                    <span className="num text-xs text-subtle">{new Date(q.recorded_at).toLocaleString()}</span>
-                    <span className="ml-auto">{q.reviewed ? <span className="chip border-lime/40 text-lime">reviewed</span> : <span className="chip border-gold/50 text-gold">to review</span>}</span>
+                    <span className="num text-xs text-fg-subtle">{new Date(q.recorded_at).toLocaleString()}</span>
+                    <span className="ml-auto">{q.reviewed ? <span className="chip border-ok/40 text-ok">reviewed</span> : <span className="chip border-brand/50 text-brand">to review</span>}</span>
                   </li>
                 ))}
               </ul>

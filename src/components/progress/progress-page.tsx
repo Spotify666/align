@@ -40,7 +40,7 @@ export function ProgressPage() {
     n: data.filter((r) => r.payload.analysis_status === s).length,
   }));
 
-  if (rows === null) return <p className="mx-auto max-w-7xl px-4 py-12 text-muted">Loading…</p>;
+  if (rows === null) return <p className="mx-auto max-w-7xl px-4 py-12 text-fg-muted">Loading…</p>;
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 space-y-8">
@@ -49,8 +49,8 @@ export function ProgressPage() {
           <p className="eyebrow">Progress · front-foot defence</p>
           <h1 className="display text-5xl mt-2">Change you can measure.</h1>
         </div>
-        <label className="chip border-line-strong text-muted min-h-10 cursor-pointer">
-          <input type="checkbox" className="accent-[var(--color-gold)]" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
+        <label className="chip border-line-strong text-fg-muted min-h-10 cursor-pointer">
+          <input type="checkbox" className="accent-[var(--color-brand)]" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
           Show demo athlete
         </label>
       </header>
@@ -59,7 +59,7 @@ export function ProgressPage() {
       {data.length === 0 ? (
         <div className="card p-8 text-center space-y-3">
           <p className="display text-3xl">No front-foot defences yet</p>
-          <p className="text-muted">Record your first shot. Trends appear after two valid defences; your baseline after {th("baseline.min_deliveries")}.</p>
+          <p className="text-fg-muted">Record your first shot. Trends appear after two valid defences; your baseline after {th("baseline.min_deliveries")}.</p>
           <div className="flex justify-center gap-3 flex-wrap">
             <Link href="/analyse" className="btn btn-primary">Analyse front-foot defence</Link>
             <button className="btn btn-ghost" onClick={() => setDemo(true)}>See a demo athlete</button>
@@ -83,17 +83,17 @@ export function ProgressPage() {
           <section className="card p-5 flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-60">
               <p className="font-semibold">Personal baseline</p>
-              <p className="text-sm text-muted">
+              <p className="text-sm text-fg-muted">
                 {baseline.established
                   ? `Established from ${baseline.n} valid defences${baseline.repeatability !== null ? ` · repeatability ${Math.round(baseline.repeatability * 100)}%` : ""}.`
                   : `${valid.length} of ${th("baseline.min_deliveries")} valid defences recorded.`}
               </p>
             </div>
-            <p className="text-xs text-subtle max-w-md">Your baseline (dashed) is separate from the provisional coaching range (shaded). A change only counts when it is larger than the measurement uncertainty.</p>
+            <p className="text-xs text-fg-subtle max-w-md">Your baseline (dashed) is separate from the provisional coaching range (shaded). A change only counts when it is larger than the measurement uncertainty.</p>
           </section>
 
           {valid.length < 2 ? (
-            <p className="text-muted">Trends need at least two valid front-foot defences.</p>
+            <p className="text-fg-muted">Trends need at least two valid front-foot defences.</p>
           ) : (
             <section aria-labelledby="trends" className="space-y-3">
               <h2 id="trends" className="display text-3xl">Movement indicators over time</h2>
