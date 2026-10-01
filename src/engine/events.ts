@@ -1,6 +1,7 @@
 // Stage D — event segmentation from temporal evidence.
-// Contact is taken from bat–ball proximity, ball deflection or an explicit mark.
-// It is never chosen as "the frame where the hands are lowest".
+// Contact is taken from bat–ball proximity, ball deflection or an explicit mark. When
+// neither bat nor ball is seen it is estimated from the hands (where they reach
+// furthest forward after the stride), at lower confidence and labelled as such.
 
 import { argmax, argmin, derivative, len2, smooth } from "./math";
 import { type P, type Scene, sweetSpot } from "./scene";
@@ -13,6 +14,34 @@ export interface EventSet {
 
 const series = (scene: Scene, pick: (i: number) => P | null, key: "f" | "u") =>
   Array.from({ length: scene.n }, (_, i) => pick(i)?.[key] ?? NaN);
+
+/** Mid-point of the two wrists (or whichever is seen), per frame. */
+export function handsSeries(scene: Scene, key: "f" | "u"): number[] {
+  return Array.from({ length: scene.n }, (_, i) => {
+    const a = scene.get(i, "front_wrist");
+    const b = scene.get(i, "back_wrist");
+    return a && b ? (a[key] + b[key]) / 2 : (a?.[key] ?? b?.[key] ?? NaN);
+  });
+}
+
+/**
+ * Where the hands reach furthest forward after `anchor` (front-foot plant, contact or
+ * top of the backlift), with the smoothed hand speed series. Null without an anchor.
+ */
+export function handsForward(scene: Scene, anchor: number, r = 1) {
+  if (anchor < 0 || !scene.dt) return null;
+  const dt = scene.dt;
+  const hf = smooth(handsSeries(scene, "f"), r);
+  const hu = smooth(handsSeries(scene, "u"), r);
+  const speed = hf.map((_, i) => {
+    const a = i - 1;
+    const b = i + 1;
+    return Number.isFinite(hf[a]!) && Number.isFinite(hf[b]!) ? Math.hypot(hf[b]! - hf[a]!, hu[b]! - hu[a]!) / (2 * dt) : NaN;
+  });
+  const from = Math.max(0, anchor - Math.round(0.2 / dt));
+  const at = argmax(hf, from, Math.min(scene.n - 1, anchor + Math.round(0.45 / dt)));
+  return at >= 0 ? { at, from, hf, hu, speed } : null;
+}
 
 function firstIndex(xs: number[], pred: (x: number, i: number) => boolean, from = 0, to = xs.length - 1) {
   for (let i = Math.max(0, from); i <= Math.min(xs.length - 1, to); i++) if (pred(xs[i]!, i)) return i;
@@ -58,9 +87,10 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
   const front0 = frontF.slice(0, Math.max(2, Math.round(scene.n * 0.15))).filter(Number.isFinite);
   const frontStart = front0.length ? front0.reduce((a, b) => a + b, 0) / front0.length : NaN;
   const peakFwd = argmax(frontF);
+  let plant = -1;
   if (peakFwd >= 0 && frontF[peakFwd]! - frontStart > 0.08 * S) {
     const moveStart = firstIndex(frontV, (v) => v > moveThr);
-    const plant = firstIndex(frontV, (v, i) => i > moveStart && Math.abs(v) < 0.12 * S && frontF[i]! - frontStart > 0.06 * S, moveStart);
+    plant = firstIndex(frontV, (v, i) => i > moveStart && Math.abs(v) < 0.12 * S && frontF[i]! - frontStart > 0.06 * S, moveStart);
     if (plant >= 0) add("front_foot_plant", plant, 0.8, "front ankle speed settles after forward stride");
   }
 
@@ -148,6 +178,30 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
     contact = obs.marks.contactFrame;
     contactMethod = "marked by user";
     contactConf = 0.7;
+  }
+
+  // Neither bat nor ball: a front-foot stroke meets the ball with the head at its lowest
+  // over the front knee, and impact checks the hands. Contact is where hand speed first
+  // drops below 40% of its downswing peak, around the lowest head in the shot (searched
+  // away from the clip's edges, where batters bend to pick up the ball or walk off).
+  const hasToeEarly = scene.batToe.filter(Boolean).length > scene.n * 0.4;
+  if (contact < 0 && !hasToeEarly && !hasBall) {
+    const headU = smooth(series(scene, (i) => scene.get(i, "head"), "u"), 2 * r);
+    const low = argmin(headU, Math.round(scene.n * 0.2), Math.round(scene.n * 0.9));
+    const fwd = low >= 0 ? handsForward(scene, low, r) : null;
+    if (fwd) {
+      const from = Math.max(0, low - Math.round(0.3 / dt));
+      const to = Math.min(scene.n - 1, low + Math.round(0.15 / dt));
+      const peak = argmax(fwd.speed, from, to);
+      const drop = peak >= 0 ? firstIndex(fwd.speed, (v) => v < 0.4 * fwd.speed[peak]!, peak, to) : -1;
+      contact = drop >= 0 ? drop : low;
+      contactMethod = "estimated from the head and hands (bat and ball not seen)";
+      contactConf = 0.5;
+    } else if (low >= 0) {
+      contact = low;
+      contactMethod = "estimated from the lowest head position (bat and ball not seen)";
+      contactConf = 0.5;
+    }
   }
 
   // Bat-driven events.

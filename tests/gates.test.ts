@@ -111,3 +111,61 @@ describe("classification stability across 40 noise seeds", () => {
     }
   });
 });
+
+// The usual phone clip: neither bat nor ball is seen, so the verdict rests on body and
+// hand movement. The same rule holds: no pull or drive may ever be accepted.
+describe("release gate without bat or ball: no pull or drive may be accepted", () => {
+  const bare = { withBat: false, withBall: false } as const;
+  const variants: Array<[string, CaptureObservation]> = [];
+  for (const key of ["pull", "drive", "front_on_pull", "front_on_drive", "occluded"]) {
+    const spec = FIXTURE_SPECS.find((s) => s.key === key)!;
+    for (let seed = 1; seed <= 12; seed++) variants.push([`${key} seed ${seed}`, generate({ ...spec.options, ...bare, seed, id: `${key}_bare_${seed}` })]);
+    for (const fps of [30, 60, 240]) variants.push([`${key} ${fps} fps`, generate({ ...spec.options, ...bare, fps, id: `${key}_bare_${fps}` })]);
+    variants.push([`${key} left-handed`, generate({ ...spec.options, ...bare, handedness: "left", id: `${key}_bare_lh` })]);
+    variants.push([`${key} noisy`, generate({ ...spec.options, ...bare, noise: 0.012, id: `${key}_bare_noisy` })]);
+    for (const view of ["front_on", "behind", "side_on"] as const) {
+      const o = generate({ ...spec.options, ...bare, id: `${key}_bare_${view}` });
+      variants.push([`${key} labelled ${view}`, { ...o, camera: { ...o.camera, view } }]);
+    }
+  }
+  const behind = FIXTURE_SPECS.find((s) => s.key === "pull")!;
+  for (let seed = 1; seed <= 5; seed++) variants.push([`pull behind seed ${seed}`, generate({ ...behind.options, ...bare, view: "behind", seed, id: `pull_bh_bare_${seed}` })]);
+
+  it.each(variants)("%s", (_, obs) => {
+    const p = analyze(obs, opts);
+    expect(p.analysis_status).not.toBe("valid");
+    expect(p.technique_index).toBeNull();
+    expect(p.metrics.filter((m) => m.inRange !== null)).toHaveLength(0);
+  });
+
+  it("confirms defences from body and hands at least 95% of the time, and rejects pulls and drives", { timeout: 60000 }, () => {
+    const rate = (key: string, expected: string, extra: Record<string, unknown> = {}) => {
+      const spec = FIXTURE_SPECS.find((s) => s.key === key)!;
+      let hits = 0;
+      for (let seed = 1; seed <= 40; seed++) if (analyze(generate({ ...spec.options, ...bare, ...extra, seed }), opts).analysis_status === expected) hits++;
+      return hits / 40;
+    };
+    for (const extra of [{}, { fps: 30 }]) {
+      expect(rate("valid_ffd", "valid", extra)).toBeGreaterThanOrEqual(0.95);
+      expect(rate("front_on_ffd", "valid", extra)).toBeGreaterThanOrEqual(0.95);
+      expect(rate("pull", "invalid_for_requested_analysis", extra)).toBeGreaterThanOrEqual(0.95);
+      expect(rate("drive", "invalid_for_requested_analysis", extra)).toBeGreaterThanOrEqual(0.95);
+      expect(rate("front_on_drive", "invalid_for_requested_analysis", extra)).toBeGreaterThanOrEqual(0.95);
+    }
+  });
+
+  it("says what confirmed the shot and never claims bat or ball measures", () => {
+    const spec = FIXTURE_SPECS.find((s) => s.key === "valid_ffd")!;
+    const p = analyze(generate({ ...spec.options, ...bare }), opts);
+    expect(p.analysis_status).toBe("valid");
+    expect(p.evidence_basis).toBe("body");
+    expect(p.events.find((e) => e.type === "contact")?.method).toMatch(/hands/);
+    expect(p.limitations.some((l) => l.id === "lim_body_led")).toBe(true);
+    expect(p.delivery.available).toBe(false);
+    for (const id of ["bat_angle_contact", "bat_speed_contact", "ball_exit_speed", "decision_timing", "contact_ahead_of_knee", "bat_pad_gap"]) {
+      const m = p.metrics.find((x) => x.id === id);
+      expect(!m || m.status === "not_measured", id).toBe(true);
+    }
+    expect(p.metrics.filter((m) => m.status !== "not_measured").length).toBeGreaterThan(3);
+  });
+});

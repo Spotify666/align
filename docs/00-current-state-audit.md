@@ -16,7 +16,7 @@ Status as of 2026-10-01. Align is a new product: it does not reuse CricShot code
 ## Gaps that matter
 
 1. **No real-athlete validation yet.** Thresholds and coaching ranges are provisional. No accuracy figure is published.
-2. **Bat and ball are not detected automatically.** The on-device detector sees bats only weakly (used as a hint for who is batting) and balls rarely. Without marks a video gives "shot uncertain" with ungraded body observations; marking from the report unlocks the full verdict. A trained bat/ball detector is the next capture milestone.
+2. **Bat and ball are not detected automatically.** The on-device detector sees bats only weakly (used as a hint for who is batting) and balls rarely. Without them a defence is confirmed from body and hand movement against a stricter rule (see 02). Bat and delivery measures then need marks from the report. A trained bat/ball detector is the next capture milestone.
 3. **Classifier is uncalibrated.** It is a transparent prototype-band model. Calibration needs labelled clips.
 4. **3D Session tier** (two calibrated phones) is a preview. Depth-dependent measures show "not measured" on one phone.
 6. **Front-on accuracy** rests on MediaPipe's monocular depth estimate. It is validated on synthetic data only; real-clip validation is part of Phase 2.

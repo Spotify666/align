@@ -276,13 +276,13 @@ export const FIXTURE_SPECS: FixtureSpec[] = [
   {
     key: "no_ball",
     title: "Ball not visible",
-    expectation: "uncertain_shot (ball_missing) — no delivery-context claim",
+    expectation: "valid, confirmed from body, hands and bat — ball measures and delivery context not reported",
     options: { ...common, id: "fx_no_ball", label: "Defence, ball out of frame", seed: 66, handedness: "right", script: ffdScript(ATTEMPT), withBall: false },
   },
   {
     key: "no_bat",
     title: "Bat not visible",
-    expectation: "uncertain_shot (bat_missing) — no bat-path or contact claim",
+    expectation: "valid, confirmed from body and hand movement — no bat-path or bat-angle claim",
     options: { ...common, id: "fx_no_bat", label: "Defence, bat not tracked", seed: 77, handedness: "right", script: ffdScript(ATTEMPT), withBat: false },
   },
   {

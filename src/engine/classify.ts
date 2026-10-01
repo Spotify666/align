@@ -27,6 +27,13 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     length_short: [0, 0.32, 0.15, 1],
     ball_exit: [0, 4.6, 1.2, 1],
     contact_found: [0.8, 1, 0.2, 0.6],
+    // Hands stand in for the bat when it isn't tracked.
+    hand_speed: [0, 1.5, 0.35, 1.2],
+    hands_follow: [0, 0.22, 0.07, 1],
+    // A defence finishes with the hands low and checked; higher suggests the bat came through.
+    hands_finish: [0.3, 0.6, 0.05, 1.2],
+    hands_across: [0, 0.22, 0.06, 1],
+    head_height: [0.55, 0.88, 0.04, 1],
   },
   front_foot_drive: {
     front_stride: [0.22, 0.56, 0.06, 1],
@@ -42,6 +49,12 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     length_short: [0, 0.32, 0.15, 1],
     ball_exit: [8, 30, 2, 1.2],
     contact_found: [0.8, 1, 0.2, 0.6],
+    // Hands stand in for the bat when it isn't tracked.
+    hand_speed: [2.2, 14, 0.6, 1.2],
+    hands_follow: [0.25, 3, 0.07, 1],
+    hands_finish: [0.85, 1.6, 0.08, 1.2],
+    hands_across: [0, 0.45, 0.08, 0.6],
+    head_height: [0.55, 0.9, 0.04, 1],
   },
   back_foot_defence: {
     front_stride: [-0.06, 0.12, 0.05, 1],
@@ -57,6 +70,12 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     length_short: [0.5, 1, 0.15, 1],
     ball_exit: [0, 4.6, 1.2, 1],
     contact_found: [0.8, 1, 0.2, 0.6],
+    // Hands stand in for the bat when it isn't tracked.
+    hand_speed: [0, 1.5, 0.35, 1.2],
+    hands_follow: [0, 0.22, 0.07, 1],
+    hands_finish: [0.45, 0.85, 0.06, 1],
+    hands_across: [0, 0.22, 0.06, 1],
+    head_height: [0.86, 1.02, 0.04, 1],
   },
   pull: {
     front_stride: [-0.1, 0.2, 0.06, 0.8],
@@ -73,6 +92,12 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     // Side-on view: square-of-wicket exits are mostly out of plane, so 2D exit speed is uninformative.
     ball_exit: [0, 30, 2, 0.2],
     contact_found: [0.8, 1, 0.2, 0.6],
+    // Hands stand in for the bat when it isn't tracked.
+    hand_speed: [0, 14, 0.6, 0.3],
+    hands_follow: [0, 3, 0.1, 0.3],
+    hands_finish: [0.75, 1.5, 0.08, 1],
+    hands_across: [0.35, 2, 0.08, 1],
+    head_height: [0.88, 1.05, 0.04, 1],
   },
   hook: {
     front_stride: [-0.1, 0.2, 0.06, 0.8],
@@ -88,6 +113,12 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     length_short: [0.65, 1, 0.15, 1.2],
     ball_exit: [0, 30, 2, 0.2],
     contact_found: [0.8, 1, 0.2, 0.6],
+    // Hands stand in for the bat when it isn't tracked.
+    hand_speed: [0, 14, 0.6, 0.3],
+    hands_follow: [0, 3, 0.1, 0.3],
+    hands_finish: [0.85, 1.6, 0.08, 1],
+    hands_across: [0.35, 2, 0.08, 1],
+    head_height: [0.88, 1.08, 0.04, 1],
   },
   cut: {
     front_stride: [-0.08, 0.22, 0.06, 0.8],
@@ -103,6 +134,12 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     length_short: [0.4, 1, 0.15, 1],
     ball_exit: [0, 30, 2, 0.2],
     contact_found: [0.8, 1, 0.2, 0.6],
+    // Hands stand in for the bat when it isn't tracked.
+    hand_speed: [0, 14, 0.6, 0.3],
+    hands_follow: [0, 3, 0.1, 0.3],
+    hands_finish: [0.4, 1.0, 0.08, 0.8],
+    hands_across: [0.35, 2, 0.08, 1],
+    head_height: [0.8, 1.02, 0.04, 0.8],
   },
   sweep: {
     front_stride: [0.2, 0.6, 0.06, 0.8],
@@ -118,6 +155,12 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     length_short: [0, 0.4, 0.15, 1],
     ball_exit: [4, 30, 2, 0.8],
     contact_found: [0.8, 1, 0.2, 0.6],
+    // Hands stand in for the bat when it isn't tracked.
+    hand_speed: [1.5, 14, 0.6, 0.6],
+    hands_follow: [0.2, 3, 0.08, 0.6],
+    hands_finish: [0.1, 0.6, 0.08, 0.8],
+    hands_across: [0.3, 2, 0.08, 0.8],
+    head_height: [0.25, 0.62, 0.05, 1],
   },
   leave: {
     front_stride: [-0.12, 0.5, 0.06, 0.4],
@@ -126,6 +169,11 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     bat_speed: [0, 2, 0.6, 1],
     follow_through: [0, 0.3, 0.15, 0.8],
     contact_found: [0, 0.2, 0.2, 1.6],
+    hand_speed: [0, 1.2, 0.35, 0.8],
+    hands_follow: [0, 0.3, 0.1, 0.8],
+    hands_finish: [0.75, 1.4, 0.08, 1.2],
+    hands_across: [0, 0.3, 0.08, 0.6],
+    head_height: [0.85, 1.05, 0.05, 0.6],
   },
 };
 
@@ -147,7 +195,16 @@ export const SHOT_DISPLAY: Record<ShotClass, string> = {
   unknown: "Unclassified movement",
 };
 
-const TIMING_FEATURES: FeatureId[] = ["follow_through"];
+const TIMING_FEATURES: FeatureId[] = ["follow_through", "hand_speed"];
+
+/** Body and hand stand-ins: only computed when the bat isn't tracked, so never part of the full-evidence coverage. */
+export const HAND_FEATURES: FeatureId[] = ["hand_speed", "hands_follow", "hands_finish", "hands_across", "head_height"];
+/** Filmed along the pitch these come from the monocular 3D estimate, which understates depth: wider tolerance. */
+const FRONTAL_ESTIMATED: FeatureId[] = ["front_stride", "rotation"];
+const BAT_FEATURES: FeatureId[] = ["bat_angle", "bat_speed", "follow_through", "follow_height"];
+const BALL_FEATURES: FeatureId[] = ["length_short", "ball_exit", "contact_found", "contact_height"];
+/** Unobservable by geometry when filmed along the pitch (left out, never estimated). */
+const FRONTAL_UNSEEN: FeatureId[] = ["back_foot", "bat_speed", "ball_exit", "hand_speed", "hands_follow"];
 
 export interface Classification {
   probabilities: Record<ShotClass, number>;
@@ -156,6 +213,11 @@ export interface Classification {
   margin: number;
   /** Fraction of front-foot-defence discriminative weight that was observed. */
   ffdCoverage: number;
+  /**
+   * Without the ball (and possibly the bat): the fraction of the body, hand and bat
+   * weight that this camera position can show that was actually observed.
+   */
+  bodyCoverage: number;
   /** Feature ids that most separate the top class from front-foot defence. */
   decisive: Array<{ feature: FeatureId; penalty: number }>;
   family: string | null;
@@ -174,14 +236,14 @@ function pickDecisive(pen: Array<{ feature: FeatureId; penalty: number }>, fs: F
   return out.sort((a, b) => b.penalty - a.penalty);
 }
 
-function bandLogLik(x: number, band: Band, coarse: boolean): number {
+function bandLogLik(x: number, band: Band, coarse: boolean, widen = 1): number {
   const [lo, hi, sigma, w] = band;
-  const s = coarse ? sigma * 2 : sigma;
+  const s = (coarse ? sigma * 2 : sigma) * widen;
   const d = x < lo ? lo - x : x > hi ? x - hi : 0;
   return -w * Math.min(0.5 * (d / s) ** 2, 4);
 }
 
-export function classify(fs: FeatureSet): Classification {
+export function classify(fs: FeatureSet, opts: { frontal?: boolean; batSeen?: boolean; cameraMoving?: boolean } = {}): Classification {
   const ll = {} as Record<ShotClass, number>;
   const ffdPenalties: Array<{ feature: FeatureId; penalty: number }> = [];
 
@@ -191,7 +253,7 @@ export function classify(fs: FeatureSet): Classification {
       const x = fs.values[fid];
       if (x === undefined) continue;
       const coarse = fs.coarseTiming && TIMING_FEATURES.includes(fid);
-      const l = bandLogLik(x, band, coarse);
+      const l = bandLogLik(x, band, coarse, opts.frontal && FRONTAL_ESTIMATED.includes(fid) ? 1.6 : 1);
       sum += l;
       if (cls === "front_foot_defence" && l < -0.5) ffdPenalties.push({ feature: fid, penalty: -l });
     }
@@ -212,9 +274,24 @@ export function classify(fs: FeatureSet): Classification {
   const ffd = PROTOTYPES.front_foot_defence;
   let total = 0;
   let seen = 0;
+  let bodyTotal = 0;
+  let bodySeen = 0;
+  const batSeen = opts.batSeen ?? BAT_FEATURES.some((f) => fs.values[f] !== undefined);
   for (const [fid, band] of Object.entries(ffd) as Array<[FeatureId, Band]>) {
-    total += band[3];
-    if (fs.values[fid] !== undefined) seen += band[3];
+    if (!HAND_FEATURES.includes(fid)) {
+      total += band[3];
+      if (fs.values[fid] !== undefined) seen += band[3];
+    }
+    const expected =
+      !BALL_FEATURES.includes(fid) &&
+      !(opts.frontal && FRONTAL_UNSEEN.includes(fid)) &&
+      !(!opts.frontal && fid === "hands_across") &&
+      !(opts.cameraMoving && fid === "back_foot") &&
+      (batSeen ? !HAND_FEATURES.includes(fid) : !BAT_FEATURES.includes(fid));
+    if (expected) {
+      bodyTotal += band[3];
+      if (fs.values[fid] !== undefined) bodySeen += band[3];
+    }
   }
 
   let family: string | null = null;
@@ -234,6 +311,7 @@ export function classify(fs: FeatureSet): Classification {
     top,
     margin,
     ffdCoverage: total ? seen / total : 0,
+    bodyCoverage: bodyTotal ? bodySeen / bodyTotal : 0,
     decisive: pickDecisive(ffdPenalties, fs),
     family,
   };
