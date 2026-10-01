@@ -14,9 +14,11 @@ import {
   METRIC_VERSION,
   METRICS,
   POSE_MODEL,
+  RANGE_SOURCE,
   REGISTRY_HASH,
   th,
 } from "./registry";
+import { FRONTAL_UNGRADED, frontalMetrics } from "./frontal";
 import { assessCapture, bodyCoverage } from "./quality";
 import { buildScene } from "./scene";
 import { segmentEvents } from "./events";
@@ -72,6 +74,11 @@ function limitationsFor(obs: CaptureObservation, tracking: TrackingSummary, scen
       id: "lim_view",
       text: "Filmed along the pitch: forward distances come from a 3D pose estimate, and bounce distance, bat speed and ball speed are not measured.",
     });
+  if (scene.cameraMoving)
+    L.push({
+      id: "lim_camera_moving",
+      text: "The camera zoomed or panned during the shot: positions are measured against your own body in each frame, and back-foot movement isn't measured.",
+    });
   if (scene.scaleSource === "athlete_height") L.push({ id: "lim_scale", text: "Distances are scaled from your height, not measured pitch markings." });
   if (scene.scaleSource === "none") L.push({ id: "lim_noscale", text: "No scale: distances are expressed as fractions of your height; speeds in m/s are not reported." });
   if (scene.stumpsEstimated && tracking.ball.ok) L.push({ id: "lim_stumps", text: "Stumps position estimated from your stance; bounce distance is approximate." });
@@ -88,6 +95,7 @@ function statusOf(
   obs: CaptureObservation,
   cls: Classification,
   tracking: TrackingSummary,
+  contactVisibility: number,
 ): { status: AnalysisStatus; reason: string } {
   const p = cls.probabilities;
   const pFfd = p.front_foot_defence;
@@ -96,7 +104,9 @@ function statusOf(
     .reduce((s, [, v]) => s + v, 0);
 
   // Rejection may rest on fewer modalities than acceptance (asymmetric gate).
-  if (pFfd <= th("ffd.reject.max_probability") && nonFfdNamed >= 0.75 && cls.ffdCoverage >= th("ffd.reject.min_evidence_coverage")) {
+  // Without bat or ball, body and hand evidence may carry the rejection.
+  const rejectCoverage = !tracking.bat.ok || !tracking.ball.ok ? Math.max(cls.ffdCoverage, cls.bodyCoverage) : cls.ffdCoverage;
+  if (pFfd <= th("ffd.reject.max_probability") && nonFfdNamed >= 0.75 && rejectCoverage >= th("ffd.reject.min_evidence_coverage")) {
     return { status: "invalid_for_requested_analysis", reason: "different_shot" };
   }
 
@@ -115,11 +125,37 @@ function statusOf(
     cls.ffdCoverage >= minCoverage;
   if (accept) return { status: "valid", reason: "accepted" };
 
+  // Bat or ball not seen (the usual phone clip): the shot may still be confirmed from
+  // body and hand movement, against a higher bar. Their own measures stay unreported.
+  const acceptBody =
+    tracking.body.ok &&
+    contactVisibility >= th("ffd.accept_body.min_contact_visibility") &&
+    (!tracking.bat.ok || !tracking.ball.ok) &&
+    cls.top === "front_foot_defence" &&
+    pFfd >= th("ffd.accept_body.min_probability") &&
+    cls.margin >= th("ffd.accept_body.min_margin") &&
+    p.unknown <= th("ffd.accept.max_unknown") &&
+    cls.bodyCoverage >= th("ffd.accept_body.min_coverage");
+  if (acceptBody) return { status: "valid", reason: "accepted_body" };
+
   if (!tracking.ball.ok) return { status: "uncertain_shot", reason: "ball_missing" };
   if (!tracking.bat.ok) return { status: "uncertain_shot", reason: "bat_missing" };
   if (cls.ffdCoverage < minCoverage) return { status: "uncertain_shot", reason: "insufficient_evidence" };
   if (p.unknown > th("ffd.accept.max_unknown")) return { status: "uncertain_shot", reason: "out_of_distribution" };
   return { status: "uncertain_shot", reason: "ambiguous" };
+}
+
+/** Share of frames within ±150 ms of contact where head, hips, front knee and front ankle are all seen (0 without contact). */
+function contactVisibility(scene: ReturnType<typeof buildScene>, contact: number | undefined): number {
+  if (contact === undefined || !scene.dt) return 0;
+  const k = Math.max(1, Math.round(0.15 / scene.dt));
+  let seen = 0;
+  let total = 0;
+  for (let i = Math.max(0, contact - k); i <= Math.min(scene.n - 1, contact + k); i++) {
+    total++;
+    if ((["head", "front_hip", "back_hip", "front_knee", "front_ankle"] as const).every((j) => scene.get(i, j))) seen++;
+  }
+  return total ? seen / total : 0;
 }
 
 const UNCERTAIN_TEXT: Record<string, string> = {
@@ -358,8 +394,17 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   const events = segmentEvents(obs, scene);
   const delivery = estimateDelivery(scene, events);
   const features = extractFeatures(scene, events, delivery);
-  const cls = classify(features);
-  const { status, reason } = statusOf(obs, cls, tracking);
+  const frontal = scene.plane === "frontal";
+  const cls = classify(features, { frontal, batSeen: tracking.bat.ok, cameraMoving: scene.cameraMoving });
+  const { status, reason } = statusOf(obs, cls, tracking, contactVisibility(scene, events.byType.contact?.frame));
+  const bodyLed = status === "valid" && reason === "accepted_body";
+  if (bodyLed) {
+    const unseen = [!tracking.bat.ok && "bat", !tracking.ball.ok && "ball"].filter(Boolean).join(" and ");
+    limitations.push({
+      id: "lim_body_led",
+      text: `The ${unseen} weren't seen, so the shot was confirmed from body and hand movement only. Measures that need the ${unseen} are not reported.`,
+    });
+  }
 
   const probs = Object.fromEntries(Object.entries(cls.probabilities).map(([k, v]) => [k, round(v, 3)])) as Record<ShotClass, number>;
   const decisiveIds = cls.decisive.map((d) => `feat_${d.feature}`);
@@ -368,7 +413,11 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     .filter((x): x is string => !!x);
   const evidenceFrames = [...new Set(events.list.filter((e) => e.type !== "setup" || events.list.length < 3).map((e) => e.frame))].slice(0, 8);
 
-  const named = cls.top !== "unknown" && cls.probabilities[cls.top] >= th("ffd.named_label.min_probability");
+  // A leave is defined by no contact, which needs both bat and ball to observe.
+  const named =
+    cls.top !== "unknown" &&
+    cls.probabilities[cls.top] >= th("ffd.named_label.min_probability") &&
+    !(cls.top === "leave" && features.values.contact_found === undefined);
   const observed =
     status === "invalid_for_requested_analysis"
       ? {
@@ -425,8 +474,24 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     });
   }
 
-  // 6. Valid: technique measures.
-  const metrics = computeMetrics({ scene, events, features, delivery, tier: obs.tier });
+  // 6. Valid: technique measures. Filmed along the pitch, forward distances are a 3D
+  // estimate: shown, not graded; the sideways measures that view sees well are graded.
+  let metrics = computeMetrics({ scene, events, features, delivery, tier: obs.tier });
+  if (frontal) {
+    metrics = [
+      ...metrics.map((m) =>
+        FRONTAL_UNGRADED.includes(m.id) && m.status !== "not_measured" && m.range
+          ? {
+              ...m,
+              range: null,
+              inRange: null,
+              limitation: [m.limitation, "Filmed along the pitch: this forward distance comes from a 3D estimate, so it's shown but not graded."].filter(Boolean).join(" "),
+            }
+          : m,
+      ),
+      ...frontalMetrics(scene, events.byType.contact?.frame, events.byType.backswing_top?.frame, RANGE_SOURCE),
+    ];
+  }
   const domains = domainResults(metrics);
   const index = techniqueIndex(metrics, domains);
   const { strengths, priorities } = strengthsAndPriorities(metrics);
@@ -439,6 +504,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     ...common,
     analysis_status: "valid",
     status_reason: reason,
+    evidence_basis: bodyLed ? "body" : "full",
     headline,
     metrics,
     domains,

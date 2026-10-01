@@ -287,6 +287,11 @@ export interface AnalysisPayload {
   tier: Tier;
   analysis_status: AnalysisStatus;
   status_reason: string;
+  /**
+   * What confirmed a valid shot: "full" = body, bat and ball; "body" = body and hand
+   * movement only (bat and/or ball not seen; their measures are not reported).
+   */
+  evidence_basis?: "full" | "body";
   headline: string;
   requested_shot: "front_foot_defence";
   observed_shot: {

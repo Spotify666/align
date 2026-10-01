@@ -3,7 +3,7 @@
 
 import type { Drill } from "./types";
 
-export const DRILL_LIBRARY_VERSION = "drills-0.1.0";
+export const DRILL_LIBRARY_VERSION = "drills-0.2.0";
 
 export interface CoachingEntry {
   metricId: string;
@@ -272,6 +272,63 @@ export const COACHING: CoachingEntry[] = [
       }),
     ],
     retest: "Decision timing on 6 new deliveries with a visible bounce.",
+  },
+  // Graded when filmed from the bowler's end or behind the batter.
+  {
+    metricId: "head_line",
+    low: { observation: "", consequence: "", cue: "" },
+    high: {
+      observation: "Your head fell outside the line of your front foot at contact.",
+      consequence: "Falling away to the side takes your eyes off the line of the ball and opens the face of the bat.",
+      cue: "Head over the front foot, eyes level.",
+    },
+    drills: [
+      d({
+        id: "drill_line_tape",
+        name: "Line-tape forward defence",
+        constraint: "A strip of tape on the pitch along the line of the stumps; front foot lands beside it, head stays over it.",
+        dosage: "3 sets × 8 balls, 30 s rest",
+        passCondition: "Filmed from the bowler's end, the head is over the front foot at contact on 7 of 8.",
+        cue: "Head to the line, then the foot.",
+      }),
+      d({
+        id: "drill_eyes_level",
+        name: "Eyes-level shadow defence",
+        constraint: "Shadow the defence facing a mirror or a partner; a cap peak must stay level through the stride.",
+        dosage: "3 sets × 10 shadows",
+        passCondition: "Partner sees no head tilt or sway on 9 of 10.",
+        cue: "Still head, level eyes.",
+      }),
+    ],
+    retest: "Film 6 deliveries from the bowler's end and compare head-in-line to this report.",
+  },
+  {
+    metricId: "hands_line",
+    low: { observation: "", consequence: "", cue: "" },
+    high: {
+      observation: "Your hands swung across your body on the way down to the ball.",
+      consequence: "A bat that comes across the line leaves a gap between bat and pad and finds the edge.",
+      cue: "Hands straight down the line of the ball.",
+    },
+    drills: [
+      d({
+        id: "drill_stump_gate",
+        name: "Stump-gate defence",
+        constraint: "Two stumps upright either side of the bat's path, a bat-width apart, at the point of contact.",
+        dosage: "4 sets × 6 balls",
+        passCondition: "Bat passes between the stumps without touching on 5 of 6.",
+        cue: "Straight down, straight through.",
+      }),
+      d({
+        id: "drill_top_hand",
+        name: "Top-hand-only defence",
+        constraint: "Bottom hand off the bat; throw-downs at a gentle pace on a full length.",
+        dosage: "3 sets × 8 balls",
+        passCondition: "Bat face straight to the bowler at contact on 6 of 8.",
+        cue: "Top hand leads, elbow high.",
+      }),
+    ],
+    retest: "Film 6 deliveries from the bowler's end and compare the bat path to this report.",
   },
 ];
 

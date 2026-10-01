@@ -4,10 +4,11 @@
 // report can always be traced to the exact rule set that produced it.
 
 import { canonicalJson, sha256 } from "./math";
+import { FRONTAL_METRICS } from "./frontal";
 
-export const ENGINE_VERSION = "0.2.0";
-export const METRIC_VERSION = "ffd-0.2.0";
-export const CLASSIFIER_VERSION = "prototype-bands-0.1.0";
+export const ENGINE_VERSION = "0.3.0";
+export const METRIC_VERSION = "ffd-0.3.0";
+export const CLASSIFIER_VERSION = "prototype-bands-0.2.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
 
 export interface Threshold {
@@ -50,6 +51,10 @@ export const THRESHOLDS = {
   "ffd.accept.max_unknown": { value: 0.1, unit: "probability", rationale: "Out-of-distribution mass must be small." },
   "ffd.accept.min_evidence_coverage": { value: 0.75, unit: "fraction", rationale: "Most discriminative features must be observed." },
   "ffd.accept.min_evidence_coverage_frontal": { value: 0.72, unit: "fraction", rationale: "Filmed along the pitch, back-foot travel, bat speed and ball speed are unobservable (a quarter of the weight), so acceptance needs nearly every remaining signal." },
+  "ffd.accept_body.min_probability": { value: 0.65, unit: "probability", rationale: "Bat or ball not seen: fewer signals make prototype scores flatter, so the shot is confirmed by a wide margin over every alternative, near-complete body evidence and a fully visible contact instead of a higher score." },
+  "ffd.accept_body.min_margin": { value: 0.5, unit: "probability", rationale: "Without the bat, a defence must beat the drive and every other shot by a wide margin (full evidence: 0.3)." },
+  "ffd.accept_body.min_coverage": { value: 0.85, unit: "fraction", rationale: "Nearly every body and hand signal that this camera position can show must be observed." },
+  "ffd.accept_body.min_contact_visibility": { value: 0.7, unit: "fraction", rationale: "Head, hips, front knee and front ankle must be seen through ±150 ms of contact: a shot whose legs are hidden at contact is ambiguous." },
   "ffd.reject.max_probability": { value: 0.12, unit: "probability", rationale: "Below this, the clip is confidently not a front-foot defence." },
   "ffd.reject.min_evidence_coverage": { value: 0.45, unit: "fraction", rationale: "Rejection may rest on fewer modalities than acceptance." },
   "ffd.named_label.min_probability": { value: 0.55, unit: "probability", rationale: "Name the alternative shot only when it clearly leads." },
@@ -305,6 +310,7 @@ export const REGISTRY_HASH = sha256(
     POSE_MODEL,
     THRESHOLDS,
     METRICS,
+    FRONTAL_METRICS,
     INDEX_WEIGHTS_VERSION,
   }),
 ).slice(0, 16);

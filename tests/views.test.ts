@@ -37,7 +37,7 @@ describe("front-on capture", () => {
 });
 
 describe("uncertain shot", () => {
-  const p = analyze(fixture("no_ball"), opts);
+  const p = analyze(fixture("occluded"), opts);
   it("shows ungraded body observations, never ranges or a score", () => {
     expect(p.analysis_status).toBe("uncertain_shot");
     expect(p.metrics).toHaveLength(0);

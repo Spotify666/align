@@ -3,6 +3,8 @@
 // body + bat + ball while rejection may rest on fewer signals.
 
 import { angleFromVertical, argmax, round } from "./math";
+import { th } from "./registry";
+import { handsForward } from "./events";
 import { type Scene, sweetSpot } from "./scene";
 import type { DeliveryContext, ShotFeature } from "./types";
 import type { EventSet } from "./events";
@@ -20,7 +22,13 @@ export type FeatureId =
   | "rotation"
   | "length_short"
   | "ball_exit"
-  | "contact_found";
+  | "contact_found"
+  // Hands stand in for the bat when it isn't tracked (body modality).
+  | "hand_speed"
+  | "hands_follow"
+  | "hands_finish"
+  | "hands_across"
+  | "head_height";
 
 export interface FeatureSet {
   values: Partial<Record<FeatureId, number>>;
@@ -80,7 +88,8 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
     modality: "body",
   });
   // Frontal views anchor forward positions on the back ankle, so its own travel is unobservable.
-  const backMove = scene.plane === "frontal" ? NaN : (backMin - backStart) / S;
+  // A moving camera is followed by anchoring on the back ankle, so its travel is unobservable too.
+  const backMove = scene.plane === "frontal" || scene.cameraMoving ? NaN : (backMin - backStart) / S;
   add("back_foot", backMove, {
     label: "Back-foot movement",
     unit: "× stature",
@@ -91,8 +100,9 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
 
   const wrist = scene.get(refFrame, "front_wrist");
   const wrist2 = scene.get(refFrame, "back_wrist");
-  if (wrist && wrist2) {
-    const h = (wrist.u + wrist2.u) / 2 / S;
+  // One hand is often hidden by the bat or gloves; either wrist marks the hands.
+  if (wrist || wrist2) {
+    const h = (wrist && wrist2 ? (wrist.u + wrist2.u) / 2 : (wrist ?? wrist2)!.u) / S;
     add("hands_height", h, {
       label: "Hands height",
       unit: "× stature",
@@ -238,6 +248,92 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
           reading: fh > 0.85 ? "bat finishes high" : "bat finishes low",
           evidenceIds: [`frame_${refFrame + top}`],
           modality: "bat",
+        });
+      }
+    }
+  }
+
+  // --- Hands, when the bat isn't tracked ---
+  // A defence pushes the hands forward and stops them low; drives and pulls swing them
+  // fast and finish high. Speeds and path need the side-on plane; height is seen anywhere.
+  const batSeen = scene.batToe.filter(Boolean).length >= th("tracking.bat_min_coverage") * n;
+  if (!batSeen && dt) {
+    // Measured where the hands reach furthest forward, so the reading doesn't depend on
+    // how contact was found (ball, mark or hands).
+    const r = Math.max(1, Math.round(0.02 / dt));
+    const fwd = handsForward(scene, refFrame, r);
+    const win = Math.round(0.4 / dt);
+    if (fwd) {
+      const { at, hf, hu, speed } = fwd;
+      if (scene.plane === "sagittal") {
+        const k = Math.max(1, Math.round(0.03 / dt));
+        const sp = Math.max(...speed.slice(Math.max(0, at - k), at + k + 1).filter(Number.isFinite));
+        add("hand_speed", sp / S, {
+          label: "Hand speed at the end of the push",
+          unit: "× stature/s",
+          reading: sp / S > 1.8 ? "hands still moving fast — swung through" : sp / S < 1 ? "hands checked — stopped at the ball" : "hands partly checked",
+          evidenceIds: [`frame_${at}`],
+          modality: "body",
+        });
+        let path = 0;
+        let have = 0;
+        for (let i = at; i < Math.min(n - 1, at + win); i++) {
+          if (Number.isFinite(hf[i]!) && Number.isFinite(hf[i + 1]!)) {
+            path += Math.hypot(hf[i + 1]! - hf[i]!, hu[i + 1]! - hu[i]!);
+            have++;
+          }
+        }
+        if (have > win * 0.5)
+          add("hands_follow", path / S, {
+            label: "Hand travel after the push",
+            unit: "× stature",
+            reading: path / S > 0.45 ? "hands carry on through" : "hands stay where they met the ball",
+            evidenceIds: [`frame_${at}`],
+            modality: "body",
+          });
+      }
+      if (scene.across) {
+        // Filmed along the pitch: horizontal-bat shots swing the hands across the body.
+        const x = Array.from({ length: n }, (_, i) => {
+          const a = scene.across!(i, "front_wrist");
+          const b = scene.across!(i, "back_wrist");
+          return Number.isFinite(a) && Number.isFinite(b) ? (a + b) / 2 : Number.isFinite(a) ? a : b;
+        });
+        const span = x.slice(Math.max(0, at - Math.round(0.15 / dt)), Math.min(n, at + win)).filter(Number.isFinite);
+        if (span.length > win * 0.5) {
+          const range = (Math.max(...span) - Math.min(...span)) / S;
+          add("hands_across", range, {
+            label: "Hands across the body",
+            unit: "× stature",
+            reading: range > 0.35 ? "hands swing across the body" : "hands stay in line",
+            evidenceIds: [`frame_${at}`],
+            modality: "body",
+          });
+        }
+      }
+      // Front-foot shots take the head low over the front knee; back-foot shots stay tall.
+      // Seen from any camera position (it is vertical), unlike stride from the bowler's end.
+      const k = Math.round(0.15 / dt);
+      const heads = Array.from({ length: 2 * k + 1 }, (_, o) => scene.get(refFrame - k + o, "head")?.u ?? NaN).filter(Number.isFinite);
+      if (heads.length > k) {
+        const hh = Math.min(...heads) / S;
+        add("head_height", hh, {
+          label: "Head height at the stroke",
+          unit: "× stature",
+          reading: hh < 0.8 ? "head low, over the front leg" : "head stays tall",
+          evidenceIds: [`frame_${refFrame}`],
+          modality: "body",
+        });
+      }
+      const after = hu.slice(at, Math.min(n, at + win)).filter(Number.isFinite);
+      if (after.length > win * 0.5) {
+        const top = Math.max(...after) / S;
+        add("hands_finish", top, {
+          label: "Hands height after the push",
+          unit: "× stature",
+          reading: top > 0.8 ? "hands finish high" : "hands finish low",
+          evidenceIds: [`frame_${at}`],
+          modality: "body",
         });
       }
     }

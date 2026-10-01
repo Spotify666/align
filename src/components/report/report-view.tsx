@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import type { AnalysisPayload, CaptureObservation } from "@/engine/types";
+import type { AnalysisPayload, CaptureObservation, Metric } from "@/engine/types";
 import type { BaselineComparison } from "@/engine/baseline";
 import { templateReport, type Report } from "@/engine/report";
 import { SHOT_DISPLAY } from "@/engine/classify";
@@ -83,7 +83,11 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             </span>
             {p.shot_probabilities && <ConfidenceChip label="Shot" value={p.observed_shot?.probability ?? p.shot_probabilities.front_foot_defence} note="uncalibrated" />}
             <ConfidenceChip label="Capture" value={p.capture_confidence} />
-            <span className="chip border-line-strong text-fg-muted">Requested: front-foot defence</span>
+            {p.evidence_basis === "body" && (
+              <span className="chip border-line-strong text-fg-muted" title="Bat or ball wasn't seen, so the shot was confirmed from body and hand movement. Measures that need them aren't reported.">
+                Confirmed from body movement
+              </span>
+            )}
             {p.camera_view && p.camera_view !== "side_on" && (
               <span className="chip border-line-strong text-fg-muted">
                 Camera: {p.camera_view === "front_on" ? "bowler's end" : p.camera_view === "behind" ? "behind batter" : p.camera_view.replace("_", " ")}
@@ -92,20 +96,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           </div>
           <h1 id="verdict" className="display mt-4 text-[1.7rem] leading-[1.1] sm:text-4xl lg:text-5xl max-w-4xl">{p.headline}</h1>
           {notice}
-          {!isValid ? (
-            <p className="mt-4 flex flex-col gap-0.5 rounded-lg border border-line-strong bg-surface/70 px-3 py-2 text-sm sm:inline-flex sm:flex-row sm:items-center sm:gap-2 sm:text-base">
-              <strong>Technique score withheld.</strong>
-              <span className="text-fg-muted">A score is only given to a confirmed front-foot defence.</span>
-            </p>
-          ) : (
-            p.technique_index && (
-              <p className="mt-4 text-sm text-fg-muted">
-                Secondary technique index{" "}
-                <span className="num text-fg text-base">{p.technique_index.value}</span>
-                <span className="num"> (range {p.technique_index.band[0]}–{p.technique_index.band[1]})</span> · inputs and weights published in{" "}
-                <Link href="/science#index" className="underline decoration-dotted hover:text-fg">Science</Link>. Read the domains first.
-              </p>
-            )
+          {!isValid && p.mode !== "posture_screen" && (
+            <p className="mt-3 text-sm text-fg-muted">No technique score: a score is only given to a confirmed front-foot defence.</p>
           )}
           {p.analysis_status === "invalid_for_requested_analysis" && p.observed_shot && (
             <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -141,83 +133,53 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
-        <EvidenceViewer ref={viewer} obs={obs} payload={p} videoUrl={videoUrl} mediaTimes={mediaTimes} keyframes={keyframes} reference={reference} />
+      <Summary p={p} onSeek={seek} />
 
-        <aside className="flex flex-col gap-4">
-          {isValid && (
-            <>
-              {p.strengths[0] && (
-                <div className="card p-4">
-                  <p className="eyebrow !text-ok">Top strength</p>
-                  <p className="mt-2 font-semibold">{p.strengths[0].title}</p>
-                  <p className="mt-1 text-sm text-fg-muted">{p.strengths[0].observation}</p>
+      <EvidenceViewer ref={viewer} obs={obs} payload={p} videoUrl={videoUrl} mediaTimes={mediaTimes} keyframes={keyframes} reference={reference} />
+
+      <details className="group rounded-2xl border border-line bg-surface">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 sm:px-5">
+          <span>
+            <span className="font-semibold">Full analysis</span>
+            <span className="ml-2 text-sm text-fg-subtle">every measure, the evidence behind the verdict, capture checks</span>
+          </span>
+          <span className="text-fg-subtle transition-transform group-open:rotate-90">›</span>
+        </summary>
+        <div className="space-y-8 border-t border-line px-4 py-6 sm:px-5">
+          <details className="card p-4 group">
+              <summary className="list-none flex items-center justify-between min-h-9">
+                <span className="font-semibold">Why this result</span>
+                <span className="text-fg-subtle group-open:rotate-90 transition-transform">›</span>
+              </summary>
+              <ol className="mt-3 space-y-1.5 text-sm text-fg-muted">
+                <li>1. Capture usable? <strong className="text-fg">{p.capture.status === "fail" ? "No" : p.capture.status === "warn" ? "Yes, with warnings" : "Yes"}</strong></li>
+                <li>
+                  2. Tracked: body <strong className="text-fg">{p.tracking.body.ok ? "yes" : "no"}</strong>, bat{" "}
+                  <strong className="text-fg">{p.tracking.bat.ok ? p.tracking.bat.source.replace("_", " ") : "no"}</strong>, ball{" "}
+                  <strong className="text-fg">{p.tracking.ball.ok ? p.tracking.ball.source.replace("_", " ") : "no"}</strong>
+                </li>
+                <li>3. Delivery: <strong className="text-fg">{p.delivery.available ? (p.delivery.lengthLabel ?? "—") : "not claimed"}</strong></li>
+                <li>4–5. Shot family and compatibility: <strong className="text-fg">{meta.label}</strong></li>
+                <li>6. Technique measured: <strong className="text-fg">{isValid ? "yes" : "no — withheld"}</strong></li>
+              </ol>
+              {p.features.length > 0 && (
+                <ul className="mt-4 divide-y divide-line">
+                  {p.features.map((f) => (
+                    <li key={f.id} id={f.id} className="py-2 flex items-baseline justify-between gap-3 text-sm">
+                      <span>
+                        {f.label} <span className="text-fg-subtle">· {f.reading}</span>
+                      </span>
+                      <span className="num text-xs text-fg-muted shrink-0">{f.value?.toFixed(2)} <span className="text-fg-subtle">{f.modality}</span></span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {p.shot_probabilities && p.classifier && (
+                <div className="mt-4">
+                  <ShotProbabilityPanel probs={p.shot_probabilities} coverage={p.classifier.evidenceCoverage} />
                 </div>
               )}
-              <div className="card p-4">
-                <p className="eyebrow">Top priority</p>
-                {p.priorities[0] ? (
-                  <>
-                    <p className="mt-2 font-semibold">{p.priorities[0].title}</p>
-                    <p className="mt-1 text-sm text-fg-muted">{p.priorities[0].observation}</p>
-                    <a href="#plan" className="mt-3 inline-flex chip border-brand/50 text-brand min-h-9">See the drill plan</a>
-                  </>
-                ) : (
-                  <p className="mt-2 text-sm text-fg-muted">All measured indicators sit inside the current coaching range. Keep recording to build your baseline.</p>
-                )}
-              </div>
-            </>
-          )}
-          {(p.analysis_status === "uncertain_shot" || p.analysis_status === "capture_failed") && (
-            <div className="card p-4">
-              <p className="eyebrow">What to change next time</p>
-              <ol className="mt-2 space-y-2 text-sm list-decimal pl-5">
-                {p.recapture.slice(0, 5).map((r) => (
-                  <li key={r}>{r}</li>
-                ))}
-              </ol>
-              <Link href="/analyse" className="btn btn-primary mt-4 w-full">
-                <RecordIcon size={16} /> Record again
-              </Link>
-            </div>
-          )}
-
-          <details className="card p-4 group" open={!isValid}>
-            <summary className="list-none flex items-center justify-between min-h-9">
-              <span className="font-semibold">Why this result</span>
-              <span className="text-fg-subtle group-open:rotate-90 transition-transform">›</span>
-            </summary>
-            <ol className="mt-3 space-y-1.5 text-sm text-fg-muted">
-              <li>1. Capture usable? <strong className="text-fg">{p.capture.status === "fail" ? "No" : p.capture.status === "warn" ? "Yes, with warnings" : "Yes"}</strong></li>
-              <li>
-                2. Tracked: body <strong className="text-fg">{p.tracking.body.ok ? "yes" : "no"}</strong>, bat{" "}
-                <strong className="text-fg">{p.tracking.bat.ok ? p.tracking.bat.source.replace("_", " ") : "no"}</strong>, ball{" "}
-                <strong className="text-fg">{p.tracking.ball.ok ? p.tracking.ball.source.replace("_", " ") : "no"}</strong>
-              </li>
-              <li>3. Delivery: <strong className="text-fg">{p.delivery.available ? (p.delivery.lengthLabel ?? "—") : "not claimed"}</strong></li>
-              <li>4–5. Shot family and compatibility: <strong className="text-fg">{meta.label}</strong></li>
-              <li>6. Technique measured: <strong className="text-fg">{isValid ? "yes" : "no — withheld"}</strong></li>
-            </ol>
-            {p.features.length > 0 && (
-              <ul className="mt-4 divide-y divide-line">
-                {p.features.map((f) => (
-                  <li key={f.id} id={f.id} className="py-2 flex items-baseline justify-between gap-3 text-sm">
-                    <span>
-                      {f.label} <span className="text-fg-subtle">· {f.reading}</span>
-                    </span>
-                    <span className="num text-xs text-fg-muted shrink-0">{f.value?.toFixed(2)} <span className="text-fg-subtle">{f.modality}</span></span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {p.shot_probabilities && p.classifier && (
-              <div className="mt-4">
-                <ShotProbabilityPanel probs={p.shot_probabilities} coverage={p.classifier.evidenceCoverage} />
-              </div>
-            )}
-          </details>
-        </aside>
-      </div>
+            </details>
 
       <DeliveryPanel payload={p} onSeek={seekId} />
 
@@ -377,6 +339,94 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           <p className="mt-3 text-xs text-fg-subtle">The same tracks and engine version always produce this exact report (result hash).</p>
         </div>
       </div>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+const unitText = (u: string) => u.replace("× stature/s", "× height/s").replace("× stature", "× height");
+const evidenceFrame = (m: Metric) => {
+  const f = m.evidenceIds.map((id) => /^frame_(\d+)$/.exec(id)?.[1]).find(Boolean);
+  return f !== undefined ? Number(f) : null;
+};
+
+/** The few things the batter needs, first: what went well, the one fix, the drill, the key numbers. */
+function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, metricId?: string) => void }) {
+  const isValid = p.analysis_status === "valid";
+  const measured = (isValid || p.mode === "posture_screen" ? p.metrics : (p.observations ?? [])).filter((m) => m.status !== "not_measured" && m.value !== null);
+  // Out-of-range first, then the rest, at most six.
+  // Needs work first, then within range, then shown-but-not-graded; at most six.
+  const order = (m: Metric) => (m.inRange === false ? 0 : m.inRange === true ? 1 : 2);
+  const key = [...measured].sort((a, b) => order(a) - order(b)).slice(0, 6);
+  const strength = p.strengths[0];
+  const priority = p.priorities[0];
+  const drill = p.plan?.drills[0];
+  return (
+    <section aria-label="Summary" className="space-y-4">
+      {isValid && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <SummaryCard tone="ok" label="Doing well" title={strength?.title ?? "A sound defensive shape"} text={strength?.observation ?? "Every measured position sits inside the coaching range."} />
+          <SummaryCard tone="bad" label="Fix next" title={priority?.title ?? "Nothing urgent"} text={priority?.observation ?? "Keep recording to build your personal baseline."} />
+          <SummaryCard tone="brand" label="Drill" title={drill?.name ?? "Keep practising the same shape"} text={drill ? `${drill.dosage}. Cue: “${p.plan?.cue ?? drill.cue}”` : "Record again to compare."} />
+        </div>
+      )}
+      {(p.analysis_status === "uncertain_shot" || p.analysis_status === "capture_failed") && p.mode !== "posture_screen" && p.recapture.length > 0 && (
+        <div className="card p-4">
+          <p className="eyebrow">To get a verdict next time</p>
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {p.recapture.slice(0, 2).map((r) => (
+              <li key={r} className="flex gap-2"><span aria-hidden className="text-brand">•</span>{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {key.length > 0 && (
+        <div className="card overflow-hidden">
+          <p className="border-b border-line px-4 py-2.5 text-sm font-semibold">
+            {isValid ? "Key measures" : p.mode === "posture_screen" ? "What the photo shows" : "What we could still see"}
+            {!isValid && <span className="ml-2 font-normal text-fg-subtle">not graded</span>}
+          </p>
+          <ul className="divide-y divide-line">
+            {key.map((m) => {
+              const f = evidenceFrame(m);
+              return (
+                <li key={m.id}>
+                  <button
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-tint disabled:hover:bg-transparent"
+                    disabled={f === null}
+                    onClick={() => f !== null && onSeek(f, m.id)}
+                  >
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.7rem] font-bold ${m.inRange === true ? "bg-ok/15 text-ok" : m.inRange === false ? "bg-bad/15 text-bad" : "bg-line text-fg-subtle"}`} aria-hidden>
+                      {m.inRange === true ? "✓" : m.inRange === false ? "!" : "·"}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium">{m.name}</span>
+                      {m.inRange === false && m.range && (
+                        <span className="block text-xs text-fg-muted">aim for {m.range.lo}–{m.range.hi} {unitText(m.unit)}</span>
+                      )}
+                      {m.inRange === null && isValid && <span className="block text-xs text-fg-subtle">estimate from this camera angle · not graded</span>}
+                    </span>
+                    <span className="num shrink-0">{m.value!.toFixed(m.decimals)} <span className="text-xs text-fg-subtle">{unitText(m.unit)}</span></span>
+                    <span className="sr-only">{m.inRange === true ? "within range" : m.inRange === false ? "outside range" : "not graded"}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SummaryCard({ tone, label, title, text }: { tone: "ok" | "bad" | "brand"; label: string; title: string; text: string }) {
+  const color = tone === "ok" ? "!text-ok" : tone === "bad" ? "!text-bad" : "!text-brand";
+  return (
+    <div className="card p-4">
+      <p className={`eyebrow ${color}`}>{label}</p>
+      <p className="mt-1.5 font-semibold leading-snug">{title}</p>
+      <p className="mt-1 text-sm text-fg-muted">{text.replaceAll("× stature", "× your height")}</p>
     </div>
   );
 }

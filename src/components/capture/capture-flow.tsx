@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { analyze } from "@/engine/analyze";
 import { assessCapture } from "@/engine/quality";
 import { encodeTracks, quantise } from "@/engine/tracks-codec";
-import { J, type CameraPoint, type CaptureObservation, type CaptureQuality, type ImgPoint, type Tier } from "@/engine/types";
+import { J, type AnalysisPayload, type CameraPoint, type CaptureObservation, type CaptureQuality, type ImgPoint, type Tier } from "@/engine/types";
 import { readVideoTrack, type VideoTrackInfo } from "@/lib/capture/mp4";
 import { FrameQualitySampler } from "@/lib/capture/frame-quality";
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/lib/capture/pose";
 import { batterCandidates, boxAt, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
 import { guessView } from "@/lib/capture/view-guess";
+import { strokeSegment } from "@/lib/capture/segments";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
 import { loadProfile, saveAnalysis, saveProfile, type LocalProfile } from "@/lib/store";
@@ -72,6 +73,20 @@ interface Meta {
   fpsSource: CaptureObservation["media"]["fpsSource"];
   durationSec: number;
 }
+interface Attempt {
+  obs: CaptureObservation;
+  payload: AnalysisPayload;
+  tr: TrackingResult;
+  marks: Marks;
+  times: number[];
+}
+
+/** Clearest result first: a confirmed defence, then a confirmed different shot, then the most defence-like. */
+function rank(p: AnalysisPayload): number {
+  const base = { valid: 3, invalid_for_requested_analysis: 2, uncertain_shot: 1, capture_failed: 0 }[p.analysis_status] ?? 0;
+  return base + (p.shot_probabilities?.front_foot_defence ?? 0) * 0.5;
+}
+
 interface Win {
   start: number;
   end: number;
@@ -79,7 +94,7 @@ interface Win {
 }
 
 const MAX_FRAMES = 300;
-const WINDOW_SEC = 2.5;
+const WINDOW_SEC = 3.4;
 const GATE_SAMPLES = 12;
 const MAX_AUTO_TRIES = 3;
 const VIDEO_EXT = /\.(mp4|m4v|mov|webm|mkv|3gp|3g2|avi|wmv|flv|mts|m2ts|ts)$/i;
@@ -142,6 +157,7 @@ export function CaptureFlow() {
     shotChosen: false,
     slow: 1,
     tried: [] as number[],
+    attempts: [] as Attempt[],
   });
 
   useEffect(() => () => {
@@ -209,7 +225,7 @@ export function CaptureFlow() {
   function resetClip() {
     abort.current?.abort();
     run.current++;
-    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [] };
+    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [], attempts: [] };
     setScan(null);
     setScanProgress(0);
     setWin(null);
@@ -267,7 +283,7 @@ export function CaptureFlow() {
     try {
       const det = await loadPersonDetector();
       abort.current = new AbortController();
-      const scanned = await scanVideo(v, det, WINDOW_SEC, setScanProgress, abort.current.signal);
+      const scanned = await scanVideo(v, det, WINDOW_SEC, setScanProgress, abort.current.signal, await loadStillPose());
       if (!alive() || abort.current.signal.aborted) return;
       const res = { ...scanned, windows: await verifyWindows(v, await loadStillPose(), scanned) };
       if (!alive()) return;
@@ -357,6 +373,13 @@ export function CaptureFlow() {
           stage("shot", "done", `${shotNote(j.scan, next)} · the first one wasn't clear enough`);
           resetStages("batter");
           return fromBatter(id);
+        }
+        if (j.attempts.length) {
+          // An earlier shot was analysed: report the clearest of those instead.
+          const b = j.attempts.reduce((best, a) => (rank(a.payload) > rank(best.payload) ? a : best), j.attempts[0]!);
+          mediaTimesRef.current = b.times;
+          stage("check", "done", "This shot isn't usable — using the earlier one");
+          return finish(b.marks, b.tr);
         }
         stage("check", "done", "Not usable");
         setPhase("blocked");
@@ -489,10 +512,27 @@ export function CaptureFlow() {
         if (i % 4 === 0) setProgress({ done: i + 1, total: count });
       }
       setProgress({ done: count, total: count });
+      // Keep only the camera shot that holds the stroke (broadcast cuts, replays).
+      const key = times.reduce((best, t, i) => (Math.abs(t - w.peak) < Math.abs(times[best]! - w.peak) ? i : best), 0);
+      const [s0, s1] = strokeSegment(out.body, a, key, Math.round(1.0 * out.fps));
+      let note = "";
+      if (s0 > 0 || s1 < out.body.length) {
+        const t0 = out.t[s0] ?? 0;
+        out.t = out.t.slice(s0, s1).map((t) => Math.round((t - t0) * 100) / 100);
+        out.body = out.body.slice(s0, s1);
+        out.world = world.slice(s0, s1);
+        out.depth = out.depth.slice(s0, s1);
+        out.quality = out.quality.filter((q) => q.frame >= s0 && q.frame < s1).map((q) => ({ ...q, frame: q.frame - s0 }));
+        out.durationMs = ((s1 - s0) * stride * 1000) / rFps;
+        times.splice(s1);
+        times.splice(0, s0);
+        seen = out.body.filter((b) => bodyBox(b)).length;
+        note = " · camera cut skipped";
+      }
       mediaTimesRef.current = times;
       setMediaTimes(times);
       setTracking(out);
-      stage("track", "done", `${count} frames · body found in ${Math.round((seen / Math.max(1, count)) * 100)}%`);
+      stage("track", "done", `${out.body.length} frames · body found in ${Math.round((seen / Math.max(1, out.body.length)) * 100)}%${note}`);
       const fm = { ...EMPTY_MARKS, view: j.view, bowlerSide: j.bowlerSide };
       setMarks(fm);
       await finish(fm, out);
@@ -575,8 +615,32 @@ export function CaptureFlow() {
       const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: profile.handedness, heightCm: profile.heightCm });
       const obs = quantise(raw);
       const createdAt = remark?.createdAt ?? new Date().toISOString();
-      const payload = analyze(obs, { analysisId: id, createdAt });
-      const gz = await encodeTracks(obs);
+      let payload = analyze(obs, { analysisId: id, createdAt });
+      let attempt: Attempt = { obs, payload, tr, marks: finalMarks, times: [...mediaTimesRef.current] };
+
+      // A clip with several shots: if this one couldn't be confirmed either way, try the
+      // next one on its own, and report the clearest result.
+      const j = job.current;
+      if (!remark && tr.kind === "video" && !j.shotChosen && j.scan) {
+        j.attempts.push(attempt);
+        const next = bestWindow(j.scan, j.tried);
+        if (payload.analysis_status === "uncertain_shot" && next >= 0 && j.tried.length < MAX_AUTO_TRIES) {
+          const w = j.scan.windows[next]!;
+          j.tried.push(next);
+          chooseWin({ start: w.start, end: w.end, peak: w.peak }, next);
+          stage("shot", "done", `${shotNote(j.scan, next)} · the last one wasn't clear enough`);
+          resetStages("batter");
+          return fromBatter(run.current);
+        }
+        attempt = j.attempts.reduce((best, a) => (rank(a.payload) > rank(best.payload) ? a : best), j.attempts[0]!);
+        payload = attempt.payload;
+        tr = attempt.tr;
+        finalMarks = attempt.marks;
+        mediaTimesRef.current = attempt.times;
+        setMediaTimes(attempt.times);
+        setTracking(attempt.tr);
+      }
+      const gz = await encodeTracks(attempt.obs);
       const keyframes = photoKeyframes ?? (tr.kind === "video" ? await grabKeyframes(video.current!, mediaTimesRef.current, payload.evidence_frames) : {});
       const f = fileRef.current;
       const clipUrl = urlRef.current;
@@ -823,6 +887,7 @@ export function CaptureFlow() {
                     className="btn btn-primary flex-1 sm:flex-none"
                     onClick={() => {
                       job.current.tried = [pick];
+                      job.current.attempts = [];
                       job.current.shotChosen = true;
                       stage("shot", "done", `${shotNote(scan, pick)} (your choice)`);
                       resume("batter");

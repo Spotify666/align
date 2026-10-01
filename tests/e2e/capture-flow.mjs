@@ -57,6 +57,26 @@ step("report: " + (await page.locator("#verdict").innerText()));
 step(`sections: observations=${await page.getByText("What we could still see").count()} posture=${await page.getByText(/What the photos? shows?/).count()} addBallBat=${await page.getByRole("link", { name: "Add ball and bat" }).count()}`);
 await page.waitForTimeout(1500);
 await shot("report");
+if (process.env.EXPORT_TRACKS) {
+  // Save the tracked observation (align-tracks-v1, base64) for offline engine checks.
+  const id = page.url().split("/report/")[1];
+  const b64 = await page.evaluate((key) => new Promise((resolve, reject) => {
+    const req = indexedDB.open("align");
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const get = req.result.transaction("tracks").objectStore("tracks").get(key);
+      get.onsuccess = () => {
+        const u8 = new Uint8Array(get.result);
+        let s = "";
+        for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+        resolve(btoa(s));
+      };
+      get.onerror = () => reject(get.error);
+    };
+  }), id);
+  (await import("node:fs")).writeFileSync(process.env.EXPORT_TRACKS, b64);
+  step("tracks exported");
+}
 const stage = page.locator(".stage").first();
 if (await stage.count()) {
   await stage.scrollIntoViewIfNeeded();

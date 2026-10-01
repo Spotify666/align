@@ -122,28 +122,36 @@ describe("5. photo-only upload", () => {
 
 describe("6. no visible ball", () => {
   const p = run("no_ball");
-  it("withholds the result and makes no delivery-context claim", () => {
-    expect(p.analysis_status).toBe("uncertain_shot");
-    expect(p.status_reason).toBe("ball_missing");
+  it("confirms from body and bat, and makes no delivery-context or ball claim", () => {
+    expect(p.analysis_status).toBe("valid");
+    expect(p.evidence_basis).toBe("body");
+    expect(p.limitations.some((l) => l.id === "lim_no_ball")).toBe(true);
+    expect(p.limitations.some((l) => l.id === "lim_body_led")).toBe(true);
     expect(p.delivery.available).toBe(false);
     expect(p.delivery.lengthLabel).toBeNull();
     expect(p.delivery.bounceDistanceM).toBeNull();
     expect(p.events.find((e) => e.type === "bounce")).toBeUndefined();
     expect(p.features.find((f) => f.id === "feat_length_short")).toBeUndefined();
-    expect(p.technique_index).toBeNull();
+    for (const id of ["decision_timing", "ball_exit_speed"]) {
+      const m = p.metrics.find((x) => x.id === id);
+      expect(!m || m.status === "not_measured", id).toBe(true);
+    }
   });
 });
 
 describe("7. no visible bat", () => {
   const p = run("no_bat");
-  it("degrades honestly with no bat-path or contact-quality claim", () => {
-    expect(p.analysis_status).toBe("uncertain_shot");
-    expect(p.status_reason).toBe("bat_missing");
+  it("confirms from body and hands with no bat-path or bat-angle claim", () => {
+    expect(p.analysis_status).toBe("valid");
+    expect(p.evidence_basis).toBe("body");
     for (const f of ["feat_bat_angle", "feat_bat_speed", "feat_follow_through", "feat_follow_height"]) {
       expect(p.features.find((x) => x.id === f), f).toBeUndefined();
     }
+    for (const id of ["bat_angle_contact", "bat_speed_contact", "bat_pad_gap"]) {
+      const m = p.metrics.find((x) => x.id === id);
+      expect(!m || m.status === "not_measured", id).toBe(true);
+    }
     expect(p.limitations.some((l) => l.id === "lim_no_bat")).toBe(true);
-    expect(p.technique_index).toBeNull();
   });
 });
 

@@ -6,7 +6,7 @@
 
 import type { ObjectDetector as OD, PoseLandmarker as PL } from "@mediapipe/tasks-vision";
 import { J } from "@/engine/types";
-import { detectObjects, detectStill, roiAround, seek, type Box, type Roi } from "./pose";
+import { detectObjects, detectStill, roiAround, seek, type Box, type PoseFrame, type Roi } from "./pose";
 
 export interface ScanSample {
   /** Media time, seconds. */
@@ -20,6 +20,11 @@ export interface ScanSample {
   cut: boolean;
   /** Small JPEG of the frame for choosing a shot. */
   thumb: string;
+  /**
+   * Head height of the main person as a fraction of their standing height (from pose),
+   * when pose ran. A front-foot stroke takes the head low; walking keeps it tall.
+   */
+  head?: number | null;
 }
 
 export interface ShotWindow {
@@ -56,6 +61,7 @@ export async function scanVideo(
   windowMedia: number,
   onProgress: (fraction: number) => void,
   signal?: AbortSignal,
+  pose?: PL,
 ): Promise<ScanResult> {
   const duration = video.duration;
   const limit = Math.min(duration, MAX_SCAN_SEC);
@@ -113,7 +119,11 @@ export async function scanVideo(
     prevLuma = luma;
     prevHist = hist;
     tctx.drawImage(detCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
-    samples.push({ t, people, bats, motion, cut, thumb: thumbCanvas.toDataURL("image/jpeg", 0.6) });
+    // Posture of the main whole person: how low is the head?
+    let head: number | null = null;
+    const main = pose ? people.filter(fullBodyBox).sort((a, b) => b.h - a.h)[0] : undefined;
+    if (pose && main) head = headRatio(detectStill(pose, video, roiAround(main, aspect, 0.3)), aspect);
+    samples.push({ t, people, bats, motion, cut, head, thumb: thumbCanvas.toDataURL("image/jpeg", 0.6) });
     onProgress(Math.min(1, t / limit));
   };
 
@@ -196,6 +206,44 @@ export function findWindows(samples: ScanSample[], windowMedia: number, duration
   });
   const out: ShotWindow[] = [];
   const minGap = Math.max(1.2, windowMedia * 0.6);
+
+  // Strokes from posture: the head drops well below where it stood a moment before.
+  const withHead = samples.filter((s) => typeof s.head === "number").length;
+  if (withHead >= samples.length * 0.4) {
+    const head = samples.map((s) => (typeof s.head === "number" ? s.head : NaN));
+    for (const [s0, s1] of segs) {
+      const t0 = samples[s0]!.t;
+      const t1 = s1 + 1 < samples.length ? samples[s1 + 1]!.t : duration;
+      if (t1 - t0 < Math.min(1.2, windowMedia)) continue;
+      const drop = head.map((h, i) => {
+        if (i < s0 || i > s1 || !Number.isFinite(h)) return NaN;
+        let top = -Infinity;
+        for (let k = i; k >= s0 && samples[i]!.t - samples[k]!.t <= 2; k--) if (Number.isFinite(head[k]!)) top = Math.max(top, head[k]!);
+        return top - h;
+      });
+      const peaks: number[] = [];
+      for (let i = s0; i <= s1; i++) {
+        const d = drop[i]!;
+        if (!Number.isFinite(d) || d < 0.07) continue;
+        const isMax = !(drop[i - 1]! > d) && !(drop[i + 1]! > d);
+        if (isMax) peaks.push(i);
+      }
+      peaks.sort((x, y) => drop[y]! - drop[x]!);
+      const chosen: number[] = [];
+      for (const p of peaks) if (chosen.every((c) => Math.abs(samples[c]!.t - samples[p]!.t) >= minGap)) chosen.push(p);
+      for (const p of chosen) {
+        // The lowest head is about contact: most of the window goes before it (setup, stride).
+        const peak = samples[p]!.t;
+        let start = peak - 0.6 * windowMedia;
+        let end = start + windowMedia;
+        if (start < t0) [start, end] = [t0, Math.min(t1, t0 + windowMedia)];
+        if (end > t1) [start, end] = [Math.max(t0, t1 - windowMedia), t1];
+        out.push({ start, end, peak, score: 1 + drop[p]!, thumb: samples[p]!.thumb, verified: true });
+      }
+    }
+    if (out.length) return out.sort((x, y) => y.score - x.score).slice(0, 12).sort((x, y) => x.start - y.start);
+  }
+
   for (const [s0, s1] of segs) {
     const t0 = samples[s0]!.t;
     const t1 = s1 + 1 < samples.length ? samples[s1 + 1]!.t : duration;
@@ -221,7 +269,9 @@ export function findWindows(samples: ScanSample[], windowMedia: number, duration
     for (const p of peaks) if (chosen.every((c) => Math.abs(samples[c]!.t - samples[p]!.t) >= minGap)) chosen.push(p);
     for (const p of chosen) {
       const peak = samples[p]!.t;
-      let start = peak - 0.6 * windowMedia;
+      // The scan's motion peak is often the backlift; the stroke follows it, so more of the
+      // window comes after the peak than before.
+      let start = peak - 0.45 * windowMedia;
       let end = start + windowMedia;
       if (start < t0) [start, end] = [t0, Math.min(t1, t0 + windowMedia)];
       if (end > t1) [start, end] = [Math.max(t0, t1 - windowMedia), t1];
@@ -360,6 +410,27 @@ export function batterCandidates(samples: ScanSample[], win: { start: number; en
   const ranked = cands.filter((c) => c.persistence >= 0.25).sort((a, b) => score(b) - score(a));
   // One person can produce two overlapping boxes mid-stroke: keep the stronger.
   return { at: ref.t, candidates: ranked.filter((c, i) => ranked.slice(0, i).every((d) => iou(c.box, d.box) < 0.45)) };
+}
+
+/** Nose height above the lowest foot, over standing height estimated from leg and trunk lengths. */
+export function headRatio(p: PoseFrame, aspect: number): number | null {
+  const g = (j: number) => {
+    const q = p.body[j];
+    return q && q[2] >= 0.4 ? ([q[0] * aspect, q[1]] as const) : null;
+  };
+  const nose = g(J.nose);
+  const feet = [J.left_ankle, J.right_ankle, J.left_heel, J.right_heel].map(g).filter((q): q is NonNullable<typeof q> => !!q);
+  if (!nose || !feet.length) return null;
+  const L = (a: number, b: number) => {
+    const pa = g(a);
+    const pb = g(b);
+    return pa && pb ? Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) : NaN;
+  };
+  const leg = Math.max(L(J.left_hip, J.left_knee) + L(J.left_knee, J.left_ankle), L(J.right_hip, J.right_knee) + L(J.right_knee, J.right_ankle));
+  const trunk = Math.max(L(J.left_hip, J.left_shoulder), L(J.right_hip, J.right_shoulder));
+  if (!Number.isFinite(leg) || !Number.isFinite(trunk)) return null;
+  const stature = (leg + trunk) / 0.779;
+  return (Math.max(...feet.map((f) => f[1])) - nose[1]) / stature;
 }
 
 function grow(b: Box | Roi, m: number): Roi {

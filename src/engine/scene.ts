@@ -64,6 +64,17 @@ export interface Scene {
    * ESTIMATE, 0 = pointing along the pitch toward the bowler. Used for trunk rotation.
    */
   estYaw: ((frame: number, a: SemanticJoint, b: SemanticJoint) => number) | null;
+  /**
+   * Frontal views only: sideways (image-plane) position of a joint in scene units, for
+   * movement across the body that side-on footage can't see.
+   */
+  across: ((frame: number, joint: SemanticJoint) => number) | null;
+  /**
+   * The camera zoomed or panned during the shot (broadcast footage). Positions are then
+   * measured per frame against the batter's own size, feet and back ankle, so whole-body
+   * travel (back-foot movement) can't be observed.
+   */
+  cameraMoving: boolean;
   /** Map a scene point back to normalised image coordinates (for overlays). */
   toImage: (p: { f: number; u: number }) => [number, number];
 }
@@ -141,22 +152,50 @@ export function buildScene(obs: CaptureObservation): Scene {
   // Stumps: calibration, otherwise estimated a fixed fraction of stature behind the back foot at setup.
   let stumpsXu = obs.calibration.stumpsX !== null ? obs.calibration.stumpsX * aspect : NaN;
   const stumpsEstimated = !Number.isFinite(stumpsXu);
+  const backAnkleImg = semanticToJoint("back_ankle", front);
   if (stumpsEstimated) {
-    const backAnkle = semanticToJoint("back_ankle", front);
     const xs: number[] = [];
     for (let i = 0; i < setupEnd; i++) {
-      const p = rawImg(i, backAnkle);
+      const p = rawImg(i, backAnkleImg);
       if (p) xs.push(p[0]);
     }
     const back = mean(xs);
     stumpsXu = (Number.isFinite(back) ? back : aspect / 2) - (dir * 0.25 * stature) / mpu;
   }
 
-  const toScene = (x: number, y: number, c: number): P => ({
-    f: (x - stumpsXu) * dir * mpu,
-    u: (groundY! - y) * mpu,
-    c,
-  });
+  // Moving camera: the batter's apparent size changes by more than a fifth across the
+  // shot (a person doesn't change size; the lens did). Then every frame is measured
+  // against that frame's own body size, ground (lowest foot) and back ankle.
+  const frameStature: number[] = [];
+  const frameGround: number[] = [];
+  const frameBack: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const L = (a: Joint, b: Joint) => {
+      const pa = rawImg(i, a);
+      const pb = rawImg(i, b);
+      return pa && pb ? Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) : NaN;
+    };
+    const leg = Math.max(L("left_hip", "left_knee") + L("left_knee", "left_ankle"), L("right_hip", "right_knee") + L("right_knee", "right_ankle"));
+    const trunk = mean([L("left_hip", "left_shoulder"), L("right_hip", "right_shoulder")]);
+    frameStature.push(Number.isFinite(leg) && Number.isFinite(trunk) ? (leg + trunk) / SEGMENT_FRACTION_OF_STATURE : NaN);
+    const feet = (["left_heel", "right_heel", "left_foot", "right_foot", "left_ankle", "right_ankle"] as Joint[]).map((j) => rawImg(i, j)?.[1] ?? NaN).filter(Number.isFinite);
+    frameGround.push(feet.length ? Math.max(...feet) : NaN);
+    frameBack.push(rawImg(i, backAnkleImg)?.[0] ?? NaN);
+  }
+  const statureTrack = rollingMedian(frameStature, Math.max(3, Math.round(n / 12)));
+  const finiteStature = statureTrack.filter(Number.isFinite);
+  const cameraMoving =
+    obs.media.kind === "video" && finiteStature.length > n * 0.5 && Math.max(...finiteStature) / Math.min(...finiteStature) > 1.2;
+  const groundTrack = rollingMedian(frameGround, 2);
+  const backTrack = rollingMedian(frameBack, 2);
+  const at = (xs: number[], i: number, fallback: number) => (Number.isFinite(xs[i]!) ? xs[i]! : fallback);
+
+  const toScene = (x: number, y: number, c: number, frame?: number): P => {
+    if (!cameraMoving || frame === undefined) return { f: (x - stumpsXu) * dir * mpu, u: (groundY! - y) * mpu, c };
+    const k = mpu * (statureImg / at(statureTrack, frame, statureImg));
+    const stumps = at(backTrack, frame, stumpsXu) - (dir * 0.25 * stature) / k;
+    return { f: (x - stumps) * dir * k, u: (at(groundTrack, frame, groundY!) - y) * k, c };
+  };
 
   // Frontal views: the forward axis points along the camera's line of sight. Forward
   // positions come from the monocular 3D estimate, expressed relative to the back ankle
@@ -198,16 +237,16 @@ export function buildScene(obs: CaptureObservation): Scene {
   const getRaw = (frame: number, joint: Joint): P | null => {
     const p = rawImg(frame, joint);
     if (!p) return null;
-    const sp = toScene(p[0], p[1], p[2]);
+    const sp = toScene(p[0], p[1], p[2], frame);
     if (plane === "sagittal") return sp;
     const f = frontalF(frame, joint);
     return Number.isFinite(f) ? { f, u: sp.u, c: p[2] } : null;
   };
 
   const track = (pts: ImgPoint[]) =>
-    pts.map((p) => {
+    pts.map((p, i) => {
       const q = img(p);
-      return q ? toScene(q[0], q[1], q[2]) : null;
+      return q ? toScene(q[0], q[1], q[2], i) : null;
     });
 
   const depth = obs.body3d
@@ -224,6 +263,14 @@ export function buildScene(obs: CaptureObservation): Scene {
     : null;
 
   const fps = obs.media.kind === "photo" ? null : obs.media.fps;
+
+  const across =
+    plane === "frontal"
+      ? (frame: number, joint: SemanticJoint): number => {
+          const p = rawImg(frame, semanticToJoint(joint, front));
+          return p ? toScene(p[0], p[1], p[2], frame).f * dir : NaN;
+        }
+      : null;
 
   return {
     n,
@@ -243,8 +290,17 @@ export function buildScene(obs: CaptureObservation): Scene {
     ball: track(obs.ball.points),
     depth,
     estYaw,
+    across,
+    cameraMoving,
     toImage: ({ f, u }) => [(f / (dir * mpu) + stumpsXu) / aspect, groundY! - u / mpu],
   };
+}
+
+function rollingMedian(xs: number[], radius: number): number[] {
+  return xs.map((_, i) => {
+    const w = xs.slice(Math.max(0, i - radius), i + radius + 1).filter(Number.isFinite).sort((a, b) => a - b);
+    return w.length ? w[Math.floor(w.length / 2)]! : NaN;
+  });
 }
 
 /** Body centre estimate: weighted mean of hips (0.6) and shoulders (0.4) — a CoM proxy, not a measured CoM. */
