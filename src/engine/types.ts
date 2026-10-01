@@ -107,6 +107,11 @@ export interface CaptureObservation {
   body: ImgPoint[][];
   /** Optional triangulated body for the 3D tier, body3d[frame][jointIndex]. */
   body3d?: WorldPoint[][];
+  /**
+   * Monocular depth ESTIMATE (lateral metres per frame per joint) for the 3D viewer only.
+   * Never read by the engine; drawn as "estimated" so it is not mistaken for a measurement.
+   */
+  vizDepth?: number[][];
   bat: { source: TrackSource; handle: ImgPoint[]; toe: ImgPoint[] };
   ball: { source: TrackSource; points: ImgPoint[] };
   /** Event marks supplied by the athlete or coach (frame indices). */

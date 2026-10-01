@@ -219,3 +219,14 @@ describe("3D Session preview", () => {
     expect(metric(run("valid_ffd"), "pelvis_thorax_separation")!.status).toBe("not_measured");
   });
 });
+
+describe("unusable capture", () => {
+  const p = run("capture_failed");
+  it("fails at the capture gate with corrections and no classification", () => {
+    expect(p.analysis_status).toBe("capture_failed");
+    expect(p.shot_probabilities).toBeNull();
+    expect(p.technique_index).toBeNull();
+    expect(p.capture.checks.filter((c) => c.status === "fail").length).toBeGreaterThan(0);
+    expect(p.recapture.join(" ")).toMatch(/camera|tripod|1080p|frame/i);
+  });
+});

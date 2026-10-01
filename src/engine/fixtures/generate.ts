@@ -159,6 +159,7 @@ export function generate(opts: GenerateOptions): CaptureObservation {
   const H = opts.statureM;
   const s = opts.script;
   const R = rng(opts.seed);
+  const RD = rng(opts.seed ^ 0x5eed); // separate stream so viewer depth never perturbs tracked data
   const noise = opts.noise ?? 0.0035;
   const fps = opts.fps;
   const n = opts.photoAtContact ? 1 : Math.round(opts.durationS * fps);
@@ -191,6 +192,7 @@ export function generate(opts: GenerateOptions): CaptureObservation {
   const times = opts.photoAtContact ? [contactT] : Array.from({ length: n }, (_, i) => i / fps);
   const body: ImgPoint[][] = [];
   const body3d: WorldPoint[][] = [];
+  const vizDepth: number[][] = [];
   const handle: ImgPoint[] = [];
   const toe: ImgPoint[] = [];
   const ball: ImgPoint[] = [];
@@ -267,6 +269,8 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     }
     body.push(frame);
     body3d.push(frame3d);
+    // Simulated monocular depth estimate for the viewer: true lateral plus noise.
+    vizDepth.push(JOINTS.map((j) => world[j][2] + gaussian(RD) * 0.04));
 
     const batOccluded = !!opts.occlusion?.dropBat && t >= opts.occlusion.fromT && t <= opts.occlusion.toT;
     if (opts.withBat === false || batOccluded) {
@@ -294,6 +298,7 @@ export function generate(opts: GenerateOptions): CaptureObservation {
   let outToe = toe;
   let outBall = ball;
   let out3d = body3d;
+  let outDepth = vizDepth;
   let bowlerSide: "left" | "right" = "right";
   let stumpsX = FIXTURE_CALIBRATION.stumpsX;
   if (opts.handedness === "left") {
@@ -301,6 +306,7 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     const mirror = (p: ImgPoint): ImgPoint => (p ? [1 - p[0], p[1], p[2]] : null);
     outBody = body.map((fr) => JOINTS.map((j) => mirror(fr[JOINTS.indexOf(swap(j))] ?? null)));
     out3d = body3d.map((fr) => JOINTS.map((j) => fr[JOINTS.indexOf(swap(j))] ?? null));
+    outDepth = vizDepth.map((fr) => JOINTS.map((j) => fr[JOINTS.indexOf(swap(j))] ?? 0));
     outHandle = handle.map(mirror);
     outToe = toe.map(mirror);
     outBall = ball.map(mirror);
@@ -338,6 +344,7 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     t: times.map((t) => Math.round(t * 1000 * 100) / 100),
     body: outBody,
     body3d: opts.include3d ? out3d : undefined,
+    vizDepth: outDepth,
     bat: { source: opts.withBat === false ? "none" : (opts.batSource ?? "fixture"), handle: outHandle, toe: outToe },
     ball: { source: opts.withBall === false || !s.ball.visible ? "none" : "fixture", points: outBall },
     marks: {

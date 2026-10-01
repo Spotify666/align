@@ -1,10 +1,10 @@
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { FlatCompat } from "@eslint/eslintrc";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
 
-const compat = new FlatCompat({ baseDirectory: dirname(fileURLToPath(import.meta.url)) });
-
-export default [
-  { ignores: [".next/**", "node_modules/**", "public/**", "supabase/functions/**", "next-env.d.ts", "playwright-report/**"] },
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+const config = [
+  { ignores: [".next/**", "node_modules/**", "public/**", "supabase/functions/**", "next-env.d.ts", "playwright-report/**", "coverage/**"] },
+  ...nextVitals,
+  ...nextTs,
 ];
+
+export default config;

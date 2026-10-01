@@ -227,6 +227,8 @@ export interface FixtureSpec {
   title: string;
   expectation: string;
   options: GenerateOptions;
+  /** Post-process the generated observation (e.g. degrade the capture). */
+  mutate?: (obs: CaptureObservation) => CaptureObservation;
 }
 
 const common = { statureM: H, durationS: 2, fps: 120 } as const;
@@ -296,6 +298,18 @@ export const FIXTURE_SPECS: FixtureSpec[] = [
     options: { ...common, fps: 30, id: "fx_low_fps", label: "Defence at 30 fps", seed: 99, handedness: "right", script: ffdScript(ATTEMPT), marks: { bounce: true } },
   },
   {
+    key: "capture_failed",
+    title: "Unusable capture (low resolution, shaky, batter cut off)",
+    expectation: "capture_failed — corrections listed, nothing classified",
+    options: { ...common, fps: 30, id: "fx_capture_failed", label: "Shaky low-resolution clip", seed: 88, handedness: "right", script: ffdScript(ATTEMPT) },
+    mutate: (obs) => ({
+      ...obs,
+      media: { ...obs.media, width: 426, height: 240 },
+      quality: { ...obs.quality, frames: obs.quality.frames.map((f) => ({ ...f, sharpness: 0.006, backgroundMotion: 0.11, brightness: 0.14 })) },
+      body: obs.body.map((fr, i) => (i % 5 < 3 ? fr.map(() => null) : fr)),
+    }),
+  },
+  {
     key: "session3d",
     title: "3D Session preview (two calibrated phones)",
     expectation: "valid — depth-dependent measures available (preview, not validated)",
@@ -324,7 +338,8 @@ export function fixture(key: string): CaptureObservation {
   if (hit) return hit;
   const spec = FIXTURE_SPECS.find((f) => f.key === key);
   if (!spec) throw new Error(`Unknown fixture ${key}`);
-  const obs = generate(spec.options);
+  const raw = generate(spec.options);
+  const obs = spec.mutate ? spec.mutate(raw) : raw;
   cache.set(key, obs);
   return obs;
 }
