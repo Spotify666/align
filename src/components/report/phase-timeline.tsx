@@ -18,18 +18,30 @@ export function PhaseTimeline({
   onSeek: (frame: number) => void;
 }) {
   const pct = (f: number) => (frames > 1 ? (f / (frames - 1)) * 100 : 0);
-  const shown = events.filter((e) => e.type !== "setup" && e.type !== "recovery" && e.type !== "downswing_onset");
+  const shown = events
+    .filter((e) => e.type !== "setup" && e.type !== "recovery" && e.type !== "downswing_onset")
+    .sort((a, b) => a.frame - b.frame);
+  // Stack labels that would collide into up to three rows.
+  const lastInRow: number[] = [];
+  const rowOf = shown.map((e) => {
+    const x = pct(e.frame);
+    let row = lastInRow.findIndex((last) => x - last > 11);
+    if (row < 0) row = Math.min(lastInRow.length, 2);
+    lastInRow[row] = x;
+    return row;
+  });
+  const rows = Math.max(1, ...rowOf.map((r) => r + 1));
   const t0 = times[0] ?? 0;
   return (
     <div className="select-none">
-      <div className="relative h-8">
-        {shown.map((e) => (
+      <div className="relative" style={{ height: `${rows * 15 + 14}px` }}>
+        {shown.map((e, i) => (
           <button
             key={e.id}
             type="button"
             onClick={() => onSeek(e.frame)}
-            className="group absolute top-0 -translate-x-1/2 flex flex-col items-center"
-            style={{ left: `${pct(e.frame)}%` }}
+            className="group absolute bottom-0 -translate-x-1/2 flex flex-col items-center"
+            style={{ left: `${pct(e.frame)}%`, paddingBottom: 0 }}
             aria-label={`Go to ${EVENT_LABEL[e.type] ?? e.type} at ${((e.tMs - t0) / 1000).toFixed(2)} seconds (${e.method}, confidence ${Math.round(e.confidence * 100)}%)`}
             title={`${EVENT_LABEL[e.type]} · ${e.method}`}
           >
@@ -40,7 +52,7 @@ export function PhaseTimeline({
             >
               {EVENT_LABEL[e.type] ?? e.type}
             </span>
-            <span className={`mt-0.5 h-3 w-px ${e.type === "contact" ? "bg-gold" : "bg-line-strong"}`} />
+            <span className={`mt-0.5 w-px ${e.type === "contact" ? "bg-gold" : "bg-line-strong"}`} style={{ height: `${12 + rowOf[i]! * 15}px` }} />
           </button>
         ))}
       </div>

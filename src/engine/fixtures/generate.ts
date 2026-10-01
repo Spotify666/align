@@ -149,10 +149,19 @@ function ballAt(b: BallScript, t: number, contactT: number, contactP: V3): V3 | 
     const f = b.bounceF + ((contactP[0] - b.bounceF) * tt) / T2;
     return [f, vu * tt - 0.5 * G * tt * tt, b.lateral + ((contactP[2] - b.lateral) * tt) / T2];
   }
-  const tt = t - contactT;
-  let u = contactP[1] + b.exit[1] * tt - 0.5 * G * tt * tt;
-  if (u < 0.036) u = 0.036 + Math.abs(u - 0.036) * 0.4; // crude ground rebound
-  return [contactP[0] + b.exit[0] * tt, u, contactP[2] + b.exit[2] * tt];
+  // Post-contact: ballistic flight with damped ground bounces (restitution 0.45).
+  let tt = t - contactT;
+  let p0: V3 = [...contactP];
+  let v: V3 = [...b.exit];
+  for (let hop = 0; hop < 8; hop++) {
+    const disc = v[1] * v[1] + 2 * G * Math.max(0, p0[1] - 0.036);
+    const tGround = (v[1] + Math.sqrt(disc)) / G;
+    if (tt <= tGround || !Number.isFinite(tGround)) break;
+    p0 = [p0[0] + v[0] * tGround, 0.036, p0[2] + v[2] * tGround];
+    v = [v[0] * 0.8, Math.abs(v[1] - G * tGround) * 0.45, v[2] * 0.8];
+    tt -= tGround;
+  }
+  return [p0[0] + v[0] * tt, Math.max(0.036, p0[1] + v[1] * tt - 0.5 * G * tt * tt), p0[2] + v[2] * tt];
 }
 
 export function generate(opts: GenerateOptions): CaptureObservation {

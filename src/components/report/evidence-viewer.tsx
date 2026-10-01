@@ -39,12 +39,34 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
   const [slow, setSlow] = useState(true);
   const [highlight, setHighlight] = useState<string | null>(null);
   const [layers, setLayers] = useState({ body: true, bat: true, ball: true, centre: true });
+  const [zoom, setZoom] = useState(true);
   const canvas = useRef<HTMLCanvasElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const scene = useMemo(() => buildScene(obs), [obs]);
   const aspect = obs.media.width / obs.media.height;
   const isPhoto = obs.media.kind === "photo";
+
+  // Zoom window around the batter (all frames), keeping the frame's aspect ratio.
+  const batterView = useMemo(() => {
+    let x0 = 1, x1 = 0, y0 = 1, y1 = 0;
+    for (const fr of obs.body)
+      for (const p of fr)
+        if (p && p[2] >= 0.5) {
+          x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]);
+          y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]);
+        }
+    for (const p of [...obs.bat.toe, ...obs.bat.handle])
+      if (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+    if (x1 <= x0 || y1 <= y0) return { x: 0, y: 0, w: 1, h: 1 };
+    let h = Math.min(1, (y1 - y0) * 1.3);
+    let w = Math.min(1, Math.max((x1 - x0) * 1.5, h));
+    h = Math.min(1, Math.max(h, w)); w = h;
+    const cx = (x0 + x1) / 2 + w * 0.12;
+    const cy = (y0 + y1) / 2;
+    return { x: Math.max(0, Math.min(1 - w, cx - w / 2)), y: Math.max(0, Math.min(1 - h, cy - h / 2)), w, h };
+  }, [obs]);
+  const view = zoom ? batterView : { x: 0, y: 0, w: 1, h: 1 };
 
   useImperativeHandle(ref, () => ({
     seek: (f, h) => {
@@ -69,14 +91,14 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
       c.height = Math.round(H * dpr);
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const X = (x: number) => x * W;
-    const Y = (y: number) => y * H;
+    const X = (x: number) => ((x - view.x) / view.w) * W;
+    const Y = (y: number) => ((y - view.y) / view.h) * H;
 
     // Background: real frame when available, else a schematic of the pitch.
     const v = video.current;
     const kf = keyframes?.[frame];
     if (v && videoUrl && v.readyState >= 2) {
-      ctx.drawImage(v, 0, 0, W, H);
+      ctx.drawImage(v, view.x * v.videoWidth, view.y * v.videoHeight, view.w * v.videoWidth, view.h * v.videoHeight, 0, 0, W, H);
       if (mode === "overlay") {
         ctx.fillStyle = "rgba(10,13,16,0.25)";
         ctx.fillRect(0, 0, W, H);
@@ -90,7 +112,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
       if (kf) {
         const img = new Image();
         img.src = kf;
-        if (img.complete) ctx.drawImage(img, 0, 0, W, H);
+        if (img.complete) ctx.drawImage(img, view.x * img.naturalWidth, view.y * img.naturalHeight, view.w * img.naturalWidth, view.h * img.naturalHeight, 0, 0, W, H);
       }
       // Ground, distance ticks, crease and stumps from the batter-centric scene.
       const [, gy] = scene.toImage({ f: 0, u: 0 });
@@ -252,8 +274,8 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
     }
 
     // Metric pin for the measure the athlete is inspecting.
-    if (highlight) drawPin(ctx, highlight, frame, obs, scene, W, H);
-  }, [frame, mode, layers, highlight, obs, payload.events, scene, videoUrl, keyframes]);
+    if (highlight) drawPin(ctx, highlight, frame, obs, scene, X, Y);
+  }, [frame, mode, layers, highlight, obs, payload.events, scene, videoUrl, keyframes, view.x, view.y, view.w, view.h]);
 
   // Video sync: seek, then draw on "seeked".
   useEffect(() => {
@@ -336,6 +358,11 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
             ))}
           </div>
         )}
+        {(mode === "overlay" || mode === "original") && (
+          <button onClick={() => setZoom((z) => !z)} className="chip border-line text-muted min-h-9" aria-pressed={zoom}>
+            {zoom ? "Batter view" : "Full frame"}
+          </button>
+        )}
         {payload.demo && <span className="demo-badge ml-auto">DEMO DATA · no video</span>}
       </div>
 
@@ -379,10 +406,18 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
   );
 });
 
-function drawPin(ctx: CanvasRenderingContext2D, metric: string, frame: number, obs: CaptureObservation, scene: ReturnType<typeof buildScene>, W: number, H: number) {
+function drawPin(
+  ctx: CanvasRenderingContext2D,
+  metric: string,
+  frame: number,
+  obs: CaptureObservation,
+  scene: ReturnType<typeof buildScene>,
+  X: (x: number) => number,
+  Y: (y: number) => number,
+) {
   const g = (s: Parameters<typeof scene.get>[1]) => {
     const p = obs.body[frame]?.[J[semanticToJoint(s, scene.front)]];
-    return p ? ([p[0] * W, p[1] * H] as const) : null;
+    return p ? ([X(p[0]), Y(p[1])] as const) : null;
   };
   ctx.font = "600 12px var(--font-plex-mono), monospace";
   ctx.lineWidth = 1.5;
@@ -425,11 +460,11 @@ function drawPin(ctx: CanvasRenderingContext2D, metric: string, frame: number, o
     if (h) {
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
-      ctx.moveTo(h[0] * W, h[1] * H);
-      ctx.lineTo(h[0] * W, h[1] * H + 90);
+      ctx.moveTo(X(h[0]), Y(h[1]));
+      ctx.lineTo(X(h[0]), Y(h[1]) + 90);
       ctx.stroke();
       ctx.setLineDash([]);
-      label(h[0] * W + 8, h[1] * H - 6, metric === "bat_angle_contact" ? "bat vs vertical" : "bat speed here");
+      label(X(h[0]) + 8, Y(h[1]) - 6, metric === "bat_angle_contact" ? "bat vs vertical" : "bat speed here");
     }
   } else {
     const hip = g("front_hip");
