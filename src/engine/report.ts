@@ -169,6 +169,8 @@ function citationUniverse(p: AnalysisPayload): Map<string, number[]> {
   for (const l of p.limitations) put(l.id, l.text.match(/\d+(\.\d+)?/g)?.map(Number) ?? []);
   for (const d of p.drill_candidates) put(d.id, `${d.constraint} ${d.dosage} ${d.passCondition}`.match(/\d+(\.\d+)?/g)?.map(Number) ?? []);
   if (p.plan) for (const d of p.plan.drills) put(d.id, `${d.constraint} ${d.dosage} ${d.passCondition}`.match(/\d+(\.\d+)?/g)?.map(Number) ?? []);
+  // The retest line is engine-authored payload text, so its numbers are grounded too.
+  if (p.plan) put(`metric_${p.plan.priority.metricId}`, p.plan.retest.match(/\d+(\.\d+)?/g)?.map(Number) ?? []);
   for (const id of p.delivery.evidenceIds) put(id, [p.delivery.bounceDistanceM, p.delivery.bounceUncertaintyM, p.delivery.heightAtBatterM]);
   if (p.observed_shot) for (const id of p.observed_shot.evidence_ids) put(id, [p.observed_shot.probability * 100, p.capture_confidence * 100]);
   for (const f of p.evidence_frames) put(`frame_${f}`, [f]);

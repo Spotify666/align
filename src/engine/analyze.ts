@@ -12,6 +12,7 @@ import {
   CLASSIFIER_VERSION,
   ENGINE_VERSION,
   METRIC_VERSION,
+  METRICS,
   POSE_MODEL,
   REGISTRY_HASH,
   th,
@@ -66,6 +67,11 @@ function limitationsFor(obs: CaptureObservation, tracking: TrackingSummary, scen
   L.push({ id: "lim_ranges", text: "Coaching ranges are provisional (coach-authored, v0.1) and not population norms." });
   if (!tracking.depth.available)
     L.push({ id: "lim_depth", text: "Single camera: depth-sensitive values (angles, lateral gaps) are estimates." });
+  if (scene.plane === "frontal")
+    L.push({
+      id: "lim_view",
+      text: "Filmed along the pitch: forward distances come from a 3D pose estimate, and bounce distance, bat speed and ball speed are not measured.",
+    });
   if (scene.scaleSource === "athlete_height") L.push({ id: "lim_scale", text: "Distances are scaled from your height, not measured pitch markings." });
   if (scene.scaleSource === "none") L.push({ id: "lim_noscale", text: "No scale: distances are expressed as fractions of your height; speeds in m/s are not reported." });
   if (scene.stumpsEstimated && tracking.ball.ok) L.push({ id: "lim_stumps", text: "Stumps position estimated from your stance; bounce distance is approximate." });
@@ -94,6 +100,10 @@ function statusOf(
     return { status: "invalid_for_requested_analysis", reason: "different_shot" };
   }
 
+  // Filmed along the pitch some signals are unobservable by geometry (not by tracking
+  // failure); acceptance then demands nearly all of the remaining evidence instead.
+  const frontal = obs.camera.view === "front_on" || obs.camera.view === "behind";
+  const minCoverage = th(frontal ? "ffd.accept.min_evidence_coverage_frontal" : "ffd.accept.min_evidence_coverage");
   const accept =
     tracking.body.ok &&
     tracking.bat.ok &&
@@ -102,14 +112,13 @@ function statusOf(
     cls.top === "front_foot_defence" &&
     cls.margin >= th("ffd.accept.min_margin") &&
     p.unknown <= th("ffd.accept.max_unknown") &&
-    cls.ffdCoverage >= th("ffd.accept.min_evidence_coverage");
+    cls.ffdCoverage >= minCoverage;
   if (accept) return { status: "valid", reason: "accepted" };
 
   if (!tracking.ball.ok) return { status: "uncertain_shot", reason: "ball_missing" };
   if (!tracking.bat.ok) return { status: "uncertain_shot", reason: "bat_missing" };
-  if (cls.ffdCoverage < th("ffd.accept.min_evidence_coverage")) return { status: "uncertain_shot", reason: "insufficient_evidence" };
+  if (cls.ffdCoverage < minCoverage) return { status: "uncertain_shot", reason: "insufficient_evidence" };
   if (p.unknown > th("ffd.accept.max_unknown")) return { status: "uncertain_shot", reason: "out_of_distribution" };
-  void obs;
   return { status: "uncertain_shot", reason: "ambiguous" };
 }
 
@@ -121,6 +130,115 @@ const UNCERTAIN_TEXT: Record<string, string> = {
   ambiguous: "the evidence fits more than one shot",
   photo_only: "a photo can't show shot type, timing, bat or ball",
 };
+
+const EMPTY_DELIVERY: AnalysisPayload["delivery"] = {
+  available: false,
+  bounceDistanceM: null,
+  bounceUncertaintyM: null,
+  heightAtBatterM: null,
+  heightAtBatterRel: null,
+  length: null,
+  lengthLabel: null,
+  confidence: 0,
+  evidenceIds: [],
+};
+
+/** Body observations safe to show without a shot verdict: no bat, ball or timing. */
+const OBSERVATION_IDS = ["stride_length", "front_knee_flexion", "head_knee_offset", "trunk_inclination", "weight_forward"];
+// Photos never report weight transfer: one frame cannot show where the weight is going.
+const POSTURE_IDS = ["front_knee_flexion", "head_knee_offset", "trunk_inclination"];
+
+/** Strip coaching ranges so an observation can't be read as a grade. */
+function ungraded(ms: Metric[]): Metric[] {
+  return ms.map((m) => ({
+    ...m,
+    status: "estimated",
+    range: null,
+    inRange: null,
+    limitation: [m.limitation, "Not graded: the shot wasn't confirmed as a front-foot defence."].filter(Boolean).join(" "),
+  }));
+}
+
+/** One photo of a set as its own single-frame observation. */
+function single(obs: CaptureObservation, i: number): CaptureObservation {
+  if (obs.body.length === 1) return obs;
+  return {
+    ...obs,
+    media: { ...obs.media, frameCount: 1 },
+    t: [0],
+    body: [obs.body[i]!],
+    body3d: obs.body3d ? [obs.body3d[i]!] : undefined,
+    vizDepth: obs.vizDepth ? [obs.vizDepth[i]!] : undefined,
+    poseWorld: obs.poseWorld ? [obs.poseWorld[i]!] : undefined,
+    photoPhases: undefined,
+    bat: { ...obs.bat, handle: [obs.bat.handle[i] ?? null], toe: [obs.bat.toe[i] ?? null] },
+    ball: { ...obs.ball, points: [obs.ball.points[i] ?? null] },
+    marks: { bounceFrame: null, contactFrame: null },
+  };
+}
+
+/** Posture observations from one photo (never "contact": the moment isn't confirmed). */
+function postureFromPhoto(photo: CaptureObservation): Metric[] {
+  if (bodyCoverage(photo).coverage < 1) {
+    return POSTURE_IDS.map((id) => {
+      const m = computeMetricsSafe(photo).find((x) => x.id === id);
+      return m && m.status !== "not_measured" ? photoOnly(m) : notVisible(id);
+    });
+  }
+  return computeMetricsSafe(photo)
+    .filter((m) => POSTURE_IDS.includes(m.id))
+    .map((m) => (m.status === "not_measured" ? m : photoOnly(m)));
+}
+
+function computeMetricsSafe(photo: CaptureObservation): Metric[] {
+  const scene = buildScene(photo);
+  const events = { list: [], byType: {} };
+  const delivery = estimateDelivery(scene, events);
+  const features = extractFeatures(scene, events, { ...delivery, available: false, length: null });
+  return computeMetrics({ scene, events, features, delivery, tier: photo.tier, postureFrame: 0 });
+}
+
+function photoOnly(m: Metric): Metric {
+  return {
+    ...m,
+    status: "estimated",
+    phase: "Single photo",
+    inRange: null,
+    limitation: [m.limitation, "Photo: one moment, not confirmed as contact. Shown as a posture observation only."].filter(Boolean).join(" "),
+  };
+}
+
+function notVisible(id: string): Metric {
+  const def = METRICS.find((d) => d.id === id)!;
+  return {
+    id,
+    name: def.name,
+    domain: def.domain,
+    status: "not_measured",
+    value: null,
+    uncertainty: null,
+    unit: def.unit,
+    decimals: def.decimals,
+    confidence: 0,
+    phase: "Single photo",
+    meaning: def.meaning,
+    relevance: def.relevance,
+    range: null,
+    inRange: null,
+    evidenceIds: [],
+    reason: "Not measured: the batter isn't fully visible in this photo.",
+  };
+}
+
+/** Which photo of a set carries the headline measures: the one tagged contact, then stride. */
+function keyPhoto(phases: Array<string | null>, per: Metric[][]): number {
+  for (const ph of ["contact", "stride"]) {
+    const i = phases.indexOf(ph);
+    if (i >= 0) return i;
+  }
+  const measured = per.map((ms) => ms.filter((m) => m.status !== "not_measured").length);
+  return Math.max(0, measured.indexOf(Math.max(...measured)));
+}
 
 export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): AnalysisPayload {
   const capture = assessCapture(obs);
@@ -151,6 +269,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       ball_source: obs.ball.source,
     },
     input_hash: hashObservation(obs),
+    camera_view: obs.camera.view,
   };
 
   const withheld = {
@@ -192,41 +311,46 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     });
   }
 
-  // Photo: posture screen only. No shot identity, timing, bat speed or ball claims.
+  // Photo(s): posture screen only. No shot identity, timing, bat speed or ball claims.
   if (obs.media.kind === "photo") {
-    const events = { list: [], byType: {} };
-    const delivery = estimateDelivery(scene, events);
-    const features = extractFeatures(scene, events, { ...delivery, available: false, length: null });
-    const posture = computeMetrics({ scene, events, features, delivery, tier: obs.tier, postureFrame: 0 })
-      .filter((m) => ["front_knee_flexion", "head_knee_offset", "trunk_inclination"].includes(m.id))
-      .map<Metric>((m) =>
-        m.status === "not_measured"
-          ? m
-          : {
-              ...m,
-              status: "estimated",
-              phase: "Single photo",
-              inRange: null,
-              limitation: "Photo: one moment, not confirmed as contact. Shown as a posture observation only.",
-            },
-      );
+    const frames = obs.body.length;
+    const perPhoto = Array.from({ length: frames }, (_, i) => postureFromPhoto(single(obs, i)));
+    const phases = obs.photoPhases ?? [];
+    const key = keyPhoto(phases, perPhoto);
+    const set = frames > 1;
     return finish({
       ...base,
       ...withheld,
       mode: "posture_screen",
       analysis_status: "uncertain_shot",
       status_reason: "photo_only",
-      headline: "Posture screen only — a photo can't show shot type, timing, bat or ball.",
+      headline: set
+        ? `Posture screen from ${frames} photos — photos can't show shot type, timing, bat or ball.`
+        : "Posture screen only — a photo can't show shot type, timing, bat or ball.",
       observed_shot: null,
       shot_probabilities: null,
       classifier: null,
-      delivery: { ...delivery, available: false, length: null, lengthLabel: null, reason: "Photos cannot show ball flight." },
+      delivery: { ...EMPTY_DELIVERY, reason: "Photos cannot show ball flight." },
       events: [],
       features: [],
-      metrics: posture,
-      limitations: [...limitations, { id: "lim_photo", text: "Photo mode never reports shot identity, timing, bat speed, ball length or weight transfer." }],
+      metrics: perPhoto[key] ?? [],
+      limitations: [
+        ...limitations,
+        { id: "lim_photo", text: "Photo mode never reports shot identity, timing, bat speed, ball length or weight transfer." },
+        ...(set ? [{ id: "lim_photo_set", text: "Each photo is measured on its own; photos are not treated as one continuous movement." }] : []),
+      ],
       recapture: ["Record a short video of the whole delivery in slow-motion mode.", ...recapture.filter((r) => !r.startsWith("Record a short video"))],
-      evidence_frames: [0],
+      evidence_frames: set ? Array.from({ length: Math.min(frames, 12) }, (_, i) => i) : [0],
+      ...(set
+        ? {
+            photo_set: perPhoto.map((observations, i) => ({
+              frame: i,
+              phase: phases[i] ?? null,
+              observations,
+              ...(observations.every((m) => m.status === "not_measured") ? { note: "Batter not fully visible in this photo." } : {}),
+            })),
+          }
+        : {}),
     });
   }
 
@@ -284,6 +408,11 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       status === "invalid_for_requested_analysis"
         ? `This appears to be ${named ? `a ${SHOT_DISPLAY[cls.top].toLowerCase()}` : (cls.family ?? "a different shot")}, not a front-foot defence.`
         : `We can't confirm a front-foot defence: ${UNCERTAIN_TEXT[reason] ?? "the evidence is incomplete"}.`;
+    // Uncertain (never a different shot): neutral body observations, ungraded.
+    const observations =
+      status === "uncertain_shot"
+        ? ungraded(computeMetrics({ scene, events, features, delivery, tier: obs.tier }).filter((m) => OBSERVATION_IDS.includes(m.id) && m.status !== "not_measured"))
+        : [];
     return finish({
       ...common,
       ...withheld,
@@ -291,6 +420,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       status_reason: reason,
       headline,
       metrics: [],
+      ...(observations.length ? { observations } : {}),
       recapture: status === "uncertain_shot" ? [...extraRecapture, ...recapture] : recapture,
     });
   }

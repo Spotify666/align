@@ -157,6 +157,26 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
     text("Ranges are provisional coaching ranges (v0.1), not population norms. 'Not measured' means the capture could not support it.", 8, muted);
   }
 
+  // Ungraded observations (uncertain shot) and posture screens (photos): values only, no ranges.
+  const ungraded = (title: string, list: typeof p.metrics, note: string) => {
+    const shown = list.filter((m) => m.value !== null);
+    if (!shown.length) return;
+    heading(title);
+    for (const m of shown) text(`• ${m.name}: ${fmt(m)}${m.uncertainty !== null ? ` ±${m.uncertainty.toFixed(m.decimals)}` : ""}`, 9.5, ink, "normal", 1);
+    text(note, 8, muted);
+  };
+  if (p.observations?.length) ungraded("What we could still see", p.observations, "Not graded and no score: the shot wasn't confirmed as a front-foot defence.");
+  if (p.mode === "posture_screen" && p.analysis_status !== "capture_failed") {
+    if (p.photo_set) {
+      heading("Photos");
+      for (const ph of p.photo_set) {
+        const vals = ph.observations.filter((m) => m.value !== null).map((m) => `${m.name} ${fmt(m)}`);
+        text(`Photo ${ph.frame + 1}${ph.phase ? ` (${ph.phase})` : ""}: ${vals.length ? vals.join(" · ") : (ph.note ?? "not measured")}`, 9.5, ink, "normal", 1);
+      }
+    }
+    ungraded(p.photo_set ? "Key photo" : "Posture observations", p.metrics, "Estimates from still images. Not graded: a photo can't confirm the shot or the moment of contact.");
+  }
+
   heading("Limits of this result");
   for (const l of p.limitations) text(`• ${l.text}`, 9, muted, "normal", 0);
 

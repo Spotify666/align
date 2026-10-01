@@ -47,6 +47,19 @@ export type AnalysisStatus = "valid" | "invalid_for_requested_analysis" | "uncer
 export type ImgPoint = readonly [number, number, number] | null;
 /** Batter-centric 3D point in metres: forward (toward bowler), up, lateral (toward off side), confidence. */
 export type WorldPoint = readonly [number, number, number, number] | null;
+/**
+ * Monocular 3D pose ESTIMATE in camera axes (metres, origin at the hip centre):
+ * x to image right, y down, z away from the camera, plus confidence. MediaPipe
+ * "world landmarks" have this shape. Used only to recover the forward axis when
+ * the camera looks along the pitch (front-on or behind the batter).
+ */
+export type CameraPoint = readonly [number, number, number, number] | null;
+
+/** Where the phone was: side-on (square of the pitch), front-on (bowler's end) or behind the batter. */
+export type CameraView = "side_on" | "front_on" | "behind" | "oblique" | "unknown";
+
+/** Moment a photo shows, when the athlete tags it. */
+export type PhotoPhase = "stance" | "stride" | "contact" | "finish";
 
 export interface FrameQuality {
   frame: number;
@@ -83,7 +96,7 @@ export interface CaptureObservation {
     heightCm: number | null;
   };
   camera: {
-    view: "side_on" | "front_on" | "oblique" | "unknown";
+    view: CameraView;
     /** Which image edge the bowler is on, so "forward" is semantic, not a screen direction. */
     bowlerSide: "left" | "right";
   };
@@ -112,6 +125,10 @@ export interface CaptureObservation {
    * Never read by the engine; drawn as "estimated" so it is not mistaken for a measurement.
    */
   vizDepth?: number[][];
+  /** Monocular 3D pose estimate per frame (see CameraPoint). Read only for front-on / behind views. */
+  poseWorld?: CameraPoint[][];
+  /** Photo sets: each frame is a separate photo, optionally tagged with the moment it shows. */
+  photoPhases?: Array<PhotoPhase | null>;
   bat: { source: TrackSource; handle: ImgPoint[]; toe: ImgPoint[] };
   ball: { source: TrackSource; points: ImgPoint[] };
   /** Event marks supplied by the athlete or coach (frame indices). */
@@ -297,6 +314,15 @@ export interface AnalysisPayload {
   limitations: Limitation[];
   recapture: string[];
   evidence_frames: number[];
+  /** Camera position the analysis assumed (absent on payloads made before views were supported). */
+  camera_view?: CameraView;
+  /**
+   * Ungraded movement observations for an uncertain shot: no ranges, no score.
+   * Shown so the athlete still learns something, without implying a defence verdict.
+   */
+  observations?: Metric[];
+  /** Photo sets: per-photo posture observations, in the order the photos were given. */
+  photo_set?: Array<{ frame: number; phase: PhotoPhase | null; observations: Metric[]; note?: string }>;
   versions: {
     engine: string;
     metric_version: string;

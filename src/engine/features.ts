@@ -79,7 +79,8 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
     evidenceIds: plant ? [plant.id, `frame_${plant.frame}`] : [],
     modality: "body",
   });
-  const backMove = (backMin - backStart) / S;
+  // Frontal views anchor forward positions on the back ankle, so its own travel is unobservable.
+  const backMove = scene.plane === "frontal" ? NaN : (backMin - backStart) / S;
   add("back_foot", backMove, {
     label: "Back-foot movement",
     unit: "× stature",
@@ -111,8 +112,27 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
     });
   }
 
-  // Trunk rotation: 3D yaw when depth exists, else the side-on projected shoulder-width proxy.
-  if (scene.depth) {
+  // Trunk rotation: 3D yaw when depth exists, the 3D pose estimate when filmed along the
+  // pitch, else the side-on projected shoulder-width proxy.
+  if (!scene.depth && scene.estYaw) {
+    const yaw = (i: number) => scene.estYaw!(i, "front_shoulder", "back_shoulder");
+    const y0 = avg(Array.from({ length: early }, (_, i) => yaw(i)));
+    let maxRot = 0;
+    for (let i = 0; i <= Math.min(n - 1, refFrame + Math.round(n * 0.15)); i++) {
+      const y = yaw(i);
+      if (Number.isFinite(y)) maxRot = Math.max(maxRot, Math.abs(y - y0));
+    }
+    if (Number.isFinite(y0)) {
+      const rot = Math.min(1, maxRot / (Math.PI / 2));
+      add("rotation", rot, {
+        label: "Trunk rotation (3D estimate)",
+        unit: "fraction of 90°",
+        reading: rot > 0.4 ? "large trunk rotation" : "limited trunk rotation",
+        evidenceIds: [`frame_${refFrame}`],
+        modality: "body",
+      });
+    }
+  } else if (scene.depth) {
     const yaw = (i: number) => {
       const a = scene.depth!(i, "front_shoulder");
       const b = scene.depth!(i, "back_shoulder");
@@ -178,7 +198,8 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
     const k = Math.max(1, Math.round(0.017 / dt));
     const sp = Math.max(...[-k, 0, k].map((o) => speedAt(refFrame + o)).filter(Number.isFinite));
     // Below 60 fps a ±1-frame difference spans most of the downswing, so speed is withheld.
-    if (Number.isFinite(sp) && !coarseTiming) {
+    // Filmed along the pitch, the bat's forward travel is out of plane: speed would read low.
+    if (Number.isFinite(sp) && !coarseTiming && scene.plane === "sagittal") {
       add("bat_speed", sp / S, {
         label: "Bat speed near contact",
         unit: "× stature/s",
@@ -257,7 +278,9 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
 
   const ballCount = scene.ball.filter(Boolean).length;
   if (ballCount >= 4 && dt) {
-    if (contactReliable && !coarseTiming) {
+    // Filmed along the pitch the ball leaves mostly toward or away from the camera, so
+    // its image speed would understate a drive: not observed rather than biased.
+    if (contactReliable && !coarseTiming && scene.plane === "sagittal") {
       const pts: { f: number; u: number; i: number }[] = [];
       for (let i = contact.frame + 1; i <= Math.min(n - 1, contact.frame + Math.round(0.08 / dt) + 1); i++) {
         const b = scene.ball[i];

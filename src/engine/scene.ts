@@ -5,7 +5,7 @@
 
 import { mean } from "./math";
 import { th } from "./registry";
-import { J, type CaptureObservation, type ImgPoint, type Joint, type WorldPoint } from "./types";
+import { J, type CaptureObservation, type CameraPoint, type ImgPoint, type Joint, type WorldPoint } from "./types";
 
 /** Scene point: forward (toward bowler), up, confidence. Units are metres, or stature when unscaled. */
 export interface P {
@@ -35,6 +35,13 @@ export type SemanticJoint =
 
 export interface Scene {
   n: number;
+  /**
+   * Image plane relative to the pitch. "sagittal" (side-on): image x is the forward axis.
+   * "frontal" (front-on / behind): image x is lateral, so body forward positions come from
+   * the 3D pose estimate, and bat/ball points carry image-plane (lateral) coordinates in `f`
+   * that must never be compared with body forward positions.
+   */
+  plane: "sagittal" | "frontal";
   t: number[];
   fps: number | null;
   /** Seconds per frame, or null for a photo. */
@@ -52,6 +59,11 @@ export interface Scene {
   ball: (P | null)[];
   /** Batter-centric metres (forward, up, lateral-to-off-side) when the 3D tier provides them. */
   depth: ((frame: number, joint: SemanticJoint) => WorldPoint) | null;
+  /**
+   * Frontal views only: horizontal angle (radians) of the segment a→b from the 3D pose
+   * ESTIMATE, 0 = pointing along the pitch toward the bowler. Used for trunk rotation.
+   */
+  estYaw: ((frame: number, a: SemanticJoint, b: SemanticJoint) => number) | null;
   /** Map a scene point back to normalised image coordinates (for overlays). */
   toImage: (p: { f: number; u: number }) => [number, number];
 }
@@ -146,9 +158,50 @@ export function buildScene(obs: CaptureObservation): Scene {
     c,
   });
 
+  // Frontal views: the forward axis points along the camera's line of sight. Forward
+  // positions come from the monocular 3D estimate, expressed relative to the back ankle
+  // in the same frame (the estimate is hip-centred, so whole-body travel is not observed).
+  const plane: Scene["plane"] = obs.camera.view === "front_on" || obs.camera.view === "behind" ? "frontal" : "sagittal";
+  const W = plane === "frontal" ? obs.poseWorld : undefined;
+  const zSign = obs.camera.view === "front_on" ? -1 : 1; // front-on: toward the camera (−z) is toward the bowler
+  const wpt = (frame: number, joint: Joint): CameraPoint => {
+    const p = W?.[frame]?.[J[joint]] ?? null;
+    return p && p[3] >= minConf * 0.6 ? p : null;
+  };
+  let fScale = NaN;
+  if (W) {
+    const sums: number[] = [];
+    for (let i = 0; i < Math.max(setupEnd, Math.min(n, 6)); i++) {
+      const L = (a: Joint, b: Joint) => {
+        const pa = wpt(i, a);
+        const pb = wpt(i, b);
+        return pa && pb ? Math.hypot(pa[0] - pb[0], pa[1] - pb[1], pa[2] - pb[2]) : NaN;
+      };
+      const leg = mean([L("left_hip", "left_knee") + L("left_knee", "left_ankle"), L("right_hip", "right_knee") + L("right_knee", "right_ankle")]);
+      const trunk = mean([L("left_hip", "left_shoulder"), L("right_hip", "right_shoulder")]);
+      if (Number.isFinite(leg) && Number.isFinite(trunk)) sums.push(leg + trunk);
+    }
+    sums.sort((a, b) => a - b);
+    const worldStature = sums.length ? sums[Math.floor(sums.length * 0.75)]! / SEGMENT_FRACTION_OF_STATURE : NaN;
+    fScale = worldStature > 0.5 ? stature / worldStature : NaN;
+  }
+  const backAnkleJoint = semanticToJoint("back_ankle", front);
+  const backF0 = 0.25 * stature; // back foot assumed a quarter-stature in front of the stumps, as in side-on
+  const frontalF = (frame: number, joint: Joint): number => {
+    if (!W || !Number.isFinite(fScale)) return NaN;
+    const p = wpt(frame, joint);
+    const b = wpt(frame, backAnkleJoint);
+    if (!p || !b) return NaN;
+    return backF0 + zSign * (p[2] - b[2]) * fScale;
+  };
+
   const getRaw = (frame: number, joint: Joint): P | null => {
     const p = rawImg(frame, joint);
-    return p ? toScene(p[0], p[1], p[2]) : null;
+    if (!p) return null;
+    const sp = toScene(p[0], p[1], p[2]);
+    if (plane === "sagittal") return sp;
+    const f = frontalF(frame, joint);
+    return Number.isFinite(f) ? { f, u: sp.u, c: p[2] } : null;
   };
 
   const track = (pts: ImgPoint[]) =>
@@ -161,10 +214,20 @@ export function buildScene(obs: CaptureObservation): Scene {
     ? (frame: number, joint: SemanticJoint): WorldPoint => obs.body3d?.[frame]?.[J[semanticToJoint(joint, front)]] ?? null
     : null;
 
+  const estYaw = W
+    ? (frame: number, a: SemanticJoint, b: SemanticJoint): number => {
+        const pa = wpt(frame, semanticToJoint(a, front));
+        const pb = wpt(frame, semanticToJoint(b, front));
+        if (!pa || !pb) return NaN;
+        return Math.atan2(Math.abs(pa[0] - pb[0]), zSign * (pa[2] - pb[2]));
+      }
+    : null;
+
   const fps = obs.media.kind === "photo" ? null : obs.media.fps;
 
   return {
     n,
+    plane,
     t: obs.t,
     fps,
     dt: fps ? 1 / fps : null,
@@ -179,6 +242,7 @@ export function buildScene(obs: CaptureObservation): Scene {
     batToe: track(obs.bat.toe),
     ball: track(obs.ball.points),
     depth,
+    estYaw,
     toImage: ({ f, u }) => [(f / (dir * mpu) + stumpsXu) / aspect, groundY! - u / mpu],
   };
 }

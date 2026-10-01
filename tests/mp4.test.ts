@@ -16,6 +16,10 @@ describe("container frame-rate reader", () => {
     const t = await readVideoTrack(await blob("clip-30fps.mov"));
     expect(Math.round(t!.fps)).toBe(30);
   });
+  it("names the codec so an undecodable clip gets a specific fix", async () => {
+    expect((await readVideoTrack(await blob("clip-120fps.mp4")))?.codec).toBe("avc1");
+    expect((await readVideoTrack(await blob("clip-hevc.mp4")))?.codec).toBe("hvc1");
+  });
   it("returns null for something that is not a video", async () => {
     expect(await readVideoTrack(new Blob([new Uint8Array(64)]))).toBeNull();
   });

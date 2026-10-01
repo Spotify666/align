@@ -74,9 +74,12 @@ export default function GuidePage() {
             </div>
           </div>
           <CameraPlacementDiagram />
+          <p className="rounded-xl bg-tint p-3 text-sm text-fg-muted">
+            Only able to film from behind the bowler? That works too — you&apos;ll choose “From the bowler&apos;s end” after uploading. Some distances become estimates and bounce, bat speed and ball speed aren&apos;t measured.
+          </p>
           <div className="grid gap-4 md:grid-cols-2">
             <Do items={["Square-on to the batter, at hip height", "6–8 m away, so head, feet, bat and stumps stay in frame", "The bounce area visible in the frame", "Phone fixed still — no hand-holding"]} />
-            <Do dont items={["Filming from behind the bowler or the keeper", "Zooming in on the batter only", "People walking between the camera and batter", "Bright sun or nets lights behind the batter"]} />
+            <Do dont items={["Filming from behind the keeper (the body hides bat and ball)", "Zooming in so the feet or head leave the frame", "People walking between the camera and batter", "Bright sun or nets lights behind the batter"]} />
           </div>
         </Step>
 
@@ -84,8 +87,8 @@ export default function GuidePage() {
           <Do items={["Start recording before the ball is released", "Play a front-foot defence as you normally would", "Stop after your follow-through — 3 to 10 seconds is ideal", "Record a few: your personal baseline needs 6 valid defences"]} />
         </Step>
 
-        <Step n={4} title="Upload and check" time="About 15 seconds">
-          <p className="text-fg-muted">Choose the clip in Align. Before any processing we read the real frame rate from the file and check resolution, light, blur, camera shake, whether one batter is fully in view, and the camera angle. If something would make the result unreliable, you are told exactly what to change — and nothing is processed.</p>
+        <Step n={4} title="Upload and check" time="About 30 seconds">
+          <p className="text-fg-muted">Choose the clip in Align — any length. We scan it for each shot (skipping camera cuts and close-ups), you pick the shot, tap the batter if others are in view, and confirm where the phone was. Then we read the real frame rate and check resolution, light, blur, camera shake and that the whole batter is in view. If something would make the result unreliable, you are told exactly what to change — and nothing is processed.</p>
           <p className="text-sm text-fg-subtle">Exported a slowed-down video? Tell us on the check screen so timing stays correct.</p>
         </Step>
 
@@ -97,7 +100,7 @@ export default function GuidePage() {
           <p className="text-fg-muted">The ball and bat are small and fast, so you confirm them on a few frames. Every mark is labelled “marked by you” in the report. If you can&apos;t see something, skip it — the report will say what it could not measure rather than guess.</p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {([
-              ["side", "Which side is the bowler?", "Sets “forward” so left-handers and either camera side work."],
+              ["side", "Where was the phone?", "Side-on, bowler's end or behind — we suggest one; you confirm. Sets which way is “forward”."],
               ["stumps", "Stumps: base, then top", "Gives the pitch scale for distances."],
               ["bounce", "Ball at bounce", "Scrub to where it hits the pitch, then tap the ball."],
               ["contact", "Ball at contact", "Scrub to where bat meets ball, then tap the ball."],
@@ -142,6 +145,10 @@ export default function GuidePage() {
             ["Is my video uploaded?", "No. It's analysed on your phone. Only if you choose to save to your account do we store the small movement tracks, a few still frames and the report."],
             ["I bat left-handed.", "Set it in Profile. Align works out “front” and “forward” from your batting hand and the bowler's side, not from the screen."],
             ["Which shots are supported?", "The front-foot defence first. Other shots are recognised so they can be rejected, and will unlock once they pass the same validation."],
+            ["Can I film from behind the bowler?", "Yes. Choose “From the bowler's end” when asked where the phone was. Forward distances then come from a 3D pose estimate, and bounce distance, bat speed and ball speed aren't measured — side-on gives the most complete report."],
+            ["My clip is long, or has several shots or people in it.", "That's fine. Align scans the whole clip, finds each shot, skips camera cuts and close-ups, and asks you to pick the shot and tap the batter."],
+            ["Can I upload photos instead?", "Yes — one or up to 12. Photos give a posture screen (knee bend, head over the front knee, trunk lean). They can't confirm the shot, timing, bat or ball, so no score is given."],
+            ["My video won't open.", "Most phones record MP4 or MOV, which work. Some iPhones and new Android phones record HEVC: open Align in Safari or recent Chrome, set iPhone Camera → Formats → Most Compatible, or send the clip to yourself on WhatsApp to convert it."],
           ].map(([q, a]) => (
             <details key={q} className="group p-4">
               <summary className="flex min-h-9 items-center justify-between gap-3 font-medium">{q}<span className="text-fg-subtle transition-transform group-open:rotate-45">+</span></summary>

@@ -5,8 +5,8 @@
 
 import { canonicalJson, sha256 } from "./math";
 
-export const ENGINE_VERSION = "0.1.0";
-export const METRIC_VERSION = "ffd-0.1.0";
+export const ENGINE_VERSION = "0.2.0";
+export const METRIC_VERSION = "ffd-0.2.0";
 export const CLASSIFIER_VERSION = "prototype-bands-0.1.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
 
@@ -49,6 +49,7 @@ export const THRESHOLDS = {
   "ffd.accept.min_margin": { value: 0.3, unit: "probability", rationale: "Top class must clearly beat the runner-up." },
   "ffd.accept.max_unknown": { value: 0.1, unit: "probability", rationale: "Out-of-distribution mass must be small." },
   "ffd.accept.min_evidence_coverage": { value: 0.75, unit: "fraction", rationale: "Most discriminative features must be observed." },
+  "ffd.accept.min_evidence_coverage_frontal": { value: 0.72, unit: "fraction", rationale: "Filmed along the pitch, back-foot travel, bat speed and ball speed are unobservable (a quarter of the weight), so acceptance needs nearly every remaining signal." },
   "ffd.reject.max_probability": { value: 0.12, unit: "probability", rationale: "Below this, the clip is confidently not a front-foot defence." },
   "ffd.reject.min_evidence_coverage": { value: 0.45, unit: "fraction", rationale: "Rejection may rest on fewer modalities than acceptance." },
   "ffd.named_label.min_probability": { value: 0.55, unit: "probability", rationale: "Name the alternative shot only when it clearly leads." },
@@ -76,7 +77,8 @@ export interface MetricDefinition {
   meaning: string;
   relevance: string;
   range: { lo: number; hi: number } | null;
-  requires: Array<"body" | "bat" | "ball" | "depth" | "timing" | "scale" | "contact" | "bounce" | "baseline">;
+  /** "side_view": needs the forward axis in the image plane (side-on camera). */
+  requires: Array<"body" | "bat" | "ball" | "depth" | "timing" | "scale" | "contact" | "bounce" | "baseline" | "side_view">;
   /** Weight in the secondary technique index, 0 = excluded. */
   weight: number;
   /** "lower is better" style hint used only for wording. */
@@ -220,7 +222,7 @@ export const METRICS: MetricDefinition[] = [
     meaning: "Forward distance of the contact point from the front knee. Negative = beside or behind the pad.",
     relevance: "Meeting the ball beside or just ahead of the front pad keeps it under the eyes.",
     range: { lo: -0.06, hi: 0.1 },
-    requires: ["body", "bat", "contact"],
+    requires: ["body", "bat", "contact", "side_view"],
     weight: 1,
     direction: "band",
   },
@@ -234,7 +236,7 @@ export const METRICS: MetricDefinition[] = [
     meaning: "Speed of the bat's sweet-spot region at contact.",
     relevance: "A defence absorbs the ball; high bat speed suggests a drive or pushed defence.",
     range: { lo: 0, hi: 6 },
-    requires: ["bat", "contact", "timing", "scale"],
+    requires: ["bat", "contact", "timing", "scale", "side_view"],
     weight: 1,
     direction: "lower",
   },
@@ -262,7 +264,7 @@ export const METRICS: MetricDefinition[] = [
     meaning: "Speed of the ball in the first frames after contact.",
     relevance: "A controlled defence deadens the ball; a fast exit suggests hard hands.",
     range: { lo: 0, hi: 8 },
-    requires: ["ball", "contact", "timing", "scale"],
+    requires: ["ball", "contact", "timing", "scale", "side_view"],
     weight: 0.9,
     direction: "lower",
   },

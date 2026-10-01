@@ -2,7 +2,7 @@
 // Every user-supplied point is labelled as such; nothing is invented between marks
 // except straight-line interpolation that is declared "interpolated".
 
-import type { CaptureObservation, FrameQuality, ImgPoint, Tier } from "@/engine/types";
+import type { CameraPoint, CaptureObservation, FrameQuality, ImgPoint, PhotoPhase, Tier } from "@/engine/types";
 import { J } from "@/engine/types";
 
 export interface Marks {
@@ -30,7 +30,11 @@ export const EMPTY_MARKS: Marks = {
 export interface TrackingResult {
   t: number[];
   body: ImgPoint[][];
+  /** Monocular 3D estimate per frame (camera axes), used when filmed along the pitch. */
+  world: CameraPoint[][];
   depth: number[][];
+  /** Photo sets: the moment each photo shows, when tagged. */
+  photoPhases?: Array<PhotoPhase | null>;
   people: number;
   quality: FrameQuality[];
   fps: number;
@@ -157,6 +161,8 @@ export function buildObservation(opts: {
     t: tr.t,
     body: tr.body,
     vizDepth: tr.depth,
+    ...(tr.world.some((f) => f.some(Boolean)) ? { poseWorld: tr.world } : {}),
+    ...(tr.photoPhases ? { photoPhases: tr.photoPhases } : {}),
     bat: { source: m.bat.length >= 2 ? "interpolated" : m.bat.length === 1 ? "user_marked" : "none", handle: bat.handle, toe: bat.toe },
     ball: { source: ball.some(Boolean) ? "user_marked" : "none", points: ball },
     marks: { bounceFrame: m.bounce?.frame ?? null, contactFrame: m.contact?.frame ?? null },

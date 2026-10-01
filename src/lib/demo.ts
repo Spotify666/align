@@ -37,4 +37,4 @@ export function sampleWithBaseline(key: string) {
   return { ...s, comparisons, reference: { obs: refObs, offset: c2 - c1, label: "Baseline delivery 1" } };
 }
 
-export const SAMPLE_ORDER = ["valid_ffd", "pull", "occluded", "capture_failed", "drive", "photo", "no_ball", "no_bat", "left_handed", "low_fps", "session3d"];
+export const SAMPLE_ORDER = ["valid_ffd", "pull", "occluded", "capture_failed", "front_on_ffd", "front_on_pull", "drive", "photo", "no_ball", "no_bat", "left_handed", "low_fps", "front_on_drive", "session3d"];

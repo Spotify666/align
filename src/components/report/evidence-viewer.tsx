@@ -37,7 +37,10 @@ const COL = { body: "#5ed6e6", bat: "#d7a62a", ball: "#e2463a", trail: "rgba(94,
 export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function EvidenceViewer({ obs, payload, videoUrl, mediaTimes, keyframes, reference }, ref) {
   const n = obs.body.length;
   const contact = payload.events.find((e) => e.type === "contact");
-  const [frame, setFrame] = useState(() => (contact ? contact.frame : Math.min(n - 1, Math.round(n * 0.5))));
+  const [frame, setFrame] = useState(() => {
+    if (obs.media.kind === "photo") return Math.max(0, payload.photo_set?.findIndex((p) => p.phase === "contact") ?? 0);
+    return contact ? contact.frame : Math.min(n - 1, Math.round(n * 0.5));
+  });
   const [mode, setMode] = useState<ViewMode>(videoUrl || keyframes ? "overlay" : "overlay");
   const [playing, setPlaying] = useState(false);
   const [slow, setSlow] = useState(true);
@@ -50,6 +53,19 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
   const scene = useMemo(() => buildScene(obs), [obs]);
   const aspect = obs.media.width / obs.media.height;
   const isPhoto = obs.media.kind === "photo";
+  const frontal = scene.plane === "frontal";
+  const [kfReady, setKfReady] = useState(0);
+  const kfImages = useMemo(() => {
+    const out: Record<number, HTMLImageElement> = {};
+    if (typeof window === "undefined" || !keyframes) return out;
+    for (const [k, src] of Object.entries(keyframes)) {
+      const im = new Image();
+      im.onload = () => setKfReady((r) => r + 1);
+      im.src = src;
+      out[Number(k)] = im;
+    }
+    return out;
+  }, [keyframes]);
 
   // Zoom window around the batter (all frames), keeping the frame's aspect ratio.
   const batterView = useMemo(() => {
@@ -107,7 +123,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
 
     // Background: real frame when available, else a schematic of the pitch.
     const v = video.current;
-    const kf = keyframes?.[frame];
+    const kf = kfImages[frame];
     if (v && videoUrl && v.readyState >= 2) {
       ctx.drawImage(v, view.x * v.videoWidth, view.y * v.videoHeight, view.w * v.videoWidth, view.h * v.videoHeight, 0, 0, W, H);
       if (mode === "overlay") {
@@ -120,12 +136,11 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
       g.addColorStop(1, "#151b21");
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
-      if (kf) {
-        const img = new Image();
-        img.src = kf;
-        if (img.complete) ctx.drawImage(img, view.x * img.naturalWidth, view.y * img.naturalHeight, view.w * img.naturalWidth, view.h * img.naturalHeight, 0, 0, W, H);
+      if (kf && kf.complete && kf.naturalWidth) {
+        ctx.drawImage(kf, view.x * kf.naturalWidth, view.y * kf.naturalHeight, view.w * kf.naturalWidth, view.h * kf.naturalHeight, 0, 0, W, H);
       }
       // Ground, distance ticks, crease and stumps from the batter-centric scene.
+      // Filmed along the pitch the image's x axis is lateral, so only the ground line applies.
       const [, gy] = scene.toImage({ f: 0, u: 0 });
       ctx.strokeStyle = "rgba(243,240,232,0.22)";
       ctx.lineWidth = 1;
@@ -133,7 +148,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
       ctx.moveTo(0, Y(gy));
       ctx.lineTo(W, Y(gy));
       ctx.stroke();
-      if (scene.unit === "m") {
+      if (scene.unit === "m" && !frontal && !isPhoto) {
         ctx.fillStyle = "rgba(167,176,184,0.75)";
         ctx.font = "10px var(--font-plex-mono), monospace";
         for (let m = -1; m <= 9; m++) {
@@ -256,7 +271,32 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
     }
 
     // Centre-of-mass estimate projected onto the base of support.
-    if (layers.centre) {
+    if (layers.centre && frontal) {
+      // Lateral balance: centre estimate between the feet as seen from along the pitch.
+      const fr = obs.body[frame] ?? [];
+      const P = (j: keyof typeof J) => fr[J[j]];
+      const hips = [P("left_hip"), P("right_hip")];
+      const shs = [P("left_shoulder"), P("right_shoulder")];
+      const fa = fr[J[semanticToJoint("front_ankle", scene.front)]];
+      const ba = fr[J[semanticToJoint("back_ankle", scene.front)]];
+      if (hips.every(Boolean) && shs.every(Boolean) && fa && ba) {
+        const cx = 0.3 * (hips[0]![0] + hips[1]![0]) + 0.2 * (shs[0]![0] + shs[1]![0]);
+        const cy = 0.3 * (hips[0]![1] + hips[1]![1]) + 0.2 * (shs[0]![1] + shs[1]![1]);
+        const gyy = Math.max(fa[1], ba[1]);
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = COL.lime;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(X(cx), Y(cy));
+        ctx.lineTo(X(cx), Y(gyy));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = COL.lime;
+        ctx.beginPath();
+        ctx.arc(X(cx), Y(cy), 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (layers.centre) {
       const c = bodyCentre(scene, frame);
       const fa = obs.body[frame]?.[J[semanticToJoint("front_ankle", scene.front)]];
       const ba = obs.body[frame]?.[J[semanticToJoint("back_ankle", scene.front)]];
@@ -286,7 +326,8 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
 
     // Metric pin for the measure the athlete is inspecting.
     if (highlight) drawPin(ctx, highlight, frame, obs, scene, X, Y);
-  }, [frame, mode, layers, highlight, obs, payload.events, scene, videoUrl, keyframes, view.x, view.y, view.w, view.h]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- kfReady redraws once photos/keyframes decode
+  }, [frame, mode, layers, highlight, obs, payload.events, scene, videoUrl, kfImages, kfReady, frontal, isPhoto, view.x, view.y, view.w, view.h]);
 
   // Video sync: seek, then draw on "seeked".
   useEffect(() => {
@@ -335,7 +376,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
   }, [playing, slow, n, obs.media.fps, isPhoto]);
 
   const modes: Array<{ id: ViewMode; label: string; disabled?: boolean }> = [
-    { id: "original", label: videoUrl || keyframes ? "Video" : "Pitch" },
+    { id: "original", label: isPhoto ? "Photo" : videoUrl || keyframes ? "Video" : "Pitch" },
     { id: "overlay", label: "Tracked" },
     { id: "3d", label: "3D" },
     { id: "compare", label: "Compare", disabled: !reference },
@@ -389,7 +430,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
             className="absolute inset-0"
           />
         ) : (
-          <canvas ref={canvas} className="absolute inset-0 h-full w-full" role="img" aria-label={`Frame ${frame + 1}: tracked body, bat and ball overlay`} />
+          <canvas ref={canvas} className="absolute inset-0 h-full w-full" role="img" aria-label={isPhoto ? `Photo ${frame + 1} of ${n} with the tracked body` : `Frame ${frame + 1}: tracked body, bat and ball overlay`} />
         )}
         {highlight && mode === "overlay" && (
           <button onClick={() => setHighlight(null)} className="absolute right-2 top-2 chip !bg-black/70 !border-white/20 !text-white">
@@ -398,6 +439,16 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
         )}
       </div>
 
+      {isPhoto && n > 1 && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+          <button onClick={() => setFrame((f) => Math.max(0, f - 1))} disabled={frame === 0} className="btn btn-ghost !min-h-10 !px-3" aria-label="Previous photo">‹ Prev</button>
+          <span className="text-sm text-fg-muted">
+            Photo <span className="num text-fg">{frame + 1}</span> of <span className="num">{n}</span>
+            {payload.photo_set?.[frame]?.phase ? ` · ${payload.photo_set[frame]!.phase}` : ""}
+          </span>
+          <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} disabled={frame >= n - 1} className="btn btn-ghost !min-h-10 !px-3" aria-label="Next photo">Next ›</button>
+        </div>
+      )}
       {!isPhoto && (
         <div className="px-3 pb-3 pt-2">
           <div className="mb-1 flex items-center gap-2">
