@@ -1,31 +1,45 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, IBM_Plex_Mono, Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-archivo", display: "swap" });
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const plex = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-mono", display: "swap" });
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Align — cricket movement intelligence", template: "%s · Align" },
+  title: { default: "Align — cricket shot analysis", template: "%s · Align" },
   description:
-    "Capture one delivery. Reconstruct body, bat and ball. Confirm the shot before grading it, then train one measurable priority.",
+    "Shot analysis for cricket, starting with the front-foot defence. Reconstruct body, bat and ball, confirm the shot before grading it, then train one measurable priority.",
   applicationName: "Align",
+  appleWebApp: { capable: true, title: "Align", statusBarStyle: "default" },
+  icons: { apple: "/apple-touch-icon.png" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0d10",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f7f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0d0f" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
 
+// Applies a saved light/dark choice before first paint (no flash). Default: follow the device.
+const themeScript = `try{var t=localStorage.getItem("align.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${archivo.variable} ${inter.variable} ${plex.variable}`}>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body>
-        <AppShell>{children}</AppShell>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );

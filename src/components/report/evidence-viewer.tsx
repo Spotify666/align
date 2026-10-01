@@ -12,25 +12,29 @@ import { Pause, Play } from "../icons";
 
 const Scene3D = dynamic(() => import("./scene-3d"), {
   ssr: false,
-  loading: () => <div className="absolute inset-0 grid place-items-center text-sm text-subtle">Loading 3D…</div>,
+  loading: () => <div className="absolute inset-0 grid place-items-center text-sm text-fg-subtle">Loading 3D…</div>,
 });
 
 export type ViewMode = "original" | "overlay" | "3d" | "compare";
 export interface EvidenceViewerHandle {
   seek: (frame: number, highlight?: string) => void;
+  /** PNG of the current 2D evidence frame (for the PDF), or null in 3D mode. */
+  snapshot: () => string | null;
 }
 
 interface Props {
   obs: CaptureObservation;
   payload: AnalysisPayload;
   videoUrl?: string | null;
+  /** Media time (s) of each analysed frame when it differs from obs.t (trimmed or slowed clips). */
+  mediaTimes?: number[] | null;
   keyframes?: Record<number, string>;
   reference?: { obs: CaptureObservation; offset: number; label: string } | null;
 }
 
 const COL = { body: "#5ed6e6", bat: "#d7a62a", ball: "#e2463a", trail: "rgba(94,214,230,0.55)", low: "rgba(167,176,184,0.5)", lime: "#b7f34a", coral: "#f06b5f", text: "#f3f0e8", gold: "#d7a62a" };
 
-export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function EvidenceViewer({ obs, payload, videoUrl, keyframes, reference }, ref) {
+export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function EvidenceViewer({ obs, payload, videoUrl, mediaTimes, keyframes, reference }, ref) {
   const n = obs.body.length;
   const contact = payload.events.find((e) => e.type === "contact");
   const [frame, setFrame] = useState(() => (contact ? contact.frame : Math.min(n - 1, Math.round(n * 0.5))));
@@ -75,6 +79,13 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
       setHighlight(h ?? null);
       if (mode === "3d" || mode === "compare") setMode("overlay");
       wrap.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    },
+    snapshot: () => {
+      try {
+        return canvas.current ? canvas.current.toDataURL("image/png") : null;
+      } catch {
+        return null;
+      }
     },
   }));
 
@@ -281,14 +292,14 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
   useEffect(() => {
     const v = video.current;
     if (v && videoUrl && !playing) {
-      const target = (obs.t[frame] ?? 0) / 1000;
+      const target = mediaTimes?.[frame] ?? (obs.t[frame] ?? 0) / 1000;
       if (Math.abs(v.currentTime - target) > 0.002) {
         v.currentTime = target;
         return;
       }
     }
     draw();
-  }, [frame, draw, videoUrl, obs.t, playing]);
+  }, [frame, draw, videoUrl, obs.t, mediaTimes, playing]);
 
   useEffect(() => {
     const onResize = () => draw();
@@ -324,16 +335,16 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
   }, [playing, slow, n, obs.media.fps, isPhoto]);
 
   const modes: Array<{ id: ViewMode; label: string; disabled?: boolean }> = [
-    { id: "original", label: videoUrl || keyframes ? "Original" : "Pitch only" },
-    { id: "overlay", label: videoUrl || keyframes ? "Tracked" : "Reconstruction" },
+    { id: "original", label: videoUrl || keyframes ? "Video" : "Pitch" },
+    { id: "overlay", label: "Tracked" },
     { id: "3d", label: "3D" },
     { id: "compare", label: "Compare", disabled: !reference },
   ];
 
   return (
     <section ref={wrap} aria-label="Evidence viewer" className="card overflow-hidden">
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
-        <div role="tablist" aria-label="View" className="flex rounded-lg border border-line p-0.5">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2.5">
+        <div role="tablist" aria-label="View" className="grid w-full grid-cols-4 rounded-xl border border-line bg-sunken p-0.5 sm:w-auto">
           {modes.map((m) => (
             <button
               key={m.id}
@@ -341,8 +352,8 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
               aria-selected={mode === m.id}
               disabled={m.disabled}
               onClick={() => setMode(m.id)}
-              className={`min-h-9 rounded-md px-3 text-sm ${mode === m.id ? "bg-raised text-text" : "text-muted"} disabled:opacity-40`}
-              title={m.disabled ? "Needs a reference delivery" : undefined}
+              className={`min-h-9 whitespace-nowrap rounded-[10px] px-3 text-sm transition-colors ${mode === m.id ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg"} disabled:opacity-40`}
+              title={m.disabled ? "Needs a reference shot" : undefined}
             >
               {m.label}
             </button>
@@ -351,22 +362,22 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
         {(mode === "overlay" || mode === "original") && (
           <div className="flex flex-wrap gap-1 text-xs" role="group" aria-label="Layers">
             {(Object.keys(layers) as Array<keyof typeof layers>).map((k) => (
-              <label key={k} className="chip cursor-pointer border-line text-muted has-[:checked]:text-text">
-                <input type="checkbox" className="accent-[var(--color-gold)]" checked={layers[k]} onChange={() => setLayers((l) => ({ ...l, [k]: !l[k] }))} />
+              <label key={k} className="chip cursor-pointer border-line text-fg-muted has-[:checked]:text-fg">
+                <input type="checkbox" className="accent-[var(--color-brand)]" checked={layers[k]} onChange={() => setLayers((l) => ({ ...l, [k]: !l[k] }))} />
                 {k === "centre" ? "centre / base" : k}
               </label>
             ))}
           </div>
         )}
         {(mode === "overlay" || mode === "original") && (
-          <button onClick={() => setZoom((z) => !z)} className="chip border-line text-muted min-h-9" aria-pressed={zoom}>
-            {zoom ? "Batter view" : "Full frame"}
+          <button onClick={() => setZoom((z) => !z)} className="chip border-line text-fg-muted min-h-9" aria-pressed={zoom}>
+            {zoom ? "Zoomed to batter" : "Zoom to batter"}
           </button>
         )}
         {payload.demo && <span className="demo-badge ml-auto">DEMO DATA · no video</span>}
       </div>
 
-      <div className="relative w-full bg-graphite" style={{ aspectRatio: `${aspect}` }}>
+      <div className="stage relative w-full" style={{ aspectRatio: `${aspect}` }}>
         {videoUrl && (
           <video ref={video} src={videoUrl} muted playsInline preload="auto" className="hidden" onSeeked={draw} onLoadedData={draw} />
         )}
@@ -381,7 +392,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
           <canvas ref={canvas} className="absolute inset-0 h-full w-full" role="img" aria-label={`Frame ${frame + 1}: tracked body, bat and ball overlay`} />
         )}
         {highlight && mode === "overlay" && (
-          <button onClick={() => setHighlight(null)} className="absolute right-2 top-2 chip border-gold/60 bg-carbon/80 text-gold">
+          <button onClick={() => setHighlight(null)} className="absolute right-2 top-2 chip !bg-black/70 !border-white/20 !text-white">
             {highlight.replaceAll("_", " ")} · clear
           </button>
         )}
@@ -393,11 +404,11 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
             <button onClick={() => setPlaying((p) => !p)} className="btn btn-ghost !min-h-10 !px-3" aria-label={playing ? "Pause" : "Play"}>
               {playing ? <Pause size={16} /> : <Play size={16} />}
             </button>
-            <button onClick={() => setSlow((s) => !s)} className="chip border-line text-muted min-h-9" aria-pressed={slow}>
+            <button onClick={() => setSlow((s) => !s)} className="chip border-line text-fg-muted min-h-9" aria-pressed={slow}>
               {slow ? "¼ speed" : "1× speed"}
             </button>
-            <button onClick={() => setFrame((f) => Math.max(0, f - 1))} className="chip border-line text-muted min-h-9" aria-label="Previous frame">−1 f</button>
-            <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} className="chip border-line text-muted min-h-9" aria-label="Next frame">+1 f</button>
+            <button onClick={() => setFrame((f) => Math.max(0, f - 1))} className="chip border-line text-fg-muted min-h-9" aria-label="Previous frame">−1 f</button>
+            <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} className="chip border-line text-fg-muted min-h-9" aria-label="Next frame">+1 f</button>
           </div>
           <PhaseTimeline events={payload.events} frames={n} frame={frame} times={obs.t} onSeek={(f) => { setPlaying(false); setFrame(f); }} />
         </div>

@@ -255,17 +255,17 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
   }, [frame]);
 
   return (
-    <div className={`relative ${className ?? ""}`}>
+    <div className={className ?? "relative h-full w-full"}>
       <div ref={mount} className="absolute inset-0" role="img" aria-label={label ?? "3D reconstruction of body, bat and ball. Drag to rotate."} />
-      <div className="pointer-events-none absolute left-3 bottom-3 flex flex-wrap gap-x-3 gap-y-1 text-[0.68rem] text-muted num">
-        <span><span className="inline-block w-3 border-t-2 border-cyan align-middle mr-1" />{world.depth === "measured" ? "body (triangulated)" : "body (depth estimated)"}</span>
-        <span><span className="inline-block w-3 border-t-2 border-gold align-middle mr-1" />bat</span>
+      <div className="pointer-events-none absolute left-3 bottom-3 right-3 flex flex-wrap gap-x-3 gap-y-1 text-[0.68rem] text-white/70 num">
+        <span><span className="inline-block w-3 border-t-2 border-[#5ed6e6] align-middle mr-1" />{world.depth === "measured" ? "body (triangulated)" : "body (depth estimated)"}</span>
+        <span><span className="inline-block w-3 border-t-2 border-[#d7a62a] align-middle mr-1" />bat</span>
         <span><span className="inline-block h-2 w-2 rounded-full bg-[#c8372d] align-middle mr-1" />ball</span>
-        <span><span className="inline-block w-3 border-t-2 border-dashed border-lime align-middle mr-1" />centre / base</span>
-        {reference && <span><span className="inline-block w-3 border-t-2 border-gold/60 align-middle mr-1" />reference</span>}
+        <span><span className="inline-block w-3 border-t-2 border-dashed border-[#b7f34a] align-middle mr-1" />centre / base</span>
+        {reference && <span><span className="inline-block w-3 border-t-2 border-[#d7a62a]/60 align-middle mr-1" />reference</span>}
       </div>
       {world.depth !== "measured" && (
-        <p className="pointer-events-none absolute right-3 top-3 max-w-[14rem] text-right text-[0.68rem] text-amber">
+        <p className="pointer-events-none absolute right-3 top-3 max-w-[11rem] text-right text-[0.66rem] leading-snug text-[#f0b54a]">
           Single camera: depth is an estimate, drawn dashed.
         </p>
       )}

@@ -38,31 +38,31 @@ export function RangeBar({
         <line x1="0" x2="100" y1="11" y2="11" stroke="var(--color-line-strong)" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />
         {range && (
           <rect x={x(range.lo)} width={Math.max(0.5, x(range.hi) - x(range.lo))} y="6" height="10" rx="1.5"
-            fill="color-mix(in srgb, var(--color-lime) 16%, transparent)" stroke="color-mix(in srgb, var(--color-lime) 55%, transparent)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
+            fill="color-mix(in srgb, var(--color-ok) 16%, transparent)" stroke="color-mix(in srgb, var(--color-ok) 55%, transparent)" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
         )}
         {baseline && Number.isFinite(baseline.sd) && (
           <rect x={x(baseline.mean - baseline.sd)} width={Math.max(0.5, x(baseline.mean + baseline.sd) - x(baseline.mean - baseline.sd))} y="3" height="16" rx="1.5"
-            fill="none" stroke="var(--color-cyan)" strokeDasharray="2 1.5" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            fill="none" stroke="var(--color-data)" strokeDasharray="2 1.5" strokeWidth="1" vectorEffect="non-scaling-stroke" />
         )}
         {u > 0 && (
-          <line x1={x(value - u)} x2={x(value + u)} y1="11" y2="11" stroke="var(--color-text)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+          <line x1={x(value - u)} x2={x(value + u)} y1="11" y2="11" stroke="var(--color-fg)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
         )}
-        <circle cx={x(value)} cy="11" r="2.6" fill={inRange === false ? "var(--color-coral)" : "var(--color-text)"} stroke="var(--color-carbon)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <circle cx={x(value)} cy="11" r="2.6" fill={inRange === false ? "var(--color-bad)" : "var(--color-fg)"} stroke="var(--color-bg)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
       </svg>
-      <figcaption className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[0.72rem] text-subtle num">
+      <figcaption className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[0.72rem] text-fg-subtle num">
         {range && (
           <span>
-            <span className="inline-block h-2 w-3 rounded-sm bg-lime/30 align-middle mr-1" />
+            <span className="inline-block h-2 w-3 rounded-sm bg-ok/30 align-middle mr-1" />
             range {fmt(range.lo)}–{fmt(range.hi)}
           </span>
         )}
         {baseline && (
           <span>
-            <span className="inline-block h-2 w-3 rounded-sm border border-dashed border-cyan align-middle mr-1" />
+            <span className="inline-block h-2 w-3 rounded-sm border border-dashed border-data align-middle mr-1" />
             yours {fmt(baseline.mean)} ± {fmt(baseline.sd)}
           </span>
         )}
-        {inRange !== null && <span className={inRange ? "text-lime" : "text-coral"}>{inRange ? "within range" : "outside range"}</span>}
+        {inRange !== null && <span className={inRange ? "text-ok" : "text-bad"}>{inRange ? "within range" : "outside range"}</span>}
       </figcaption>
     </figure>
   );

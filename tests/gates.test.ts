@@ -3,7 +3,8 @@ import { analyze } from "@/engine/analyze";
 import { fixture } from "@/engine/fixtures";
 import { generate } from "@/engine/fixtures/generate";
 import { FIXTURE_SPECS } from "@/engine/fixtures";
-import { THRESHOLDS, METRICS } from "@/engine/registry";
+import { readdirSync, readFileSync } from "node:fs";
+import { THRESHOLDS, METRICS, REGISTRY_HASH } from "@/engine/registry";
 import type { CaptureObservation } from "@/engine/types";
 
 const opts = { analysisId: "a", createdAt: "2026-10-01T00:00:00.000Z" };
@@ -61,5 +62,24 @@ describe("registry", () => {
   });
   it("never uses the word biomarker or diagnosis in user-facing metric copy", () => {
     for (const m of METRICS) expect(`${m.name} ${m.meaning} ${m.relevance}`).not.toMatch(/biomarker|diagnos|injur/i);
+  });
+  it("has the current registry published by a migration (run scripts/registry-sql.mjs)", () => {
+    const dir = "supabase/migrations";
+    const sql = readdirSync(dir).map((f) => readFileSync(`${dir}/${f}`, "utf8")).join("\n");
+    expect(sql).toContain(`'${REGISTRY_HASH}'`);
+  });
+});
+
+describe("classification stability across 40 noise seeds", () => {
+  const rate = (key: string, expected: string) => {
+    const spec = FIXTURE_SPECS.find((s) => s.key === key)!;
+    let hits = 0;
+    for (let seed = 1; seed <= 40; seed++) if (analyze(generate({ ...spec.options, seed }), opts).analysis_status === expected) hits++;
+    return hits / 40;
+  };
+  it("rejects pulls and drives, accepts defences, at least 95% of the time", () => {
+    expect(rate("pull", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
+    expect(rate("drive", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
+    expect(rate("valid_ffd", "valid")).toBeGreaterThanOrEqual(0.95);
   });
 });

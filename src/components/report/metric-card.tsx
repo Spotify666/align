@@ -6,9 +6,9 @@ import { RangeBar } from "./range-bar";
 import { Target } from "../icons";
 
 const STATUS_LABEL: Record<Metric["status"], { text: string; cls: string }> = {
-  measured: { text: "Measured", cls: "border-cyan/50 text-cyan" },
-  estimated: { text: "Estimate", cls: "border-amber/50 text-amber" },
-  not_measured: { text: "Not measured", cls: "border-line-strong text-subtle" },
+  measured: { text: "Measured", cls: "border-data/50 text-data" },
+  estimated: { text: "Estimate", cls: "border-warn/50 text-warn" },
+  not_measured: { text: "Not measured", cls: "border-line-strong text-fg-subtle" },
 };
 
 export function MetricCard({
@@ -31,14 +31,14 @@ export function MetricCard({
       </header>
 
       {m.status === "not_measured" ? (
-        <p className="text-sm text-muted">{m.reason ?? "Not measured for this capture."}</p>
+        <p className="text-sm text-fg-muted">{m.reason ?? "Not measured for this capture."}</p>
       ) : (
         <>
           <div className="flex items-baseline gap-2">
             <span className="num text-3xl font-semibold">{value}</span>
-            <span className="text-sm text-muted">{m.unit}</span>
-            {m.uncertainty !== null && <span className="num text-sm text-subtle">± {m.uncertainty.toFixed(m.decimals)}</span>}
-            <span className="ml-auto num text-xs text-subtle" title="Signal confidence">conf {Math.round(m.confidence * 100)}%</span>
+            <span className="text-sm text-fg-muted">{m.unit}</span>
+            {m.uncertainty !== null && <span className="num text-sm text-fg-subtle">± {m.uncertainty.toFixed(m.decimals)}</span>}
+            <span className="ml-auto num text-xs text-fg-subtle" title="Signal confidence">conf {Math.round(m.confidence * 100)}%</span>
           </div>
           {m.inRange !== null || baseline ? (
             <RangeBar
@@ -52,28 +52,28 @@ export function MetricCard({
           ) : null}
           {baseline && (
             <p className="text-sm">
-              <span className="text-cyan">You vs your baseline:</span> {baseline.reading}
-              <span className="num text-subtle"> (Δ {baseline.delta > 0 ? "+" : ""}{baseline.delta.toFixed(m.decimals)})</span>
+              <span className="text-data">You vs your baseline:</span> {baseline.reading}
+              <span className="num text-fg-subtle"> (Δ {baseline.delta > 0 ? "+" : ""}{baseline.delta.toFixed(m.decimals)})</span>
             </p>
           )}
         </>
       )}
 
-      <p className="text-sm text-muted">{m.meaning}</p>
+      <p className="text-sm text-fg-muted">{m.meaning}</p>
       <details className="group text-sm">
-        <summary className="list-none flex items-center gap-1 text-subtle hover:text-text min-h-9">
+        <summary className="list-none flex items-center gap-1 text-fg-subtle hover:text-fg min-h-9">
           <span className="group-open:rotate-90 transition-transform">›</span> Why it matters for a defence
         </summary>
-        <p className="mt-1 text-muted">{m.relevance}</p>
+        <p className="mt-1 text-fg-muted">{m.relevance}</p>
         {m.range && (
-          <p className="mt-2 text-xs text-subtle">
+          <p className="mt-2 text-xs text-fg-subtle">
             Range: {m.range.source}. Cohort: {m.range.cohort}.
           </p>
         )}
       </details>
-      {m.limitation && <p className="text-xs text-amber/90 border-l-2 border-amber/50 pl-2">{m.limitation}</p>}
+      {m.limitation && <p className="text-xs text-warn/90 border-l-2 border-warn/50 pl-2">{m.limitation}</p>}
       {frame && onEvidence && m.status !== "not_measured" && (
-        <button onClick={() => onEvidence(Number(frame), m.id)} className="self-start chip border-gold/50 text-gold min-h-9">
+        <button onClick={() => onEvidence(Number(frame), m.id)} className="self-start chip border-brand/50 text-brand min-h-9">
           <Target size={14} /> See it at frame {Number(frame) + 1}
         </button>
       )}

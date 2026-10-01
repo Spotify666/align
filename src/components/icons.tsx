@@ -43,11 +43,12 @@ export const Target = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="8"
 export const Spark = (p: P) => (<svg {...base(p)}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6" /></svg>);
 
 /** Align mark: two converging lines resolving onto one axis. */
-export function Mark({ size = 22 }: { size?: number }) {
+export function Mark({ size = 24 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-      <path d="M3 20L12 4l9 16" fill="none" stroke="var(--color-gold)" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M7.5 14h9" stroke="var(--color-text)" strokeWidth="2.2" strokeLinecap="round" />
+      <rect width="24" height="24" rx="7" fill="var(--color-fg)" />
+      <path d="M6 18L12 6l6 12" fill="none" stroke="var(--color-bg)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8.6 13.4h6.8" stroke="var(--color-brand)" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   );
 }

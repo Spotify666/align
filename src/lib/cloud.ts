@@ -1,0 +1,154 @@
+"use client";
+// Explicit, consented cloud save. Stores the compact track file, still frames, the
+// immutable payload, narrow metric rows and the written report — never raw video.
+
+import { supabase } from "./supabase/client";
+import { POLICY_VERSION } from "./supabase/config";
+import { getAnalysis, getTracks, updateAnalysis } from "./store";
+import { templateReport } from "@/engine/report";
+import { decodeTracks } from "@/engine/tracks-codec";
+
+async function sha256Hex(bytes: Uint8Array) {
+  const d = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
+  return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function currentUser() {
+  const { data } = await supabase().auth.getUser();
+  return data.user ?? null;
+}
+
+export async function latestConsent(kind: string): Promise<boolean> {
+  const { data } = await supabase().from("consents").select("granted").eq("kind", kind).order("created_at", { ascending: false }).limit(1);
+  return data?.[0]?.granted ?? false;
+}
+
+export async function setConsent(kind: string, granted: boolean) {
+  const user = await currentUser();
+  if (!user) throw new Error("Sign in first");
+  const { error } = await supabase().from("consents").insert({ user_id: user.id, kind, granted, policy_version: POLICY_VERSION });
+  if (error) throw error;
+}
+
+export async function saveToCloud(id: string, keyframeBlobs: Record<number, Blob>) {
+  const sb = supabase();
+  const user = await currentUser();
+  if (!user) throw new Error("Sign in first");
+  const stored = await getAnalysis(id);
+  const tracks = await getTracks(id);
+  if (!stored || !tracks) throw new Error("Analysis not found on this device");
+  const p = stored.payload;
+  const uid = user.id;
+
+  await sb.from("profiles").upsert({ id: uid }, { onConflict: "id", ignoreDuplicates: true });
+
+  const { error: aErr } = await sb.from("analyses").insert({
+    id,
+    owner_id: uid,
+    recorded_at: stored.recordedAt,
+    requested_shot: p.requested_shot,
+    tier: p.tier,
+    mode: p.mode,
+    status: p.analysis_status,
+    status_reason: p.status_reason,
+    observed_label: p.observed_shot?.label ?? null,
+    observed_prob: p.observed_shot?.probability ?? null,
+    capture_confidence: p.capture_confidence,
+    technique_index: p.technique_index?.value ?? null,
+    engine_version: p.versions.engine,
+    metric_version: p.versions.metric_version,
+    registry_hash: p.versions.registry_hash,
+    input_hash: p.input_hash,
+    result_hash: p.result_hash,
+    demo: p.demo,
+    title: stored.title.slice(0, 120),
+    notes: stored.notes,
+    tags: stored.tags,
+    representative: stored.representative,
+  });
+  if (aErr && aErr.code !== "23505") throw aErr;
+
+  const trackPath = `${uid}/${id}/tracks.bin`;
+  const up = await sb.storage.from("tracks").upload(trackPath, new Blob([tracks as BlobPart], { type: "application/octet-stream" }), { upsert: true, contentType: "application/octet-stream" });
+  if (up.error) throw up.error;
+  const media: Array<{ owner_id: string; analysis_id: string; bucket: string; path: string; bytes: number }> = [
+    { owner_id: uid, analysis_id: id, bucket: "tracks", path: trackPath, bytes: tracks.byteLength },
+  ];
+  for (const [frame, blob] of Object.entries(keyframeBlobs)) {
+    const path = `${uid}/${id}/frame_${frame}.webp`;
+    const r = await sb.storage.from("evidence").upload(path, blob, { upsert: true, contentType: "image/webp" });
+    if (!r.error) media.push({ owner_id: uid, analysis_id: id, bucket: "evidence", path, bytes: blob.size });
+  }
+
+  const obs = await decodeTracks(tracks);
+  const report = templateReport(p);
+  const results = await Promise.all([
+    sb.from("analysis_payloads").upsert({ analysis_id: id, owner_id: uid, payload: p }, { onConflict: "analysis_id", ignoreDuplicates: true }),
+    sb.from("observations").upsert(
+      { analysis_id: id, owner_id: uid, storage_path: trackPath, bytes: tracks.byteLength, sha256: await sha256Hex(tracks), frame_count: obs.body.length, fps: obs.media.fps },
+      { onConflict: "analysis_id", ignoreDuplicates: true },
+    ),
+    p.metrics.length
+      ? sb.from("metric_values").upsert(
+          p.metrics.map((m) => ({
+            analysis_id: id,
+            owner_id: uid,
+            metric_id: m.id,
+            status: m.status,
+            value: m.value,
+            uncertainty: m.uncertainty,
+            confidence: m.confidence,
+            in_range: m.inRange,
+            recorded_at: stored.recordedAt,
+          })),
+          { onConflict: "analysis_id,metric_id", ignoreDuplicates: true },
+        )
+      : Promise.resolve({ error: null }),
+    sb.from("reports").insert({ analysis_id: id, owner_id: uid, generator: report.generator, audience: report.audience, body: report, violations: 0 }),
+    sb.from("media_objects").upsert(media, { onConflict: "path", ignoreDuplicates: true }),
+  ]);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
+  await updateAnalysis(id, { cloud: { syncedAt: new Date().toISOString() } });
+}
+
+/** Load a saved analysis from the account (owner or a linked coach), for any device. */
+export async function loadCloudAnalysis(id: string) {
+  const sb = supabase();
+  const [{ data: row }, { data: payloadRow }, { data: obsRow }] = await Promise.all([
+    sb.from("analyses").select("id, title, recorded_at, owner_id").eq("id", id).maybeSingle(),
+    sb.from("analysis_payloads").select("payload").eq("analysis_id", id).maybeSingle(),
+    sb.from("observations").select("storage_path").eq("analysis_id", id).maybeSingle(),
+  ]);
+  if (!row || !payloadRow || !obsRow) return null;
+  const file = await sb.storage.from("tracks").download(obsRow.storage_path);
+  if (file.error || !file.data) return null;
+  const obs = await decodeTracks(new Uint8Array(await file.data.arrayBuffer()));
+  const { data: media } = await sb.from("media_objects").select("path").eq("analysis_id", id).eq("bucket", "evidence");
+  const keyframes: Record<number, string> = {};
+  for (const m of media ?? []) {
+    const f = /frame_(\d+)\.webp$/.exec(m.path)?.[1];
+    if (!f) continue;
+    const signed = await sb.storage.from("evidence").createSignedUrl(m.path, 3600);
+    if (signed.data) keyframes[Number(f)] = signed.data.signedUrl;
+  }
+  return { title: row.title ?? "Saved shot", recordedAt: row.recorded_at as string, ownerId: row.owner_id as string, payload: payloadRow.payload as import("@/engine/types").AnalysisPayload, obs, keyframes };
+}
+
+/** Delete a saved analysis from the account: its storage objects, then the row (children cascade). */
+export async function deleteFromCloud(id: string) {
+  const sb = supabase();
+  const [{ data: obsRow }, { data: media }] = await Promise.all([
+    sb.from("observations").select("storage_path").eq("analysis_id", id).maybeSingle(),
+    sb.from("media_objects").select("bucket, path").eq("analysis_id", id),
+  ]);
+  const byBucket = new Map<string, string[]>();
+  if (obsRow?.storage_path) byBucket.set("tracks", [obsRow.storage_path]);
+  for (const m of media ?? []) byBucket.set(m.bucket, [...(byBucket.get(m.bucket) ?? []), m.path]);
+  for (const [bucket, paths] of byBucket) {
+    const { error } = await sb.storage.from(bucket).remove(paths);
+    if (error) throw error;
+  }
+  const { error } = await sb.from("analyses").delete().eq("id", id);
+  if (error) throw error;
+}
