@@ -84,6 +84,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             <span className={`chip ${meta.ring} ${meta.tone} text-sm`}>
               <meta.Icon size={16} /> {meta.label}
             </span>
+            {p.handedness === "left" && <span className="chip border-line-strong text-fg-muted">Left-handed batter</span>}
           </div>
           <h1 id="verdict" className="display mt-4 text-[1.7rem] leading-[1.1] sm:text-4xl lg:text-5xl max-w-4xl">{p.headline}</h1>
           {notice}
