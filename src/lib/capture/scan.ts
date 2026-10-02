@@ -57,7 +57,7 @@ type RVFC = (cb: (now: number, meta: { mediaTime: number }) => void) => number;
 export const fullBodyBox = (b: Box) => b.h >= 0.1 && b.y > 0.004 && b.y + b.h < 0.996 && b.score >= 0.35;
 
 /** Upper bound on the model pass, so a long clip on a slow phone still finishes quickly. */
-const MODEL_BUDGET_MS = 12000;
+const MODEL_BUDGET_MS = 6000;
 const MAX_PROBES = 72;
 
 /**
@@ -129,11 +129,12 @@ export async function scanVideo(
     // A short play-through around each candidate instead of a seek per probe.
     const ts = [-0.6, -0.3, 0.3, 0.6, 0.9, 1.2].map((o) => centre + o).filter(fresh);
     if (!budgetLeft() || !ts.length) continue;
+    // At 4× speed (any frame within 70 ms will do), so a candidate costs about half a second.
     const missed = await playFrames(video, ts, (i) => {
       if (!budgetLeft()) return false;
       look(keyOf(ts[i]!));
       report();
-    }, { frameDur: 1 / 30, tolerance: 0.05, stop: () => !!signal?.aborted });
+    }, { frameDur: 1 / 30, rate: 4, tolerance: 0.07, stop: () => !!signal?.aborted });
     for (const i of missed ?? ts.map((_, k) => k)) {
       if (!budgetLeft()) break;
       await probe(ts[i]!);
@@ -246,7 +247,8 @@ async function motionPass(
       };
       video.addEventListener("ended", end);
       rvfc(cb);
-      video.playbackRate = Math.min(8, Math.max(2, limit / 8));
+      // As fast as frames still arrive about every 0.15 s of video (enough for movement and cuts).
+      video.playbackRate = Math.min(10, Math.max(2, limit / 5));
       video.play().catch(() => end());
     });
     video.playbackRate = 1;
