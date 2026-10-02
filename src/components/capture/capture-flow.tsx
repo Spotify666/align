@@ -627,7 +627,17 @@ export function CaptureFlow() {
       }
       stage("read", "done", `${res.items.length} ${res.items.length === 1 ? "photo" : "photos"}${res.failed.length ? ` · ${res.failed.length} skipped` : ""}`);
       const found = res.items.filter((i) => i.frame).length;
-      if (!found) return fail("No batter found", "We couldn't find a whole batter in any photo. Use photos where the batter is fully in frame, head to feet.");
+      if (!found) {
+        // Say what was seen: no person at all, or a person whose joints couldn't be placed.
+        const people = Math.max(...res.items.map((i) => i.seen.people));
+        const px = Math.max(0, ...res.items.map((i) => i.seen.personPx ?? 0));
+        return people
+          ? fail(
+              "Can't read the batter's body",
+              `We can see ${people === 1 ? "a person" : `${people} people`}${px ? `, about ${px} px tall in the photo,` : ""} but couldn't place the joints of their body. Use a larger or sharper photo, with the batter fully in frame from head to feet.`,
+            )
+          : fail("No batter found", "We couldn't see a person in the photo. Use a photo with the whole batter in frame, head to feet, not too far away.");
+      }
       stage("batter", "done", found === res.items.length ? "Found in every photo" : `Found in ${found} of ${res.items.length}`);
       const g = guessView(res.items.map((i) => i.frame), profile.handedness);
       const choice: ViewChoice = g && (g.view === "front_on" || g.view === "behind") ? g.view : "side_on";
@@ -816,7 +826,7 @@ export function CaptureFlow() {
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Target size={26} className="text-data" />
                     <span className="font-semibold">Choose photos</span>
-                    <span className="text-xs text-fg-subtle">1–12 photos · posture screen</span>
+                    <span className="text-xs text-fg-subtle">1–12 photos · position check</span>
                     <input type="file" disabled={!consented} accept="image/*,.heic,.heif" multiple className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>

@@ -173,6 +173,31 @@ export function loadStillPose(): Promise<PL> {
   return imagePose;
 }
 
+let imagePoseGpu: Promise<PL | null> | null = null;
+/**
+ * The still-image model on the GPU path: a second opinion for photos when the CPU path
+ * sees nobody (on some phones one path returns nothing). Null where it can't load.
+ */
+export function loadStillPoseGpu(): Promise<PL | null> {
+  if (!imagePoseGpu) {
+    imagePoseGpu = (async () => {
+      const [{ PoseLandmarker }, f] = await Promise.all([vision(), loadFiles()]);
+      try {
+        return await PoseLandmarker.createFromOptions(f, poseOptions("IMAGE", "GPU"));
+      } catch {
+        return null;
+      }
+    })();
+  }
+  return imagePoseGpu;
+}
+
+/** Still pose on raw pixels (ImageData), bypassing canvas-to-GPU sharing. */
+export function detectStillPixels(pose: PL, source: HTMLCanvasElement): PoseFrame {
+  const data = source.getContext("2d")!.getImageData(0, 0, source.width, source.height);
+  return toFrame(pose.detect(data), FULL, null);
+}
+
 let scanPose: Promise<PL> | null = null;
 /** Light pose model for scanning a whole clip: posture only, a few frames per second. */
 export function loadScanPose(): Promise<PL> {

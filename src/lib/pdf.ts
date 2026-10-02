@@ -87,7 +87,7 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
   if (opts.title) text(opts.title, 10, muted, "normal", 2);
 
   // Verdict first
-  text(STATUS[p.analysis_status] + (p.mode === "posture_screen" ? " (photo posture screen)" : ""), 11, gold, "bold", 2);
+  text(STATUS[p.analysis_status] + (p.mode === "posture_screen" ? " (photo position check)" : ""), 11, gold, "bold", 2);
   text(p.headline, 17, ink, "bold", 4);
   if (p.analysis_status !== "valid") text("Technique score withheld. A score is only given to a confirmed front-foot defence.", 10, ink, "bold");
   const chips = [
@@ -174,7 +174,12 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
         text(`Photo ${ph.frame + 1}${ph.phase ? ` (${ph.phase})` : ""}: ${vals.length ? vals.join(" · ") : (ph.note ?? "not measured")}`, 9.5, ink, "normal", 1);
       }
     }
-    ungraded(p.photo_set ? "Key photo" : "Posture observations", p.metrics, "Estimates from still images. Not graded: a photo can't confirm the shot or the moment of contact.");
+    const graded = p.metrics.filter((m) => m.value !== null && m.inRange !== null && m.range);
+    if (graded.length) {
+      heading(`Front-foot defence position${p.photo_set ? " (key photo)" : ""}: ${graded.filter((m) => m.inRange).length} of ${graded.length} checks met`);
+      for (const m of graded) text(`• ${m.name}: ${fmt(m)}, ${m.inRange ? "within" : "outside"} ${m.range!.lo}–${m.range!.hi}`, 9.5, m.inRange ? ink : gold, "normal", 1);
+      text("One photo shows one moment, taken to be contact. A drive can look the same at contact; the shot itself needs a video.", 8, muted);
+    } else ungraded(p.photo_set ? "Key photo" : "Posture observations", p.metrics, "Estimates from still images. Not graded: the position check needs a side-on photo with the whole batter in view.");
   }
 
   heading("Limits of this result");

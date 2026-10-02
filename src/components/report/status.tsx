@@ -16,7 +16,7 @@ export const STATUS_META: Record<
   },
   uncertain_shot: { label: "Shot uncertain", short: "Uncertain", tone: "text-warn", ring: "border-warn/50", bg: "bg-warn/10", Icon: Question },
   capture_failed: { label: "Capture failed", short: "Capture failed", tone: "text-neutral", ring: "border-neutral/50", bg: "bg-neutral/10", Icon: CameraOff },
-  posture_screen: { label: "Posture screen (photo)", short: "Photo", tone: "text-warn", ring: "border-warn/50", bg: "bg-warn/10", Icon: Question },
+  posture_screen: { label: "Position check (photo)", short: "Photo", tone: "text-warn", ring: "border-warn/50", bg: "bg-warn/10", Icon: Question },
 };
 
 export const statusKey = (p: Pick<AnalysisPayload, "analysis_status" | "mode">) =>

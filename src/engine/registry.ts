@@ -6,9 +6,9 @@
 import { canonicalJson, sha256 } from "./math";
 import { FRONTAL_METRICS } from "./frontal";
 
-export const ENGINE_VERSION = "0.4.2";
-export const METRIC_VERSION = "ffd-0.4.0";
-export const CLASSIFIER_VERSION = "prototype-bands-0.4.0";
+export const ENGINE_VERSION = "0.5.0";
+export const METRIC_VERSION = "ffd-0.5.0";
+export const CLASSIFIER_VERSION = "prototype-bands-0.5.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
 
 export interface Threshold {
@@ -19,8 +19,10 @@ export interface Threshold {
 
 export const THRESHOLDS = {
   // Capture quality gate
-  "capture.min_short_side_px": { value: 480, unit: "px", rationale: "Below this, wrists and feet occupy too few pixels to localise." },
-  "capture.fail_short_side_px": { value: 320, unit: "px", rationale: "Too small for any reliable joint estimate." },
+  // Size is judged on the batter, not the frame: a small photo filled by the batter can be
+  // sharper than a 4K frame where the batter is a speck.
+  "capture.min_batter_px": { value: 250, unit: "px standing height", rationale: "Below this a thigh spans under ~60 px, so a 2 px landmark error moves a joint angle by about 3°." },
+  "capture.fail_batter_px": { value: 100, unit: "px standing height", rationale: "Below this a thigh spans about 25 px: joint angles are uncertain by 6° or more, too coarse to grade." },
   "capture.min_fps_timing": { value: 60, unit: "fps", rationale: "At 60 fps one frame is ~17 ms; below that contact and timing windows are coarser than the movements they describe." },
   "capture.min_fps_any": { value: 24, unit: "fps", rationale: "Below 24 fps a bat swing spans only a few frames." },
   "capture.min_duration_ms": { value: 1200, unit: "ms", rationale: "Needs setup, delivery and follow-through in one clip." },
@@ -90,6 +92,10 @@ export interface MetricDefinition {
   weight: number;
   /** "lower is better" style hint used only for wording. */
   direction: "band" | "lower" | "higher";
+  /** Measured only from a video (needs movement) or only from a photo. */
+  only?: "video" | "photo";
+  /** Where the range comes from, shown with the check. */
+  basis?: string;
 }
 
 export const METRICS: MetricDefinition[] = [
@@ -120,6 +126,24 @@ export const METRICS: MetricDefinition[] = [
     requires: ["body"],
     weight: 1.2,
     direction: "band",
+    only: "video",
+    basis: "Coaching: stride to the pitch of the ball. Provisional numbers.",
+  },
+  {
+    id: "foot_spread",
+    name: "Front-foot stride (foot to foot)",
+    domain: "footwork",
+    unit: "× stature",
+    decimals: 2,
+    phase: "Contact",
+    meaning: "Distance from the back ankle to the front ankle along the pitch, as a fraction of standing height.",
+    relevance: "A long stride gets the front foot and head to the pitch of the ball.",
+    range: { lo: 0.5, hi: 1.0 },
+    requires: ["body", "contact", "side_view"],
+    weight: 0,
+    direction: "band",
+    only: "photo",
+    basis: "Stance width (about 0.2–0.3 × height) plus the 0.30–0.46 front-foot stride; above 1.0 the batter is over-stretched. Provisional.",
   },
   {
     id: "front_knee_flexion",
@@ -130,10 +154,26 @@ export const METRICS: MetricDefinition[] = [
     phase: "Contact",
     meaning: "Interior angle at the front knee (180° = straight leg).",
     relevance: "A flexed front knee lets the head travel forward and down over the ball.",
-    range: { lo: 118, hi: 152 },
+    range: { lo: 90, hi: 152 },
     requires: ["body", "contact"],
     weight: 1,
     direction: "band",
+    basis: "Coaching: a clearly bent front knee (under ~150°). Below 90° the hips sink below the knee, a collapsed base. Skilled batters get lower and further forward than less-skilled ones (Taliep et al., 2007).",
+  },
+  {
+    id: "back_knee_extension",
+    name: "Back leg",
+    domain: "footwork",
+    unit: "°",
+    decimals: 0,
+    phase: "Contact",
+    meaning: "Interior angle at the back knee (180° = straight leg).",
+    relevance: "A long back leg, heel lifting, lets the weight go fully onto the front foot.",
+    range: { lo: 135, hi: 180 },
+    requires: ["body", "contact", "side_view"],
+    weight: 0.6,
+    direction: "band",
+    basis: "Coaching: back leg extended, back heel raised. Provisional numbers.",
   },
   {
     id: "weight_forward",
@@ -148,6 +188,7 @@ export const METRICS: MetricDefinition[] = [
     requires: ["body", "contact"],
     weight: 1,
     direction: "band",
+    basis: "Coaching: weight over the front knee. Skilled batters keep their centre of mass further forward at contact (Taliep et al., 2007). Provisional numbers.",
   },
   {
     id: "head_knee_offset",
@@ -162,6 +203,7 @@ export const METRICS: MetricDefinition[] = [
     requires: ["body", "contact"],
     weight: 1.3,
     direction: "band",
+    basis: "Coaching: head over the front knee, eyes over the ball. Skilled batters' heads are further forward (Taliep et al., 2007). Provisional numbers.",
   },
   {
     id: "head_speed_contact",
@@ -185,11 +227,27 @@ export const METRICS: MetricDefinition[] = [
     decimals: 0,
     phase: "Contact",
     meaning: "Angle of the hip-to-shoulder line from vertical, leaning toward the bowler.",
-    relevance: "A moderate lean keeps the head forward without collapsing the base.",
-    range: { lo: 12, hi: 38 },
+    relevance: "Leaning into the shot takes the head forward over the ball.",
+    range: { lo: 12, hi: 55 },
     requires: ["body", "contact"],
     weight: 0.8,
     direction: "band",
+    basis: "Coaching: lean into the ball. Less-skilled batters stay more upright at contact (Taliep et al., 2007); falling over is caught by the head and weight checks. Provisional numbers.",
+  },
+  {
+    id: "hands_ahead_of_knee",
+    name: "Hands ahead of front knee",
+    domain: "bat_contact",
+    unit: "× stature",
+    decimals: 2,
+    phase: "Contact",
+    meaning: "Forward distance of the hands from the front knee. Positive = hands ahead, bat angled down.",
+    relevance: "Hands ahead of the pad angle the bat down, so the ball goes into the ground.",
+    range: { lo: 0, hi: 0.3 },
+    requires: ["body", "contact", "side_view"],
+    weight: 0.8,
+    direction: "band",
+    basis: "The defence meets the ball with the bat about 27° forward of vertical (Stretch et al., 1998), which puts the hands about 0.1–0.25 × height ahead of a ball met beside the front knee.",
   },
   {
     id: "pelvis_thorax_separation",
@@ -213,11 +271,12 @@ export const METRICS: MetricDefinition[] = [
     decimals: 0,
     phase: "Contact",
     meaning: "How far the bat is tilted from vertical when it meets the ball.",
-    relevance: "A near-vertical bat presents the full face to a full or good-length ball.",
-    range: { lo: 0, hi: 24 },
+    relevance: "An angled bat, handle ahead of the blade, sends the ball down into the ground.",
+    range: { lo: 14, hi: 40 },
     requires: ["bat", "contact"],
     weight: 1.2,
-    direction: "lower",
+    direction: "band",
+    basis: "Measured in forward defences: 62.6 ± 6.5° from horizontal, i.e. about 27° forward of vertical (drive: 78°) (Stretch et al., 1998). Range: mean ± 2 SD.",
   },
   {
     id: "contact_ahead_of_knee",

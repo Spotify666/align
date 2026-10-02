@@ -72,7 +72,9 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
   const evidence = (...ids: (string | undefined)[]) => ids.filter((x): x is string => !!x);
 
   const out: Metric[] = [];
+  const media = ctx.postureFrame !== undefined ? "photo" : "video";
   for (const def of METRICS) {
+    if (def.only && def.only !== media) continue;
     const missing = def.requires.filter((r) => !ok[r]);
     const base: Metric = {
       id: def.id,
@@ -87,7 +89,7 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
       phase: def.phase,
       meaning: def.meaning,
       relevance: def.relevance,
-      range: def.range ? { ...def.range, ...RANGE_SOURCE } : null,
+      range: def.range ? { ...def.range, ...RANGE_SOURCE, ...(def.basis ? { source: def.basis } : {}) } : null,
       inRange: null,
       evidenceIds: [],
     };
@@ -144,6 +146,45 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
           conf = Math.min(h.c, k.c, a.c);
           estimated = twoD;
           if (twoD) limitation = "2D projection: a knee that points away from the camera reads straighter than it is.";
+          ev = evidence(contact?.id, `frame_${cf}`);
+        }
+        break;
+      }
+      case "foot_spread": {
+        const fa = at(scene, "front_ankle", cf);
+        const ba = at(scene, "back_ankle", cf);
+        if (fa && ba) {
+          value = (fa.f - ba.f) / S;
+          unc = (Math.SQRT2 * posSigma(scene, Math.min(fa.c, ba.c))) / S;
+          conf = Math.min(fa.c, ba.c);
+          ev = evidence(`frame_${cf}`);
+        }
+        break;
+      }
+      case "back_knee_extension": {
+        const h = at(scene, "back_hip", cf);
+        const k = at(scene, "back_knee", cf);
+        const a = at(scene, "back_ankle", cf);
+        if (h && k && a) {
+          value = angleAt([h.f, h.u], [k.f, k.u], [a.f, a.u]);
+          const seg = Math.min(Math.hypot(h.f - k.f, h.u - k.u), Math.hypot(a.f - k.f, a.u - k.u));
+          unc = ((Math.sqrt(3) * posSigma(scene, k.c)) / seg) * (180 / Math.PI) + (twoD ? 4 : 1);
+          conf = Math.min(h.c, k.c, a.c);
+          estimated = twoD;
+          if (twoD) limitation = "2D projection: a knee that points away from the camera reads straighter than it is.";
+          ev = evidence(contact?.id, `frame_${cf}`);
+        }
+        break;
+      }
+      case "hands_ahead_of_knee": {
+        const k = at(scene, "front_knee", cf);
+        const ws = [at(scene, "front_wrist", cf), at(scene, "back_wrist", cf)].filter((p): p is P => !!p);
+        if (k && ws.length) {
+          // Both hands grip the handle together; one seen is enough.
+          value = (mean(ws.map((w) => w.f)) - k.f) / S;
+          const c = Math.min(k.c, ...ws.map((w) => w.c));
+          unc = (Math.SQRT2 * posSigma(scene, c)) / S;
+          conf = c * (ws.length === 2 ? 1 : 0.85);
           ev = evidence(contact?.id, `frame_${cf}`);
         }
         break;

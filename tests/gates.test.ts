@@ -38,7 +38,10 @@ describe("release gate: no pull may receive a front-foot-defence technique score
     const p = analyze(obs, opts);
     expect(p.analysis_status).not.toBe("valid");
     expect(p.technique_index).toBeNull();
-    expect(p.metrics.filter((m) => m.inRange !== null)).toHaveLength(0);
+    if (obs.media.kind === "photo") {
+      // A photo is checked against the position formula; a pull must not pass it.
+      expect(["matches", "mostly"]).not.toContain(p.position_check?.verdict);
+    } else expect(p.metrics.filter((m) => m.inRange !== null)).toHaveLength(0);
   });
 });
 

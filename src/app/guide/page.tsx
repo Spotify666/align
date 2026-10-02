@@ -155,7 +155,7 @@ export default function GuidePage() {
             ["Which shots are supported?", "The front-foot defence first. Other shots are recognised so they can be rejected, and will unlock once they pass the same validation."],
             ["Can I film from behind the bowler?", "Yes. Align recognises the camera position (you can change it if it's wrong). Forward distances then come from a 3D pose estimate, and bounce distance, bat speed and ball speed aren't measured — side-on gives the most complete report."],
             ["My clip is long, or has several shots or people in it.", "That's fine. Align scans the whole clip, finds each shot, skips camera cuts and close-ups, and follows the person holding the bat. If it picks the wrong shot or person, tap “Change”."],
-            ["Can I upload photos instead?", "Yes — one or up to 12. Photos give a posture screen (knee bend, head over the front knee, trunk lean). They can't confirm the shot, timing, bat or ball, so no score is given."],
+            ["Can I upload photos instead?", "Yes — one or up to 12. A side-on photo at the moment of contact is checked against the front-foot defence position formula: stride, front knee, back leg, head over the knee, trunk lean, weight forward and hands ahead of the knee. A photo can't show timing, the bat's path or the ball, so it never confirms the shot or gets a score."],
             ["My video won't open.", "Most phones record MP4 or MOV, which work. Some iPhones and new Android phones record HEVC: open Align in Safari or recent Chrome, set iPhone Camera → Formats → Most Compatible, or send the clip to yourself on WhatsApp to convert it."],
           ].map(([q, a]) => (
             <details key={q} className="group p-4">

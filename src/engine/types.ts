@@ -326,6 +326,13 @@ export interface AnalysisPayload {
    * Shown so the athlete still learns something, without implying a defence verdict.
    */
   observations?: Metric[];
+  /** Photos: how the position measures up to the front-foot defence formula (frame = the photo it was read from). */
+  position_check?: {
+    met: number;
+    checked: number;
+    verdict: "matches" | "mostly" | "partly" | "doesnt_match" | "not_on_front_foot" | "not_enough" | "not_side_on";
+    frame: number;
+  };
   /** Photo sets: per-photo posture observations, in the order the photos were given. */
   photo_set?: Array<{ frame: number; phase: PhotoPhase | null; observations: Metric[]; note?: string }>;
   versions: {

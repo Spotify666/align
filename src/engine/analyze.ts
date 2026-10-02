@@ -66,7 +66,7 @@ function limitationsFor(obs: CaptureObservation, tracking: TrackingSummary, scen
     id: "lim_classifier",
     text: "Shot confidence comes from a transparent prototype model; it is not yet calibrated on labelled cricket clips.",
   });
-  L.push({ id: "lim_ranges", text: "Coaching ranges are provisional (coach-authored, v0.1) and not population norms." });
+  L.push({ id: "lim_ranges", text: "Ranges are provisional: built from coaching practice and the few published measurements of the shot (Stretch et al., 1998; Taliep et al., 2007), not yet fitted to measured players." });
   if (!tracking.depth.available)
     L.push({ id: "lim_depth", text: "Single camera: depth-sensitive values (angles, lateral gaps) are estimates." });
   if (scene.plane === "frontal")
@@ -232,7 +232,12 @@ const EMPTY_DELIVERY: AnalysisPayload["delivery"] = {
 
 /** Body observations safe to show without a shot verdict: no bat, ball or timing. */
 const OBSERVATION_IDS = ["stride_length", "front_knee_flexion", "head_knee_offset", "trunk_inclination", "weight_forward"];
-// Photos never report weight transfer: one frame cannot show where the weight is going.
+/**
+ * The front-foot defence position formula: every check one side-on frame can measure.
+ * Photos are graded against it; the shot itself (timing, bat path, ball) needs a video.
+ */
+export const POSITION_FORMULA = ["foot_spread", "front_knee_flexion", "back_knee_extension", "head_knee_offset", "trunk_inclination", "weight_forward", "hands_ahead_of_knee"];
+// Filmed along the pitch, forward distances and leg angles are foreshortened: shown, not graded.
 const POSTURE_IDS = ["front_knee_flexion", "head_knee_offset", "trunk_inclination"];
 
 /** Strip coaching ranges so an observation can't be read as a grade. */
@@ -264,38 +269,94 @@ function single(obs: CaptureObservation, i: number): CaptureObservation {
   };
 }
 
-/** Posture observations from one photo (never "contact": the moment isn't confirmed). */
-function postureFromPhoto(photo: CaptureObservation): Metric[] {
-  if (bodyCoverage(photo).coverage < 1) {
-    return POSTURE_IDS.map((id) => {
-      const m = computeMetricsSafe(photo).find((x) => x.id === id);
-      return m && m.status !== "not_measured" ? photoOnly(m) : notVisible(id);
-    });
-  }
-  return computeMetricsSafe(photo)
-    .filter((m) => POSTURE_IDS.includes(m.id))
-    .map((m) => (m.status === "not_measured" ? m : photoOnly(m)));
+/**
+ * One photo against the position formula. Side-on, every check is graded; along the
+ * pitch the formula can't be applied, so a few posture readings are shown ungraded.
+ */
+function positionFromPhoto(photo: CaptureObservation, frame: number): { metrics: Metric[]; sideOn: boolean } {
+  const { metrics, sideOn } = computeMetricsSafe(photo);
+  const ids = sideOn ? POSITION_FORMULA : POSTURE_IDS;
+  const out = ids.map((id) => {
+    const m = metrics.find((x) => x.id === id);
+    if (!m || m.status === "not_measured") return notVisible(id, m?.reason);
+    // Evidence points at this photo within the set.
+    const own = { ...m, evidenceIds: m.evidenceIds.map((e) => (e === "frame_0" ? `frame_${frame}` : e)) };
+    return sideOn ? photoGraded(own) : photoOnly(own);
+  });
+  return { metrics: out, sideOn };
 }
 
-function computeMetricsSafe(photo: CaptureObservation): Metric[] {
+function computeMetricsSafe(photo: CaptureObservation): { metrics: Metric[]; sideOn: boolean } {
   const scene = buildScene(photo);
   const events = { list: [], byType: {} };
   const delivery = estimateDelivery(scene, events);
   const features = extractFeatures(scene, events, { ...delivery, available: false, length: null });
-  return computeMetrics({ scene, events, features, delivery, tier: photo.tier, postureFrame: 0 });
+  return { metrics: computeMetrics({ scene, events, features, delivery, tier: photo.tier, postureFrame: 0 }), sideOn: scene.plane === "sagittal" };
+}
+
+function photoGraded(m: Metric): Metric {
+  return {
+    ...m,
+    status: "estimated",
+    phase: "Photo",
+    limitation: [m.limitation, "One photo: the position at this moment, assumed to be contact."].filter(Boolean).join(" "),
+  };
 }
 
 function photoOnly(m: Metric): Metric {
   return {
     ...m,
     status: "estimated",
-    phase: "Single photo",
+    phase: "Photo",
+    range: null,
     inRange: null,
-    limitation: [m.limitation, "Photo: one moment, not confirmed as contact. Shown as a posture observation only."].filter(Boolean).join(" "),
+    limitation: [m.limitation, "Filmed along the pitch: the position formula needs a side-on photo, so this is shown, not graded."].filter(Boolean).join(" "),
   };
 }
 
-function notVisible(id: string): Metric {
+export interface PositionCheck {
+  met: number;
+  checked: number;
+  verdict: "matches" | "mostly" | "partly" | "doesnt_match" | "not_on_front_foot" | "not_enough" | "not_side_on";
+}
+
+/** The formula's verdict: how many of the checks this photo could measure are met. */
+export function positionCheck(ms: Metric[], sideOn: boolean): PositionCheck {
+  const graded = ms.filter((m) => m.inRange !== null);
+  const met = graded.filter((m) => m.inRange).length;
+  const checked = graded.length;
+  if (!sideOn) return { met, checked, verdict: "not_side_on" };
+  if (checked < 4) return { met, checked, verdict: "not_enough" };
+  const spread = ms.find((m) => m.id === "foot_spread");
+  // Feet together: the front foot hasn't gone toward the ball (a stance, a back-foot shot).
+  if (spread?.value != null && spread.range && spread.value < spread.range.lo * 0.6) return { met, checked, verdict: "not_on_front_foot" };
+  const verdict = met === checked ? "matches" : met >= checked - 1 ? "mostly" : met >= checked / 2 ? "partly" : "doesnt_match";
+  return { met, checked, verdict };
+}
+
+function positionHeadline(c: PositionCheck, ms: Metric[], key: number, photos: number): string {
+  const which = photos > 1 ? `photo ${key + 1} of ${photos}` : "this photo";
+  const tag = photos > 1 ? ` (photo ${key + 1} of ${photos})` : "";
+  const off = ms.filter((m) => m.inRange === false).map((m) => m.name.toLowerCase());
+  switch (c.verdict) {
+    case "matches":
+      return `Front-foot defence position${tag}: all ${c.checked} checks met.`;
+    case "mostly":
+      return `Front-foot defence position${tag}: ${c.met} of ${c.checked} checks met. To work on: ${off[0]}.`;
+    case "partly":
+      return `Partly a front-foot defence position${tag}: ${c.met} of ${c.checked} checks met.`;
+    case "doesnt_match":
+      return `${which[0]!.toUpperCase()}${which.slice(1)} doesn't show a front-foot defence position: ${c.met} of ${c.checked} checks met.`;
+    case "not_on_front_foot":
+      return `${which[0]!.toUpperCase()}${which.slice(1)} doesn't show a front-foot defence: the front foot hasn't stepped toward the ball.`;
+    case "not_enough":
+      return "Not enough of the batter is visible to check the front-foot defence position.";
+    case "not_side_on":
+      return "Photo from along the pitch: the front-foot defence check needs a side-on photo. Posture shown, not graded.";
+  }
+}
+
+function notVisible(id: string, why?: string): Metric {
   const def = METRICS.find((d) => d.id === id)!;
   return {
     id,
@@ -307,17 +368,17 @@ function notVisible(id: string): Metric {
     unit: def.unit,
     decimals: def.decimals,
     confidence: 0,
-    phase: "Single photo",
+    phase: "Photo",
     meaning: def.meaning,
     relevance: def.relevance,
     range: null,
     inRange: null,
     evidenceIds: [],
-    reason: "Not measured: the batter isn't fully visible in this photo.",
+    reason: why ?? "Not measured: the batter isn't fully visible in this photo.",
   };
 }
 
-/** Which photo of a set carries the headline measures: the one tagged contact, then stride. */
+/** Which photo of a set carries the headline: the one tagged contact, then stride, then the one with most checks measured. */
 function keyPhoto(phases: Array<string | null>, per: Metric[][]): number {
   for (const ph of ["contact", "stride"]) {
     const i = phases.indexOf(ph);
@@ -398,35 +459,49 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     });
   }
 
-  // Photo(s): posture screen only. No shot identity, timing, bat speed or ball claims.
+  // Photo(s): the position at one moment, checked against the front-foot defence formula.
+  // No shot identity, timing, bat path or ball claims: those need a video.
   if (obs.media.kind === "photo") {
     const frames = obs.body.length;
-    const perPhoto = Array.from({ length: frames }, (_, i) => postureFromPhoto(single(obs, i)));
+    const per = Array.from({ length: frames }, (_, i) => positionFromPhoto(single(obs, i), i));
+    const perPhoto = per.map((x) => x.metrics);
     const phases = obs.photoPhases ?? [];
     const key = keyPhoto(phases, perPhoto);
     const set = frames > 1;
+    const metrics = perPhoto[key] ?? [];
+    const check = positionCheck(metrics, per[key]?.sideOn ?? false);
+    const graded = check.verdict !== "not_side_on" && check.verdict !== "not_enough" && check.verdict !== "not_on_front_foot";
+    const { strengths, priorities } = graded ? strengthsAndPriorities(metrics) : { strengths: [], priorities: [] };
+    const plan = graded ? buildPlan(priorities, metrics) : null;
     return finish({
       ...base,
       ...withheld,
+      strengths,
+      priorities,
+      plan,
+      drill_candidates: plan?.drills ?? [],
       mode: "posture_screen",
       analysis_status: "uncertain_shot",
       status_reason: "photo_only",
-      headline: set
-        ? `Posture screen from ${frames} photos — photos can't show shot type, timing, bat or ball.`
-        : "Posture screen only — a photo can't show shot type, timing, bat or ball.",
+      headline: positionHeadline(check, metrics, key, frames),
+      position_check: { ...check, frame: key },
       observed_shot: null,
       shot_probabilities: null,
       classifier: null,
       delivery: { ...EMPTY_DELIVERY, reason: "Photos cannot show ball flight." },
       events: [],
       features: [],
-      metrics: perPhoto[key] ?? [],
+      metrics,
       limitations: [
         ...limitations,
-        { id: "lim_photo", text: "Photo mode never reports shot identity, timing, bat speed, ball length or weight transfer." },
+        { id: "lim_photo", text: "A photo checks the position at one moment, taken to be contact. It can't show timing, the bat's path or the ball, so it never confirms the shot itself." },
         ...(set ? [{ id: "lim_photo_set", text: "Each photo is measured on its own; photos are not treated as one continuous movement." }] : []),
       ],
-      recapture: ["Record a short video of the whole delivery in slow-motion mode.", ...recapture.filter((r) => !r.startsWith("Record a short video"))],
+      recapture: [
+        ...(check.verdict === "not_side_on" ? ["Take the photo side-on, square to the pitch, at the moment of contact."] : []),
+        "Record a short video of the whole delivery to check the shot itself: timing, bat path and ball.",
+        ...recapture.filter((r) => !r.startsWith("Record a short video")),
+      ],
       evidence_frames: set ? Array.from({ length: Math.min(frames, 12) }, (_, i) => i) : [0],
       ...(set
         ? {

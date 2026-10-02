@@ -57,18 +57,44 @@ const VIEW_TEXT: Record<CaptureObservation["camera"]["view"], string> = {
   unknown: "Not set",
 };
 
+/**
+ * The batter's standing height in pixels, from segment lengths that don't change with
+ * posture (thigh, shin and trunk are 0.779 of standing height), so a crouched defence
+ * isn't mistaken for a small batter. Median over the frames where they are all seen.
+ */
+export function batterPixels(obs: CaptureObservation): number | null {
+  const W = obs.media.width;
+  const H = obs.media.height;
+  const minConf = th("tracking.joint_min_conf");
+  const sizes: number[] = [];
+  for (const frame of obs.body) {
+    const L = (a: keyof typeof J, b: keyof typeof J) => {
+      const p = frame[J[a]];
+      const q = frame[J[b]];
+      return p && q && p[2] >= minConf && q[2] >= minConf ? Math.hypot((p[0] - q[0]) * W, (p[1] - q[1]) * H) : NaN;
+    };
+    const legs = [L("left_hip", "left_knee") + L("left_knee", "left_ankle"), L("right_hip", "right_knee") + L("right_knee", "right_ankle")].filter(Number.isFinite);
+    const trunks = [L("left_hip", "left_shoulder"), L("right_hip", "right_shoulder")].filter(Number.isFinite);
+    // The longer leg: a leg pointing at the camera looks short.
+    if (legs.length && trunks.length) sizes.push((Math.max(...legs) + mean(trunks)) / 0.779);
+  }
+  if (!sizes.length) return null;
+  sizes.sort((a, b) => a - b);
+  return sizes[Math.floor(sizes.length / 2)]!;
+}
+
 export function assessCapture(obs: CaptureObservation): CaptureQuality {
   const checks: QualityCheck[] = [];
   const isPhoto = obs.media.kind === "photo";
-  const short = Math.min(obs.media.width, obs.media.height);
+  const px = batterPixels(obs);
 
   checks.push({
     id: "chk_resolution",
-    label: "Resolution",
-    status: short < th("capture.fail_short_side_px") ? "fail" : short < th("capture.min_short_side_px") ? "warn" : "pass",
-    value: `${obs.media.width}×${obs.media.height}`,
-    requirement: `Short side ≥ ${th("capture.min_short_side_px")} px`,
-    correction: "Record at 1080p (or at least 720p) in landscape.",
+    label: "Batter size",
+    status: px === null ? "not_applicable" : px < th("capture.fail_batter_px") ? "fail" : px < th("capture.min_batter_px") ? "warn" : "pass",
+    value: px === null ? `${obs.media.width}×${obs.media.height}` : `about ${Math.round(px)} px tall (${obs.media.width}×${obs.media.height} ${isPhoto ? "photo" : "video"})`,
+    requirement: `Batter at least ${th("capture.min_batter_px")} px tall`,
+    correction: isPhoto ? "Use a larger photo, or one taken closer, so the batter fills more of it." : "Record at 1080p, or move closer so the batter fills more of the frame.",
   });
 
   if (isPhoto) {

@@ -111,14 +111,22 @@ describe("5. photo-only upload", () => {
     expect(p.status_reason).toBe("photo_only");
     expect(p.limitations.some((l) => l.id === "lim_photo")).toBe(true);
   });
-  it("makes no timing, ball, bat-speed or shot-identity claims", () => {
+  it("makes no timing, ball, bat-speed or shot-identity claims, and gives no score", () => {
     expect(p.observed_shot).toBeNull();
     expect(p.shot_probabilities).toBeNull();
     expect(p.events).toHaveLength(0);
     expect(p.delivery.available).toBe(false);
     expect(p.technique_index).toBeNull();
-    for (const id of [...TIMING, ...BAT, "weight_forward", "stride_length"]) expect(metric(p, id)).toBeUndefined();
-    for (const m of p.metrics) expect(m.inRange).toBeNull();
+    // Stride needs the stance to measure travel from: video only. The photo has foot-to-foot spread.
+    for (const id of [...TIMING, ...BAT, "stride_length"]) expect(metric(p, id)).toBeUndefined();
+  });
+  it("checks the position against the front-foot defence formula", () => {
+    // The fixture is a sound defence with the head a little behind the front knee.
+    expect(p.position_check?.verdict).toBe("mostly");
+    expect(p.position_check?.checked).toBe(7);
+    for (const m of p.metrics) expect(m.range, m.id).not.toBeNull();
+    expect(p.metrics.filter((m) => m.inRange === false).map((m) => m.id)).toEqual(["head_knee_offset"]);
+    expect(p.priorities[0]?.metricId).toBe("head_knee_offset");
   });
 });
 

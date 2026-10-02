@@ -77,28 +77,34 @@ function photoSet(): CaptureObservation {
 
 describe("photo sets", () => {
   const p = analyze(photoSet(), opts);
-  it("measures each photo on its own as a posture screen", () => {
+  it("measures each photo on its own and checks the contact photo against the formula", () => {
     expect(p.mode).toBe("posture_screen");
     expect(p.analysis_status).toBe("uncertain_shot");
     expect(p.status_reason).toBe("photo_only");
     expect(p.photo_set).toHaveLength(3);
     expect(p.photo_set!.map((x) => x.phase)).toEqual(["stance", "stride", "contact"]);
-    expect(p.headline).toMatch(/3 photos/);
+    expect(p.headline).toMatch(/photo 3 of 3/);
+    expect(p.position_check?.frame).toBe(2);
   });
   it("headline measures come from the photo tagged contact", () => {
     const knee = p.metrics.find((m) => m.id === "front_knee_flexion");
     const fromSet = p.photo_set![2]!.observations.find((m) => m.id === "front_knee_flexion");
     expect(knee?.value).toBe(fromSet?.value);
   });
-  it("makes no shot, timing, ball or weight-transfer claims", () => {
+  it("makes no shot, timing or ball claims, and no score", () => {
     expect(p.observed_shot).toBeNull();
     expect(p.events).toHaveLength(0);
+    expect(p.technique_index).toBeNull();
     for (const ph of p.photo_set!) {
       for (const m of ph.observations) {
-        expect(m.inRange).toBeNull();
-        expect(["weight_forward", "stride_length", "bat_speed_contact", "decision_timing"]).not.toContain(m.id);
+        expect(["stride_length", "bat_speed_contact", "decision_timing", "head_speed_contact", "ball_exit_speed"]).not.toContain(m.id);
       }
     }
+  });
+  it("the stance photo fails the stride check; the contact photo passes it", () => {
+    const spread = (i: number) => p.photo_set![i]!.observations.find((m) => m.id === "foot_spread");
+    expect(spread(0)?.inRange).toBe(false);
+    expect(spread(2)?.inRange).toBe(true);
   });
   it("a stance photo and a contact photo give different knee angles", () => {
     const k = (i: number) => p.photo_set![i]!.observations.find((m) => m.id === "front_knee_flexion")?.value ?? null;
