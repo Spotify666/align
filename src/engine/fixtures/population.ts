@@ -30,6 +30,7 @@ export function ffdVariant(r: () => number): ShotScript {
     hipDrop: between(r, 0, 0.14), // straight front leg to deep knee bend
     contactAhead: between(r, -0.1, 0.12),
     sideLean: between(r, -25, 25), // trunk leaning toward leg (falling away) to toward off (falling over)
+    settle: between(r, 0, 0.2), // hands lift after the bottom of the downswing, as real defences show (0–0.11 × height)
   });
 }
 
@@ -61,6 +62,8 @@ export function population(n: number, seed = 1): PopulationCase[] {
       script,
       view,
       noise: between(r, 0.002, 0.008),
+      // Real trackers jitter the bottom hand far more than other joints when the bat hides it.
+      ...(r() < 0.4 ? { handNoise: between(r, 0.006, 0.014) } : {}),
       ...(evidence === "body" ? { withBat: false, withBall: false } : {}),
     };
     out.push({ id: opts.id, family, view, fps, evidence, obs: generate(opts) });

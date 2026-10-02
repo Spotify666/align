@@ -83,6 +83,23 @@ if (await stage.count()) {
   await page.waitForTimeout(800);
   await stage.screenshot({ path: `${out}_evidence.png` });
 }
+if (process.env.VIEWER && (await stage.count())) {
+  // Play at ¼ speed and capture the stage: the skeleton must sit on the batter in every shot.
+  await page.getByRole("button", { name: "Play" }).first().click();
+  for (let k = 0; k < 4; k++) {
+    await page.waitForTimeout(1600);
+    await stage.screenshot({ path: `${out}_play${k}.png` });
+  }
+  await page.waitForTimeout(9000);
+  step("after play: " + (await page.locator("text=/frame \\d+\\/\\d+/").first().innerText().catch(() => "?")));
+  await page.getByRole("tab", { name: "3D" }).click();
+  await page.waitForTimeout(2500);
+  await stage.screenshot({ path: `${out}_3d.png` });
+  await page.getByRole("button", { name: "Play" }).first().click();
+  await page.waitForTimeout(2000);
+  await stage.screenshot({ path: `${out}_3d_play.png` });
+  await page.getByRole("tab", { name: "Tracked" }).click();
+}
 await page.screenshot({ path: `${out}_report_full.png`, fullPage: true });
 const [download] = await Promise.all([page.waitForEvent("download", { timeout: 30000 }), page.getByRole("button", { name: /Download PDF/ }).click()]);
 await download.saveAs(`${out}_report.pdf`);

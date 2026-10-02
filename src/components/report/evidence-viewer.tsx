@@ -105,7 +105,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
     },
   }));
 
-  const draw = useCallback(() => {
+  const drawAt = useCallback((frame: number) => {
     const c = canvas.current;
     if (!c) return;
     const ctx = c.getContext("2d");
@@ -327,20 +327,28 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
     // Metric pin for the measure the athlete is inspecting.
     if (highlight) drawPin(ctx, highlight, frame, obs, scene, X, Y);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- kfReady redraws once photos/keyframes decode
-  }, [frame, mode, layers, highlight, obs, payload.events, scene, videoUrl, kfImages, kfReady, frontal, isPhoto, view.x, view.y, view.w, view.h]);
+  }, [mode, layers, highlight, obs, payload.events, scene, videoUrl, kfImages, kfReady, frontal, isPhoto, view.x, view.y, view.w, view.h]);
+  const draw = useCallback(() => drawAt(frame), [drawAt, frame]);
+  const frameRef = useRef(frame);
+  frameRef.current = frame;
 
-  // Video sync: seek, then draw on "seeked".
+  // Media time of every analysed frame: the video and the tracks share this one clock.
+  const times = useMemo(() => (mediaTimes && mediaTimes.length === n ? mediaTimes : obs.t.map((t) => t / 1000)), [mediaTimes, obs.t, n]);
+  const playsVideo = !!videoUrl && !isPhoto;
+
+  // Paused: seek the video to the frame, then draw on "seeked".
   useEffect(() => {
     const v = video.current;
-    if (v && videoUrl && !playing) {
-      const target = mediaTimes?.[frame] ?? (obs.t[frame] ?? 0) / 1000;
+    if (playing && playsVideo) return; // playback draws each displayed frame itself
+    if (v && playsVideo) {
+      const target = times[frame] ?? 0;
       if (Math.abs(v.currentTime - target) > 0.002) {
         v.currentTime = target;
         return;
       }
     }
     draw();
-  }, [frame, draw, videoUrl, obs.t, mediaTimes, playing]);
+  }, [frame, draw, playsVideo, times, playing]);
 
   useEffect(() => {
     const onResize = () => draw();
@@ -348,9 +356,60 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
     return () => window.removeEventListener("resize", onResize);
   }, [draw]);
 
-  // Playback in real time (or 4× slow motion).
+  // Playback in real time (or 4× slow motion). With the video, the video itself plays and
+  // each displayed frame is drawn with the tracks of that same frame, so they can't drift.
   useEffect(() => {
     if (!playing || isPhoto) return;
+    const v = video.current;
+    if (v && playsVideo && times.length) {
+      let stopped = false;
+      let raf = 0;
+      const nearest = (mt: number) => {
+        let lo = 0;
+        let hi = times.length - 1;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (times[mid]! < mt) lo = mid + 1;
+          else hi = mid;
+        }
+        return lo > 0 && Math.abs(times[lo - 1]! - mt) <= Math.abs(times[lo]! - mt) ? lo - 1 : lo;
+      };
+      const last = times[times.length - 1]!;
+      const onTime = (mt: number) => {
+        if (stopped) return;
+        const f = nearest(mt + 0.01);
+        drawAt(f);
+        setFrame(f);
+        if (mt >= last - 0.001 || f >= n - 1) {
+          stopped = true;
+          v.pause();
+          setPlaying(false);
+        }
+      };
+      type RVFC = (cb: (now: number, meta: { mediaTime: number }) => void) => number;
+      const rvfc = (v as unknown as { requestVideoFrameCallback?: RVFC }).requestVideoFrameCallback?.bind(v);
+      const loop = rvfc
+        ? (_: number, meta: { mediaTime: number }) => {
+            onTime(meta.mediaTime);
+            if (!stopped) rvfc(loop);
+          }
+        : () => {
+            onTime(v.currentTime);
+            if (!stopped) raf = requestAnimationFrame(loop as () => void);
+          };
+      const start = frameRef.current >= n - 1 ? 0 : frameRef.current;
+      v.currentTime = times[start] ?? 0;
+      v.playbackRate = slow ? 0.25 : 1;
+      if (rvfc) rvfc(loop);
+      else raf = requestAnimationFrame(loop as () => void);
+      v.play().catch(() => setPlaying(false));
+      return () => {
+        stopped = true;
+        cancelAnimationFrame(raf);
+        v.pause();
+        v.playbackRate = 1;
+      };
+    }
     let raf = 0;
     let last = performance.now();
     let acc = 0;
@@ -373,7 +432,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, slow, n, obs.media.fps, isPhoto]);
+  }, [playing, slow, n, obs.media.fps, isPhoto, playsVideo, times, drawAt]);
 
   const modes: Array<{ id: ViewMode; label: string; disabled?: boolean }> = [
     { id: "original", label: isPhoto ? "Photo" : videoUrl || keyframes ? "Video" : "Pitch" },
@@ -420,7 +479,17 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
 
       <div className="stage relative w-full" style={{ aspectRatio: `${aspect}` }}>
         {videoUrl && (
-          <video ref={video} src={videoUrl} muted playsInline preload="auto" className="hidden" onSeeked={draw} onLoadedData={draw} />
+          <video
+            ref={video}
+            src={videoUrl}
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden
+            className="pointer-events-none absolute left-0 top-0 h-px w-px opacity-0"
+            onSeeked={() => !playing && draw()}
+            onLoadedData={draw}
+          />
         )}
         {mode === "3d" || mode === "compare" ? (
           <Scene3D

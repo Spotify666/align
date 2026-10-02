@@ -16,11 +16,43 @@ const series = (scene: Scene, pick: (i: number) => P | null, key: "f" | "u") =>
   Array.from({ length: scene.n }, (_, i) => pick(i)?.[key] ?? NaN);
 
 /** Mid-point of the two wrists (or whichever is seen), per frame. */
+/** Frame-to-frame jitter of a track: median absolute second difference (NaN if too few points). */
+function jitter(xs: number[]): number {
+  const d: number[] = [];
+  for (let i = 1; i < xs.length - 1; i++) {
+    const a = xs[i - 1]!;
+    const b = xs[i]!;
+    const c = xs[i + 1]!;
+    if (Number.isFinite(a) && Number.isFinite(b) && Number.isFinite(c)) d.push(Math.abs(b - (a + c) / 2));
+  }
+  if (d.length < 5) return NaN;
+  d.sort((x, y) => x - y);
+  return d[Math.floor(d.length / 2)]!;
+}
+
+/**
+ * Where the hands are, from both wrists. Both hold one handle, so they move together, but
+ * the camera sees one less well (usually the bottom hand, behind the bat), and its track
+ * jitters more: each wrist is weighted by the inverse variance of its own jitter. When
+ * only one is seen, the usual gap between the two is added back, so the hands don't jump.
+ */
 export function handsSeries(scene: Scene, key: "f" | "u"): number[] {
-  return Array.from({ length: scene.n }, (_, i) => {
-    const a = scene.get(i, "front_wrist");
-    const b = scene.get(i, "back_wrist");
-    return a && b ? (a[key] + b[key]) / 2 : (a?.[key] ?? b?.[key] ?? NaN);
+  const a = Array.from({ length: scene.n }, (_, i) => scene.get(i, "front_wrist")?.[key] ?? NaN);
+  const b = Array.from({ length: scene.n }, (_, i) => scene.get(i, "back_wrist")?.[key] ?? NaN);
+  const floor = 0.002 * scene.stature; // landmark noise can't be trusted to be smaller than this
+  const ja = Math.max(jitter(a), floor);
+  const jb = Math.max(jitter(b), floor);
+  const wa = Number.isFinite(ja) ? 1 / ja ** 2 : 0;
+  const wb = Number.isFinite(jb) ? 1 / jb ** 2 : 0;
+  const both = a.map((x, i) => x - b[i]!).filter(Number.isFinite).sort((x, y) => x - y);
+  const gap = both.length ? both[Math.floor(both.length / 2)]! : 0; // a − b, typically
+  const sa = wa + wb > 0 ? wb / (wa + wb) : 0.5;
+  return a.map((x, i) => {
+    const y = b[i]!;
+    if (Number.isFinite(x) && Number.isFinite(y)) return wa + wb > 0 ? (wa * x + wb * y) / (wa + wb) : (x + y) / 2;
+    if (Number.isFinite(x)) return x - sa * gap;
+    if (Number.isFinite(y)) return y + (1 - sa) * gap;
+    return NaN;
   });
 }
 

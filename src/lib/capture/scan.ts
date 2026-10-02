@@ -7,6 +7,7 @@
 import type { ObjectDetector as OD, PoseLandmarker as PL } from "@mediapipe/tasks-vision";
 import { J } from "@/engine/types";
 import { detectObjects, detectStill, roiAround, seek, type Box, type PoseFrame, type Roi } from "./pose";
+import { playFrames } from "./frames";
 
 export interface ScanSample {
   /** Media time, seconds. */
@@ -78,19 +79,15 @@ export async function scanVideo(
   const limit = Math.min(duration, MAX_SCAN_SEC);
   const aspect = video.videoWidth / Math.max(1, video.videoHeight);
 
-  const motion = await motionPass(video, limit, (f) => onProgress(f * 0.35), signal);
-
   const detCanvas = canvas(aspect >= 1 ? 480 : Math.round(480 * aspect), aspect >= 1 ? Math.round(480 / aspect) : 480);
   const thumbCanvas = canvas(THUMB_W, Math.round(THUMB_W / aspect));
   const dctx = detCanvas.getContext("2d")!;
   const tctx = thumbCanvas.getContext("2d")!;
   const probes = new Map<number, ScanSample>();
-  const started = performance.now();
 
-  const probe = async (t: number) => {
-    const key = Math.round(t * 100) / 100;
-    if (probes.has(key) || t < 0 || t > limit) return;
-    await seek(video, key);
+  const keyOf = (t: number) => Math.round(t * 100) / 100;
+  /** People, bat hints and posture on the frame the video is showing now. */
+  const look = (key: number) => {
     dctx.drawImage(video, 0, 0, detCanvas.width, detCanvas.height);
     const { people, bats } = detectObjects(det, detCanvas);
     let head: number | null = null;
@@ -99,12 +96,23 @@ export async function scanVideo(
     tctx.drawImage(detCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
     probes.set(key, { t: key, people, bats, head, motion: 0, cut: false, thumb: thumbCanvas.toDataURL("image/jpeg", 0.6) });
   };
+  const fresh = (t: number) => t >= 0 && t <= limit && !probes.has(keyOf(t));
+  const probe = async (t: number) => {
+    if (!fresh(t)) return;
+    await seek(video, keyOf(t));
+    look(keyOf(t));
+  };
+  let started = performance.now();
   const budgetLeft = () => probes.size < MAX_PROBES && performance.now() - started < MODEL_BUDGET_MS && !signal?.aborted;
   const report = () => onProgress(0.35 + 0.65 * Math.min(1, Math.max(probes.size / MAX_PROBES, (performance.now() - started) / MODEL_BUDGET_MS)));
 
-  // Even coverage: every part of the clip gets looked at.
+  // Pass 1 also takes the even coverage (every part of the clip gets looked at) on the
+  // frames it is already playing, so none of them needs a seek.
   const every = Math.max(0.8, limit / 24);
+  const motion = await motionPass(video, limit, (f) => onProgress(f * 0.35), signal, { every, look: (t) => look(keyOf(t)) });
+  started = performance.now();
   for (let t = every / 2; t < limit && !signal?.aborted; t += every) {
+    if ([...probes.keys()].some((k) => Math.abs(k - t) < every / 2)) continue;
     await probe(t);
     report();
   }
@@ -118,9 +126,17 @@ export async function scanVideo(
   });
   for (const p of motionPeaks(motion, 6)) if (!refine.some((r) => Math.abs(r - p) < 1)) refine.push(p);
   for (const centre of refine) {
-    for (const o of [-0.6, -0.3, 0.3, 0.6, 0.9, 1.2]) {
+    // A short play-through around each candidate instead of a seek per probe.
+    const ts = [-0.6, -0.3, 0.3, 0.6, 0.9, 1.2].map((o) => centre + o).filter(fresh);
+    if (!budgetLeft() || !ts.length) continue;
+    const missed = await playFrames(video, ts, (i) => {
+      if (!budgetLeft()) return false;
+      look(keyOf(ts[i]!));
+      report();
+    }, { frameDur: 1 / 30, tolerance: 0.05, stop: () => !!signal?.aborted });
+    for (const i of missed ?? ts.map((_, k) => k)) {
       if (!budgetLeft()) break;
-      await probe(centre + o);
+      await probe(ts[i]!);
       report();
     }
   }
@@ -145,7 +161,13 @@ export async function scanVideo(
 }
 
 /** Whole-frame movement and camera cuts, sampled as densely as playback allows. */
-async function motionPass(video: HTMLVideoElement, limit: number, onProgress: (f: number) => void, signal?: AbortSignal) {
+async function motionPass(
+  video: HTMLVideoElement,
+  limit: number,
+  onProgress: (f: number) => void,
+  signal?: AbortSignal,
+  coverage?: { every: number; look: (t: number) => void },
+) {
   const aspect = video.videoWidth / Math.max(1, video.videoHeight);
   const lumaCanvas = canvas(LUMA_W, Math.max(8, Math.round(LUMA_W / aspect)));
   const lctx = lumaCanvas.getContext("2d", { willReadFrequently: true })!;
@@ -201,6 +223,7 @@ async function motionPass(video: HTMLVideoElement, limit: number, onProgress: (f
         video.removeEventListener("ended", end);
         resolve();
       };
+      let nextLook = coverage ? coverage.every / 2 : Infinity;
       const cb = (_: number, meta: { mediaTime: number }) => {
         if (finished) return;
         last = performance.now();
@@ -208,6 +231,16 @@ async function motionPass(video: HTMLVideoElement, limit: number, onProgress: (f
         if (meta.mediaTime >= next) {
           take(meta.mediaTime);
           next = meta.mediaTime + step;
+        }
+        if (coverage && meta.mediaTime >= nextLook - 0.05) {
+          // Pause on this frame for the models, then carry on playing.
+          video.pause();
+          coverage.look(meta.mediaTime);
+          while (nextLook <= meta.mediaTime + 0.05) nextLook += coverage.every;
+          last = performance.now();
+          rvfc(cb);
+          video.play().catch(() => end());
+          return;
         }
         rvfc(cb);
       };

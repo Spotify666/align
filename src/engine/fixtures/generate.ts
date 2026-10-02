@@ -100,6 +100,8 @@ export interface GenerateOptions {
   withBall?: boolean;
   include3d?: boolean;
   noise?: number; // normalised image units
+  /** Extra jitter on the bottom hand (normalised image units): often hidden behind the bat, real trackers jitter it most. */
+  handNoise?: number;
   occlusion?: { fromT: number; toT: number; joints: Joint[]; dropBat?: boolean; dropBall?: boolean };
   maxPeople?: number;
   marks?: { bounce?: boolean; contact?: boolean };
@@ -307,7 +309,8 @@ export function generate(opts: GenerateOptions): CaptureObservation {
       const w = world[j];
       const farSide = j.startsWith("right_") && !j.includes("shoulder");
       const c = occluded(j) ? 0.25 : farSide ? 0.78 : 0.93;
-      frame.push(jitter(proj(w), c));
+      const p2 = jitter(proj(w), c);
+      frame.push(j === "right_wrist" && opts.handNoise && p2 ? [p2[0] + (gaussian(R) * opts.handNoise) / aspect, p2[1] + gaussian(R) * opts.handNoise, p2[2]] : p2);
       frame3d.push([w[0], w[1], w[2], c]);
       // Monocular estimate in camera axes (x right, y down, z away), hip-centred:
       // depth is compressed and noisier than the image-plane axes, as with real models.

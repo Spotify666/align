@@ -10,13 +10,15 @@ Each family has a prototype: bands on features such as forward stride, back-foot
 
 Bands define **what the shot is**, not how well it was played, so they span the whole range of technique: a beginner's short, upright defence is still a defence. They are set from a generated **population** (`src/engine/fixtures/population.ts`), never from any one clip:
 
-- Defences with randomised technique: stride 0.3–0.85 m, head well behind to well ahead of the front knee, trunk lean 6–36° forward and ±25° sideways, straight to deeply bent front knee, contact beside to ahead of the pad.
+- Defences with randomised technique: stride 0.3–0.85 m, head well behind to well ahead of the front knee, trunk lean 6–36° forward and ±25° sideways, straight to deeply bent front knee, contact beside to ahead of the pad, and 0–0.2 m of hand lift after the bottom of the downswing (real defences settle the hands as the face is presented).
 - The shots most often confused with a defence: front-foot drive (push to full drive), half-drive, pull, cut and back-foot defence.
-- Every case varies camera position (side-on, bowler's end, behind), frame rate (30–240 fps), handedness, landmark noise and whether bat and ball are seen.
+- Every case varies camera position (side-on, bowler's end, behind), frame rate (30–240 fps), handedness, landmark noise and whether bat and ball are seen. In 40% of cases the bottom hand gets extra jitter (up to ~0.03 × height per frame), as measured on real phone footage where the bat hides it.
 
-Real clips are a sanity check only: a real defence must never be called a different shot. Nothing is tuned to them.
+Real clips are a sanity check only: a real defence must never be called a different shot. Nothing is tuned to them. Where real footage showed the synthetic model was wrong (hand settling, bottom-hand jitter), the model was corrected and the bands re-derived from the population.
 
-The hand signal that best separates a defence from a push or drive is **hands rise**: how far the hands lift after the lowest point of the downswing. A defence is a dead bat (≈0–0.07 × height); a half-drive lifts ≈0.15–0.19, a drive ≈0.5–0.8. It is measured from the low point after the top of the backlift, so an early or late contact estimate doesn't change it.
+The hand signal that best separates a defence from a push or drive is **hands rise**: how far the hands lift after the lowest point of the downswing. A defence is a nearly dead bat (≈0–0.11 × height, including settling); a half-drive lifts ≈0.12–0.17, a drive ≈0.4–0.8. It is measured from the low point after the top of the backlift on the hand track smoothed over ±50 ms (a highest-minus-lowest reading otherwise magnifies landmark jitter), so an early or late contact estimate doesn't change it.
+
+**Where the hands are**: both wrists hold one handle, so they move together, but the camera sees one less well (usually the bottom hand behind the bat). Each wrist is weighted by the inverse variance of its own frame-to-frame jitter, and when only one is seen the usual gap between them is added back.
 
 ## Scores
 
@@ -50,6 +52,7 @@ Most phone clips show the body well but not the bat or ball. The shot can still 
 
 Body and hand signals (computed whether or not the bat is tracked):
 
+- **Ground line filmed along the pitch**: the batter's distance from the lens moves the feet up and down the image, and a practice montage's first frames are often the end of the previous ball, so the ground is the median of each frame's lowest foot over the whole clip (side-on: the lowest foot during setup).
 - **Contact**: every stroke has a downswing, the hands' largest fall from the top of the backlift. The ball is met at its end: where the hands check (speed below 40% of the downswing peak, a defence) or the bottom of their arc (a stroke that swings through), whichever comes first. When the head clearly drops, the stroke's downswing is the one ending as the head arrives low (trigger movements and re-grips are falls of the hands too). Labelled "estimated from the hands' downswing". Hand speed is measured over ±20 ms, so it means the same at any frame rate.
 - **Hands rise** after the downswing low point (see above). Any view.
 - **Hand speed** where the hands reach furthest forward, and **hand travel after contact**. Side-on only.
@@ -100,7 +103,8 @@ False acceptance (scoring a pull as a defence) is release-blocking. False reject
 
 ## Release gates (CI)
 
-- **Population gate** (`tests/population.test.ts`, 420 cases on a seed never used for development): side-on defences confirmed ≥ 95%; along the pitch ≥ 80% (measured 83–89% across seeds); no defence ever called a different shot; **zero** drives, half-drives, pulls, cuts or back-foot defences confirmed.
+- **Population gate** (`tests/population.test.ts`, 420 cases on a seed never used for development): side-on defences confirmed ≥ 95%; along the pitch ≥ 75% (measured 77–83% across seeds with realistic bottom-hand jitter); no defence ever called a different shot; **zero** drives, half-drives, pulls, cuts or back-foot defences confirmed.
+- **Real net session** (`tests/real-deliveries.test.ts`, pose tracks only): fourteen deliveries of one batter filmed from the bowler's end on a phone, each analysed on its own. None may be called a different shot (8 of 14 confirmed at engine 0.4.1; the rest uncertain).
 - 31 pull variants (seeds, frame rates, handedness, missing bat or ball, noise): none may be scored.
 - The same gate for front-on and behind-the-batter pulls, including clips analysed with the **wrong** camera position.
 - 40-seed stability ≥ 95% for pull → rejected, drive → rejected, valid → accepted, side-on and front-on, with and without bat and ball, at 120 and 30 fps.

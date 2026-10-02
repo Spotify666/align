@@ -51,22 +51,53 @@ export function worldFrames(obs: CaptureObservation): WorldFrames {
   const bat: WorldFrames["bat"] = [];
   const ball: WorldFrames["ball"] = [];
   const centre: WorldFrames["centre"] = [];
+
+  // Filmed along the pitch, sideways is the image's own x axis (measured directly), and
+  // forward comes from the depth estimate. Sideways is laid out so that, seen from the
+  // default 3D camera (where the phone was), right in the video is right in 3D.
+  const frontal = scene.plane === "frontal";
+  const [x0] = scene.toImage({ f: 0, u: 0 });
+  const [x1] = scene.toImage({ f: 1, u: 0 });
+  const perX = Math.abs(x1 - x0) > 1e-9 ? 1 / Math.abs(x1 - x0) : 0; // scene units per image width
+  const side = obs.camera.view === "front_on" ? -1 : 1;
+  const hipXs = obs.body.flatMap((b) => [b[J.left_hip], b[J.right_hip]]).filter((p) => p && p[2] >= 0.5).map((p) => p![0]);
+  const refX = hipXs.length ? hipXs.reduce((a, b) => a + b, 0) / hipXs.length : 0.5;
+  const sideways = (x: number) => side * (x - refX) * perX * k;
+  const sidewaysOf = (i: number, j: number) => {
+    const p = obs.body[i]?.[j];
+    return p ? sideways(p[0]) : 0;
+  };
+  const lat = (i: number, j: number) => (frontal ? sidewaysOf(i, j) : lateral(i, j));
+
   for (let i = 0; i < scene.n; i++) {
     joints.push(
       JOINTS.map((jn, j) => {
         const p = scene.getRaw(i, jn);
-        return p ? [p.f * k, p.u * k, lateral(i, j)] : null;
+        return p ? [p.f * k, p.u * k, lat(i, j)] : null;
       }),
     );
     conf.push(JOINTS.map((jn) => obs.body[i]?.[J[jn]]?.[2] ?? 0));
     const h = scene.batHandle[i];
     const t = scene.batToe[i];
-    const handLat = (lateral(i, J.left_wrist) + lateral(i, J.right_wrist)) / 2;
-    bat.push(h && t ? [[h.f * k, h.u * k, handLat], [t.f * k, t.u * k, handLat]] : null);
-    const b = scene.ball[i];
-    ball.push(b ? [b.f * k, b.u * k, 0] : null);
+    if (frontal) {
+      // Bat and ball points carry only image positions here: sideways and up are known,
+      // forward is taken from the hands.
+      const wr = [scene.getRaw(i, "left_wrist"), scene.getRaw(i, "right_wrist")].filter(Boolean);
+      const handF = wr.length ? wr.reduce((s2, p) => s2 + p!.f, 0) / wr.length : 0;
+      const hi = obs.bat.handle[i];
+      const ti = obs.bat.toe[i];
+      bat.push(h && t && hi && ti ? [[handF * k, h.u * k, sideways(hi[0])], [handF * k, t.u * k, sideways(ti[0])]] : null);
+      const b = scene.ball[i];
+      const bi = obs.ball.points[i];
+      ball.push(b && bi ? [handF * k, b.u * k, sideways(bi[0])] : null);
+    } else {
+      const handLat = (lateral(i, J.left_wrist) + lateral(i, J.right_wrist)) / 2;
+      bat.push(h && t ? [[h.f * k, h.u * k, handLat], [t.f * k, t.u * k, handLat]] : null);
+      const b = scene.ball[i];
+      ball.push(b ? [b.f * k, b.u * k, 0] : null);
+    }
     const c = bodyCentre(scene, i);
-    centre.push(c ? [c.f * k, c.u * k, (lateral(i, J.left_hip) + lateral(i, J.right_hip)) / 2] : null);
+    centre.push(c ? [c.f * k, c.u * k, (lat(i, J.left_hip) + lat(i, J.right_hip)) / 2] : null);
   }
   return {
     scene,

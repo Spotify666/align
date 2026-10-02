@@ -74,15 +74,37 @@ const poseOptions = (mode: "VIDEO" | "IMAGE", delegate: "GPU" | "CPU") => ({
   minTrackingConfidence: 0.5,
 });
 
-let videoPoseCpu = false;
+const DELEGATE_KEY = "align:pose-delegate";
+const remembered = (): "GPU" | "CPU" | null => {
+  try {
+    const v = localStorage.getItem(DELEGATE_KEY);
+    return v === "GPU" || v === "CPU" ? v : null;
+  } catch {
+    return null;
+  }
+};
+/** Remember which path ran faster on this device, so the next clip skips the comparison. */
+export function rememberDelegate(d: "GPU" | "CPU"): void {
+  try {
+    localStorage.setItem(DELEGATE_KEY, d);
+  } catch {
+    /* private mode: compare again next time */
+  }
+}
+/** The path this device last ran faster on, if known. */
+export const knownDelegate = remembered;
+
+let videoPoseCpu = remembered() === "CPU";
+let cpuVideoPose: Promise<PL> | null = null;
 /**
- * Pose for consecutive video frames (temporal tracking). GPU when available; some
- * devices' GPU paths load but return nothing, so callers can force the CPU path.
+ * Pose for consecutive video frames (temporal tracking). GPU when available, unless this
+ * device ran faster on the CPU; some devices' GPU paths load but return nothing, so
+ * callers can force the CPU path.
  */
 export function loadPose(opts: { cpu?: boolean } = {}): Promise<PL> {
   if (opts.cpu && !videoPoseCpu) {
     void videoPose?.then((p) => p.close()).catch(() => undefined);
-    videoPose = null;
+    videoPose = cpuVideoPose;
     videoPoseCpu = true;
   }
   if (!videoPose) {
@@ -94,6 +116,22 @@ export function loadPose(opts: { cpu?: boolean } = {}): Promise<PL> {
   }
   return videoPose;
 }
+
+/** A CPU-path video pose alongside the GPU one, to compare speed on this device. */
+export function loadCpuVideoPose(): Promise<PL> {
+  if (videoPoseCpu && videoPose) return videoPose;
+  if (!cpuVideoPose) {
+    cpuVideoPose = (async () => {
+      const [{ PoseLandmarker }, f] = await Promise.all([vision(), loadFiles()]);
+      return PoseLandmarker.createFromOptions(f, poseOptions("VIDEO", "CPU"));
+    })();
+    cpuVideoPose.catch(() => (cpuVideoPose = null));
+  }
+  return cpuVideoPose;
+}
+
+/** Whether the tracking pose already runs on the CPU path. */
+export const poseOnCpu = () => videoPoseCpu;
 
 /** Pose for independent stills (photos, sparse probes): no state carried between calls. */
 export function loadStillPose(): Promise<PL> {
