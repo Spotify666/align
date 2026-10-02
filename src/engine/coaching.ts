@@ -3,7 +3,7 @@
 
 import type { Drill } from "./types";
 
-export const DRILL_LIBRARY_VERSION = "drills-0.2.0";
+export const DRILL_LIBRARY_VERSION = "drills-0.3.0";
 
 export interface CoachingEntry {
   metricId: string;
@@ -275,12 +275,12 @@ export const COACHING: CoachingEntry[] = [
   },
   // Graded when filmed from the bowler's end or behind the batter.
   {
-    metricId: "head_line",
+    metricId: "head_falling_away",
     low: { observation: "", consequence: "", cue: "" },
     high: {
-      observation: "Your head fell outside the line of your front foot at contact.",
-      consequence: "Falling away to the side takes your eyes off the line of the ball and opens the face of the bat.",
-      cue: "Head over the front foot, eyes level.",
+      observation: "Your head was on the leg side of your front foot at contact: falling away from the ball.",
+      consequence: "Falling away takes your eyes off the line of the ball and opens the face of the bat.",
+      cue: "Head to the ball, over the front foot.",
     },
     drills: [
       d({
@@ -288,7 +288,7 @@ export const COACHING: CoachingEntry[] = [
         name: "Line-tape forward defence",
         constraint: "A strip of tape on the pitch along the line of the stumps; front foot lands beside it, head stays over it.",
         dosage: "3 sets × 8 balls, 30 s rest",
-        passCondition: "Filmed from the bowler's end, the head is over the front foot at contact on 7 of 8.",
+        passCondition: "Filmed from the bowler's end, the head is over the front foot or toward the ball at contact on 7 of 8.",
         cue: "Head to the line, then the foot.",
       }),
       d({
@@ -300,35 +300,35 @@ export const COACHING: CoachingEntry[] = [
         cue: "Still head, level eyes.",
       }),
     ],
-    retest: "Film 6 deliveries from the bowler's end and compare head-in-line to this report.",
+    retest: "Film 6 deliveries from the bowler's end and compare head position to this report.",
   },
   {
-    metricId: "hands_line",
+    metricId: "balance_over_feet",
     low: { observation: "", consequence: "", cue: "" },
     high: {
-      observation: "Your hands swung across your body on the way down to the ball.",
-      consequence: "A bat that comes across the line leaves a gap between bat and pad and finds the edge.",
-      cue: "Hands straight down the line of the ball.",
+      observation: "Your weight was outside your feet at contact.",
+      consequence: "Off balance, the bat follows the body instead of the ball, and you can't hold the shot.",
+      cue: "Weight over the front foot, hold the finish.",
     },
     drills: [
       d({
-        id: "drill_stump_gate",
-        name: "Stump-gate defence",
-        constraint: "Two stumps upright either side of the bat's path, a bat-width apart, at the point of contact.",
-        dosage: "4 sets × 6 balls",
-        passCondition: "Bat passes between the stumps without touching on 5 of 6.",
-        cue: "Straight down, straight through.",
+        id: "drill_hold_finish",
+        name: "Hold-the-finish defence",
+        constraint: "Throw-downs on a full length; after each defence hold the position, back toe grounded, for a two-second count.",
+        dosage: "3 sets × 8 balls, 30 s rest",
+        passCondition: "Held still for two seconds without a step on 7 of 8.",
+        cue: "Freeze for two.",
       }),
       d({
-        id: "drill_top_hand",
-        name: "Top-hand-only defence",
-        constraint: "Bottom hand off the bat; throw-downs at a gentle pace on a full length.",
-        dosage: "3 sets × 8 balls",
-        passCondition: "Bat face straight to the bowler at contact on 6 of 8.",
-        cue: "Top hand leads, elbow high.",
+        id: "drill_narrow_base",
+        name: "Stride-to-the-line drill",
+        constraint: "Cones on a good length on off, middle and leg; the feeder calls a cone, the front foot strides to its line.",
+        dosage: "3 sets × 9 strides",
+        passCondition: "Front foot lands on the called line with the head over it on 8 of 9.",
+        cue: "Foot to the line, head over the foot.",
       }),
     ],
-    retest: "Film 6 deliveries from the bowler's end and compare the bat path to this report.",
+    retest: "Film 6 deliveries from the bowler's end and compare balance to this report.",
   },
 ];
 

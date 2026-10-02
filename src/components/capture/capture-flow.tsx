@@ -19,7 +19,9 @@ import {
   Follower,
   loadPersonDetector,
   loadPose,
+  loadScanPose,
   loadStillPose,
+  warmUp,
   roiAround,
   seek,
   type Box,
@@ -167,6 +169,8 @@ export function CaptureFlow() {
     abort.current?.abort();
     run.current++;
   }, []);
+  // Fetch the on-device models while the athlete is still choosing a clip.
+  useEffect(() => warmUp(), []);
 
   // Opened from a report to add bat and ball marks (same browser session only).
   useEffect(() => {
@@ -279,11 +283,13 @@ export function CaptureFlow() {
     setMeta(m);
     stage("read", "done", `${m.width}×${m.height} · ${fps ? `${Math.round(fps)} fps` : "frame rate unknown"} · ${m.durationSec.toFixed(1)} s`);
 
-    stage("shot", "active");
+    stage("shot", "active", "Getting the on-device analyser ready (first time only)…");
     try {
-      const det = await loadPersonDetector();
+      const [det, scanPose] = await Promise.all([loadPersonDetector(), loadScanPose()]);
+      if (!alive()) return;
+      stage("shot", "active", m.durationSec > 20 ? "Looking through the whole clip…" : "");
       abort.current = new AbortController();
-      const scanned = await scanVideo(v, det, WINDOW_SEC, setScanProgress, abort.current.signal, await loadStillPose());
+      const scanned = await scanVideo(v, det, WINDOW_SEC, setScanProgress, abort.current.signal, scanPose);
       if (!alive() || abort.current.signal.aborted) return;
       const res = { ...scanned, windows: await verifyWindows(v, await loadStillPose(), scanned) };
       if (!alive()) return;

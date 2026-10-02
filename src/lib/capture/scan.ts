@@ -55,6 +55,17 @@ type RVFC = (cb: (now: number, meta: { mediaTime: number }) => void) => number;
 /** A person box that shows a whole standing body inside the frame. */
 export const fullBodyBox = (b: Box) => b.h >= 0.1 && b.y > 0.004 && b.y + b.h < 0.996 && b.score >= 0.35;
 
+/** Upper bound on the model pass, so a long clip on a slow phone still finishes quickly. */
+const MODEL_BUDGET_MS = 12000;
+const MAX_PROBES = 72;
+
+/**
+ * Scan a clip in two passes:
+ *  1. Movement and camera cuts on every frame playback gives us (a few ms each, no models).
+ *  2. People, bat hints and posture (how low the head is) on a limited set of frames:
+ *     even coverage first, then more frames where the head dipped or the movement peaked,
+ *     within a time budget.
+ */
 export async function scanVideo(
   video: HTMLVideoElement,
   det: OD,
@@ -65,24 +76,84 @@ export async function scanVideo(
 ): Promise<ScanResult> {
   const duration = video.duration;
   const limit = Math.min(duration, MAX_SCAN_SEC);
-  const step = Math.min(0.5, Math.max(0.15, limit / 240));
   const aspect = video.videoWidth / Math.max(1, video.videoHeight);
+
+  const motion = await motionPass(video, limit, (f) => onProgress(f * 0.35), signal);
 
   const detCanvas = canvas(aspect >= 1 ? 480 : Math.round(480 * aspect), aspect >= 1 ? Math.round(480 / aspect) : 480);
   const thumbCanvas = canvas(THUMB_W, Math.round(THUMB_W / aspect));
-  const lumaCanvas = canvas(LUMA_W, Math.max(8, Math.round(LUMA_W / aspect)));
   const dctx = detCanvas.getContext("2d")!;
   const tctx = thumbCanvas.getContext("2d")!;
-  const lctx = lumaCanvas.getContext("2d", { willReadFrequently: true })!;
+  const probes = new Map<number, ScanSample>();
+  const started = performance.now();
 
-  const samples: ScanSample[] = [];
-  let prevLuma: Float32Array | null = null;
-  let prevHist: Float32Array | null = null;
-
-  const process = (t: number) => {
+  const probe = async (t: number) => {
+    const key = Math.round(t * 100) / 100;
+    if (probes.has(key) || t < 0 || t > limit) return;
+    await seek(video, key);
     dctx.drawImage(video, 0, 0, detCanvas.width, detCanvas.height);
     const { people, bats } = detectObjects(det, detCanvas);
-    lctx.drawImage(detCanvas, 0, 0, lumaCanvas.width, lumaCanvas.height);
+    let head: number | null = null;
+    const main = pose ? people.filter(fullBodyBox).sort((a, b) => b.h - a.h)[0] : undefined;
+    if (pose && main) head = headRatio(detectStill(pose, video, roiAround(main, aspect, 0.3)), aspect);
+    tctx.drawImage(detCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+    probes.set(key, { t: key, people, bats, head, motion: 0, cut: false, thumb: thumbCanvas.toDataURL("image/jpeg", 0.6) });
+  };
+  const budgetLeft = () => probes.size < MAX_PROBES && performance.now() - started < MODEL_BUDGET_MS && !signal?.aborted;
+  const report = () => onProgress(0.35 + 0.65 * Math.min(1, Math.max(probes.size / MAX_PROBES, (performance.now() - started) / MODEL_BUDGET_MS)));
+
+  // Even coverage: every part of the clip gets looked at.
+  const every = Math.max(0.8, limit / 24);
+  for (let t = every / 2; t < limit && !signal?.aborted; t += every) {
+    await probe(t);
+    report();
+  }
+  // Refine: around head dips first (a stroke), then around the strongest movement.
+  const refine: number[] = [];
+  const sorted = () => [...probes.values()].sort((a, b) => a.t - b.t);
+  const cov = sorted();
+  cov.forEach((s, i) => {
+    const nb = [cov[i - 1]?.head, cov[i + 1]?.head].filter((h): h is number => typeof h === "number");
+    if (typeof s.head === "number" && nb.length && Math.max(...nb) - s.head >= 0.04) refine.push(s.t);
+  });
+  for (const p of motionPeaks(motion, 6)) if (!refine.some((r) => Math.abs(r - p) < 1)) refine.push(p);
+  for (const centre of refine) {
+    for (const o of [-0.6, -0.3, 0.3, 0.6, 0.9, 1.2]) {
+      if (!budgetLeft()) break;
+      await probe(centre + o);
+      report();
+    }
+  }
+
+  const samples = sorted();
+  // Movement and cuts come from the dense first pass.
+  let prevT = -Infinity;
+  for (const s of samples) {
+    let m = 0;
+    let cut = false;
+    for (let i = 0; i < motion.t.length; i++) {
+      const t = motion.t[i]!;
+      if (Math.abs(t - s.t) <= 0.2) m = Math.max(m, motion.m[i]!);
+      if (t > prevT && t <= s.t && motion.cut[i]) cut = true;
+    }
+    s.motion = m;
+    s.cut = cut && prevT > -Infinity;
+    prevT = s.t;
+  }
+  onProgress(1);
+  return { samples, windows: findWindows(samples, windowMedia, limit), scannedTo: limit, cuts: samples.filter((s) => s.cut).length };
+}
+
+/** Whole-frame movement and camera cuts, sampled as densely as playback allows. */
+async function motionPass(video: HTMLVideoElement, limit: number, onProgress: (f: number) => void, signal?: AbortSignal) {
+  const aspect = video.videoWidth / Math.max(1, video.videoHeight);
+  const lumaCanvas = canvas(LUMA_W, Math.max(8, Math.round(LUMA_W / aspect)));
+  const lctx = lumaCanvas.getContext("2d", { willReadFrequently: true })!;
+  const out = { t: [] as number[], m: [] as number[], cut: [] as boolean[] };
+  let prevLuma: Float32Array | null = null;
+  let prevHist: Float32Array | null = null;
+  const take = (t: number) => {
+    lctx.drawImage(video, 0, 0, lumaCanvas.width, lumaCanvas.height);
     const px = lctx.getImageData(0, 0, lumaCanvas.width, lumaCanvas.height).data;
     const luma = new Float32Array(lumaCanvas.width * lumaCanvas.height);
     const hist = new Float32Array(16);
@@ -92,7 +163,7 @@ export async function scanVideo(
       hist[Math.min(15, Math.floor(g * 16))]! += 1 / luma.length;
     }
     let cut = false;
-    let motion = 0;
+    let m = 0;
     if (prevLuma && prevHist) {
       let h = 0;
       for (let k = 0; k < 16; k++) h += Math.abs(hist[k]! - prevHist[k]!);
@@ -100,44 +171,28 @@ export async function scanVideo(
       for (let i = 0; i < luma.length; i++) g += Math.abs(luma[i]! - prevLuma[i]!);
       g /= luma.length;
       cut = h > 0.6 || g > 0.2;
-      // Movement around the main person (or the whole frame when nobody is found).
-      const main = people.find(fullBodyBox) ?? people[0];
-      const r = main ? grow(main, 0.25) : { x: 0, y: 0, w: 1, h: 1 };
-      const W = lumaCanvas.width;
-      const H = lumaCanvas.height;
-      let d = 0;
-      let n = 0;
-      for (let y = Math.floor(r.y * H); y < Math.ceil((r.y + r.h) * H); y++)
-        for (let x = Math.floor(r.x * W); x < Math.ceil((r.x + r.w) * W); x++) {
-          const i = y * W + x;
-          if (i < 0 || i >= luma.length) continue;
-          d += Math.abs(luma[i]! - prevLuma[i]!);
-          n++;
-        }
-      motion = cut ? 0 : n ? d / n : 0;
+      m = cut ? 0 : g;
     }
     prevLuma = luma;
     prevHist = hist;
-    tctx.drawImage(detCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
-    // Posture of the main whole person: how low is the head?
-    let head: number | null = null;
-    const main = pose ? people.filter(fullBodyBox).sort((a, b) => b.h - a.h)[0] : undefined;
-    if (pose && main) head = headRatio(detectStill(pose, video, roiAround(main, aspect, 0.3)), aspect);
-    samples.push({ t, people, bats, motion, cut, head, thumb: thumbCanvas.toDataURL("image/jpeg", 0.6) });
+    out.t.push(t);
+    out.m.push(m);
+    out.cut.push(cut);
     onProgress(Math.min(1, t / limit));
   };
 
+  const step = Math.max(0.08, limit / 500);
   const rvfc = (video as unknown as { requestVideoFrameCallback?: RVFC }).requestVideoFrameCallback?.bind(video);
   if (rvfc) {
     await seek(video, 0);
     await new Promise<void>((resolve) => {
       let next = 0;
       let finished = false;
-      let lastSample = performance.now();
+      let last = performance.now();
       const watchdog = window.setInterval(() => {
-        // Playback stalled (background tab, decoder hiccup): fall through to seeking.
-        if (performance.now() - lastSample > 8000) end();
-      }, 1000);
+        // Playback refused or stalled (power saving, background tab): fall back to seeking.
+        if (performance.now() - last > 4000) end();
+      }, 500);
       const end = () => {
         if (finished) return;
         finished = true;
@@ -148,38 +203,57 @@ export async function scanVideo(
       };
       const cb = (_: number, meta: { mediaTime: number }) => {
         if (finished) return;
+        last = performance.now();
         if (signal?.aborted || meta.mediaTime >= limit - 0.02) return end();
         if (meta.mediaTime >= next) {
-          // Pause while this frame is analysed so slow devices still sample evenly.
-          video.pause();
-          process(meta.mediaTime);
-          lastSample = performance.now();
+          take(meta.mediaTime);
           next = meta.mediaTime + step;
-          video.play().catch(() => end());
         }
         rvfc(cb);
       };
       video.addEventListener("ended", end);
       rvfc(cb);
-      video.playbackRate = Math.min(4, Math.max(1, limit / 30));
+      video.playbackRate = Math.min(8, Math.max(2, limit / 8));
       video.play().catch(() => end());
     });
     video.playbackRate = 1;
   }
-  // Seek-based fallback (no frame callbacks, or playback was refused / stalled).
-  if (samples.length < Math.min(8, limit / step / 2) || (samples.length && samples[samples.length - 1]!.t < limit * 0.8)) {
-    samples.length = 0;
+  if (out.t.length < Math.min(10, limit / step / 3) || (out.t.length && out.t[out.t.length - 1]! < limit * 0.8)) {
+    out.t.length = 0;
+    out.m.length = 0;
+    out.cut.length = 0;
     prevLuma = null;
     prevHist = null;
-    const count = Math.min(120, Math.ceil(limit / step));
+    const count = Math.min(60, Math.ceil(limit / 0.4));
     for (let i = 0; i < count && !signal?.aborted; i++) {
       const t = (limit * (i + 0.5)) / count;
       await seek(video, t);
-      process(t);
+      take(t);
     }
   }
-  onProgress(1);
-  return { samples, windows: findWindows(samples, windowMedia, limit), scannedTo: limit, cuts: samples.filter((s) => s.cut).length };
+  return out;
+}
+
+/** Times of the strongest, clearly separated movement peaks. */
+function motionPeaks(mp: { t: number[]; m: number[] }, max: number): number[] {
+  const sm = mp.m.map((_, i) => {
+    let s = 0;
+    let n = 0;
+    for (let k = Math.max(0, i - 2); k <= Math.min(mp.m.length - 1, i + 2); k++) {
+      s += mp.m[k]!;
+      n++;
+    }
+    return n ? s / n : 0;
+  });
+  const idx = sm.map((_, i) => i).filter((i) => sm[i]! > 0 && (sm[i - 1] ?? -1) <= sm[i]! && sm[i]! >= (sm[i + 1] ?? -1));
+  idx.sort((a, b) => sm[b]! - sm[a]!);
+  const out: number[] = [];
+  for (const i of idx) {
+    const t = mp.t[i]!;
+    if (out.every((o) => Math.abs(o - t) > 1.5)) out.push(t);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 /** Candidate shot windows: motion peaks with a whole batter in view, inside one camera shot. */
@@ -322,7 +396,18 @@ export async function verifyWindows(video: HTMLVideoElement, pose: PL, res: Scan
     return v(J.nose) >= 0.5 && v(J.left_hip) >= 0.5 && v(J.right_hip) >= 0.5 && foot("left") && foot("right");
   };
   const out: ShotWindow[] = [];
+  // Posture-found windows are already verified; check at most six others, best first.
+  const toCheck = new Set(
+    res.windows
+      .filter((w) => !w.verified)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6),
+  );
   for (const w of res.windows) {
+    if (w.verified || !toCheck.has(w)) {
+      out.push({ ...w, verified: !!w.verified });
+      continue;
+    }
     const near = res.samples.reduce((best, s) => (Math.abs(s.t - w.peak) < Math.abs(best.t - w.peak) ? s : best), res.samples[0]!);
     const boxes = near.people.slice(0, 3);
     let verified = false;

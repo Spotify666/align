@@ -3,7 +3,6 @@
 // body + bat + ball while rejection may rest on fewer signals.
 
 import { angleFromVertical, argmax, round } from "./math";
-import { th } from "./registry";
 import { handsForward } from "./events";
 import { type Scene, sweetSpot } from "./scene";
 import type { DeliveryContext, ShotFeature } from "./types";
@@ -28,7 +27,8 @@ export type FeatureId =
   | "hands_follow"
   | "hands_finish"
   | "hands_across"
-  | "head_height";
+  | "head_height"
+  | "hands_rise";
 
 export interface FeatureSet {
   values: Partial<Record<FeatureId, number>>;
@@ -253,11 +253,11 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
     }
   }
 
-  // --- Hands, when the bat isn't tracked ---
+  // --- Hands ---
   // A defence pushes the hands forward and stops them low; drives and pulls swing them
   // fast and finish high. Speeds and path need the side-on plane; height is seen anywhere.
-  const batSeen = scene.batToe.filter(Boolean).length >= th("tracking.bat_min_coverage") * n;
-  if (!batSeen && dt) {
+  // Computed whether or not the bat is tracked: the hands are body evidence in their own right.
+  if (dt) {
     // Measured where the hands reach furthest forward, so the reading doesn't depend on
     // how contact was found (ball, mark or hands).
     const r = Math.max(1, Math.round(0.02 / dt));
@@ -275,9 +275,10 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
           evidenceIds: [`frame_${at}`],
           modality: "body",
         });
+        // From contact: a defence is a dead bat, so the hands barely move once bat meets ball.
         let path = 0;
         let have = 0;
-        for (let i = at; i < Math.min(n - 1, at + win); i++) {
+        for (let i = refFrame; i < Math.min(n - 1, refFrame + win); i++) {
           if (Number.isFinite(hf[i]!) && Number.isFinite(hf[i + 1]!)) {
             path += Math.hypot(hf[i + 1]! - hf[i]!, hu[i + 1]! - hu[i]!);
             have++;
@@ -285,7 +286,7 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
         }
         if (have > win * 0.5)
           add("hands_follow", path / S, {
-            label: "Hand travel after the push",
+            label: "Hand travel after contact",
             unit: "× stature",
             reading: path / S > 0.45 ? "hands carry on through" : "hands stay where they met the ball",
             evidenceIds: [`frame_${at}`],
@@ -325,11 +326,33 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
           modality: "body",
         });
       }
-      const after = hu.slice(at, Math.min(n, at + win)).filter(Number.isFinite);
+      // How far the hands rise from the lowest point of the downswing (where they meet a
+      // front-foot ball): a dead bat stays there; a push or drive lifts through. Measured
+      // from the low point, so an early or late contact estimate doesn't change it, and
+      // relative, so camera height and stance cancel.
+      const k3 = Math.round(0.3 / dt);
+      // After the top of the backlift only, so the backlift itself never counts as a rise.
+      const top = events.byType.backswing_top?.frame;
+      const from = Math.max(0, refFrame - k3, top !== undefined && top < refFrame ? top : 0);
+      let low = -1;
+      for (let i = from; i <= Math.min(n - 1, refFrame + k3); i++)
+        if (Number.isFinite(hu[i]!) && (low < 0 || hu[i]! < hu[low]!)) low = i;
+      const later = low >= 0 ? hu.slice(low, Math.min(n, low + win)).filter(Number.isFinite) : [];
+      if (low >= 0 && later.length > win * 0.5) {
+        const rise = (Math.max(...later) - hu[low]!) / S;
+        add("hands_rise", rise, {
+          label: "Hands rise after meeting the ball",
+          unit: "× stature",
+          reading: rise > 0.12 ? "hands lift through the ball" : "hands stay where they met the ball",
+          evidenceIds: [`frame_${low}`],
+          modality: "body",
+        });
+      }
+      const after = hu.slice(refFrame, Math.min(n, refFrame + win)).filter(Number.isFinite);
       if (after.length > win * 0.5) {
         const top = Math.max(...after) / S;
         add("hands_finish", top, {
-          label: "Hands height after the push",
+          label: "Hands height after contact",
           unit: "× stature",
           reading: top > 0.8 ? "hands finish high" : "hands finish low",
           evidenceIds: [`frame_${at}`],
