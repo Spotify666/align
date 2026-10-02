@@ -6,8 +6,7 @@
 
 import type { PhotoPhase } from "@/engine/types";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
-import { batterLikeness, detectObjects, detectStill, detectStillPixels, loadPersonDetector, loadStillPose, loadStillPoseGpu, roiAround, type Box, type PoseFrame } from "./pose";
-import { fullBodyBox } from "./scan";
+import { batterLikeness, detectObjects, detectPerson, detectStill, detectStillPixels, loadPersonDetector, loadStillPose, loadStillPoseGpu, type Box, type PoseFrame } from "./pose";
 
 export interface PhotoItem {
   id: string;
@@ -20,6 +19,10 @@ export interface PhotoItem {
   phase: PhotoPhase | null;
   /** What the search saw, so a failure can say why. */
   seen: { people: number; joints: number; personPx: number | null };
+  /** Everyone whose body was read, most batter-like first (frame belongs to box). */
+  options: Array<{ box: Box; frame: PoseFrame }>;
+  /** Another person is nearly as batter-like: the athlete should say who bats. */
+  ambiguous: boolean;
 }
 
 export interface PhotoLoad {
@@ -96,13 +99,10 @@ export async function loadPhotos(files: File[], onProgress: (done: number, total
 
     const { people, bats } = detectObjects(det, canvas);
     let found = findBatter(pose, canvas, people, bats);
-    // Some phones' CPU path returns nothing for a still: ask the GPU path too.
-    if (found.joints < ENOUGH) {
+    // Some phones' CPU path returns nothing for a still: ask the GPU path then.
+    if (!found.joints) {
       const gpu = await loadStillPoseGpu();
-      if (gpu) {
-        const second = findBatter(gpu, canvas, people, bats);
-        if (second.joints > found.joints) found = second;
-      }
+      if (gpu) found = findBatter(gpu, canvas, people, bats);
     }
     const frame = found.joints > 0 ? found.frame : null;
     const top = people[0];
@@ -115,6 +115,8 @@ export async function loadPhotos(files: File[], onProgress: (done: number, total
       batter: found.batter,
       phase: null,
       seen: { people: people.length, joints: found.joints, personPx: top ? Math.round(top.h * height) : null },
+      options: found.options,
+      ambiguous: found.ambiguous,
     });
     onProgress(k + 1, bitmaps.length);
   }
@@ -126,37 +128,70 @@ const strong = (f: PoseFrame) => f.body.filter((p) => p && p[2] > 0.5).length;
 const ENOUGH = 10;
 
 /**
- * Read the batter's body, trying each way until one sees enough of it: a crop around each
- * person found (the most batter-like wins), the whole photo, the whole photo enlarged
- * (small photos), and the raw pixels (a different route into the model).
+ * How likely this person is the batter, given their own skeleton: batter-like posture
+ * (see batterLikeness), then size and closeness to the centre (photos are framed on the
+ * batter). 0 when too little of the body was read to judge.
  */
-function findBatter(pose: PoseLandmarker, canvas: HTMLCanvasElement, people: Box[], bats: Box[]): { frame: PoseFrame | null; batter: Box | null; joints: number } {
+export function batterScore(frame: PoseFrame, box: Box, aspect: number, bats: Box[] = []): number {
+  const joints = strong(frame);
+  if (joints < 6) return 0;
+  const centre = 1.15 - 0.6 * Math.abs(box.x + box.w / 2 - 0.5);
+  return batterLikeness(frame.body, aspect, bats) * Math.sqrt(box.h) * centre * (joints >= ENOUGH ? 1 : 0.8);
+}
+
+interface Found {
+  frame: PoseFrame | null;
+  batter: Box | null;
+  joints: number;
+  options: Array<{ box: Box; frame: PoseFrame }>;
+  ambiguous: boolean;
+}
+
+/**
+ * Find the batter and read their body. Every person found is read on their own (a
+ * skeleton only counts if it sits inside that person's box), including people cut by the
+ * photo's edge. The batter is the most batter-like (hands together on a handle, not
+ * crouched, a bat at the hands when one is seen), then the largest and most central:
+ * photos are framed on the batter. When someone else comes close, the result says so,
+ * and the athlete is asked rather than guessed for.
+ */
+function findBatter(pose: PoseLandmarker, canvas: HTMLCanvasElement, people: Box[], bats: Box[]): Found {
   const aspect = canvas.width / canvas.height;
-  let best: { frame: PoseFrame | null; batter: Box | null; joints: number } = { frame: null, batter: null, joints: 0 };
-  const consider = (f: PoseFrame, b: Box | null) => {
-    const j = strong(f);
-    if (j > best.joints) best = { frame: f, batter: b, joints: j };
-  };
-  const pool = (people.filter(fullBodyBox).length ? people.filter(fullBodyBox) : people).slice(0, 4);
-  const crops = pool.map((b) => {
-    const frame = detectStill(pose, canvas, roiAround(b, aspect, 0.3));
-    return { frame, batter: b, joints: strong(frame), score: batterLikeness(frame.body, aspect, bats) * Math.sqrt(b.h) };
+  const read = people.slice(0, 5).map((b) => {
+    const { frame, owned } = detectPerson(pose, canvas, b, people);
+    const joints = owned ? strong(frame) : 0;
+    return { box: b, frame, joints, score: owned ? batterScore(frame, b, aspect, bats) : 0 };
   });
-  // Of the people whose body is read well, the one who looks most like batting (both hands
-  // on a bat, not crouched), then the largest; otherwise the best-read person so far.
-  const well = crops.filter((c) => c.joints >= ENOUGH).sort((a, b) => b.score - a.score);
-  if (well[0]) return well[0];
-  for (const c of crops) if (c.joints > best.joints) best = c;
-  consider(detectStill(pose, canvas), people[0] ?? null);
+  const ranked = read.filter((r) => r.score > 0).sort((a, b) => b.score - a.score);
+  if (ranked[0]) {
+    const top = ranked[0];
+    return {
+      frame: top.frame,
+      batter: top.box,
+      joints: top.joints,
+      options: ranked.map((r) => ({ box: r.box, frame: r.frame })),
+      ambiguous: ranked.length > 1 && ranked[1]!.score >= top.score * 0.8,
+    };
+  }
+  // No skeleton could be tied to a person found. Reading the whole photo can only be
+  // trusted when there is at most one person in it (otherwise it may read the wrong one).
+  const none: Found = { frame: null, batter: null, joints: 0, options: [], ambiguous: false };
+  if (people.length > 1) return none;
+  let best = none;
+  const consider = (f: PoseFrame) => {
+    const j = strong(f);
+    if (j > best.joints) best = { ...none, frame: f, batter: people[0] ?? null, joints: j, options: people[0] ? [{ box: people[0], frame: f }] : [] };
+  };
+  consider(detectStill(pose, canvas));
   if (best.joints >= ENOUGH) return best;
   if (Math.min(canvas.width, canvas.height) < 480) {
     const big = Object.assign(document.createElement("canvas"), { width: canvas.width * 2, height: canvas.height * 2 });
     big.getContext("2d")!.drawImage(canvas, 0, 0, big.width, big.height);
-    consider(detectStill(pose, big), people[0] ?? null);
+    consider(detectStill(pose, big));
     if (best.joints >= ENOUGH) return best;
   }
   try {
-    consider(detectStillPixels(pose, canvas), people[0] ?? null);
+    consider(detectStillPixels(pose, canvas));
   } catch {
     /* raw pixels unavailable: keep what we have */
   }

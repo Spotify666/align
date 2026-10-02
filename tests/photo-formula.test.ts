@@ -74,3 +74,13 @@ describe("batter size, not frame size", () => {
     expect(check(1920, 1080)).toBe("pass");
   });
 });
+
+describe("photos not taken square side-on", () => {
+  it("a photo at an angle is shown, not graded, and says why", () => {
+    const p = analyze({ ...photo(ffdScript()), camera: { view: "oblique", bowlerSide: "right" } } as CaptureObservation, opts);
+    expect(p.position_check?.verdict).toBe("not_side_on");
+    expect(p.headline).toMatch(/at an angle/);
+    expect(p.metrics.every((m) => m.inRange === null)).toBe(true);
+    expect(p.priorities).toHaveLength(0);
+  });
+});

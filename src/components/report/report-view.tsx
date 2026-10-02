@@ -242,7 +242,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
               positionGraded(p)
                 ? "Each check compares one measurement from the photo with its range; open a check to see where the range comes from. A photo shows one moment, taken to be contact. A drive can look the same at contact, so the shot itself needs a video."
                 : p.position_check?.verdict === "not_side_on"
-                  ? "Filmed along the pitch, forward distances and leg angles are foreshortened, so the formula needs a side-on photo. Shown, not graded."
+                  ? "Not taken square side-on, so the stride, lean and leg angles are foreshortened by an unknown amount and the formula can't be applied. Shown, not graded. Take the photo level with the batter, at right angles to the pitch."
                   : "Estimates from still images. Not graded: too little of the batter is visible to check the position."
             }
           />
