@@ -94,17 +94,17 @@ export function rememberDelegate(d: "GPU" | "CPU"): void {
 /** The path this device last ran faster on, if known. */
 export const knownDelegate = remembered;
 
-let videoPoseCpu = remembered() === "CPU";
-let cpuVideoPose: Promise<PL> | null = null;
+let videoPoseCpu = false;
 /**
- * Pose for consecutive video frames (temporal tracking). GPU when available, unless this
- * device ran faster on the CPU; some devices' GPU paths load but return nothing, so
+ * Pose for consecutive video frames (temporal tracking), on the path this device runs
+ * faster (see decideDelegate); some devices' GPU paths load but return nothing, so
  * callers can force the CPU path.
  */
 export function loadPose(opts: { cpu?: boolean } = {}): Promise<PL> {
-  if (opts.cpu && !videoPoseCpu) {
+  const cpu = opts.cpu || remembered() === "CPU";
+  if (cpu && !videoPoseCpu) {
     void videoPose?.then((p) => p.close()).catch(() => undefined);
-    videoPose = cpuVideoPose;
+    videoPose = null;
     videoPoseCpu = true;
   }
   if (!videoPose) {
@@ -117,21 +117,48 @@ export function loadPose(opts: { cpu?: boolean } = {}): Promise<PL> {
   return videoPose;
 }
 
-/** A CPU-path video pose alongside the GPU one, to compare speed on this device. */
-export function loadCpuVideoPose(): Promise<PL> {
-  if (videoPoseCpu && videoPose) return videoPose;
-  if (!cpuVideoPose) {
-    cpuVideoPose = (async () => {
+let deciding: Promise<"GPU" | "CPU"> | null = null;
+/**
+ * Which path runs pose faster on this device, measured once on a real frame and then
+ * remembered, so every analysis on this device runs on the same path and the same video
+ * always gives the same result (the two paths differ slightly in their output). Weak or
+ * emulated GPUs run slower than the CPU path. Measured with separate still-image models,
+ * so the tracking model's state is untouched.
+ */
+export function decideDelegate(sample: HTMLCanvasElement | HTMLVideoElement): Promise<"GPU" | "CPU"> {
+  const known = remembered();
+  if (known) return Promise.resolve(known);
+  if (!deciding) {
+    deciding = (async () => {
       const [{ PoseLandmarker }, f] = await Promise.all([vision(), loadFiles()]);
-      return PoseLandmarker.createFromOptions(f, poseOptions("VIDEO", "CPU"));
+      const cpu = await loadStillPose();
+      let gpu: PL | null = null;
+      try {
+        gpu = await PoseLandmarker.createFromOptions(f, poseOptions("IMAGE", "GPU"));
+      } catch {
+        rememberDelegate("CPU");
+        return "CPU" as const;
+      }
+      const time = (p: PL) => {
+        const ms: number[] = [];
+        for (let k = 0; k < 4; k++) {
+          const t0 = performance.now();
+          p.detect(sample);
+          ms.push(performance.now() - t0);
+        }
+        return ms.slice(1).sort((a, b) => a - b)[1]!; // first call includes compiling
+      };
+      const g = time(gpu);
+      const c = time(cpu);
+      gpu.close();
+      const choice = c < g * 0.75 ? "CPU" : "GPU";
+      rememberDelegate(choice);
+      return choice;
     })();
-    cpuVideoPose.catch(() => (cpuVideoPose = null));
+    deciding.catch(() => (deciding = null));
   }
-  return cpuVideoPose;
+  return deciding;
 }
-
-/** Whether the tracking pose already runs on the CPU path. */
-export const poseOnCpu = () => videoPoseCpu;
 
 /** Pose for independent stills (photos, sparse probes): no state carried between calls. */
 export function loadStillPose(): Promise<PL> {

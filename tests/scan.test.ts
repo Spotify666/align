@@ -95,3 +95,18 @@ describe("strokes found from posture", () => {
     expect(w.some((x) => Math.abs(x.peak - 3) < 0.3)).toBe(true);
   });
 });
+
+describe("batter lost inside a tracked shot", () => {
+  const person = (cx: number, cy: number, h: number) =>
+    Array.from({ length: 17 }, (_, j) => [cx + ((j % 3) - 1) * h * 0.12, cy - h / 2 + (j / 16) * h, 0.9] as [number, number, number]);
+  const lost = () => Array.from({ length: 17 }, () => null);
+  it("ends the analysed stretch where the batter is lost for a long time (zoom-out, cut)", () => {
+    // Seen for 30 frames around the stroke, then lost for 30 (the camera zoomed out).
+    const body = Array.from({ length: 60 }, (_, i) => (i < 30 ? person(0.5, 0.5, 0.4) : lost()));
+    expect(strokeSegment(body, 1, 15, 20)).toEqual([0, 30]);
+  });
+  it("bridges a short dropout", () => {
+    const body = Array.from({ length: 60 }, (_, i) => (i >= 28 && i < 31 ? lost() : person(0.5, 0.5, 0.4)));
+    expect(strokeSegment(body, 1, 15, 20)).toEqual([0, 60]);
+  });
+});

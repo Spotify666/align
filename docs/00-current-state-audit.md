@@ -7,7 +7,7 @@ Status as of 2026-10-02. Align is a new product: it does not reuse CricShot code
 | Area | State | Evidence |
 |---|---|---|
 | Analysis engine | Deterministic, versioned, validity-first pipeline for the front-foot defence (FFD). Shot identity is set and gated on a generated population of defences and look-alike shots (see 02), not on any one clip | `src/engine/*`, `tests/population.test.ts`, 270 unit tests |
-| Capture | Fully automatic after upload: any-length clips scanned for shots (one play-through for movement and coverage, then a light pose model on likely moments), frames read by playing through once rather than a seek per frame (phone clips put keyframes seconds apart), pose run on whichever of GPU or CPU is faster on the device, camera cuts skipped, batter found (bat-holder cues), camera position guessed, quality gate with automatic retry, crop that follows the batter; "Change" links for corrections; photos (1–12); optional bat/ball marking from the report | `src/lib/capture/*`, `tests/e2e/capture-flow.mjs` |
+| Capture | Fully automatic after upload. MP4/MOV clips (what phones record) are decoded frame-exactly with the browser's video decoder, so the same clip always gives the same frames, shots and verdict, on any device load; other files fall back to one play-through. Any-length clips scanned for shots (posture every 0.3 s across the whole clip, people every ~1.5 s, movement and cuts on the same pass), pose run on whichever of GPU or CPU this device measured faster (decided once, then kept), tracked stretch ends where the batter is lost for long, camera cuts skipped, batter found (bat-holder cues), camera position guessed, quality gate with automatic retry, crop that follows the batter; "Change" links for corrections; photos (1–12); optional bat/ball marking from the report | `src/lib/capture/*`, `tests/e2e/capture-flow.mjs` |
 | Report | Verdict-first report, evidence viewer (video, tracked, 3D, compare: playback runs the video itself and draws each shown frame with its own tracks; 3D starts from where the phone was), metrics with ranges, drills, PDF | `src/components/report/*`, `src/lib/pdf.ts` |
 | Storage | IndexedDB on device; optional Supabase save with RLS, private buckets, retention purge | `src/lib/store.ts`, `supabase/` |
 | LLM | Optional rewrite of the template report through a strict contract; template is the default | `src/engine/llm/*`, `src/app/api/report` |
@@ -22,6 +22,10 @@ Status as of 2026-10-02. Align is a new product: it does not reuse CricShot code
 6. **Front-on accuracy** rests on MediaPipe's monocular depth estimate. It is validated on synthetic data only; real-clip validation is part of Phase 2.
 7. **Video decoding** relies on the browser. HEVC, AV1, AVI and MKV files a browser can't play get specific fixes, not in-app conversion.
 5. **Email sign-in uses Supabase's default SMTP**, which is rate limited. A custom SMTP is needed before a public launch.
+
+## Regression guard
+
+`node tests/e2e/baseline.mjs <baseUrl> <clipDir>` runs the whole automatic flow on reference clips and compares each step's time, the chosen shot, retries and the verdict with `tests/e2e/baselines.json`. A step more than 15% (and 1.5 s) slower, or any changed shot or verdict, fails. Run it before every change to capture, scan, tracking or the engine; `--update` records a new baseline only after a deliberate, reviewed change. Unit tests check correctness, not speed or end-to-end choices, which is how earlier regressions slipped through.
 
 ## Known risks
 
