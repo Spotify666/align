@@ -6,9 +6,9 @@
 import { canonicalJson, sha256 } from "./math";
 import { FRONTAL_METRICS } from "./frontal";
 
-export const ENGINE_VERSION = "0.4.0";
+export const ENGINE_VERSION = "0.4.1";
 export const METRIC_VERSION = "ffd-0.4.0";
-export const CLASSIFIER_VERSION = "prototype-bands-0.3.0";
+export const CLASSIFIER_VERSION = "prototype-bands-0.4.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
 
 export interface Threshold {

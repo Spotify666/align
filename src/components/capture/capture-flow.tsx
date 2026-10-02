@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { analyze } from "@/engine/analyze";
 import { assessCapture } from "@/engine/quality";
 import { encodeTracks, quantise } from "@/engine/tracks-codec";
-import { J, type AnalysisPayload, type CameraPoint, type CaptureObservation, type CaptureQuality, type ImgPoint, type Tier } from "@/engine/types";
+import { J, type AnalysisPayload, type CameraPoint, type CaptureObservation, type CaptureQuality, type FrameQuality, type ImgPoint, type Tier } from "@/engine/types";
 import { readVideoTrack, type VideoTrackInfo } from "@/lib/capture/mp4";
 import { FrameQualitySampler } from "@/lib/capture/frame-quality";
 import {
@@ -18,8 +18,12 @@ import {
   detectStill,
   Follower,
   loadPersonDetector,
+  knownDelegate,
+  loadCpuVideoPose,
   loadPose,
   loadScanPose,
+  poseOnCpu,
+  rememberDelegate,
   loadStillPose,
   warmUp,
   roiAround,
@@ -31,6 +35,7 @@ import {
 import { batterCandidates, boxAt, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
 import { guessView } from "@/lib/capture/view-guess";
 import { strokeSegment } from "@/lib/capture/segments";
+import { playFrames } from "@/lib/capture/frames";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
 import { loadProfile, saveAnalysis, saveProfile, type LocalProfile } from "@/lib/store";
@@ -406,21 +411,27 @@ export function CaptureFlow() {
     const a = m.width / m.height;
     const sampler = new FrameQualitySampler(a);
     const body: ImgPoint[][] = [];
-    const quality = [];
+    const quality: FrameQuality[] = [];
     let people = 1;
     const len = Math.min(w.end, m.durationSec) - w.start;
     const times = Array.from({ length: GATE_SAMPLES }, (_, i) => w.start + (len * (i + 0.5)) / GATE_SAMPLES);
     let follow: Roi | null = null;
-    for (let i = 0; i < times.length; i++) {
-      await seek(v, times[i]!);
-      quality.push(sampler.sample(v, i));
+    const at = (i: number) => {
+      quality[i] = sampler.sample(v, i);
       // Where the scan saw the batter at this moment, else where pose last found them.
       let p = detectStill(stillPose, v, cropFor(c, times[i]!, m));
       if (!bodyBox(p.body) && follow) p = detectStill(stillPose, v, follow);
       const b = bodyBox(p.body);
       if (b) follow = roiAround(b, a, 0.32);
       people = Math.max(people, p.people);
-      body.push(p.body);
+      body[i] = p.body;
+    };
+    // One pass through the shot instead of a seek per sample.
+    const fd = 1 / (m.containerFps ?? 30);
+    const missed = await playFrames(v, times, (i) => at(i), { frameDur: fd, rate: 2, tolerance: fd * 1.5 });
+    for (const i of missed ?? times.map((_, k) => k)) {
+      await seek(v, times[i]!);
+      at(i);
     }
     const s = job.current.slow;
     const probe: CaptureObservation = {
@@ -481,42 +492,86 @@ export function CaptureFlow() {
         durationMs: ((count * stride) / rFps) * 1000,
         kind: "video",
       };
-      const times: number[] = [];
+      const times = Array.from({ length: count }, (_, i) => w.start + (i * stride + 0.5) / cFps);
+      const startRoi = () => roiAround(c ? (boxAt(c, w.start, 1) ?? c.box) : { x: 0, y: 0, w: 1, h: 1 }, a, 0.32);
       const follower = new Follower(c ? (boxAt(c, w.start, 1) ?? c.box) : { x: 0, y: 0, w: 1, h: 1 }, a);
+      const qEvery = Math.max(1, Math.round(count / 24));
       let prevHip: [number, number] | null = null;
       let seen = 0;
-      setProgress({ done: 0, total: count });
-      for (let i = 0; i < count; i++) {
-        if (!alive()) return;
-        if (i === 12 && seen === 0 && !cpuTried) {
-          // Some phones' GPU path loads but returns nothing: start again on the CPU path.
+      let done = 0;
+      // Some phones' GPU path loads but returns nothing: after 12 empty frames, start again on the CPU path.
+      const gpuDead = () => !cpuTried && done >= 12 && seen === 0;
+      // Not yet measured on this device: time a few frames on each path, keep the faster
+      // (weak or emulated GPUs run slower than the CPU path).
+      type Pose = Awaited<ReturnType<typeof loadPose>>;
+      let cpuPose: Pose | null = null;
+      let decided = !!knownDelegate() || poseOnCpu();
+      if (!decided) void loadCpuVideoPose().then((p) => (cpuPose = p)).catch(() => (decided = true));
+      const timing = { gpu: [] as number[], cpu: [] as number[] };
+      const median = (xs: number[]) => [...xs].sort((x, y) => x - y)[Math.floor(xs.length / 2)]!;
+      const choosePose = (): Pose => {
+        if (decided) return pose;
+        if (timing.gpu.length < 4 || !cpuPose) return pose;
+        if (timing.cpu.length < 4) return cpuPose;
+        // First call on each path includes compiling: compare the rest.
+        const g = median(timing.gpu.slice(1));
+        const k = median(timing.cpu.slice(1));
+        decided = true;
+        const useCpu = k < g * 0.75;
+        rememberDelegate(useCpu ? "CPU" : "GPU");
+        if (useCpu) {
+          pose = cpuPose;
           cpuTried = true;
-          pose = await loadPose({ cpu: true });
-          [out.body, out.depth, out.quality, out.t, world.length, times.length, seen, prevHip, i] = [[], [], [], [], 0, 0, 0, null, 0];
-          follower.roi = roiAround(c ? (boxAt(c, w.start, 1) ?? c.box) : { x: 0, y: 0, w: 1, h: 1 }, a, 0.32);
-        }
-        const mt = w.start + (i * stride + 0.5) / cFps;
-        times.push(mt);
-        await seek(v, mt);
-        let p: PoseFrame = detectFrame(pose, v, 10 + Math.round(mt * 1000), prevHip, follower.roi);
+          void loadPose({ cpu: true });
+        } else void cpuPose.close();
+        return pose;
+      };
+      const at = (i: number) => {
+        const mt = times[i]!;
+        const use = choosePose();
+        const t0 = performance.now();
+        let p: PoseFrame = detectFrame(use, v, 10 + Math.round(mt * 1000), prevHip, follower.roi);
+        if (!decided) timing[use === pose ? "gpu" : "cpu"].push(performance.now() - t0);
         if (!follower.see(p) && follower.isLost) {
           // Lost (cut, zoom, occlusion): re-anchor on the scan's box, else the detector.
           const anchor = c ? boxAt(c, mt, 0.3) : null;
           if (anchor) follower.roi = roiAround(anchor, a, 0.32);
           else follower.reacquire(detectPeople(det, v));
-          p = detectFrame(pose, v, 11 + Math.round(mt * 1000), prevHip, follower.roi);
+          p = detectFrame(use, v, 11 + Math.round(mt * 1000), prevHip, follower.roi);
           follower.see(p);
         }
         if (bodyBox(p.body)) seen++;
         prevHip = p.hip;
-        out.body.push(p.body);
-        world.push(p.world);
-        out.depth.push(p.depth);
+        out.body[i] = p.body;
+        world[i] = p.world;
+        out.depth[i] = p.depth;
         out.people = Math.max(out.people, p.people);
-        out.t.push(Math.round(((i * stride) / rFps) * 1000 * 100) / 100);
-        if (i % Math.max(1, Math.round(count / 24)) === 0) out.quality.push(sampler.sample(v, i));
-        if (i % 4 === 0) setProgress({ done: i + 1, total: count });
+        out.t[i] = Math.round(((i * stride) / rFps) * 1000 * 100) / 100;
+        if (i % qEvery === 0) out.quality.push(sampler.sample(v, i));
+        done++;
+        if (done % 4 === 0) setProgress({ done, total: count });
+      };
+      const pass = async () => {
+        // One sequential decode of the window, pausing on each frame (no per-frame seek).
+        const missed = await playFrames(v, times, (i) => (at(i), alive() && !gpuDead()), { frameDur: 1 / cFps, stop: () => !alive() });
+        for (const i of missed ?? times.map((_, k) => k)) {
+          if (!alive() || gpuDead()) return;
+          await seek(v, times[i]!);
+          at(i);
+        }
+      };
+      setProgress({ done: 0, total: count });
+      await pass();
+      if (!alive()) return;
+      if (gpuDead()) {
+        cpuTried = true;
+        pose = await loadPose({ cpu: true });
+        [out.body, out.depth, out.quality, out.t, world.length, seen, done, prevHip] = [[], [], [], [], 0, 0, 0, null];
+        follower.roi = startRoi();
+        await pass();
+        if (!alive()) return;
       }
+      out.quality.sort((x, y) => x.frame - y.frame);
       setProgress({ done: count, total: count });
       // Keep only the camera shot that holds the stroke (broadcast cuts, replays).
       const key = times.reduce((best, t, i) => (Math.abs(t - w.peak) < Math.abs(times[best]! - w.peak) ? i : best), 0);
@@ -693,7 +748,8 @@ export function CaptureFlow() {
   // ---------- UI ----------
   return (
     <>
-      <video ref={bindVideo} muted playsInline preload="auto" className="hidden" />
+      {/* Rendered but invisible: browsers only report displayed frames for a video that is laid out. */}
+      <video ref={bindVideo} muted playsInline preload="auto" aria-hidden className="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0" />
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-6 sm:py-10">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div

@@ -33,12 +33,13 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     contact_found: [0.8, 1, 0.2, 0.6],
     // A dead bat: hands stop at the ball, barely travel after contact and finish low.
     hand_speed: [0, 1.5, 0.35, 1.2],
-    hands_follow: [0, 0.2, 0.04, 1.2],
-    hands_finish: [0.3, 0.66, 0.04, 1.2],
+    hands_follow: [0, 0.21, 0.04, 1.2],
+    hands_finish: [0.3, 0.76, 0.04, 0.8],
     hands_across: [0, 0.2, 0.05, 1],
     head_height: [0.55, 0.92, 0.025, 1],
-    // Dead bat: the hands don't rise after contact (tolerance for real-world settling).
-    hands_rise: [-0.08, 0.07, 0.03, 1.4],
+    // Dead bat: the hands rise at most a little after the bottom of the downswing, as the
+    // face is presented (real defences: up to ~0.11 × height); a push lifts through.
+    hands_rise: [-0.08, 0.12, 0.025, 1.4],
   },
   // Every front-foot stroke where the bat goes through the ball, from a push to a full drive.
   front_foot_drive: {
@@ -57,10 +58,10 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     contact_found: [0.8, 1, 0.2, 0.6],
     hand_speed: [0, 14, 0.6, 0.3],
     hands_follow: [0.22, 3, 0.05, 0.6],
-    hands_finish: [0.64, 1.6, 0.04, 1.2],
+    hands_finish: [0.66, 1.6, 0.04, 0.8],
     hands_across: [0, 0.3, 0.06, 0.6],
     head_height: [0.6, 0.92, 0.03, 1],
-    hands_rise: [0.1, 1.2, 0.04, 1.2],
+    hands_rise: [0.14, 1.2, 0.025, 1.2],
   },
   back_foot_defence: {
     front_stride: [-0.1, 0.16, 0.05, 1],

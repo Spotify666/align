@@ -2,8 +2,8 @@
 // Each feature records which modality it came from so that acceptance can demand
 // body + bat + ball while rejection may rest on fewer signals.
 
-import { angleFromVertical, argmax, round } from "./math";
-import { handsForward } from "./events";
+import { angleFromVertical, argmax, round, smooth } from "./math";
+import { handsForward, handsSeries } from "./events";
 import { type Scene, sweetSpot } from "./scene";
 import type { DeliveryContext, ShotFeature } from "./types";
 import type { EventSet } from "./events";
@@ -98,11 +98,10 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
     modality: "body",
   });
 
-  const wrist = scene.get(refFrame, "front_wrist");
-  const wrist2 = scene.get(refFrame, "back_wrist");
-  // One hand is often hidden by the bat or gloves; either wrist marks the hands.
-  if (wrist || wrist2) {
-    const h = (wrist && wrist2 ? (wrist.u + wrist2.u) / 2 : (wrist ?? wrist2)!.u) / S;
+  // One hand is often hidden by the bat or gloves; both wrists, weighted by how steadily each is tracked.
+  const handsU = handsSeries(scene, "u")[refFrame];
+  if (handsU !== undefined && Number.isFinite(handsU)) {
+    const h = handsU / S;
     add("hands_height", h, {
       label: "Hands height",
       unit: "× stature",
@@ -334,12 +333,15 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
       // After the top of the backlift only, so the backlift itself never counts as a rise.
       const top = events.byType.backswing_top?.frame;
       const from = Math.max(0, refFrame - k3, top !== undefined && top < refFrame ? top : 0);
+      // A highest-minus-lowest reading magnifies landmark jitter, so the hand track is
+      // smoothed over ±50 ms first (a stroke's rise lasts far longer than that).
+      const hs = smooth(hu, Math.max(1, Math.round(0.05 / dt)));
       let low = -1;
       for (let i = from; i <= Math.min(n - 1, refFrame + k3); i++)
-        if (Number.isFinite(hu[i]!) && (low < 0 || hu[i]! < hu[low]!)) low = i;
-      const later = low >= 0 ? hu.slice(low, Math.min(n, low + win)).filter(Number.isFinite) : [];
+        if (Number.isFinite(hs[i]!) && (low < 0 || hs[i]! < hs[low]!)) low = i;
+      const later = low >= 0 ? hs.slice(low, Math.min(n, low + win)).filter(Number.isFinite) : [];
       if (low >= 0 && later.length > win * 0.5) {
-        const rise = (Math.max(...later) - hu[low]!) / S;
+        const rise = (Math.max(...later) - hs[low]!) / S;
         add("hands_rise", rise, {
           label: "Hands rise after meeting the ball",
           unit: "× stature",

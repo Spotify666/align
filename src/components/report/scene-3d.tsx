@@ -95,10 +95,14 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(COLORS.bg, 9, 22);
     const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
-    if (framing === "close") camera.position.set(3.5, 1.55, 4.1);
+    // Start where the phone was, a little to the side so depth reads; drag to orbit.
+    const view = obs.camera.view;
+    if (view === "front_on") camera.position.set(6.2, 1.7, 2.2);
+    else if (view === "behind") camera.position.set(-4.4, 1.8, 2.2);
+    else if (framing === "close") camera.position.set(3.5, 1.55, 4.1);
     else camera.position.set(4.6, 1.9, 5.4);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(framing === "close" ? 0.9 : 1.1, 0.85, 0);
+    controls.target.set(view === "front_on" || view === "behind" ? 0.5 : framing === "close" ? 0.9 : 1.1, 0.85, 0);
     controls.enabled = interactive;
     if (!interactive) renderer.domElement.style.touchAction = "pan-y";
     controls.enableDamping = true;
@@ -321,7 +325,7 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
     };
     // Rebuild only when the data changes; frame updates go through api.current.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [world, refWorld, autoRotate, playFrom, playTo, playSpeed, interactive, framing]);
+  }, [world, refWorld, autoRotate, playFrom, playTo, playSpeed, interactive, framing, obs.camera.view]);
 
   useEffect(() => {
     if (playFrom === undefined) api.current?.update(frame);

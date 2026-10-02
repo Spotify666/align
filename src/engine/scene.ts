@@ -100,17 +100,28 @@ export function buildScene(obs: CaptureObservation): Scene {
     p && p[2] >= minConf ? [p[0] * aspect, p[1], p[2]] : null;
   const rawImg = (frame: number, joint: Joint) => img(obs.body[frame]?.[J[joint]] ?? null);
 
-  // Ground line: from calibration, otherwise the lowest foot points during setup.
+  // Filmed along the pitch, where the batter stands along the camera's line of sight moves
+  // the feet up and down the image (nearer is lower), so a ground line taken from the
+  // first fifth of the clip (in a practice montage often the end of the previous ball,
+  // front foot thrust toward the lens) can sit well off. There the ground comes from the
+  // whole clip: the median of each frame's lowest foot.
+  const alongPitch = (obs.camera.view === "front_on" || obs.camera.view === "behind") && obs.media.kind === "video";
+  const refEnd = alongPitch ? n : setupEnd;
+  const FEET_J = ["left_heel", "right_heel", "left_foot", "right_foot", "left_ankle", "right_ankle"] as Joint[];
+
+  // Ground line: from calibration, otherwise the lowest foot points during setup (along
+  // the pitch: see above).
   let groundY = obs.calibration.groundY;
   if (groundY === null) {
     const ys: number[] = [];
-    for (let i = 0; i < setupEnd; i++) {
-      for (const j of ["left_heel", "right_heel", "left_foot", "right_foot", "left_ankle", "right_ankle"] as Joint[]) {
-        const p = rawImg(i, j);
-        if (p) ys.push(p[1]);
-      }
+    const lows: number[] = [];
+    for (let i = 0; i < refEnd; i++) {
+      const fy = FEET_J.map((j) => rawImg(i, j)?.[1]).filter((y): y is number => y !== undefined);
+      ys.push(...fy);
+      if (fy.length) lows.push(Math.max(...fy));
     }
-    groundY = ys.length ? Math.max(...ys) : 1;
+    lows.sort((a, b) => a - b);
+    groundY = alongPitch && lows.length ? lows[Math.floor(lows.length / 2)]! : ys.length ? Math.max(...ys) : 1;
   }
 
   // Stature in image units from posture-invariant segment lengths.

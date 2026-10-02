@@ -11,7 +11,7 @@ const H = 1.75;
 const setupHands: V3 = [0.98, 0.92, 0.26];
 const setupBat: V3 = [-0.22, -0.97, 0];
 
-export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: number; contactAhead: number; hipDrop: number; sideLean: number }> = {}): ShotScript {
+export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: number; contactAhead: number; hipDrop: number; sideLean: number; settle: number }> = {}): ShotScript {
   const stride = v.stride ?? 0.66;
   const plantF = 1.15 + stride;
   const contactF = plantF + 0.02 + (v.contactAhead ?? 0);
@@ -68,8 +68,10 @@ export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: nu
       [0.5, setupHands],
       [0.7, [1.05, 1.18, 0.2]],
       [0.92, [contactF + 0.12, 0.92, 0.1]],
-      [1.05, [contactF + 0.16, 0.92, 0.1]],
-      [2, [contactF + 0.16, 0.93, 0.1]],
+      // Real defences often lift the hands a little after the bottom of the downswing as
+      // the face is presented and the ball deadened (settle, metres); a dead bat has none.
+      [1.05, [contactF + 0.16, 0.92 + (v.settle ?? 0), 0.1]],
+      [2, [contactF + 0.16, 0.93 + (v.settle ?? 0), 0.1]],
     ],
     batDir: [
       [0, setupBat],
