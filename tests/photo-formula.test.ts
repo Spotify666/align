@@ -76,11 +76,27 @@ describe("batter size, not frame size", () => {
 });
 
 describe("photos not taken square side-on", () => {
-  it("a photo at an angle is shown, not graded, and says why", () => {
-    const p = analyze({ ...photo(ffdScript()), camera: { view: "oblique", bowlerSide: "right" } } as CaptureObservation, opts);
-    expect(p.position_check?.verdict).toBe("not_side_on");
-    expect(p.headline).toMatch(/at an angle/);
-    expect(p.metrics.every((m) => m.inRange === null)).toBe(true);
-    expect(p.priorities).toHaveLength(0);
+  const angled = (o: CaptureObservation) => ({ ...o, camera: { ...o.camera, view: "oblique" } }) as CaptureObservation;
+  it("a photo at an angle is graded on the checks that survive the angle", () => {
+    const p = analyze(angled(photo(ffdScript())), opts);
+    expect(p.position_check).toMatchObject({ angled: true, verdict: "matches", checked: 4, met: 4 });
+    expect(p.headline).toMatch(/from an angle/);
+    const graded = p.metrics.filter((m) => m.inRange !== null).map((m) => m.id).sort();
+    expect(graded).toEqual(["back_knee_extension", "front_knee_flexion", "trunk_inclination", "weight_forward"]);
+    // Distances along the stride run toward the camera: not read, and says why.
+    for (const id of ["foot_spread", "head_knee_offset", "hands_ahead_of_knee"]) {
+      const m = p.metrics.find((x) => x.id === id)!;
+      expect(m.status).toBe("not_measured");
+      expect(m.reason).toMatch(/side-on/);
+    }
+  });
+  it("works whichever way the batter faces in the photo", () => {
+    const o = photo(ffdScript());
+    const flipped = { ...o, camera: { ...o.camera, view: "oblique", bowlerSide: o.camera.bowlerSide === "left" ? "right" : "left" } } as CaptureObservation;
+    expect(analyze(flipped, opts).position_check).toMatchObject({ verdict: "matches", met: 4 });
+  });
+  it("a pull from an angle still doesn't pass", () => {
+    const p = analyze(angled(photo(pullScript())), opts);
+    expect(["matches", "mostly"]).not.toContain(p.position_check?.verdict);
   });
 });

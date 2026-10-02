@@ -7,12 +7,13 @@ import { templateReport } from "@/engine/report";
 import { SHOT_DISPLAY } from "@/engine/classify";
 import { DOMAIN_LABELS } from "@/engine/registry";
 import { fmt } from "@/engine/scoring";
+import { plainRange, plainReading, plainValue } from "@/engine/plain";
 
 const STATUS: Record<string, string> = {
   valid: "Valid front-foot defence",
   invalid_for_requested_analysis: "Different shot detected",
-  uncertain_shot: "Shot uncertain",
-  capture_failed: "Capture failed",
+  uncertain_shot: "Shot not confirmed",
+  capture_failed: "Couldn't analyse",
 };
 
 // Standard PDF fonts cover WinAnsi only; map the few symbols outside it.
@@ -87,15 +88,10 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
   if (opts.title) text(opts.title, 10, muted, "normal", 2);
 
   // Verdict first
-  text(STATUS[p.analysis_status] + (p.mode === "posture_screen" ? " (photo position check)" : ""), 11, gold, "bold", 2);
+  text(p.mode === "posture_screen" && p.analysis_status !== "capture_failed" ? "Photo check" : (STATUS[p.analysis_status] ?? ""), 11, gold, "bold", 2);
   text(p.headline, 17, ink, "bold", 4);
-  if (p.analysis_status !== "valid") text("Technique score withheld. A score is only given to a confirmed front-foot defence.", 10, ink, "bold");
-  const chips = [
-    p.observed_shot ? `Shot: ${p.observed_shot.label === "unknown" ? p.observed_shot.display : SHOT_DISPLAY[p.observed_shot.label]} (${Math.round(p.observed_shot.probability * 100)}% prototype confidence, uncalibrated)` : null,
-    `Capture confidence ${Math.round(p.capture_confidence * 100)}%`,
-    p.technique_index ? `Secondary technique index ${p.technique_index.value} (range ${p.technique_index.band[0]}-${p.technique_index.band[1]})` : null,
-  ].filter(Boolean);
-  text(chips.join("   ·   "), 9, muted);
+  if (p.analysis_status !== "valid" && p.mode !== "posture_screen") text("No technique score: a score is only given to a confirmed front-foot defence.", 10, ink, "bold");
+  if (p.technique_index) text(`Technique score ${p.technique_index.value} / 100`, 10, muted);
 
   if (opts.evidenceImage) {
     try {
@@ -140,21 +136,21 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
     ensure(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...muted);
-    ["Measure", "Value", "Coaching range", "Status"].forEach((h, i) => doc.text(h, cols[i]!, y + 9));
+    ["Check", "You", "Aim for", ""].forEach((h, i) => doc.text(h, cols[i]!, y + 9));
     y += 15;
     doc.setFont("helvetica", "normal");
     for (const m of p.metrics) {
       ensure(14);
       doc.setTextColor(...ink);
       doc.text(clean(m.name), cols[0]!, y + 9);
-      doc.text(clean(m.value !== null ? `${fmt(m)}${m.uncertainty !== null ? ` ±${m.uncertainty.toFixed(m.decimals)}` : ""}` : "not measured"), cols[1]!, y + 9);
-      doc.text(clean(m.range ? `${m.range.lo}-${m.range.hi}` : "—"), cols[2]!, y + 9);
+      doc.text(clean(m.value !== null ? plainValue(m) : "not checked"), cols[1]!, y + 9);
+      doc.text(clean(m.range ? plainRange(m) : "—"), cols[2]!, y + 9);
       doc.setTextColor(...(m.inRange === false ? ([180, 57, 47] as [number, number, number]) : muted));
-      doc.text(clean(m.status === "not_measured" ? "not measured" : m.inRange === false ? "outside range" : m.inRange ? "within range" : m.status), cols[3]!, y + 9);
+      doc.text(clean(m.status === "not_measured" ? "" : m.inRange === null ? "not graded" : plainReading(m)), cols[3]!, y + 9);
       y += 13;
     }
     y += 4;
-    text("Ranges are provisional coaching ranges (v0.1), not population norms. 'Not measured' means the capture could not support it.", 8, muted);
+    text("Where each range comes from: see the Science page.", 8, muted);
   }
 
   // Ungraded observations (uncertain shot) and posture screens (photos): values only, no ranges.
@@ -174,25 +170,15 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
         text(`Photo ${ph.frame + 1}${ph.phase ? ` (${ph.phase})` : ""}: ${vals.length ? vals.join(" · ") : (ph.note ?? "not measured")}`, 9.5, ink, "normal", 1);
       }
     }
-    const graded = p.metrics.filter((m) => m.value !== null && m.inRange !== null && m.range);
-    if (graded.length) {
-      heading(`Front-foot defence position${p.photo_set ? " (key photo)" : ""}: ${graded.filter((m) => m.inRange).length} of ${graded.length} checks met`);
-      for (const m of graded) text(`• ${m.name}: ${fmt(m)}, ${m.inRange ? "within" : "outside"} ${m.range!.lo}–${m.range!.hi}`, 9.5, m.inRange ? ink : gold, "normal", 1);
-      text("One photo shows one moment, taken to be contact. A drive can look the same at contact; the shot itself needs a video.", 8, muted);
-    } else ungraded(p.photo_set ? "Key photo" : "Posture observations", p.metrics, "Estimates from still images. Not graded: the position check needs a side-on photo with the whole batter in view.");
   }
 
-  heading("Limits of this result");
-  for (const l of p.limitations) text(`• ${l.text}`, 9, muted, "normal", 0);
-
-  heading("Reproducibility");
-  const v = p.versions;
-  text(
-    `Engine ${v.engine} · metrics ${v.metric_version} · classifier ${v.classifier} · registry ${v.registry_hash} · pose ${v.pose_model} · bat ${v.bat_source} · ball ${v.ball_source}`,
-    8,
-    muted,
-  );
-  text(`Input ${p.input_hash.slice(0, 24)} · result ${p.result_hash.slice(0, 24)}`, 8, muted);
+  const limits = p.limitations.filter((l) => ["lim_demo", "lim_photo", "lim_photo_set", "lim_no_bat", "lim_no_ball", "lim_body_led"].includes(l.id));
+  if (limits.length) {
+    heading("Good to know");
+    for (const l of limits) text(`• ${l.text}`, 9, muted, "normal", 0);
+  }
+  y += 6;
+  text(`Align ${p.versions.engine} · result ${p.result_hash.slice(0, 12)}`, 7, muted);
   text("Not a medical assessment. Movement indicators describe technique, not health or injury.", 8, muted);
 
   const pages = doc.getNumberOfPages();
