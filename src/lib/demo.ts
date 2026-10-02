@@ -1,4 +1,5 @@
 // Server-side helpers that run the real engine over the DEMO DATA fixtures.
+import type { CompareReference } from "@/components/report/evidence-viewer";
 import { analyze } from "@/engine/analyze";
 import { baselineSeries, fixture, FIXTURE_SPECS } from "@/engine/fixtures";
 import { buildBaseline, compareToBaseline } from "@/engine/baseline";
@@ -32,9 +33,14 @@ export function sampleWithBaseline(key: string) {
   const comparisons = compareToBaseline(s.payload, baseline);
   const refObs = series[0]!;
   const refPayload = analyze(refObs, { analysisId: "ref", createdAt: CREATED });
-  const c1 = s.payload.events.find((e) => e.type === "contact")?.frame ?? 0;
-  const c2 = refPayload.events.find((e) => e.type === "contact")?.frame ?? 0;
-  return { ...s, comparisons, reference: { obs: refObs, offset: c2 - c1, label: "Baseline delivery 1" } };
+  const c1 = s.payload.events.find((e) => e.type === "contact")?.frame;
+  const c2 = refPayload.events.find((e) => e.type === "contact")?.frame;
+  // Only a comparable shot: same camera position and handedness, both with a contact.
+  const comparable = c1 !== undefined && c2 !== undefined && s.payload.camera_view === refPayload.camera_view && s.payload.handedness === refPayload.handedness;
+  const reference: CompareReference | null = comparable
+    ? { obs: refObs, payload: refPayload, label: "Demo: an earlier delivery", recordedAt: "2026-09-10T18:00:00.000Z", contactSelf: c1, contactRef: c2 }
+    : null;
+  return { ...s, comparisons, reference };
 }
 
 export const SAMPLE_ORDER = ["valid_ffd", "pull", "occluded", "capture_failed", "front_on_ffd", "front_on_pull", "drive", "photo", "no_ball", "no_bat", "left_handed", "low_fps", "front_on_drive", "session3d"];

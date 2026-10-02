@@ -31,6 +31,8 @@ export interface WorldFrames {
   joints: (V3 | null)[][];
   conf: number[][];
   depth: "measured" | "estimated" | "none";
+  /** The axis that comes from a single-camera depth estimate (noisier), if any: 0 = forward, 2 = sideways. */
+  estimatedAxis: 0 | 2 | null;
   bat: Array<[V3, V3] | null>;
   ball: (V3 | null)[];
   centre: (V3 | null)[];
@@ -104,6 +106,7 @@ export function worldFrames(obs: CaptureObservation): WorldFrames {
     joints,
     conf,
     depth,
+    estimatedAxis: frontal ? 0 : depth === "estimated" ? 2 : null,
     bat,
     ball,
     centre,
@@ -245,14 +248,49 @@ function smoothBall(ball: (V3 | null)[], fps: number): (V3 | null)[] {
 }
 
 /** A smoothed copy of the world frames for the 3D replay (≈35 ms on the body, 20 ms on the bat). */
+/** Fill dropouts of at most `max` frames between two seen frames by straight lines (display only). */
+function bridge(xs: (V3 | null)[], max: number): (V3 | null)[] {
+  const out = [...xs];
+  let last = -1;
+  for (let i = 0; i < xs.length; i++) {
+    if (!xs[i]) continue;
+    const gap = i - last - 1;
+    if (last >= 0 && gap > 0 && gap <= max) {
+      const a = xs[last]!;
+      const b = xs[i]!;
+      for (let k = 1; k <= gap; k++) {
+        const t = k / (gap + 1);
+        out[last + k] = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+      }
+    }
+    last = i;
+  }
+  return out;
+}
+
+/** Smooth each axis by its own noise: measured image axes lightly, an estimated depth axis more. */
+function smoothAxes(xs: (V3 | null)[], sigma: number, estimated: 0 | 2 | null, sigmaEst: number): (V3 | null)[] {
+  const light = gaussSeries(xs, sigma);
+  if (estimated === null) return light;
+  const heavy = gaussSeries(xs, sigmaEst);
+  return light.map((p, i) => {
+    if (!p || !heavy[i]) return p;
+    const q: V3 = [p[0], p[1], p[2]];
+    q[estimated] = heavy[i]![estimated];
+    return q;
+  });
+}
+
 export function smoothWorld(w: WorldFrames, fps: number | null): WorldFrames {
   const f = fps && fps > 0 ? fps : 30;
   const body = Math.max(0.6, 0.035 * f);
+  const est = Math.max(1, 0.1 * f); // single-camera depth jitters frame to frame
+  const gap = Math.max(1, Math.round(0.1 * f)); // a blink of tracking shouldn't make limbs vanish
   const batS = Math.max(0.5, 0.02 * f);
   const nj = w.joints[0]?.length ?? 0;
   const joints: (V3 | null)[][] = w.joints.map(() => []);
   for (let j = 0; j < nj; j++) {
-    const s = gaussSeries(w.joints.map((fr) => fr[j] ?? null), body);
+    const s = smoothAxes(bridge(w.joints.map((fr) => fr[j] ?? null), gap), body, w.estimatedAxis, est);
     s.forEach((p, i) => (joints[i]![j] = p));
   }
   const handle = gaussSeries(w.bat.map((b) => b?.[0] ?? null), batS);
@@ -262,6 +300,6 @@ export function smoothWorld(w: WorldFrames, fps: number | null): WorldFrames {
     joints,
     bat: w.bat.map((b, i) => (b && handle[i] && toe[i] ? [handle[i]!, toe[i]!] : null)),
     ball: smoothBall(w.ball, f),
-    centre: gaussSeries(w.centre, body),
+    centre: smoothAxes(bridge(w.centre, gap), body, w.estimatedAxis, est),
   };
 }

@@ -6,8 +6,13 @@ import { chromium } from "@playwright/test";
 const [, , base, media, out, w = "390", h = "844"] = process.argv;
 const files = media.split(",");
 const isPhoto = files.every((f) => /\.(jpe?g|png|webp|heic)$/i.test(f));
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] });
-const ctx = await browser.newContext({ viewport: { width: +w, height: +h }, deviceScaleFactor: 1, acceptDownloads: true, isMobile: +w < 700, hasTouch: +w < 700 });
+const launchArgs = { executablePath: process.env.CHROMIUM_PATH, args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] };
+const ctxOpts = { viewport: { width: +w, height: +h }, deviceScaleFactor: 1, acceptDownloads: true, isMobile: +w < 700, hasTouch: +w < 700 };
+// USER_DATA=<dir> keeps the device's saved analyses between runs (e.g. to test Compare).
+const ctx = process.env.USER_DATA
+  ? await chromium.launchPersistentContext(process.env.USER_DATA, { ...launchArgs, ...ctxOpts })
+  : await (await chromium.launch(launchArgs)).newContext(ctxOpts);
+const browser = { close: () => ctx.close() };
 // Pin the pose path (as a returning device would have it) for repeatable runs.
 if (process.env.POSE_DELEGATE) await ctx.addInitScript((d) => localStorage.setItem("align:pose-delegate", d), process.env.POSE_DELEGATE);
 const page = await ctx.newPage();
@@ -98,8 +103,18 @@ if (process.env.VIEWER && (await stage.count())) {
   await page.waitForTimeout(2500);
   await stage.screenshot({ path: `${out}_3d.png` });
   await page.getByRole("button", { name: "Play" }).first().click();
-  await page.waitForTimeout(2000);
-  await stage.screenshot({ path: `${out}_3d_play.png` });
+  // A burst of shots 80 ms apart: the figure should move a little in every one (fluid), not jump.
+  for (let k = 0; k < 8; k++) {
+    await page.waitForTimeout(80);
+    await stage.screenshot({ path: `${out}_3d_burst${k}.png` });
+  }
+  await page.getByRole("button", { name: "Pause" }).first().click().catch(() => {});
+  if (await page.getByRole("tab", { name: "Compare" }).count()) {
+    await page.getByRole("tab", { name: "Compare" }).click();
+    await page.waitForTimeout(2500);
+    await page.locator("[aria-label='Evidence viewer']").screenshot({ path: `${out}_compare.png` });
+    step("compare: " + (await page.locator("[aria-label='Evidence viewer']").innerText()).replace(/\s+/g, " ").slice(0, 400));
+  } else step("compare: no earlier comparable shot (tab hidden)");
   await page.getByRole("tab", { name: "Tracked" }).click();
 }
 await page.screenshot({ path: `${out}_report_full.png`, fullPage: true });

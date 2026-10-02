@@ -11,6 +11,7 @@ import { deleteFromCloud, loadCloudAnalysis } from "@/lib/cloud";
 import { Annotations } from "../coach/annotations";
 import { sessionCapture, sessionMedia } from "@/lib/session-media";
 import { ReportView } from "./report-view";
+import type { CompareReference } from "./evidence-viewer";
 import { CloudSave } from "../cloud/cloud-save";
 import { Trash } from "../icons";
 
@@ -23,7 +24,7 @@ type State =
       obs: CaptureObservation;
       keyframes: Record<number, string>;
       baseline: BaselineComparison[];
-      reference: { obs: CaptureObservation; offset: number; label: string } | null;
+      reference: CompareReference | null;
       remote?: boolean;
     };
 
@@ -51,16 +52,15 @@ export function LocalReport({ id }: { id: string }) {
       const pool = (representative.length >= 6 ? representative : earlier).slice(0, 10).map((a) => a.payload);
       const base = buildBaseline(pool, { version: 1, createdAt: new Date().toISOString() });
       const baseline = compareToBaseline(stored.payload, base);
-      let reference: { obs: CaptureObservation; offset: number; label: string } | null = null;
-      const prev = earlier[0];
-      if (prev) {
+      // Compare: the most recent earlier confirmed defence filmed from the same camera
+      // position by the same-handed batter (otherwise the two can't be laid over each other).
+      let reference: CompareReference | null = null;
+      const prev = earlier.find((a) => a.payload.camera_view === stored.payload.camera_view && a.payload.handedness === stored.payload.handedness);
+      const c1 = stored.payload.events.find((e) => e.type === "contact")?.frame;
+      const c2 = prev?.payload.events.find((e) => e.type === "contact")?.frame;
+      if (prev && c1 !== undefined && c2 !== undefined) {
         const t = await getTracks(prev.id);
-        if (t) {
-          const refObs = await decodeTracks(t);
-          const c1 = stored.payload.events.find((e) => e.type === "contact")?.frame ?? 0;
-          const c2 = prev.payload.events.find((e) => e.type === "contact")?.frame ?? 0;
-          reference = { obs: refObs, offset: c2 - c1, label: prev.title };
-        }
+        if (t) reference = { obs: await decodeTracks(t), payload: prev.payload, label: prev.title, recordedAt: prev.recordedAt, contactSelf: c1, contactRef: c2 };
       }
       if (alive) setState({ kind: "ready", stored, obs, keyframes, baseline, reference });
     })().catch(() => alive && setState({ kind: "missing" }));

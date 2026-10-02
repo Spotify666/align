@@ -7,7 +7,7 @@ import type { BaselineComparison } from "@/engine/baseline";
 import { templateReport, type Report } from "@/engine/report";
 import { SHOT_DISPLAY } from "@/engine/classify";
 import { DOMAIN_LABELS, THRESHOLDS } from "@/engine/registry";
-import { EvidenceViewer, type EvidenceViewerHandle } from "./evidence-viewer";
+import { type CompareReference, EvidenceViewer, type EvidenceViewerHandle } from "./evidence-viewer";
 import { MetricCard } from "./metric-card";
 import { CaptureChecklist, DomainGrid, Limitations, PriorityPlan, ShotProbabilityPanel, Versions } from "./panels";
 import { ConfidenceChip, DemoBadge, STATUS_META, statusKey } from "./status";
@@ -21,7 +21,7 @@ interface Props {
   mediaTimes?: number[] | null;
   keyframes?: Record<number, string>;
   baseline?: BaselineComparison[];
-  reference?: { obs: CaptureObservation; offset: number; label: string } | null;
+  reference?: CompareReference | null;
   narrative?: Report;
   actions?: React.ReactNode;
   /** Shown under the verdict (e.g. an offer to add bat and ball marks). */
