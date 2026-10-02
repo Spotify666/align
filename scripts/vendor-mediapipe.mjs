@@ -22,6 +22,11 @@ const MODELS = [
     url: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
   },
   {
+    // Light pose for scanning a whole clip quickly (posture of the main person).
+    file: "pose_landmarker_lite.task",
+    url: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+  },
+  {
     // Person boxes: finds small or distant batters so pose can run on a crop.
     file: "efficientdet_lite0.tflite",
     url: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite",

@@ -7,7 +7,7 @@
 //   6. Only then: how was it executed?
 // The same observation + engine version always yields the same payload (result_hash).
 
-import { canonicalJson, round, sha256 } from "./math";
+import { canonicalJson, round, sha256, smooth } from "./math";
 import {
   CLASSIFIER_VERSION,
   ENGINE_VERSION,
@@ -21,7 +21,7 @@ import {
 import { FRONTAL_UNGRADED, frontalMetrics } from "./frontal";
 import { assessCapture, bodyCoverage } from "./quality";
 import { buildScene } from "./scene";
-import { segmentEvents } from "./events";
+import { handsSeries, segmentEvents } from "./events";
 import { estimateDelivery } from "./delivery";
 import { extractFeatures } from "./features";
 import { classify, SHOT_DISPLAY, type Classification } from "./classify";
@@ -96,6 +96,7 @@ function statusOf(
   cls: Classification,
   tracking: TrackingSummary,
   contactVisibility: number,
+  contactObserved: number,
 ): { status: AnalysisStatus; reason: string } {
   const p = cls.probabilities;
   const pFfd = p.front_foot_defence;
@@ -105,15 +106,19 @@ function statusOf(
 
   // Rejection may rest on fewer modalities than acceptance (asymmetric gate).
   // Without bat or ball, body and hand evidence may carry the rejection.
-  const rejectCoverage = !tracking.bat.ok || !tracking.ball.ok ? Math.max(cls.ffdCoverage, cls.bodyCoverage) : cls.ffdCoverage;
-  if (pFfd <= th("ffd.reject.max_probability") && nonFfdNamed >= 0.75 && rejectCoverage >= th("ffd.reject.min_evidence_coverage")) {
+  // A shot is decided at contact, so neither verdict is given unless the stroke was seen
+  // there: by the batter's body when it is read from the body alone, otherwise by the body
+  // or the bat.
+  const bodyLed = !tracking.bat.ok || !tracking.ball.ok;
+  const rejectCoverage = bodyLed ? Math.max(cls.ffdCoverage, cls.bodyCoverage) : cls.ffdCoverage;
+  const minSeen = th("ffd.accept_body.min_contact_visibility");
+  const contactSeen = bodyLed ? contactVisibility >= minSeen : contactObserved >= minSeen;
+  if (pFfd <= th("ffd.reject.max_probability") && nonFfdNamed >= 0.75 && rejectCoverage >= th("ffd.reject.min_evidence_coverage") && contactSeen) {
     return { status: "invalid_for_requested_analysis", reason: "different_shot" };
   }
 
-  // Filmed along the pitch some signals are unobservable by geometry (not by tracking
-  // failure); acceptance then demands nearly all of the remaining evidence instead.
-  const frontal = obs.camera.view === "front_on" || obs.camera.view === "behind";
-  const minCoverage = th(frontal ? "ffd.accept.min_evidence_coverage_frontal" : "ffd.accept.min_evidence_coverage");
+  // Coverage already leaves out what a camera position cannot see, so one bar holds.
+  const minCoverage = th("ffd.accept.min_evidence_coverage");
   const accept =
     tracking.body.ok &&
     tracking.bat.ok &&
@@ -122,7 +127,8 @@ function statusOf(
     cls.top === "front_foot_defence" &&
     cls.margin >= th("ffd.accept.min_margin") &&
     p.unknown <= th("ffd.accept.max_unknown") &&
-    cls.ffdCoverage >= minCoverage;
+    cls.ffdCoverage >= minCoverage &&
+    contactSeen;
   if (accept) return { status: "valid", reason: "accepted" };
 
   // Bat or ball not seen (the usual phone clip): the shot may still be confirmed from
@@ -138,11 +144,34 @@ function statusOf(
     cls.bodyCoverage >= th("ffd.accept_body.min_coverage");
   if (acceptBody) return { status: "valid", reason: "accepted_body" };
 
-  if (!tracking.ball.ok) return { status: "uncertain_shot", reason: "ball_missing" };
-  if (!tracking.bat.ok) return { status: "uncertain_shot", reason: "bat_missing" };
+  if (!contactSeen && !bodyLed) return { status: "uncertain_shot", reason: "contact_hidden" };
+  if (!tracking.ball.ok || !tracking.bat.ok) {
+    // Read from the body alone, say why it didn't settle: parts unseen, or not decisive.
+    if (tracking.body.ok && (contactVisibility < th("ffd.accept_body.min_contact_visibility") || cls.bodyCoverage < th("ffd.accept_body.min_coverage")))
+      return { status: "uncertain_shot", reason: "body_hidden" };
+    if (tracking.body.ok) return { status: "uncertain_shot", reason: "body_inconclusive" };
+    return { status: "uncertain_shot", reason: tracking.ball.ok ? "bat_missing" : "ball_missing" };
+  }
   if (cls.ffdCoverage < minCoverage) return { status: "uncertain_shot", reason: "insufficient_evidence" };
   if (p.unknown > th("ffd.accept.max_unknown")) return { status: "uncertain_shot", reason: "out_of_distribution" };
   return { status: "uncertain_shot", reason: "ambiguous" };
+}
+
+/**
+ * Share of frames within ±150 ms of contact where the batter's body or the bat (handle and
+ * toe) is seen (0 without contact). The ball alone shows where contact was, not the stroke.
+ */
+function contactObserved(scene: ReturnType<typeof buildScene>, contact: number | undefined): number {
+  if (contact === undefined || !scene.dt) return 0;
+  const k = Math.max(1, Math.round(0.15 / scene.dt));
+  let seen = 0;
+  let total = 0;
+  for (let i = Math.max(0, contact - k); i <= Math.min(scene.n - 1, contact + k); i++) {
+    total++;
+    const body = (["head", "front_hip", "back_hip", "front_knee", "front_ankle"] as const).every((j) => scene.get(i, j));
+    if (body || (scene.batHandle[i] && scene.batToe[i])) seen++;
+  }
+  return total ? seen / total : 0;
 }
 
 /** Share of frames within ±150 ms of contact where head, hips, front knee and front ankle are all seen (0 without contact). */
@@ -158,7 +187,26 @@ function contactVisibility(scene: ReturnType<typeof buildScene>, contact: number
   return total ? seen / total : 0;
 }
 
+/** Did the batter play a stroke? Hands or front foot must move with some speed or reach. */
+function strokePlayed(scene: ReturnType<typeof buildScene>, stride: number | undefined): boolean {
+  if (!scene.dt || scene.n < 5) return true;
+  const r = Math.max(1, Math.round(0.03 / scene.dt));
+  const u = smooth(handsSeries(scene, "u"), r);
+  const f = smooth(handsSeries(scene, "f"), r);
+  let peak = 0;
+  for (let i = 1; i < scene.n - 1; i++) {
+    const a = i - 1;
+    const b = i + 1;
+    if ([u[a], u[b], f[a], f[b]].every((x) => Number.isFinite(x))) peak = Math.max(peak, Math.hypot(u[b]! - u[a]!, f[b]! - f[a]!) / (2 * scene.dt));
+  }
+  return peak / scene.stature >= th("stroke.min_hand_speed") || (stride ?? 0) >= th("stroke.min_stride");
+}
+
 const UNCERTAIN_TEXT: Record<string, string> = {
+  no_stroke: "no batting stroke was found in the clip",
+  contact_hidden: "the moment the bat meets the ball is hidden, so the shot can't be decided",
+  body_hidden: "without the bat or ball in view the shot is read from the body, and the hands or legs are hidden for too much of the stroke",
+  body_inconclusive: "without the bat or ball in view, the body movement alone fits more than one shot",
   ball_missing: "the ball isn't visible, so the delivery can't be confirmed",
   bat_missing: "the bat isn't tracked, so a defence can't be separated from a drive",
   insufficient_evidence: "too few deciding signals were visible",
@@ -395,8 +443,30 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   const delivery = estimateDelivery(scene, events);
   const features = extractFeatures(scene, events, delivery);
   const frontal = scene.plane === "frontal";
+  // No stroke at all (a still pose, someone standing in front of the camera): say so
+  // instead of naming a shot.
+  if (!strokePlayed(scene, features.values.front_stride)) {
+    return finish({
+      ...base,
+      ...withheld,
+      mode: "video",
+      analysis_status: "uncertain_shot",
+      status_reason: "no_stroke",
+      headline: `We can't confirm a front-foot defence: ${UNCERTAIN_TEXT.no_stroke}.`,
+      observed_shot: null,
+      shot_probabilities: null,
+      classifier: null,
+      delivery: { ...EMPTY_DELIVERY, reason: "No stroke found." },
+      events: [],
+      features: features.list,
+      metrics: [],
+      limitations,
+      recapture: ["Record the whole shot: start before the ball is bowled and stop after the follow-through.", ...recapture],
+      evidence_frames: [],
+    });
+  }
   const cls = classify(features, { frontal, batSeen: tracking.bat.ok, cameraMoving: scene.cameraMoving });
-  const { status, reason } = statusOf(obs, cls, tracking, contactVisibility(scene, events.byType.contact?.frame));
+  const { status, reason } = statusOf(obs, cls, tracking, contactVisibility(scene, events.byType.contact?.frame), contactObserved(scene, events.byType.contact?.frame));
   const bodyLed = status === "valid" && reason === "accepted_body";
   if (bodyLed) {
     const unseen = [!tracking.bat.ok && "bat", !tracking.ball.ok && "ball"].filter(Boolean).join(" and ");
@@ -414,10 +484,13 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   const evidenceFrames = [...new Set(events.list.filter((e) => e.type !== "setup" || events.list.length < 3).map((e) => e.frame))].slice(0, 8);
 
   // A leave is defined by no contact, which needs both bat and ball to observe.
+  // A leave is defined by no contact, and a cut by a horizontal bat: without the bat
+  // (and ball) neither can be named from the body alone.
   const named =
     cls.top !== "unknown" &&
     cls.probabilities[cls.top] >= th("ffd.named_label.min_probability") &&
-    !(cls.top === "leave" && features.values.contact_found === undefined);
+    !(cls.top === "leave" && features.values.contact_found === undefined) &&
+    !(cls.top === "cut" && !tracking.bat.ok);
   const observed =
     status === "invalid_for_requested_analysis"
       ? {
@@ -450,8 +523,11 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
 
   if (status !== "valid") {
     const extraRecapture: string[] = [];
+    if (reason === "body_hidden" || reason === "body_inconclusive")
+      extraRecapture.push("Keep the bat and the ball's path in frame, or film side-on at hip height so the hands and front leg stay visible throughout.");
     if (reason === "ball_missing") extraRecapture.push("Keep the bounce area and the ball's path to the bat in frame.");
     if (reason === "bat_missing") extraRecapture.push("Keep the whole bat in view, or mark the bat handle and toe on three frames.");
+    if (reason === "contact_hidden") extraRecapture.push("Keep the batter, bat and ball in view through the moment of contact.");
     if (reason === "insufficient_evidence" || reason === "ambiguous") extraRecapture.push("Film side-on at hip height with nobody between the camera and the batter.");
     const headline =
       status === "invalid_for_requested_analysis"
@@ -489,7 +565,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
             }
           : m,
       ),
-      ...frontalMetrics(scene, events.byType.contact?.frame, events.byType.backswing_top?.frame, RANGE_SOURCE),
+      ...frontalMetrics(scene, events.byType.contact?.frame, RANGE_SOURCE),
     ];
   }
   const domains = domainResults(metrics);

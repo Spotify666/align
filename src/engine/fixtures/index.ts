@@ -11,7 +11,7 @@ const H = 1.75;
 const setupHands: V3 = [0.98, 0.92, 0.26];
 const setupBat: V3 = [-0.22, -0.97, 0];
 
-export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: number; contactAhead: number; hipDrop: number }> = {}): ShotScript {
+export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: number; contactAhead: number; hipDrop: number; sideLean: number }> = {}): ShotScript {
   const stride = v.stride ?? 0.66;
   const plantF = 1.15 + stride;
   const contactF = plantF + 0.02 + (v.contactAhead ?? 0);
@@ -43,7 +43,9 @@ export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: nu
     ],
     sideLean: [
       [0, 12],
-      [2, 10],
+      [0.5, 12],
+      [0.84, v.sideLean ?? 10],
+      [2, v.sideLean ?? 10],
     ],
     shoulderYaw: [
       [0, 0],
@@ -81,7 +83,7 @@ export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: nu
   };
 }
 
-function driveScript(): ShotScript {
+export function driveScript(): ShotScript {
   const base = ffdScript({ stride: 0.68 });
   const contactF = 1.15 + 0.68 + 0.08;
   return {
@@ -116,7 +118,7 @@ function driveScript(): ShotScript {
   };
 }
 
-function pullScript(): ShotScript {
+export function pullScript(): ShotScript {
   return {
     frontAnkle: [
       [0, [1.15, 0.08, 0]],
@@ -190,7 +192,150 @@ function pullScript(): ShotScript {
   };
 }
 
-function halfDriveScript(): ShotScript {
+/** Back-foot defence: back foot back toward the stumps, tall body, dead bat met at waist-to-chest height. */
+export function bfdScript(): ShotScript {
+  return {
+    frontAnkle: [
+      [0, [1.15, 0.08, 0]],
+      [0.5, [1.15, 0.08, 0]],
+      [0.7, [1.0, 0.12, 0.02]],
+      [0.8, [0.88, 0.08, 0.03]],
+      [2, [0.88, 0.08, 0.03]],
+    ],
+    backAnkle: [
+      [0, [0.75, 0.08, 0]],
+      [0.46, [0.73, 0.08, 0.01]],
+      [0.6, [0.62, 0.12, 0.05]],
+      [0.7, [0.55, 0.08, 0.08]],
+      [2, [0.55, 0.08, 0.08]],
+    ],
+    hipC: [
+      [0, [0.95, 0.88, 0.02]],
+      [0.5, [0.95, 0.88, 0.02]],
+      [0.8, [0.74, 0.93, 0.05]],
+      [2, [0.74, 0.93, 0.05]],
+    ],
+    lean: [
+      [0, 8],
+      [0.5, 8],
+      [0.85, 8],
+      [2, 7],
+    ],
+    sideLean: [
+      [0, 12],
+      [2, 10],
+    ],
+    shoulderYaw: [
+      [0, 0],
+      [0.9, 12],
+      [2, 10],
+    ],
+    hipYaw: [
+      [0, 0],
+      [0.9, 8],
+      [2, 8],
+    ],
+    headFwd: [
+      [0, 0],
+      [0.85, 0.06],
+      [2, 0.05],
+    ],
+    hands: [
+      [0, setupHands],
+      [0.5, setupHands],
+      [0.7, [1.0, 1.22, 0.2]],
+      [0.9, [0.98, 1.1, 0.12]],
+      [1.05, [1.0, 1.1, 0.12]],
+      [2, [1.0, 1.11, 0.12]],
+    ],
+    batDir: [
+      [0, setupBat],
+      [0.5, setupBat],
+      [0.7, [-0.5, 0.84, 0.2]],
+      [0.9, [-0.12, -0.99, 0]],
+      [1.05, [-0.1, -0.99, 0]],
+      [2, [-0.1, -0.99, 0]],
+    ],
+    ball: { releaseT: 0.3, speed: 30, bounceF: 7.6, contactF: 1.05, contactU: 0.9, lateral: 0.05, exit: [1.6, -1.2, 0.2], visible: true },
+  };
+}
+
+/** Square cut: back foot back and across, horizontal bat swung across at chest height to a short, wide ball. */
+export function cutScript(): ShotScript {
+  return {
+    frontAnkle: [
+      [0, [1.15, 0.08, 0]],
+      [0.5, [1.15, 0.08, 0]],
+      [0.7, [1.08, 0.1, 0.12]],
+      [0.8, [1.05, 0.08, 0.16]],
+      [2, [1.05, 0.08, 0.16]],
+    ],
+    backAnkle: [
+      [0, [0.75, 0.08, 0]],
+      [0.46, [0.73, 0.08, 0.02]],
+      [0.6, [0.6, 0.12, 0.2]],
+      [0.7, [0.52, 0.08, 0.34]],
+      [2, [0.52, 0.08, 0.34]],
+    ],
+    hipC: [
+      [0, [0.95, 0.88, 0.02]],
+      [0.5, [0.95, 0.88, 0.02]],
+      [0.76, [0.8, 0.9, 0.24]],
+      [2, [0.8, 0.9, 0.24]],
+    ],
+    lean: [
+      [0, 8],
+      [0.5, 8],
+      [0.85, 6],
+      [2, 4],
+    ],
+    sideLean: [
+      [0, 12],
+      [0.85, 22],
+      [2, 18],
+    ],
+    shoulderYaw: [
+      [0, 0],
+      [0.6, 0],
+      [0.9, 35],
+      [1.05, 55],
+      [2, 50],
+    ],
+    hipYaw: [
+      [0, 0],
+      [0.9, 20],
+      [1.05, 30],
+      [2, 30],
+    ],
+    headFwd: [
+      [0, 0],
+      [2, 0],
+    ],
+    hands: [
+      [0, setupHands],
+      [0.5, setupHands],
+      [0.72, [0.92, 1.45, 0.32]],
+      [0.86, [0.95, 1.2, 0.62]],
+      [0.92, [0.9, 1.12, 0.72]],
+      [1.02, [0.72, 1.18, 0.82]],
+      [1.15, [0.6, 1.3, 0.7]],
+      [2, [0.6, 1.3, 0.68]],
+    ],
+    batDir: [
+      [0, setupBat],
+      [0.5, setupBat],
+      [0.72, [-0.4, 0.88, 0.25]],
+      [0.86, [0.2, -0.3, 0.93]],
+      [0.92, [-0.25, -0.25, 0.94]],
+      [1.02, [-0.7, 0.0, 0.7]],
+      [1.15, [-0.6, 0.6, 0.5]],
+      [2, [-0.6, 0.6, 0.5]],
+    ],
+    ball: { releaseT: 0.3, speed: 31, bounceF: 8.8, contactF: 0.98, contactU: 1.0, lateral: 0.8, exit: [-3, 0.3, 19], visible: true },
+  };
+}
+
+export function halfDriveScript(): ShotScript {
   const base = ffdScript({ stride: 0.62 });
   const contactF = 1.15 + 0.62 + 0.04;
   return {

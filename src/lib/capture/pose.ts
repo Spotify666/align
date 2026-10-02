@@ -108,6 +108,37 @@ export function loadStillPose(): Promise<PL> {
   return imagePose;
 }
 
+let scanPose: Promise<PL> | null = null;
+/** Light pose model for scanning a whole clip: posture only, a few frames per second. */
+export function loadScanPose(): Promise<PL> {
+  if (!scanPose) {
+    scanPose = (async () => {
+      const [{ PoseLandmarker }, f] = await Promise.all([vision(), loadFiles()]);
+      return withDelegate(
+        (d) =>
+          PoseLandmarker.createFromOptions(f, {
+            baseOptions: { modelAssetPath: "/models/pose_landmarker_lite.task", delegate: d },
+            runningMode: "IMAGE",
+            numPoses: 1,
+            minPoseDetectionConfidence: 0.4,
+            minPosePresenceConfidence: 0.4,
+          }),
+        "CPU",
+      );
+    })();
+    scanPose.catch(() => (scanPose = null));
+  }
+  return scanPose;
+}
+
+/**
+ * Start downloading and compiling the on-device models in the background, so analysis
+ * starts at once when a clip is chosen. Safe to call repeatedly; failures retry later.
+ */
+export function warmUp(): void {
+  for (const load of [loadPersonDetector, loadScanPose, loadStillPose]) void load().catch(() => undefined);
+}
+
 export function loadPersonDetector(): Promise<OD> {
   if (!detector) {
     detector = (async () => {

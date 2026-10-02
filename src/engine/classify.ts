@@ -12,134 +12,140 @@ type Band = readonly [lo: number, hi: number, sigma: number, weight: number];
 type Prototype = Partial<Record<FeatureId, Band>>;
 
 // Speeds are in stature/s (6 m/s ≈ 3.4 for a 1.75 m batter).
+// Bands are set from populations of each shot (src/engine/fixtures/population.ts), with a
+// margin: they describe what the shot IS (identity), wide enough for poor technique.
+// How well a defence was played is graded separately against the coaching ranges.
+// Hand and head features are body evidence, read whether or not the bat is tracked.
 export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
   front_foot_defence: {
-    front_stride: [0.22, 0.52, 0.06, 1],
-    back_foot: [-0.05, 0.1, 0.04, 0.8],
-    contact_height: [0.06, 0.44, 0.06, 1.2],
-    hands_height: [0.33, 0.64, 0.06, 0.6],
-    back_knee_height: [0.13, 0.42, 0.05, 0.5],
+    front_stride: [0.15, 0.6, 0.05, 1],
+    back_foot: [-0.07, 0.1, 0.03, 0.8],
+    contact_height: [0, 0.32, 0.05, 1.2],
+    hands_height: [0.4, 0.72, 0.05, 0.6],
+    back_knee_height: [0.12, 0.36, 0.04, 0.5],
     bat_angle: [0, 30, 8, 1.3],
     bat_speed: [0, 3.6, 0.8, 1.2],
-    follow_through: [0, 0.5, 0.15, 1.1],
-    follow_height: [0.05, 0.62, 0.1, 0.8],
-    rotation: [0, 0.38, 0.1, 0.8],
-    length_short: [0, 0.32, 0.15, 1],
-    ball_exit: [0, 4.6, 1.2, 1],
+    follow_through: [0, 1.5, 0.3, 0.4],
+    follow_height: [0.05, 0.38, 0.05, 1.2],
+    rotation: [0, 0.36, 0.08, 0.8],
+    length_short: [0, 0.3, 0.15, 1],
+    ball_exit: [0, 2.8, 0.8, 1],
     contact_found: [0.8, 1, 0.2, 0.6],
-    // Hands stand in for the bat when it isn't tracked.
+    // A dead bat: hands stop at the ball, barely travel after contact and finish low.
     hand_speed: [0, 1.5, 0.35, 1.2],
-    hands_follow: [0, 0.22, 0.07, 1],
-    // A defence finishes with the hands low and checked; higher suggests the bat came through.
-    hands_finish: [0.3, 0.6, 0.05, 1.2],
-    hands_across: [0, 0.22, 0.06, 1],
-    head_height: [0.55, 0.88, 0.04, 1],
+    hands_follow: [0, 0.2, 0.04, 1.2],
+    hands_finish: [0.3, 0.66, 0.04, 1.2],
+    hands_across: [0, 0.2, 0.05, 1],
+    head_height: [0.55, 0.92, 0.025, 1],
+    // Dead bat: the hands don't rise after contact (tolerance for real-world settling).
+    hands_rise: [-0.08, 0.07, 0.03, 1.4],
   },
+  // Every front-foot stroke where the bat goes through the ball, from a push to a full drive.
   front_foot_drive: {
-    front_stride: [0.22, 0.56, 0.06, 1],
-    back_foot: [-0.05, 0.12, 0.04, 0.8],
-    contact_height: [0.04, 0.44, 0.06, 1.2],
-    hands_height: [0.33, 0.68, 0.06, 0.6],
+    front_stride: [0.2, 0.62, 0.06, 1],
+    back_foot: [-0.07, 0.12, 0.04, 0.8],
+    contact_height: [0, 0.4, 0.06, 1.2],
+    hands_height: [0.3, 0.8, 0.06, 0.4],
     back_knee_height: [0.1, 0.42, 0.05, 0.5],
-    bat_angle: [0, 42, 8, 1.3],
-    bat_speed: [5.5, 20, 1.2, 1.3],
-    follow_through: [0.85, 4, 0.25, 1.3],
-    follow_height: [0.8, 1.6, 0.12, 0.8],
-    rotation: [0.05, 0.5, 0.1, 0.8],
+    bat_angle: [0, 60, 8, 0.8],
+    bat_speed: [3, 20, 0.8, 1.3],
+    follow_through: [0.3, 4, 0.25, 0.8],
+    follow_height: [0.42, 1.6, 0.05, 1.2],
+    rotation: [0, 0.65, 0.1, 0.6],
     length_short: [0, 0.32, 0.15, 1],
-    ball_exit: [8, 30, 2, 1.2],
+    ball_exit: [3.2, 30, 1, 1],
     contact_found: [0.8, 1, 0.2, 0.6],
-    // Hands stand in for the bat when it isn't tracked.
-    hand_speed: [2.2, 14, 0.6, 1.2],
-    hands_follow: [0.25, 3, 0.07, 1],
-    hands_finish: [0.85, 1.6, 0.08, 1.2],
-    hands_across: [0, 0.45, 0.08, 0.6],
-    head_height: [0.55, 0.9, 0.04, 1],
+    hand_speed: [0, 14, 0.6, 0.3],
+    hands_follow: [0.22, 3, 0.05, 0.6],
+    hands_finish: [0.64, 1.6, 0.04, 1.2],
+    hands_across: [0, 0.3, 0.06, 0.6],
+    head_height: [0.6, 0.92, 0.03, 1],
+    hands_rise: [0.1, 1.2, 0.04, 1.2],
   },
   back_foot_defence: {
-    front_stride: [-0.06, 0.12, 0.05, 1],
-    back_foot: [-0.35, -0.06, 0.04, 1],
-    contact_height: [0.36, 0.78, 0.06, 1.2],
-    hands_height: [0.5, 0.82, 0.06, 0.6],
-    back_knee_height: [0.18, 0.45, 0.05, 0.5],
+    front_stride: [-0.1, 0.16, 0.05, 1],
+    back_foot: [-0.3, -0.06, 0.04, 1],
+    contact_height: [0.3, 0.7, 0.06, 1.2],
+    hands_height: [0.45, 0.92, 0.06, 0.6],
+    back_knee_height: [0.2, 0.45, 0.05, 0.5],
     bat_angle: [0, 30, 8, 1.3],
     bat_speed: [0, 3.6, 0.8, 1.2],
-    follow_through: [0, 0.5, 0.15, 1.1],
-    follow_height: [0.3, 0.85, 0.1, 0.8],
-    rotation: [0, 0.38, 0.1, 0.8],
-    length_short: [0.5, 1, 0.15, 1],
-    ball_exit: [0, 4.6, 1.2, 1],
+    follow_through: [0, 1.8, 0.3, 0.4],
+    follow_height: [0.3, 0.7, 0.06, 1],
+    rotation: [0, 0.35, 0.1, 0.8],
+    length_short: [0, 1, 0.15, 0.3],
+    ball_exit: [0, 2.8, 0.8, 1],
     contact_found: [0.8, 1, 0.2, 0.6],
-    // Hands stand in for the bat when it isn't tracked.
     hand_speed: [0, 1.5, 0.35, 1.2],
-    hands_follow: [0, 0.22, 0.07, 1],
-    hands_finish: [0.45, 0.85, 0.06, 1],
-    hands_across: [0, 0.22, 0.06, 1],
-    head_height: [0.86, 1.02, 0.04, 1],
+    hands_follow: [0, 0.2, 0.04, 1.2],
+    hands_finish: [0.55, 0.95, 0.04, 1],
+    hands_across: [0, 0.2, 0.05, 1],
+    head_height: [0.9, 1.05, 0.025, 1],
+    hands_rise: [-0.08, 0.4, 0.04, 0.3],
   },
   pull: {
-    front_stride: [-0.1, 0.2, 0.06, 0.8],
-    back_foot: [-0.35, 0.02, 0.05, 0.8],
-    contact_height: [0.52, 0.78, 0.06, 1.3],
-    hands_height: [0.5, 0.74, 0.06, 0.6],
-    back_knee_height: [0.18, 0.45, 0.05, 0.5],
+    front_stride: [-0.1, 0.22, 0.05, 0.8],
+    back_foot: [-0.35, 0, 0.05, 0.8],
+    contact_height: [0.6, 0.85, 0.06, 1.3],
+    hands_height: [0.45, 0.8, 0.06, 0.6],
+    back_knee_height: [0.2, 0.42, 0.05, 0.5],
     bat_angle: [55, 90, 10, 1.4],
-    bat_speed: [5, 20, 1.2, 1.2],
-    follow_through: [0.7, 4, 0.25, 1],
-    follow_height: [0.88, 1.5, 0.1, 1],
-    rotation: [0.42, 1, 0.1, 1],
+    bat_speed: [1.5, 20, 1, 1],
+    follow_through: [0.5, 4, 0.25, 1],
+    follow_height: [1.0, 1.5, 0.1, 1],
+    rotation: [0.2, 1, 0.1, 0.6],
     length_short: [0.55, 1, 0.15, 1.2],
-    // Side-on view: square-of-wicket exits are mostly out of plane, so 2D exit speed is uninformative.
+    // Side-on, square-of-wicket exits are mostly out of plane: 2D exit speed is uninformative.
     ball_exit: [0, 30, 2, 0.2],
     contact_found: [0.8, 1, 0.2, 0.6],
-    // Hands stand in for the bat when it isn't tracked.
     hand_speed: [0, 14, 0.6, 0.3],
-    hands_follow: [0, 3, 0.1, 0.3],
-    hands_finish: [0.75, 1.5, 0.08, 1],
+    hands_follow: [0.4, 3, 0.07, 1],
+    hands_finish: [0.78, 1.6, 0.05, 1],
     hands_across: [0.35, 2, 0.08, 1],
-    head_height: [0.88, 1.05, 0.04, 1],
+    head_height: [0.9, 1.06, 0.03, 1],
+    hands_rise: [0.15, 0.6, 0.05, 1],
   },
   hook: {
-    front_stride: [-0.1, 0.2, 0.06, 0.8],
-    back_foot: [-0.35, 0.02, 0.05, 0.8],
+    front_stride: [-0.1, 0.22, 0.05, 0.8],
+    back_foot: [-0.35, 0, 0.05, 0.8],
     contact_height: [0.8, 1.25, 0.06, 1.3],
     hands_height: [0.76, 1.15, 0.06, 0.8],
     back_knee_height: [0.18, 0.45, 0.05, 0.5],
     bat_angle: [50, 90, 10, 1.4],
-    bat_speed: [5, 20, 1.2, 1.2],
-    follow_through: [0.7, 4, 0.25, 1],
-    follow_height: [0.95, 1.6, 0.1, 1],
-    rotation: [0.42, 1, 0.1, 1],
+    bat_speed: [1.5, 20, 1, 1],
+    follow_through: [0.5, 4, 0.25, 1],
+    follow_height: [1.0, 1.6, 0.1, 1],
+    rotation: [0.2, 1, 0.1, 0.6],
     length_short: [0.65, 1, 0.15, 1.2],
     ball_exit: [0, 30, 2, 0.2],
     contact_found: [0.8, 1, 0.2, 0.6],
-    // Hands stand in for the bat when it isn't tracked.
     hand_speed: [0, 14, 0.6, 0.3],
-    hands_follow: [0, 3, 0.1, 0.3],
-    hands_finish: [0.85, 1.6, 0.08, 1],
+    hands_follow: [0.4, 3, 0.07, 1],
+    hands_finish: [0.85, 1.6, 0.05, 1],
     hands_across: [0.35, 2, 0.08, 1],
-    head_height: [0.88, 1.08, 0.04, 1],
+    head_height: [0.9, 1.08, 0.03, 1],
+    hands_rise: [0.15, 0.7, 0.05, 1],
   },
   cut: {
-    front_stride: [-0.08, 0.22, 0.06, 0.8],
-    back_foot: [-0.3, 0.02, 0.05, 0.8],
-    contact_height: [0.4, 0.76, 0.06, 1.2],
-    hands_height: [0.45, 0.8, 0.06, 0.6],
-    back_knee_height: [0.18, 0.45, 0.05, 0.5],
+    front_stride: [-0.1, 0.2, 0.05, 0.8],
+    back_foot: [-0.3, 0, 0.05, 0.8],
+    contact_height: [0.4, 0.68, 0.05, 1.2],
+    hands_height: [0.45, 0.92, 0.06, 0.6],
+    back_knee_height: [0.2, 0.4, 0.05, 0.5],
     bat_angle: [45, 90, 10, 1.3],
-    bat_speed: [5, 20, 1.2, 1.2],
+    bat_speed: [3, 20, 1, 1],
     follow_through: [0.6, 4, 0.25, 1],
-    follow_height: [0.05, 0.62, 0.1, 1],
-    rotation: [0.15, 0.7, 0.1, 0.8],
-    length_short: [0.4, 1, 0.15, 1],
+    follow_height: [0.8, 1.4, 0.1, 1],
+    rotation: [0, 1, 0.1, 0.2],
+    length_short: [0.05, 0.62, 0.12, 1],
     ball_exit: [0, 30, 2, 0.2],
     contact_found: [0.8, 1, 0.2, 0.6],
-    // Hands stand in for the bat when it isn't tracked.
     hand_speed: [0, 14, 0.6, 0.3],
-    hands_follow: [0, 3, 0.1, 0.3],
-    hands_finish: [0.4, 1.0, 0.08, 0.8],
-    hands_across: [0.35, 2, 0.08, 1],
-    head_height: [0.8, 1.02, 0.04, 0.8],
+    hands_follow: [0.4, 3, 0.07, 1.2],
+    hands_finish: [0.74, 1.1, 0.04, 1],
+    hands_across: [0.4, 2, 0.08, 1],
+    head_height: [0.88, 1.02, 0.03, 1],
+    hands_rise: [0, 0.5, 0.05, 0.3],
   },
   sweep: {
     front_stride: [0.2, 0.6, 0.06, 0.8],
@@ -155,12 +161,12 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     length_short: [0, 0.4, 0.15, 1],
     ball_exit: [4, 30, 2, 0.8],
     contact_found: [0.8, 1, 0.2, 0.6],
-    // Hands stand in for the bat when it isn't tracked.
     hand_speed: [1.5, 14, 0.6, 0.6],
     hands_follow: [0.2, 3, 0.08, 0.6],
     hands_finish: [0.1, 0.6, 0.08, 0.8],
     hands_across: [0.3, 2, 0.08, 0.8],
     head_height: [0.25, 0.62, 0.05, 1],
+    hands_rise: [0, 0.6, 0.05, 0.3],
   },
   leave: {
     front_stride: [-0.12, 0.5, 0.06, 0.4],
@@ -174,6 +180,7 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     hands_finish: [0.75, 1.4, 0.08, 1.2],
     hands_across: [0, 0.3, 0.08, 0.6],
     head_height: [0.85, 1.05, 0.05, 0.6],
+    hands_rise: [-0.05, 0.5, 0.05, 0.3],
   },
 };
 
@@ -197,10 +204,21 @@ export const SHOT_DISPLAY: Record<ShotClass, string> = {
 
 const TIMING_FEATURES: FeatureId[] = ["follow_through", "hand_speed"];
 
-/** Body and hand stand-ins: only computed when the bat isn't tracked, so never part of the full-evidence coverage. */
-export const HAND_FEATURES: FeatureId[] = ["hand_speed", "hands_follow", "hands_finish", "hands_across", "head_height"];
-/** Filmed along the pitch these come from the monocular 3D estimate, which understates depth: wider tolerance. */
-const FRONTAL_ESTIMATED: FeatureId[] = ["front_stride", "rotation"];
+/** Hand and head signals: not part of the full-evidence coverage (which predates them), always part of body coverage. */
+export const HAND_FEATURES: FeatureId[] = ["hand_speed", "hands_follow", "hands_finish", "hands_across", "head_height", "hands_rise"];
+/**
+ * Filmed along the pitch, front-foot travel comes from the monocular 3D estimate, which
+ * understates depth. That bias can only make a defence look less like a front-foot shot
+ * (toward "uncertain", never toward a false acceptance), so it counts, with a wider
+ * tolerance.
+ */
+const FRONTAL_ESTIMATED: FeatureId[] = ["front_stride"];
+/**
+ * Trunk rotation filmed along the pitch rests on the estimated depth of the shoulders,
+ * whose error on real footage has no known direction (it reads far beyond anything a
+ * sound body produces), so it never decides which shot was played there. Still reported.
+ */
+const FRONTAL_UNRELIABLE: FeatureId[] = ["rotation"];
 const BAT_FEATURES: FeatureId[] = ["bat_angle", "bat_speed", "follow_through", "follow_height"];
 const BALL_FEATURES: FeatureId[] = ["length_short", "ball_exit", "contact_found", "contact_height"];
 /** Unobservable by geometry when filmed along the pitch (left out, never estimated). */
@@ -251,7 +269,7 @@ export function classify(fs: FeatureSet, opts: { frontal?: boolean; batSeen?: bo
     let sum = 0;
     for (const [fid, band] of Object.entries(PROTOTYPES[cls]) as Array<[FeatureId, Band]>) {
       const x = fs.values[fid];
-      if (x === undefined) continue;
+      if (x === undefined || (opts.frontal && FRONTAL_UNRELIABLE.includes(fid))) continue;
       const coarse = fs.coarseTiming && TIMING_FEATURES.includes(fid);
       const l = bandLogLik(x, band, coarse, opts.frontal && FRONTAL_ESTIMATED.includes(fid) ? 1.6 : 1);
       sum += l;
@@ -259,6 +277,9 @@ export function classify(fs: FeatureSet, opts: { frontal?: boolean; batSeen?: bo
     }
     ll[cls] = sum;
   }
+  // A leave is defined by not playing at the ball: without bat–ball evidence it isn't a
+  // candidate (its body cues alone, hands held high, are shared with other strokes).
+  if (fs.values.contact_found === undefined) ll.leave = -Infinity;
   ll.unknown = th("classifier.unknown_log_likelihood");
 
   const T = th("classifier.temperature");
@@ -278,16 +299,18 @@ export function classify(fs: FeatureSet, opts: { frontal?: boolean; batSeen?: bo
   let bodySeen = 0;
   const batSeen = opts.batSeen ?? BAT_FEATURES.some((f) => fs.values[f] !== undefined);
   for (const [fid, band] of Object.entries(ffd) as Array<[FeatureId, Band]>) {
+    // Coverage counts only what this camera position can measure: geometry is not a
+    // tracking failure, so one coverage bar holds for every view.
+    if (opts.frontal && (FRONTAL_UNSEEN.includes(fid) || FRONTAL_UNRELIABLE.includes(fid))) continue;
     if (!HAND_FEATURES.includes(fid)) {
       total += band[3];
       if (fs.values[fid] !== undefined) seen += band[3];
     }
     const expected =
       !BALL_FEATURES.includes(fid) &&
-      !(opts.frontal && FRONTAL_UNSEEN.includes(fid)) &&
       !(!opts.frontal && fid === "hands_across") &&
       !(opts.cameraMoving && fid === "back_foot") &&
-      (batSeen ? !HAND_FEATURES.includes(fid) : !BAT_FEATURES.includes(fid));
+      (batSeen || !BAT_FEATURES.includes(fid));
     if (expected) {
       bodyTotal += band[3];
       if (fs.values[fid] !== undefined) bodySeen += band[3];

@@ -33,10 +33,13 @@ export function handsForward(scene: Scene, anchor: number, r = 1) {
   const dt = scene.dt;
   const hf = smooth(handsSeries(scene, "f"), r);
   const hu = smooth(handsSeries(scene, "u"), r);
+  // Over a fixed ±20 ms, so speed means the same at 30 and 240 fps (frame-to-frame
+  // differences at high frame rates are mostly landmark jitter).
+  const h = Math.max(1, Math.round(0.02 / dt));
   const speed = hf.map((_, i) => {
-    const a = i - 1;
-    const b = i + 1;
-    return Number.isFinite(hf[a]!) && Number.isFinite(hf[b]!) ? Math.hypot(hf[b]! - hf[a]!, hu[b]! - hu[a]!) / (2 * dt) : NaN;
+    const a = i - h;
+    const b = i + h;
+    return Number.isFinite(hf[a]!) && Number.isFinite(hf[b]!) ? Math.hypot(hf[b]! - hf[a]!, hu[b]! - hu[a]!) / (2 * h * dt) : NaN;
   });
   const from = Math.max(0, anchor - Math.round(0.2 / dt));
   const at = argmax(hf, from, Math.min(scene.n - 1, anchor + Math.round(0.45 / dt)));
@@ -180,27 +183,51 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
     contactConf = 0.7;
   }
 
-  // Neither bat nor ball: a front-foot stroke meets the ball with the head at its lowest
-  // over the front knee, and impact checks the hands. Contact is where hand speed first
-  // drops below 40% of its downswing peak, around the lowest head in the shot (searched
-  // away from the clip's edges, where batters bend to pick up the ball or walk off).
+  // Neither bat nor ball: every stroke has a downswing, a fall of the hands from the top
+  // of the backlift (within 0.6 s), and the ball is met at its end: where the hands check
+  // (speed below 40% of the downswing peak: a defence) or the bottom of their arc (a
+  // stroke that swings through), whichever comes first. When the head clearly drops (a
+  // front-foot stroke takes it down over the front knee) the stroke's downswing is the one
+  // ending as the head arrives low; trigger movements and re-grips are falls of the hands
+  // too. Searched away from the clip's edges, where batters bend to pick up the ball or
+  // walk off.
   const hasToeEarly = scene.batToe.filter(Boolean).length > scene.n * 0.4;
   if (contact < 0 && !hasToeEarly && !hasBall) {
+    const lo = Math.round(scene.n * 0.2);
+    const hi = Math.round(scene.n * 0.9);
     const headU = smooth(series(scene, (i) => scene.get(i, "head"), "u"), 2 * r);
-    const low = argmin(headU, Math.round(scene.n * 0.2), Math.round(scene.n * 0.9));
-    const fwd = low >= 0 ? handsForward(scene, low, r) : null;
-    if (fwd) {
-      const from = Math.max(0, low - Math.round(0.3 / dt));
-      const to = Math.min(scene.n - 1, low + Math.round(0.15 / dt));
-      const peak = argmax(fwd.speed, from, to);
-      const drop = peak >= 0 ? firstIndex(fwd.speed, (v) => v < 0.4 * fwd.speed[peak]!, peak, to) : -1;
-      contact = drop >= 0 ? drop : low;
-      contactMethod = "estimated from the head and hands (bat and ball not seen)";
+    const lowest = argmin(headU, lo, hi);
+    const tall = headU.filter(Number.isFinite).sort((a, b) => a - b);
+    const standing = tall.length ? tall[Math.floor(tall.length * 0.9)]! : NaN;
+    const headDrop = lowest >= 0 ? standing - headU[lowest]! : 0;
+    const arrive = headDrop >= 0.05 * S ? firstIndex(headU, (v) => v <= headU[lowest]! + 0.25 * headDrop, lo, hi) : -1;
+    const [jFrom, jTo] = arrive >= 0 ? [Math.max(lo, arrive - Math.round(0.3 / dt)), Math.min(hi, arrive + Math.round(0.3 / dt))] : [lo, hi];
+    const hands = handsForward(scene, lo, r);
+    let top = -1;
+    let bottom = -1;
+    if (hands) {
+      const w = Math.round(0.6 / dt);
+      let best = 0.05 * S; // smaller falls are stance shuffles, not a downswing
+      for (let j = jFrom; j <= jTo; j++) {
+        if (!Number.isFinite(hands.hu[j]!)) continue;
+        for (let i = Math.max(0, j - w); i < j; i++)
+          if (Number.isFinite(hands.hu[i]!) && hands.hu[i]! - hands.hu[j]! > best) {
+            best = hands.hu[i]! - hands.hu[j]!;
+            top = i;
+            bottom = j;
+          }
+      }
+    }
+    if (hands && top >= 0) {
+      const peak = argmax(hands.speed, top, bottom);
+      const drop = peak >= 0 ? firstIndex(hands.speed, (v) => v < 0.4 * hands.speed[peak]!, peak, bottom) : -1;
+      contact = drop >= 0 ? Math.min(drop, bottom) : bottom;
+      contactMethod = "estimated from the hands' downswing (bat and ball not seen)";
       contactConf = 0.5;
-    } else if (low >= 0) {
-      contact = low;
+    } else if (arrive >= 0 || lowest >= 0) {
+      contact = arrive >= 0 ? arrive : lowest;
       contactMethod = "estimated from the lowest head position (bat and ball not seen)";
-      contactConf = 0.5;
+      contactConf = 0.4;
     }
   }
 

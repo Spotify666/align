@@ -74,8 +74,10 @@ describe("2. pull shot submitted as front-foot defence", () => {
   it("shows the evidence behind the decision", () => {
     const ev = p.observed_shot!.evidence_ids;
     expect(ev.length).toBeGreaterThanOrEqual(3);
-    expect(ev).toEqual(expect.arrayContaining(["feat_contact_height", "feat_length_short"]));
+    // Evidence from each modality seen: ball, bat and body.
+    expect(ev.some((id) => ["feat_contact_height", "feat_length_short", "feat_ball_exit"].includes(id))).toBe(true);
     expect(ev.some((id) => ["feat_bat_angle", "feat_bat_speed", "feat_follow_height", "feat_follow_through"].includes(id))).toBe(true);
+    expect(ev.some((id) => ["feat_hands_rise", "feat_hands_finish", "feat_head_height", "feat_back_foot", "feat_rotation"].includes(id))).toBe(true);
   });
 });
 
