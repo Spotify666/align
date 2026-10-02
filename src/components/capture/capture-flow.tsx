@@ -130,6 +130,9 @@ export function CaptureFlow() {
   const [tracking, setTracking] = useState<TrackingResult | null>(null);
   const [marks, setMarks] = useState<Marks>(EMPTY_MARKS);
   const [photoMode, setPhotoMode] = useState(false);
+  // Photos with two batter-like people: the set being picked from, and its shape.
+  const photoRes = useRef<{ res: PhotoLoad; at: number } | null>(null);
+  const [photoAspect, setPhotoAspect] = useState<number | null>(null);
   const [stages, setStages] = useState<Partial<Record<StageKey, StageState>>>({});
   const [notes, setNotes] = useState<Partial<Record<StageKey, string>>>({});
   const [error, setError] = useState<{ title: string; body: string } | null>(null);
@@ -509,7 +512,13 @@ export function CaptureFlow() {
       const startRoi = () => roiAround(c ? (boxAt(c, w.start, 1) ?? c.box) : { x: 0, y: 0, w: 1, h: 1 }, a, 0.32);
       const follower = new Follower(c ? (boxAt(c, w.start, 1) ?? c.box) : { x: 0, y: 0, w: 1, h: 1 }, a);
       const qEvery = Math.max(1, Math.round(count / 24));
-      let prevHip: [number, number] | null = null;
+      // Start from where the chosen batter's hips are, so the first frame can't lock onto
+      // someone else in the crop (the keeper right behind).
+      const seedHip = (): [number, number] | null => {
+        const b = c ? (boxAt(c, w.start, 1) ?? c.box) : null;
+        return b ? [b.x + b.w / 2, b.y + b.h * 0.55] : null;
+      };
+      let prevHip: [number, number] | null = seedHip();
       let seen = 0;
       let done = 0;
       // Some phones' GPU path loads but returns nothing: after 12 empty frames, start again on the CPU path.
@@ -537,7 +546,7 @@ export function CaptureFlow() {
         if (done % 4 === 0) setProgress({ done, total: count });
       };
       const reset = () => {
-        [out.body, out.depth, out.quality, out.t, world.length, seen, done, prevHip] = [[], [], [], [], 0, 0, 0, null];
+        [out.body, out.depth, out.quality, out.t, world.length, seen, done, prevHip] = [[], [], [], [], 0, 0, 0, seedHip()];
         follower.roi = startRoi();
       };
       const pass = async () => {
@@ -639,16 +648,37 @@ export function CaptureFlow() {
           : fail("No batter found", "We couldn't see a person in the photo. Use a photo with the whole batter in frame, head to feet, not too far away.");
       }
       stage("batter", "done", found === res.items.length ? "Found in every photo" : `Found in ${found} of ${res.items.length}`);
-      const g = guessView(res.items.map((i) => i.frame), profile.handedness);
-      const choice: ViewChoice = g && (g.view === "front_on" || g.view === "behind") ? g.view : "side_on";
-      stage("camera", "done", `${VIEW_TEXT[choice][0]!.toUpperCase()}${VIEW_TEXT[choice].slice(1)}`);
-      await analysePhotos(res, choice, g?.bowlerSide ?? "right");
+      await continuePhotos(res);
     } catch (e) {
       if (id === run.current) fail("Couldn't read the photos", e instanceof Error ? e.message : "The on-device vision model failed to load. Check your connection and try again.");
     }
   }
 
-  async function analysePhotos(photos: PhotoLoad, v: ViewChoice, side: "left" | "right") {
+  /** Ask who bats in any photo where two people look alike; then analyse. */
+  async function continuePhotos(res: PhotoLoad) {
+    const at = res.items.findIndex((i) => i.frame && i.ambiguous);
+    if (at >= 0) {
+      const it = res.items[at]!;
+      photoRes.current = { res, at };
+      setPhotoAspect(res.width / res.height);
+      setStill(it.canvas.toDataURL("image/jpeg", 0.85));
+      setCands(it.options.map((o) => ({ box: o.box, persistence: 1, extent: o.box, bat: 0, track: [] })));
+      setBatter(0);
+      stage("batter", "active", res.items.length > 1 ? `Photo ${at + 1}: two people look alike` : "Two people look alike");
+      setPhase("batter");
+      return;
+    }
+    photoRes.current = null;
+    const g = guessView(res.items.map((i) => i.frame), profile.handedness);
+    const choice: ViewChoice = g && (g.view === "front_on" || g.view === "behind") ? g.view : "side_on";
+    // Not clearly square-on: the stride and lean run partly toward the camera and read short,
+    // so the photo is treated as taken at an angle (posture shown, not graded).
+    const angled = !g || (g.view === "side_on" && !g.confident);
+    stage("camera", "done", angled ? "At an angle, not square side-on" : `${VIEW_TEXT[choice][0]!.toUpperCase()}${VIEW_TEXT[choice].slice(1)}`);
+    await analysePhotos(res, angled ? "oblique" : choice, g?.bowlerSide ?? "right");
+  }
+
+  async function analysePhotos(photos: PhotoLoad, v: ViewChoice | "oblique", side: "left" | "right") {
     const use = photos.items.filter((i) => i.frame);
     const sampler = new FrameQualitySampler(photos.width / photos.height);
     const keyframes: Record<number, Blob> = {};
@@ -973,16 +1003,26 @@ export function CaptureFlow() {
 
             {phase === "batter" && still && (
               <>
-                <BatterPicker image={still} aspect={aspect} candidates={cands} selected={batter} onSelect={(i) => { setBatter(i); job.current.batter = i; }} />
+                <BatterPicker image={still} aspect={photoMode && photoAspect ? photoAspect : aspect} candidates={cands} selected={batter} onSelect={(i) => { setBatter(i); job.current.batter = i; }} />
                 <div className="flex flex-wrap gap-3">
                   <button
                     className="btn btn-primary w-full sm:w-auto"
                     onClick={() => {
                       stage("batter", "done", "The person you picked");
+                      const pick = photoRes.current;
+                      if (photoMode && pick) {
+                        // Analyse the chosen person's skeleton (read for their box), then any other unclear photo.
+                        const it = pick.res.items[pick.at]!;
+                        const o = it.options[batter] ?? it.options[0]!;
+                        Object.assign(it, { frame: o.frame, batter: o.box, ambiguous: false });
+                        setPhase("working");
+                        void continuePhotos(pick.res).catch((e) => fail("Analysis failed", e instanceof Error ? e.message : "Something went wrong while preparing the report."));
+                        return;
+                      }
                       resume("camera");
                     }}
                   >
-                    Follow this person
+                    {photoMode ? "Analyse this person" : "Follow this person"}
                   </button>
                 </div>
               </>

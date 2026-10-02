@@ -192,6 +192,60 @@ export function loadStillPoseGpu(): Promise<PL | null> {
   return imagePoseGpu;
 }
 
+/**
+ * Whether a skeleton belongs to the person in `box`: most of its confidently seen joints,
+ * and the middle of the hips, inside their box (with a little slack). A crop around one
+ * person often holds another (the keeper right behind the batter), and the model can lock
+ * onto either.
+ */
+export function ownsBox(frame: PoseFrame, box: Roi): boolean {
+  const pts = frame.body.filter((p): p is NonNullable<ImgPoint> => !!p && p[2] >= 0.5);
+  if (pts.length < 6) return false;
+  const sx = box.w * 0.15;
+  const sy = box.h * 0.1;
+  const inside = (x: number, y: number) => x >= box.x - sx && x <= box.x + box.w + sx && y >= box.y - sy && y <= box.y + box.h + sy;
+  const share = pts.filter((p) => inside(p[0], p[1])).length / pts.length;
+  const lh = frame.body[J.left_hip];
+  const rh = frame.body[J.right_hip];
+  const hipIn = lh && rh ? inside((lh[0] + rh[0]) / 2, (lh[1] + rh[1]) / 2) : false;
+  // A real skeleton spans its person: one squashed into a corner of the box is a misread.
+  const ys = pts.map((p) => p[1]);
+  const spans = Math.max(...ys) - Math.min(...ys) >= 0.5 * box.h;
+  return share >= 0.75 && hipIn && spans;
+}
+
+const overlaps = (a: Roi, b: Roi) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+/**
+ * Pose of one particular person in a still. The crop around them is read first; if the
+ * skeleton turns out to be someone else's, everyone else in the crop is greyed out and it
+ * is read again, so the model can only see this person.
+ */
+export function detectPerson(pose: PL, source: HTMLCanvasElement, target: Box, people: Box[]): { frame: PoseFrame; owned: boolean } {
+  const roi = roiAround(target, source.width / source.height, 0.3);
+  // Prefer the skeleton whose hips sit where this person's would.
+  const seed: [number, number] = [target.x + target.w / 2, target.y + target.h * 0.55];
+  const first = toFrame(pose.detect(crop(source, roi)), roi, seed);
+  if (ownsBox(first, target)) return { frame: first, owned: true };
+  const others = people.filter((o) => o !== target && overlaps(o, roi));
+  if (!others.length) return { frame: first, owned: false };
+  const c = crop(source, roi);
+  const ctx = c.getContext("2d")!;
+  const toCrop = (b: Roi) => ({ x: ((b.x - roi.x) / roi.w) * c.width, y: ((b.y - roi.y) / roi.h) * c.height, w: (b.w / roi.w) * c.width, h: (b.h / roi.h) * c.height });
+  ctx.fillStyle = "#7f7f7f";
+  for (const o of others) {
+    const r = toCrop(o);
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+  }
+  // Where the boxes overlap, this person stays visible.
+  const t = toCrop(target);
+  const W = source.width;
+  const H = source.height;
+  ctx.drawImage(source, target.x * W, target.y * H, target.w * W, target.h * H, t.x, t.y, t.w, t.h);
+  const second = toFrame(pose.detect(c), roi, seed);
+  return { frame: second, owned: ownsBox(second, target) };
+}
+
 /** Still pose on raw pixels (ImageData), bypassing canvas-to-GPU sharing. */
 export function detectStillPixels(pose: PL, source: HTMLCanvasElement): PoseFrame {
   const data = source.getContext("2d")!.getImageData(0, 0, source.width, source.height);
@@ -477,10 +531,16 @@ export function batterLikeness(body: ImgPoint[], aspect: number, bats: Box[] = [
   const rw = g(J.right_wrist);
   const ls = g(J.left_shoulder);
   const rs = g(J.right_shoulder);
-  let hands = 0.5;
-  if (lw && rw && ls && rs) {
-    const r = dist(lw, rw) / Math.max(1e-3, dist(ls, rs));
-    hands = r < 0.9 ? 1 : r < 1.6 ? 0.55 : 0.25;
+  // Hands together on a handle: the wrists within about half a trunk length (shoulders to
+  // hips; shoulder width collapses when the batter is side-on). A hidden hand says nothing
+  // either way: a batter's bottom hand is often behind the bat.
+  let hands = 0.75;
+  const lhip = g(J.left_hip);
+  const rhip = g(J.right_hip);
+  if (lw && rw && ls && rs && lhip && rhip) {
+    const mid = (a: NonNullable<ImgPoint>, b: NonNullable<ImgPoint>): NonNullable<ImgPoint> => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 1];
+    const r = dist(lw, rw) / Math.max(1e-3, dist(mid(ls, rs), mid(lhip, rhip)));
+    hands = r < 0.45 ? 1 : r < 0.9 ? 0.55 : 0.25;
   }
   let crouch = 1;
   const nose = g(J.nose);
@@ -491,6 +551,24 @@ export function batterLikeness(body: ImgPoint[], aspect: number, bats: Box[] = [
     const ankY = Math.max(...ank.map((p) => p[1]));
     const ratio = (ankY - (lh[1] + rh[1]) / 2) / Math.max(1e-3, ankY - nose[1]);
     if (ratio < 0.3) crouch = 0.35;
+  }
+  // The keeper's (and close fielders') ready position: both knees well bent and splayed
+  // wider than the hips. A batter's stance and strokes never look like that: in a stride
+  // the back leg is long, in the stance the knees are only flexed.
+  const lk = g(J.left_knee);
+  const rk = g(J.right_knee);
+  const la = g(J.left_ankle);
+  const ra = g(J.right_ankle);
+  if (lh && rh && lk && rk && la && ra) {
+    const angle = (h: NonNullable<ImgPoint>, k: NonNullable<ImgPoint>, a: NonNullable<ImgPoint>) => {
+      const v1 = [(h[0] - k[0]) * aspect, h[1] - k[1]];
+      const v2 = [(a[0] - k[0]) * aspect, a[1] - k[1]];
+      const c = (v1[0]! * v2[0]! + v1[1]! * v2[1]!) / Math.max(1e-6, Math.hypot(v1[0]!, v1[1]!) * Math.hypot(v2[0]!, v2[1]!));
+      return (Math.acos(Math.max(-1, Math.min(1, c))) * 180) / Math.PI;
+    };
+    const bothBent = angle(lh, lk, la) < 140 && angle(rh, rk, ra) < 140;
+    const splayed = Math.abs(lk[0] - rk[0]) > 1.6 * Math.abs(lh[0] - rh[0]);
+    if (bothBent && splayed) crouch = Math.min(crouch, 0.35);
   }
   let bat = 1;
   const hand = lw && rw ? [(lw[0] + rw[0]) / 2, (lw[1] + rw[1]) / 2] : (lw ?? rw);

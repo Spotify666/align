@@ -274,7 +274,11 @@ function single(obs: CaptureObservation, i: number): CaptureObservation {
  * pitch the formula can't be applied, so a few posture readings are shown ungraded.
  */
 function positionFromPhoto(photo: CaptureObservation, frame: number): { metrics: Metric[]; sideOn: boolean } {
-  const { metrics, sideOn } = computeMetricsSafe(photo);
+  const read = computeMetricsSafe(photo);
+  const { metrics } = read;
+  // Taken at an angle: forward distances are foreshortened by an unknown amount, so the
+  // formula can't be applied either.
+  const sideOn = read.sideOn && photo.camera.view !== "oblique";
   const ids = sideOn ? POSITION_FORMULA : POSTURE_IDS;
   const out = ids.map((id) => {
     const m = metrics.find((x) => x.id === id);
@@ -310,7 +314,7 @@ function photoOnly(m: Metric): Metric {
     phase: "Photo",
     range: null,
     inRange: null,
-    limitation: [m.limitation, "Filmed along the pitch: the position formula needs a side-on photo, so this is shown, not graded."].filter(Boolean).join(" "),
+    limitation: [m.limitation, "Not taken square side-on: the position formula needs a side-on photo, so this is shown, not graded."].filter(Boolean).join(" "),
   };
 }
 
@@ -334,7 +338,7 @@ export function positionCheck(ms: Metric[], sideOn: boolean): PositionCheck {
   return { met, checked, verdict };
 }
 
-function positionHeadline(c: PositionCheck, ms: Metric[], key: number, photos: number): string {
+function positionHeadline(c: PositionCheck, ms: Metric[], key: number, photos: number, view: CaptureObservation["camera"]["view"]): string {
   const which = photos > 1 ? `photo ${key + 1} of ${photos}` : "this photo";
   const tag = photos > 1 ? ` (photo ${key + 1} of ${photos})` : "";
   const off = ms.filter((m) => m.inRange === false).map((m) => m.name.toLowerCase());
@@ -352,7 +356,9 @@ function positionHeadline(c: PositionCheck, ms: Metric[], key: number, photos: n
     case "not_enough":
       return "Not enough of the batter is visible to check the front-foot defence position.";
     case "not_side_on":
-      return "Photo from along the pitch: the front-foot defence check needs a side-on photo. Posture shown, not graded.";
+      return view === "front_on" || view === "behind"
+        ? "Photo from along the pitch: the front-foot defence check needs a side-on photo. Posture shown, not graded."
+        : "Photo taken at an angle: the front-foot defence check needs a square side-on photo. Posture shown, not graded.";
   }
 }
 
@@ -483,7 +489,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       mode: "posture_screen",
       analysis_status: "uncertain_shot",
       status_reason: "photo_only",
-      headline: positionHeadline(check, metrics, key, frames),
+      headline: positionHeadline(check, metrics, key, frames, obs.camera.view),
       position_check: { ...check, frame: key },
       observed_shot: null,
       shot_probabilities: null,
@@ -498,7 +504,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
         ...(set ? [{ id: "lim_photo_set", text: "Each photo is measured on its own; photos are not treated as one continuous movement." }] : []),
       ],
       recapture: [
-        ...(check.verdict === "not_side_on" ? ["Take the photo side-on, square to the pitch, at the moment of contact."] : []),
+        ...(check.verdict === "not_side_on" ? ["Take the photo square side-on (camera level with the batter, at right angles to the pitch), at the moment of contact."] : []),
         "Record a short video of the whole delivery to check the shot itself: timing, bat path and ball.",
         ...recapture.filter((r) => !r.startsWith("Record a short video")),
       ],
