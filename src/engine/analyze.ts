@@ -24,7 +24,7 @@ import { buildScene } from "./scene";
 import { handsSeries, segmentEvents } from "./events";
 import { estimateDelivery } from "./delivery";
 import { extractFeatures } from "./features";
-import { classify, SHOT_DISPLAY, type Classification } from "./classify";
+import { classify, leadingAlternative, SHOT_DISPLAY, type Classification } from "./classify";
 import { computeMetrics } from "./metrics";
 import { buildPlan, domainResults, strengthsAndPriorities, techniqueIndex } from "./scoring";
 import type {
@@ -113,7 +113,10 @@ function statusOf(
   const rejectCoverage = bodyLed ? Math.max(cls.ffdCoverage, cls.bodyCoverage) : cls.ffdCoverage;
   const minSeen = th("ffd.accept_body.min_contact_visibility");
   const contactSeen = bodyLed ? contactVisibility >= minSeen : contactObserved >= minSeen;
-  if (pFfd <= th("ffd.reject.max_probability") && nonFfdNamed >= 0.75 && rejectCoverage >= th("ffd.reject.min_evidence_coverage") && contactSeen) {
+  // A rejection names something: one other shot, or one family of related shots, must
+  // carry most of the probability, not several unrelated ones each a little.
+  const coherent = leadingAlternative(p) >= th("ffd.reject.min_alternative");
+  if (pFfd <= th("ffd.reject.max_probability") && nonFfdNamed >= 0.75 && coherent && rejectCoverage >= th("ffd.reject.min_evidence_coverage") && contactSeen) {
     return { status: "invalid_for_requested_analysis", reason: "different_shot" };
   }
 

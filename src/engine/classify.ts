@@ -191,6 +191,17 @@ const FAMILIES: Array<{ label: string; members: ShotClass[] }> = [
   { label: "a back-foot shot", members: ["back_foot_defence", "pull", "hook", "cut"] },
 ];
 
+/**
+ * Probability of the leading alternative to a front-foot defence: the most likely other
+ * shot, or family of related shots, whichever is larger. Mass spread over unrelated shots
+ * (a drive, a sweep and a back-foot defence at once) points at none of them.
+ */
+export function leadingAlternative(p: Record<ShotClass, number>): number {
+  const singles = SHOT_CLASSES.filter((c) => c !== "front_foot_defence" && c !== "unknown").map((c) => p[c]);
+  const families = FAMILIES.filter((f) => !f.members.includes("front_foot_defence")).map((f) => f.members.reduce((s, m) => s + p[m], 0));
+  return Math.max(0, ...singles, ...families);
+}
+
 export const SHOT_DISPLAY: Record<ShotClass, string> = {
   front_foot_defence: "Front-foot defence",
   front_foot_drive: "Front-foot drive",

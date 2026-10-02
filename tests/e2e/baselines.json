@@ -1,0 +1,42 @@
+{
+  "yt_vp9.mp4": {
+    "steps": {
+      "Reading the video": 1.1,
+      "Finding the shot": 17.4,
+      "Finding the batter": 0.5,
+      "Camera position": 0.5,
+      "Checking the recording": 1.1,
+      "Tracking the body": 9.1
+    },
+    "retries": 0,
+    "shot": "0:19",
+    "verdict": "Valid front-foot defence",
+    "total": 31.9
+  },
+  "sq_vp9.mp4": {
+    "steps": {
+      "Reading the video": 1,
+      "Finding the shot": 4,
+      "Finding the batter": 0.6,
+      "Camera position": 0.6,
+      "Checking the recording": 1
+    },
+    "retries": 0,
+    "shot": "0:01",
+    "verdict": "This recording can't be analysed yet: clip length",
+    "total": 22.4
+  },
+  "test60_vp9.mp4": {
+    "steps": {
+      "Reading the video": 1,
+      "Finding the shot": 4.3,
+      "Finding the batter": 0.6,
+      "Camera position": 0,
+      "Checking the recording": 2.6
+    },
+    "retries": 0,
+    "shot": "0:00",
+    "verdict": "We can't confirm a front-foot defence: no batting stroke was found in the clip",
+    "total": 31.3
+  }
+}

@@ -6,7 +6,7 @@
 import { canonicalJson, sha256 } from "./math";
 import { FRONTAL_METRICS } from "./frontal";
 
-export const ENGINE_VERSION = "0.4.1";
+export const ENGINE_VERSION = "0.4.2";
 export const METRIC_VERSION = "ffd-0.4.0";
 export const CLASSIFIER_VERSION = "prototype-bands-0.4.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
@@ -57,6 +57,7 @@ export const THRESHOLDS = {
   "ffd.accept_body.min_coverage": { value: 0.85, unit: "fraction", rationale: "Nearly every body and hand signal that this camera position can show must be observed." },
   "ffd.accept_body.min_contact_visibility": { value: 0.7, unit: "fraction", rationale: "A shot is decided at contact: through ±150 ms of it the stroke must be seen in this share of frames (read from the body alone: head, hips, front knee and front ankle; with bat and ball tracked: the body or the whole bat), or no verdict is given either way." },
   "ffd.reject.max_probability": { value: 0.12, unit: "probability", rationale: "Below this, the clip is confidently not a front-foot defence." },
+  "ffd.reject.min_alternative": { value: 0.5, unit: "probability", rationale: "A different shot is reported only when one alternative (a shot, or a family of related shots) holds at least half the probability; probability spread over unrelated shots means the movement fits none of them: uncertain." },
   "ffd.reject.min_evidence_coverage": { value: 0.45, unit: "fraction", rationale: "Rejection may rest on fewer modalities than acceptance." },
   "ffd.named_label.min_probability": { value: 0.55, unit: "probability", rationale: "Name the alternative shot only when it clearly leads." },
 

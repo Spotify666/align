@@ -89,9 +89,10 @@ When the batter's apparent size changes by more than a fifth across the shot (a 
 |---|---|
 | P(front-foot defence) | ≤ 0.12 |
 | Combined P of named non-defence families | ≥ 0.75 |
+| The leading alternative (one shot, or one family of related shots) | ≥ 0.50 |
 | Evidence coverage | ≥ 0.45 |
 
-The alternative is named (for example, "pull shot") only when its own P ≥ 0.55; otherwise the report says "a different shot".
+The alternative is named (for example, "pull shot") only when its own P ≥ 0.55; otherwise the report says "a different shot". Probability spread over unrelated shots (a drive, a sweep and a back-foot defence at once) points at none of them, so it is "shot uncertain", not a rejection.
 
 ## Everything else: "shot uncertain"
 

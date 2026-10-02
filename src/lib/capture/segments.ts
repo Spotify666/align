@@ -42,14 +42,35 @@ export function cutsIn(body: ImgPoint[][], aspect: number): number[] {
 
 /**
  * The [start, end) frame range of the camera shot that holds `keyFrame` (the stroke), or
- * the longest one when that piece is too short to analyse.
+ * the longest one when that piece is too short to analyse. A long stretch with the batter
+ * lost (a zoom-out, a cut to something else, an occlusion: at least `maxGap` frames,
+ * default a third of `minFrames`) ends a piece like a cut does, and isn't analysed.
  */
-export function strokeSegment(body: ImgPoint[][], aspect: number, keyFrame: number, minFrames: number): [number, number] {
-  const cuts = cutsIn(body, aspect);
-  const bounds = [0, ...cuts, body.length];
+export function strokeSegment(body: ImgPoint[][], aspect: number, keyFrame: number, minFrames: number, maxGap = Math.max(4, Math.round(minFrames / 3))): [number, number] {
+  const seen = body.map((b) => box(b, aspect) !== null);
+  const cuts = new Set(cutsIn(body, aspect));
+  // Pieces of frames between cuts and long gaps, trimmed to where the batter is seen.
   const segs: Array<[number, number]> = [];
-  for (let k = 0; k < bounds.length - 1; k++) segs.push([bounds[k]!, bounds[k + 1]!]);
-  const holding = segs.find(([a, b]) => keyFrame >= a && keyFrame < b);
-  if (holding && holding[1] - holding[0] >= minFrames) return holding;
-  return segs.reduce((best, s) => (s[1] - s[0] > best[1] - best[0] ? s : best), segs[0]!);
+  let start = -1;
+  let lastSeen = -1;
+  for (let i = 0; i <= body.length; i++) {
+    const end = i === body.length;
+    if (!end && seen[i] && cuts.has(i) && start >= 0) {
+      segs.push([start, lastSeen + 1]);
+      start = -1;
+    }
+    if (!end && seen[i]) {
+      if (start < 0) start = i;
+      lastSeen = i;
+    } else if (start >= 0 && (end || i - lastSeen >= maxGap)) {
+      segs.push([start, lastSeen + 1]);
+      start = -1;
+    }
+  }
+  if (!segs.length) return [0, body.length];
+  // The piece holding the stroke (or, when the stroke falls in a gap, the nearest piece).
+  const dist = ([a, b]: [number, number]) => (keyFrame < a ? a - keyFrame : keyFrame >= b ? keyFrame - b + 1 : 0);
+  const holding = segs.reduce((best, sg) => (dist(sg) < dist(best) ? sg : best), segs[0]!);
+  if (holding[1] - holding[0] >= minFrames) return holding;
+  return segs.reduce((best, sg) => (sg[1] - sg[0] > best[1] - best[0] ? sg : best), segs[0]!);
 }

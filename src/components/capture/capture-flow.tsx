@@ -18,12 +18,9 @@ import {
   detectStill,
   Follower,
   loadPersonDetector,
-  knownDelegate,
-  loadCpuVideoPose,
+  decideDelegate,
   loadPose,
   loadScanPose,
-  poseOnCpu,
-  rememberDelegate,
   loadStillPose,
   warmUp,
   roiAround,
@@ -36,6 +33,7 @@ import { batterCandidates, boxAt, scanVideo, verifyWindows, type BatterCandidate
 import { guessView } from "@/lib/capture/view-guess";
 import { strokeSegment } from "@/lib/capture/segments";
 import { playFrames } from "@/lib/capture/frames";
+import { openDecoded, type DecodedVideo } from "@/lib/capture/decoder";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
 import { loadProfile, saveAnalysis, saveProfile, type LocalProfile } from "@/lib/store";
@@ -165,6 +163,8 @@ export function CaptureFlow() {
     slow: 1,
     tried: [] as number[],
     attempts: [] as Attempt[],
+    /** Exact frame decoder for this file (MP4/MOV with a supported codec), else null: play through. */
+    src: null as DecodedVideo | null,
   });
 
   useEffect(() => () => {
@@ -234,7 +234,8 @@ export function CaptureFlow() {
   function resetClip() {
     abort.current?.abort();
     run.current++;
-    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [], attempts: [] };
+    job.current.src?.close();
+    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null };
     setScan(null);
     setScanProgress(0);
     setWin(null);
@@ -264,7 +265,7 @@ export function CaptureFlow() {
     urlRef.current = u;
     setPhase("working");
     stage("read", "active");
-    const track = await readVideoTrack(f);
+    const [track, decoded] = await Promise.all([readVideoTrack(f), openDecoded(f)]);
     const v = video.current!;
     try {
       v.src = u;
@@ -284,6 +285,8 @@ export function CaptureFlow() {
     }
     if (!alive()) return;
     const m: Meta = { width: v.videoWidth, height: v.videoHeight, containerFps: fps, fpsSource, durationSec: v.duration };
+    // Only when the decoder sees the picture exactly as the player does (size, orientation).
+    job.current.src = decoded && decoded.width === m.width && decoded.height === m.height ? decoded : null;
     job.current.meta = m;
     setMeta(m);
     stage("read", "done", `${m.width}×${m.height} · ${fps ? `${Math.round(fps)} fps` : "frame rate unknown"} · ${m.durationSec.toFixed(1)} s`);
@@ -294,7 +297,7 @@ export function CaptureFlow() {
       if (!alive()) return;
       stage("shot", "active", m.durationSec > 20 ? "Looking through the whole clip…" : "");
       abort.current = new AbortController();
-      const scanned = await scanVideo(v, det, WINDOW_SEC, setScanProgress, abort.current.signal, scanPose);
+      const scanned = await scanVideo(v, det, WINDOW_SEC, setScanProgress, abort.current.signal, scanPose, job.current.src);
       if (!alive() || abort.current.signal.aborted) return;
       const res = { ...scanned, windows: await verifyWindows(v, await loadStillPose(), scanned) };
       if (!alive()) return;
@@ -416,22 +419,28 @@ export function CaptureFlow() {
     const len = Math.min(w.end, m.durationSec) - w.start;
     const times = Array.from({ length: GATE_SAMPLES }, (_, i) => w.start + (len * (i + 0.5)) / GATE_SAMPLES);
     let follow: Roi | null = null;
-    const at = (i: number) => {
-      quality[i] = sampler.sample(v, i);
+    const at = (i: number, from: HTMLVideoElement | HTMLCanvasElement) => {
+      quality[i] = sampler.sample(from, i);
       // Where the scan saw the batter at this moment, else where pose last found them.
-      let p = detectStill(stillPose, v, cropFor(c, times[i]!, m));
-      if (!bodyBox(p.body) && follow) p = detectStill(stillPose, v, follow);
+      let p = detectStill(stillPose, from, cropFor(c, times[i]!, m));
+      if (!bodyBox(p.body) && follow) p = detectStill(stillPose, from, follow);
       const b = bodyBox(p.body);
       if (b) follow = roiAround(b, a, 0.32);
       people = Math.max(people, p.people);
       body[i] = p.body;
     };
-    // One pass through the shot instead of a seek per sample.
-    const fd = 1 / (m.containerFps ?? 30);
-    const missed = await playFrames(v, times, (i) => at(i), { frameDur: fd, rate: 2, tolerance: fd * 1.5 });
+    // Exact frames from the file when possible (same frames every run); else one pass
+    // through the shot instead of a seek per sample.
+    let missed: number[] | null = null;
+    const src = job.current.src;
+    if (src) missed = await src.read(times, (i, frame) => at(i, frame)).catch(() => null);
+    if (!src || !missed) {
+      const fd = 1 / (m.containerFps ?? 30);
+      missed = await playFrames(v, times, (i) => at(i, v), { frameDur: fd, rate: 2, tolerance: fd * 1.5 });
+    }
     for (const i of missed ?? times.map((_, k) => k)) {
       await seek(v, times[i]!);
-      at(i);
+      at(i, v);
     }
     const s = job.current.slow;
     const probe: CaptureObservation = {
@@ -464,6 +473,10 @@ export function CaptureFlow() {
     if (!m || !w) return;
     stage("track", "active");
     try {
+      // The faster pose path on this device, decided once (on a frame of this shot) and then
+      // kept, so the same clip always gives the same result here.
+      await seek(video.current!, w.start + 0.5 / (m.containerFps ?? 30));
+      await decideDelegate(video.current!);
       const [firstPose, det] = await Promise.all([loadPose(), loadPersonDetector()]);
       let pose = firstPose;
       let cpuTried = false;
@@ -501,43 +514,15 @@ export function CaptureFlow() {
       let done = 0;
       // Some phones' GPU path loads but returns nothing: after 12 empty frames, start again on the CPU path.
       const gpuDead = () => !cpuTried && done >= 12 && seen === 0;
-      // Not yet measured on this device: time a few frames on each path, keep the faster
-      // (weak or emulated GPUs run slower than the CPU path).
-      type Pose = Awaited<ReturnType<typeof loadPose>>;
-      let cpuPose: Pose | null = null;
-      let decided = !!knownDelegate() || poseOnCpu();
-      if (!decided) void loadCpuVideoPose().then((p) => (cpuPose = p)).catch(() => (decided = true));
-      const timing = { gpu: [] as number[], cpu: [] as number[] };
-      const median = (xs: number[]) => [...xs].sort((x, y) => x - y)[Math.floor(xs.length / 2)]!;
-      const choosePose = (): Pose => {
-        if (decided) return pose;
-        if (timing.gpu.length < 4 || !cpuPose) return pose;
-        if (timing.cpu.length < 4) return cpuPose;
-        // First call on each path includes compiling: compare the rest.
-        const g = median(timing.gpu.slice(1));
-        const k = median(timing.cpu.slice(1));
-        decided = true;
-        const useCpu = k < g * 0.75;
-        rememberDelegate(useCpu ? "CPU" : "GPU");
-        if (useCpu) {
-          pose = cpuPose;
-          cpuTried = true;
-          void loadPose({ cpu: true });
-        } else void cpuPose.close();
-        return pose;
-      };
-      const at = (i: number) => {
+      const at = (i: number, src: HTMLVideoElement | HTMLCanvasElement) => {
         const mt = times[i]!;
-        const use = choosePose();
-        const t0 = performance.now();
-        let p: PoseFrame = detectFrame(use, v, 10 + Math.round(mt * 1000), prevHip, follower.roi);
-        if (!decided) timing[use === pose ? "gpu" : "cpu"].push(performance.now() - t0);
+        let p: PoseFrame = detectFrame(pose, src, 10 + Math.round(mt * 1000), prevHip, follower.roi);
         if (!follower.see(p) && follower.isLost) {
           // Lost (cut, zoom, occlusion): re-anchor on the scan's box, else the detector.
           const anchor = c ? boxAt(c, mt, 0.3) : null;
           if (anchor) follower.roi = roiAround(anchor, a, 0.32);
-          else follower.reacquire(detectPeople(det, v));
-          p = detectFrame(use, v, 11 + Math.round(mt * 1000), prevHip, follower.roi);
+          else follower.reacquire(detectPeople(det, src));
+          p = detectFrame(pose, src, 11 + Math.round(mt * 1000), prevHip, follower.roi);
           follower.see(p);
         }
         if (bodyBox(p.body)) seen++;
@@ -547,17 +532,31 @@ export function CaptureFlow() {
         out.depth[i] = p.depth;
         out.people = Math.max(out.people, p.people);
         out.t[i] = Math.round(((i * stride) / rFps) * 1000 * 100) / 100;
-        if (i % qEvery === 0) out.quality.push(sampler.sample(v, i));
+        if (i % qEvery === 0) out.quality.push(sampler.sample(src, i));
         done++;
         if (done % 4 === 0) setProgress({ done, total: count });
       };
+      const reset = () => {
+        [out.body, out.depth, out.quality, out.t, world.length, seen, done, prevHip] = [[], [], [], [], 0, 0, 0, null];
+        follower.roi = startRoi();
+      };
       const pass = async () => {
-        // One sequential decode of the window, pausing on each frame (no per-frame seek).
-        const missed = await playFrames(v, times, (i) => (at(i), alive() && !gpuDead()), { frameDur: 1 / cFps, stop: () => !alive() });
+        let missed: number[] | null = null;
+        if (j.src) {
+          // Exact frames decoded straight from the file: the same frames every run.
+          try {
+            missed = await j.src.read(times, (i, frame) => (at(i, frame), alive() && !gpuDead()), () => !alive());
+          } catch {
+            j.src = null; // decoder failed on this device: play through instead
+            reset();
+          }
+        }
+        // One play-through of the window, pausing on each frame (no per-frame seek).
+        if (!j.src) missed = await playFrames(v, times, (i) => (at(i, v), alive() && !gpuDead()), { frameDur: 1 / cFps, stop: () => !alive() });
         for (const i of missed ?? times.map((_, k) => k)) {
           if (!alive() || gpuDead()) return;
           await seek(v, times[i]!);
-          at(i);
+          at(i, v);
         }
       };
       setProgress({ done: 0, total: count });
@@ -566,8 +565,7 @@ export function CaptureFlow() {
       if (gpuDead()) {
         cpuTried = true;
         pose = await loadPose({ cpu: true });
-        [out.body, out.depth, out.quality, out.t, world.length, seen, done, prevHip] = [[], [], [], [], 0, 0, 0, null];
-        follower.roi = startRoi();
+        reset();
         await pass();
         if (!alive()) return;
       }
@@ -679,13 +677,15 @@ export function CaptureFlow() {
       let payload = analyze(obs, { analysisId: id, createdAt });
       let attempt: Attempt = { obs, payload, tr, marks: finalMarks, times: [...mediaTimesRef.current] };
 
-      // A clip with several shots: if this one couldn't be confirmed either way, try the
-      // next one on its own, and report the clearest result.
+      // A clip with several shots: if this one couldn't be confirmed either way (or the
+      // batter turned out not to be fully in view), try the next one on its own, and
+      // report the clearest result.
       const j = job.current;
       if (!remark && tr.kind === "video" && !j.shotChosen && j.scan) {
         j.attempts.push(attempt);
         const next = bestWindow(j.scan, j.tried);
-        if (payload.analysis_status === "uncertain_shot" && next >= 0 && j.tried.length < MAX_AUTO_TRIES) {
+        const unclear = payload.analysis_status === "uncertain_shot" || payload.analysis_status === "capture_failed";
+        if (unclear && next >= 0 && j.tried.length < MAX_AUTO_TRIES) {
           const w = j.scan.windows[next]!;
           j.tried.push(next);
           chooseWin({ start: w.start, end: w.end, peak: w.peak }, next);

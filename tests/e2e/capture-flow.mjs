@@ -8,6 +8,8 @@ const files = media.split(",");
 const isPhoto = files.every((f) => /\.(jpe?g|png|webp|heic)$/i.test(f));
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] });
 const ctx = await browser.newContext({ viewport: { width: +w, height: +h }, deviceScaleFactor: 1, acceptDownloads: true, isMobile: +w < 700, hasTouch: +w < 700 });
+// Pin the pose path (as a returning device would have it) for repeatable runs.
+if (process.env.POSE_DELEGATE) await ctx.addInitScript((d) => localStorage.setItem("align:pose-delegate", d), process.env.POSE_DELEGATE);
 const page = await ctx.newPage();
 page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
 page.on("console", (m) => { if (m.type() === "error" && !/ERR_CERT|favicon/.test(m.text())) console.log("CONSOLE", m.text().slice(0, 200)); });
