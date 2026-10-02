@@ -30,6 +30,10 @@
   --band-fg: #f3f2ee;
   --band-muted: #a9b0b7;
   --stage: #0e1114;
+  /* Lesson illustrations: warm paper and pen ink. */
+  --ill-paper: #f8f1e3;
+  --ill-ink: #22262b;
+  --ill-chalk: #22262b;
   --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.05);
   --shadow-pop: 0 12px 32px -12px rgb(16 24 40 / 0.18), 0 2px 6px rgb(16 24 40 / 0.06);
   color-scheme: light;
@@ -58,6 +62,9 @@
     --band: #15191c;
     --band-fg: #f3f2ee;
     --band-muted: #a9b0b7;
+    --ill-paper: #1c2129;
+    --ill-ink: #0c0f13;
+    --ill-chalk: #f1ead8;
     --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
     --shadow-pop: 0 16px 40px -16px rgb(0 0 0 / 0.7);
     color-scheme: dark;
@@ -85,6 +92,9 @@
   --band: #15191c;
   --band-fg: #f3f2ee;
   --band-muted: #a9b0b7;
+  --ill-paper: #1c2129;
+  --ill-ink: #0c0f13;
+  --ill-chalk: #f1ead8;
   --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
   --shadow-pop: 0 16px 40px -16px rgb(0 0 0 / 0.7);
   color-scheme: dark;
@@ -174,6 +184,16 @@
 }
 
 @layer components {
+  /* An illustrated lesson chapter: paper illustration framed in a card. */
+  .lesson-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
   .display {
     font-family: var(--font-display);
     font-weight: 600;

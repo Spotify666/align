@@ -1,7 +1,8 @@
 // Server-side helpers that run the real engine over the DEMO DATA fixtures.
 import type { CompareReference } from "@/components/report/evidence-viewer";
 import { analyze } from "@/engine/analyze";
-import { baselineSeries, fixture, FIXTURE_SPECS } from "@/engine/fixtures";
+import { baselineSeries, ffdScript, fixture, FIXTURE_SPECS } from "@/engine/fixtures";
+import { generate } from "@/engine/fixtures/generate";
 import { buildBaseline, compareToBaseline } from "@/engine/baseline";
 import { quantise } from "@/engine/tracks-codec";
 
@@ -13,6 +14,14 @@ export function sampleAnalysis(key: string) {
   const obs = quantise(fixture(key));
   const payload = analyze(obs, { analysisId: `sample_${key}`, createdAt: CREATED });
   return { spec, obs, payload };
+}
+
+/** The textbook defence (the generator's default technique), for teaching illustrations. */
+export function textbookClip() {
+  const spec = FIXTURE_SPECS.find((s) => s.key === "valid_ffd")!;
+  const obs = quantise(generate({ ...spec.options, id: "fx_textbook", script: ffdScript() }));
+  const payload = analyze(obs, { analysisId: "textbook", createdAt: CREATED });
+  return { obs, payload };
 }
 
 let cachedBaseline: ReturnType<typeof buildBaseline> | null = null;
