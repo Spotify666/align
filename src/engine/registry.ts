@@ -6,7 +6,7 @@
 import { canonicalJson, sha256 } from "./math";
 import { FRONTAL_METRICS } from "./frontal";
 
-export const ENGINE_VERSION = "0.5.0";
+export const ENGINE_VERSION = "0.5.1";
 export const METRIC_VERSION = "ffd-0.5.0";
 export const CLASSIFIER_VERSION = "prototype-bands-0.5.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
@@ -62,6 +62,10 @@ export const THRESHOLDS = {
   "ffd.reject.min_alternative": { value: 0.5, unit: "probability", rationale: "A different shot is reported only when one alternative (a shot, or a family of related shots) holds at least half the probability; probability spread over unrelated shots means the movement fits none of them: uncertain." },
   "ffd.reject.min_evidence_coverage": { value: 0.45, unit: "fraction", rationale: "Rejection may rest on fewer modalities than acceptance." },
   "ffd.named_label.min_probability": { value: 0.55, unit: "probability", rationale: "Name the alternative shot only when it clearly leads." },
+
+  // Photos
+  "photo.min_forward_spread": { value: 0.25, unit: "× stature", rationale: "Feet no further apart than a stance (about 0.2–0.3 × height) mean the front foot hasn't stepped toward the ball." },
+  "photo.min_resemblance": { value: 0.35, unit: "share of checks", rationale: "Below about a third of the position checks met, the photo doesn't resemble a defence (a pull or a cut at contact meets one or two)." },
 
   // Composite index
   "index.min_domains": { value: 5, unit: "domains", rationale: "A composite needs most domains measured." },

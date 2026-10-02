@@ -100,3 +100,25 @@ describe("photos not taken square side-on", () => {
     expect(["matches", "mostly"]).not.toContain(p.position_check?.verdict);
   });
 });
+
+describe("direction of play and batting hand", () => {
+  it("a photo facing either way reads the same: the bowler is on the front foot's side", () => {
+    const o = photo(ffdScript());
+    const flipped = { ...o, camera: { ...o.camera, bowlerSide: o.camera.bowlerSide === "left" ? "right" : "left" } } as CaptureObservation;
+    const a = analyze(o, opts);
+    const b = analyze(flipped, opts);
+    expect(b.position_check).toMatchObject({ verdict: a.position_check!.verdict, met: a.position_check!.met });
+    expect(b.metrics.find((m) => m.id === "foot_spread")!.value).toBeGreaterThan(0.5);
+  });
+  it("left-handed batters are checked on their own front leg", () => {
+    const p = analyze(photo(ffdScript(), { handedness: "left", seed: 77 }), opts);
+    expect(p.handedness).toBe("left");
+    expect(p.position_check).toMatchObject({ verdict: "matches", met: 7 });
+  });
+  it("a real defence with several checks below the textbook gets things to work on, not 'not a defence'", () => {
+    const p = analyze(photo(ffdScript({ headFwd: -0.15, lean: 4, stride: 0.42 })), opts);
+    expect(["partly", "mostly"]).toContain(p.position_check?.verdict);
+    expect(p.headline).toMatch(/To work on/);
+    expect(p.headline).not.toMatch(/doesn't/);
+  });
+});

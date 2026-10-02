@@ -35,6 +35,7 @@ import { strokeSegment } from "@/lib/capture/segments";
 import { playFrames } from "@/lib/capture/frames";
 import { openDecoded, type DecodedVideo } from "@/lib/capture/decoder";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
+import { gripHandedness } from "@/lib/capture/grip";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
 import { loadProfile, saveAnalysis, saveProfile, type LocalProfile } from "@/lib/store";
 import { isSessionUrl, sessionCapture, sessionMedia } from "@/lib/session-media";
@@ -168,6 +169,8 @@ export function CaptureFlow() {
     attempts: [] as Attempt[],
     /** Exact frame decoder for this file (MP4/MOV with a supported codec), else null: play through. */
     src: null as DecodedVideo | null,
+    /** Batting hand read from the grip at the stance and the stroke, when clear. */
+    hand: null as "right" | "left" | null,
   });
 
   useEffect(() => () => {
@@ -238,7 +241,7 @@ export function CaptureFlow() {
     abort.current?.abort();
     run.current++;
     job.current.src?.close();
-    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null };
+    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null };
     setScan(null);
     setScanProgress(0);
     setWin(null);
@@ -357,7 +360,9 @@ export function CaptureFlow() {
         if (!alive()) return;
         frames.push(detectStill(stillPose, v, cropFor(c, t, j.meta)));
       }
-      const g = guessView(frames, profile.handedness);
+      // The top hand on the handle is the front-side hand: this batter's own hand, whatever the profile says.
+      j.hand = gripHandedness(frames.map((f) => f.body), j.meta.width / j.meta.height, 1)?.handedness ?? null;
+      const g = guessView(frames, j.hand ?? profile.handedness);
       const choice: ViewChoice = g && (g.view === "front_on" || g.view === "behind") ? g.view : "side_on";
       setGuess(g ? choice : null);
       j.view = choice;
@@ -597,6 +602,9 @@ export function CaptureFlow() {
         seen = out.body.filter((b) => bodyBox(b)).length;
         note = " · camera cut skipped";
       }
+      // Batting hand: the grip at the stance (bat held down) in the tracked frames, else the one read while finding the camera.
+      const setup = out.body.slice(0, Math.max(3, Math.round(out.body.length * 0.2)));
+      out.handedness = gripHandedness(setup, a, 3)?.handedness ?? j.hand ?? undefined;
       mediaTimesRef.current = times;
       setMediaTimes(times);
       setTracking(out);
@@ -669,16 +677,19 @@ export function CaptureFlow() {
       return;
     }
     photoRes.current = null;
-    const g = guessView(res.items.map((i) => i.frame), profile.handedness);
+    // This batter's hand from the grip (top hand on the handle), else the profile's.
+    const bodies = res.items.filter((i) => i.frame).map((i) => i.frame!.body);
+    const hand = gripHandedness(bodies, res.width / res.height, 1)?.handedness ?? profile.handedness;
+    const g = guessView(res.items.map((i) => i.frame), hand);
     const choice: ViewChoice = g && (g.view === "front_on" || g.view === "behind") ? g.view : "side_on";
     // Not clearly square-on: the stride and lean run partly toward the camera and read short,
     // so the photo is treated as taken at an angle (posture shown, not graded).
     const angled = !g || (g.view === "side_on" && !g.confident);
     stage("camera", "done", angled ? "At an angle, not square side-on" : `${VIEW_TEXT[choice][0]!.toUpperCase()}${VIEW_TEXT[choice].slice(1)}`);
-    await analysePhotos(res, angled ? "oblique" : choice, g?.bowlerSide ?? "right");
+    await analysePhotos(res, angled ? "oblique" : choice, g?.bowlerSide ?? "right", hand);
   }
 
-  async function analysePhotos(photos: PhotoLoad, v: ViewChoice | "oblique", side: "left" | "right") {
+  async function analysePhotos(photos: PhotoLoad, v: ViewChoice | "oblique", side: "left" | "right", hand: "right" | "left") {
     const use = photos.items.filter((i) => i.frame);
     const sampler = new FrameQualitySampler(photos.width / photos.height);
     const keyframes: Record<number, Blob> = {};
@@ -700,6 +711,7 @@ export function CaptureFlow() {
       height: photos.height,
       durationMs: 0,
       kind: "photo",
+      handedness: hand,
     };
     setTracking(tr);
     await finish({ ...EMPTY_MARKS, view: v, bowlerSide: side }, tr, keyframes);
@@ -711,7 +723,7 @@ export function CaptureFlow() {
     stage("report", "active");
     try {
       const id = remark?.id ?? crypto.randomUUID();
-      const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: profile.handedness, heightCm: profile.heightCm });
+      const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: tr.handedness ?? profile.handedness, heightCm: profile.heightCm });
       const obs = quantise(raw);
       const createdAt = remark?.createdAt ?? new Date().toISOString();
       let payload = analyze(obs, { analysisId: id, createdAt });

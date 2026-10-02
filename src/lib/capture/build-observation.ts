@@ -43,6 +43,8 @@ export interface TrackingResult {
   height: number;
   durationMs: number;
   kind: "video" | "photo";
+  /** Batting hand read from the grip in this clip or photo, when clear (else the profile's). */
+  handedness?: "right" | "left";
 }
 
 const lerp2 = (a: [number, number], b: [number, number], s: number): [number, number] => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s];

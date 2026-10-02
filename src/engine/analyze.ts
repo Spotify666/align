@@ -309,8 +309,10 @@ function computeMetricsSafe(photo: CaptureObservation): { metrics: Metric[]; sid
     return { scene, metrics: computeMetrics({ scene, events, features, delivery, tier: o.tier, postureFrame: 0 }) };
   };
   let { scene, metrics } = run(photo);
-  // At an angle the bowler's side isn't known from the camera: the front foot is ahead.
-  if (photo.camera.view === "oblique") {
+  // The bowler is on the front foot's side: in a stance and in every stroke the front foot
+  // is the one nearer the bowler. (Where the head points misleads: a batter looks down at
+  // the ball.) Not for photos along the pitch, where forward isn't across the image.
+  if (photo.camera.view !== "front_on" && photo.camera.view !== "behind") {
     const fa = scene.get(0, "front_ankle");
     const ba = scene.get(0, "back_ankle");
     if (fa && ba && fa.f < ba.f) ({ scene, metrics } = run({ ...photo, camera: { ...photo.camera, bowlerSide: photo.camera.bowlerSide === "left" ? "right" : "left" } }));
@@ -369,9 +371,11 @@ export function positionCheck(ms: Metric[], sideOn: boolean, angled = false): Po
   }
   if (checked < 4) return { met, checked, verdict: "not_enough" };
   const spread = ms.find((m) => m.id === "foot_spread");
-  // Feet together: the front foot hasn't gone toward the ball (a stance, a back-foot shot).
-  if (spread?.value != null && spread.range && spread.value < spread.range.lo * 0.6) return { met, checked, verdict: "not_on_front_foot" };
-  const verdict = met === checked ? "matches" : met >= checked - 1 ? "mostly" : met >= checked / 2 ? "partly" : "doesnt_match";
+  // Feet no wider than a stance: the front foot hasn't gone toward the ball (a stance, a back-foot shot).
+  if (spread?.value != null && spread.value < th("photo.min_forward_spread")) return { met, checked, verdict: "not_on_front_foot" };
+  // Most checks missed: the position doesn't resemble a defence (a pull, a cut). Otherwise it
+  // is a defence with things to work on, however many.
+  const verdict = met === checked ? "matches" : met >= checked - 1 ? "mostly" : met >= checked * th("photo.min_resemblance") ? "partly" : "doesnt_match";
   return { met, checked, verdict };
 }
 
@@ -385,9 +389,9 @@ function positionHeadline(c: PositionCheck, ms: Metric[], key: number, photos: n
     case "mostly":
       return `Front-foot defence position${tag}: ${c.met} of ${c.checked} checks met. To work on: ${off[0]}.`;
     case "partly":
-      return `Partly a front-foot defence position${tag}: ${c.met} of ${c.checked} checks met.`;
+      return `Front-foot defence position${tag}: ${c.met} of ${c.checked} checks met. To work on: ${off.slice(0, 2).join(" and ")}.`;
     case "doesnt_match":
-      return `${which[0]!.toUpperCase()}${which.slice(1)} doesn't show a front-foot defence position: ${c.met} of ${c.checked} checks met.`;
+      return `${which[0]!.toUpperCase()}${which.slice(1)} doesn't look like a front-foot defence position: ${c.met} of ${c.checked} checks met.`;
     case "not_on_front_foot":
       return `${which[0]!.toUpperCase()}${which.slice(1)} doesn't show a front-foot defence: the front foot hasn't stepped toward the ball.`;
     case "not_enough":
