@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { AnalysisPayload, CaptureObservation, ImgPoint } from "@/engine/types";
 import { J } from "@/engine/types";
 import { bodyCentre, buildScene, semanticToJoint } from "@/engine/scene";
@@ -16,6 +16,17 @@ const Scene3D = dynamic(() => import("./scene-3d"), {
 });
 
 export type ViewMode = "original" | "overlay" | "3d" | "compare";
+
+/** An earlier confirmed shot from the same camera position, to compare with this one. */
+export interface CompareReference {
+  obs: CaptureObservation;
+  payload: AnalysisPayload;
+  label: string;
+  recordedAt: string;
+  /** Contact frame in this clip and in the earlier one: the two are lined up there. */
+  contactSelf: number;
+  contactRef: number;
+}
 export interface EvidenceViewerHandle {
   seek: (frame: number, highlight?: string) => void;
   /** PNG of the current 2D evidence frame (for the PDF), or null in 3D mode. */
@@ -29,7 +40,7 @@ interface Props {
   /** Media time (s) of each analysed frame when it differs from obs.t (trimmed or slowed clips). */
   mediaTimes?: number[] | null;
   keyframes?: Record<number, string>;
-  reference?: { obs: CaptureObservation; offset: number; label: string } | null;
+  reference?: CompareReference | null;
 }
 
 const COL = { body: "#5ed6e6", bat: "#d7a62a", ball: "#e2463a", trail: "rgba(94,214,230,0.55)", low: "rgba(167,176,184,0.5)", lime: "#b7f34a", coral: "#f06b5f", text: "#f3f0e8", gold: "#d7a62a" };
@@ -330,11 +341,36 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
   }, [mode, layers, highlight, obs, payload.events, scene, videoUrl, kfImages, kfReady, frontal, isPhoto, view.x, view.y, view.w, view.h]);
   const draw = useCallback(() => drawAt(frame), [drawAt, frame]);
   const frameRef = useRef(frame);
-  frameRef.current = frame;
 
   // Media time of every analysed frame: the video and the tracks share this one clock.
   const times = useMemo(() => (mediaTimes && mediaTimes.length === n ? mediaTimes : obs.t.map((t) => t / 1000)), [mediaTimes, obs.t, n]);
   const playsVideo = !!videoUrl && !isPhoto;
+  const playingRef = useRef(false);
+  useLayoutEffect(() => {
+    frameRef.current = frame;
+    playingRef.current = playing;
+  });
+  const fracRef = useRef<number | null>(null);
+  // The 3D view asks for this every screen refresh: while the video plays, the exact
+  // fractional frame for the video's clock (smooth between tracked frames); else the frame.
+  const frameAt = useCallback(() => {
+    const v = video.current;
+    if (playingRef.current && v && playsVideo && times.length > 1) {
+      const t = v.currentTime;
+      let lo = 0;
+      let hi = times.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (times[mid]! <= t) lo = mid;
+        else hi = mid - 1;
+      }
+      const next = times[Math.min(times.length - 1, lo + 1)]!;
+      const span = next - times[lo]!;
+      return Math.min(n - 1, lo + (span > 0 ? Math.max(0, Math.min(1, (t - times[lo]!) / span)) : 0));
+    }
+    if (playingRef.current && fracRef.current !== null) return fracRef.current;
+    return frameRef.current;
+  }, [playsVideo, times, n]);
 
   // Paused: seek the video to the frame, then draw on "seeked".
   useEffect(() => {
@@ -417,6 +453,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
     const tick = (now: number) => {
       acc += ((now - last) / 1000) * fps * (slow ? 0.25 : 1);
       last = now;
+      fracRef.current = Math.min(n - 1, frameRef.current + acc);
       if (acc >= 1) {
         const step = Math.floor(acc);
         acc -= step;
@@ -434,26 +471,25 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
     return () => cancelAnimationFrame(raf);
   }, [playing, slow, n, obs.media.fps, isPhoto, playsVideo, times, drawAt]);
 
-  const modes: Array<{ id: ViewMode; label: string; disabled?: boolean }> = [
+  // Compare only exists when there is an earlier confirmed shot from the same camera position.
+  const modes: Array<{ id: ViewMode; label: string }> = [
     { id: "original", label: isPhoto ? "Photo" : videoUrl || keyframes ? "Video" : "Pitch" },
     { id: "overlay", label: "Tracked" },
     { id: "3d", label: "3D" },
-    { id: "compare", label: "Compare", disabled: !reference },
+    ...(reference ? [{ id: "compare" as const, label: "Compare" }] : []),
   ];
 
   return (
     <section ref={wrap} aria-label="Evidence viewer" className="card overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2.5">
-        <div role="tablist" aria-label="View" className="grid w-full grid-cols-4 rounded-xl border border-line bg-sunken p-0.5 sm:w-auto">
+        <div role="tablist" aria-label="View" className={`grid w-full ${modes.length === 4 ? "grid-cols-4" : "grid-cols-3"} rounded-xl border border-line bg-sunken p-0.5 sm:w-auto`}>
           {modes.map((m) => (
             <button
               key={m.id}
               role="tab"
               aria-selected={mode === m.id}
-              disabled={m.disabled}
               onClick={() => setMode(m.id)}
-              className={`min-h-9 whitespace-nowrap rounded-[10px] px-3 text-sm transition-colors ${mode === m.id ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg"} disabled:opacity-40`}
-              title={m.disabled ? "Needs a reference shot" : undefined}
+              className={`min-h-9 whitespace-nowrap rounded-[10px] px-3 text-sm transition-colors ${mode === m.id ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg"}`}
             >
               {m.label}
             </button>
@@ -495,7 +531,8 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
           <Scene3D
             obs={obs}
             frame={frame}
-            reference={mode === "compare" && reference ? { obs: reference.obs, offset: reference.offset } : null}
+            frameAt={frameAt}
+            reference={mode === "compare" && reference ? { obs: reference.obs, contactSelf: reference.contactSelf, contactRef: reference.contactRef } : null}
             className="absolute inset-0"
           />
         ) : (
@@ -507,6 +544,8 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
           </button>
         )}
       </div>
+
+      {mode === "compare" && reference && <CompareNote payload={payload} reference={reference} />}
 
       {isPhoto && n > 1 && (
         <div className="flex items-center justify-between gap-2 px-3 py-2.5">
@@ -602,3 +641,52 @@ function drawPin(
     if (hip) label(hip[0] + 10, hip[1], metric.replaceAll("_", " "));
   }
 }
+
+const when = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+};
+
+/** What Compare shows, and how this shot's measures moved since the earlier one. */
+function CompareNote({ payload, reference }: { payload: AnalysisPayload; reference: CompareReference }) {
+  const earlier = new Map(reference.payload.metrics.map((m) => [m.id, m]));
+  // Graded measures both shots have, nearest the edge of their range first.
+  const rows = payload.metrics
+    .filter((m) => m.status === "measured" && m.inRange !== null && typeof m.value === "number" && m.range)
+    .flatMap((m) => {
+      const e = earlier.get(m.id);
+      if (!e || e.status !== "measured" || typeof e.value !== "number" || e.inRange === null || !m.range) return [];
+      const off = (v: number) => (v < m.range!.lo ? m.range!.lo - v : v > m.range!.hi ? v - m.range!.hi : 0);
+      const now = off(m.value as number);
+      const then = off(e.value);
+      const span = Math.max(1e-9, m.range.hi - m.range.lo);
+      const verdict = Math.abs(now - then) < span * 0.05 ? "about the same" : now < then ? "closer to the range" : "further from the range";
+      return [{ m, e, verdict, worse: now - then }];
+    })
+    .sort((a, b) => b.worse - a.worse)
+    .slice(0, 5);
+  const fmt = (v: number, d: number) => v.toFixed(d);
+  return (
+    <div className="border-t border-line px-3 py-3 text-sm">
+      <p className="text-fg-muted">
+        <span className="font-medium text-[#d7a62a]">Gold</span>: your confirmed defence from {when(reference.recordedAt)} ({reference.label}).{" "}
+        <span className="font-medium text-[#5ed6e6]">Blue</span>: this shot. Both play together, lined up at the moment of contact, feet over feet.
+      </p>
+      {rows.length > 0 ? (
+        <ul className="mt-2 space-y-1">
+          {rows.map(({ m, e, verdict }) => (
+            <li key={m.id} className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span>{m.name}</span>
+              <span className="num text-fg-muted">
+                {fmt(e.value as number, m.decimals)} → <span className="text-fg">{fmt(m.value as number, m.decimals)}</span> {m.unit} · {verdict}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-fg-subtle">No graded measure was taken in both shots, so only the movement can be compared.</p>
+      )}
+    </div>
+  );
+}
+

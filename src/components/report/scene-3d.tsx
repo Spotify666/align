@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { CaptureObservation } from "@/engine/types";
@@ -23,7 +23,13 @@ const COLORS = {
 interface Props {
   obs: CaptureObservation;
   frame: number;
-  reference?: { obs: CaptureObservation; offset: number } | null;
+  /** An earlier shot to overlay, lined up at contact (frames in each clip's own numbering). */
+  reference?: { obs: CaptureObservation; contactSelf: number; contactRef: number } | null;
+  /**
+   * Fractional frame to show, polled every screen refresh (smooth replay between tracked
+   * frames); when absent, `frame` is shown.
+   */
+  frameAt?: () => number;
   autoRotate?: boolean;
   className?: string;
   label?: string;
@@ -73,7 +79,7 @@ function skeletonSegments(js: (V3 | null)[]) {
 const HOLD_S = 1.1; // pause on the finished shot before looping
 const FADE_S = 0.35;
 
-export default function Scene3D({ obs, frame, reference, autoRotate = false, className, label, play, interactive = true, framing = "wide" }: Props) {
+export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = false, className, label, play, interactive = true, framing = "wide" }: Props) {
   const mount = useRef<HTMLDivElement>(null);
   const world = useMemo(() => smoothWorld(worldFrames(obs), obs.media.fps), [obs]);
   const refWorld = useMemo(() => (reference ? smoothWorld(worldFrames(reference.obs), reference.obs.media.fps) : null), [reference]);
@@ -81,6 +87,10 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
   const playTo = play?.to;
   const playSpeed = play?.speed ?? 0.35;
   const api = useRef<{ update: (f: number) => void } | null>(null);
+  const frameAtRef = useRef(frameAt);
+  useLayoutEffect(() => {
+    frameAtRef.current = frameAt;
+  });
 
   useEffect(() => {
     const el = mount.current;
@@ -210,6 +220,20 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
     }
 
     const m4 = new THREE.Matrix4();
+    const selfFps = obs.media.fps && obs.media.fps > 0 ? obs.media.fps : 30;
+    const refFps = reference?.obs.media.fps && reference.obs.media.fps > 0 ? reference.obs.media.fps : selfFps;
+    const midAnkle = (w: typeof world, f: number): [number, number] | null => {
+      const js = jointsAt(w, Math.max(0, Math.min(w.joints.length - 1, f)));
+      const a = js[J.left_ankle];
+      const b = js[J.right_ankle];
+      return a && b ? [(a[0] + b[0]) / 2, (a[2] + b[2]) / 2] : null;
+    };
+    const shift: [number, number] = (() => {
+      if (!refWorld || !reference) return [0, 0];
+      const m = midAnkle(world, reference.contactSelf);
+      const r = midAnkle(refWorld, reference.contactRef);
+      return m && r ? [m[0] - r[0], m[1] - r[1]] : [0, 0];
+    })();
     const playing = playFrom !== undefined && playTo !== undefined && playTo > playFrom && !reduce;
     const at = <T,>(xs: T[], f: number, pick: (a: T, b: T, t: number) => T) => {
       const i0 = Math.max(0, Math.min(xs.length - 1, Math.floor(f)));
@@ -255,8 +279,12 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
       com.computeLineDistances();
 
       if (refWorld && refBones && reference) {
-        const rf = Math.max(0, Math.min(refWorld.joints.length - 1, fr + reference.offset));
-        setSegments(refBones.geometry, skeletonSegments(jointsAt(refWorld, rf)));
+        // Same moment (seconds from contact), same place (feet over feet at contact).
+        const rf = Math.max(0, Math.min(refWorld.joints.length - 1, reference.contactRef + (fr - reference.contactSelf) * (refFps / selfFps)));
+        setSegments(
+          refBones.geometry,
+          skeletonSegments(jointsAt(refWorld, rf).map((p) => (p ? ([p[0] + shift[0], p[1], p[2] + shift[1]] as V3) : null))),
+        );
       }
     };
     api.current = { update };
@@ -286,6 +314,7 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
     resize();
 
     let raf = 0;
+    let shown = NaN;
     let visible = true;
     const io = new IntersectionObserver(([e]) => (visible = !!e?.isIntersecting));
     io.observe(el);
@@ -301,6 +330,12 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
         update(playFrom! + p * (playTo! - playFrom!));
         const tail = runS + HOLD_S - clock;
         setAlpha(Math.min(1, clock / FADE_S, tail / FADE_S));
+      } else if (frameAtRef.current) {
+        const f = frameAtRef.current();
+        if (f !== shown) {
+          shown = f;
+          update(f);
+        }
       }
       controls.update(dt);
       renderer.render(scene, camera);
@@ -328,7 +363,7 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
   }, [world, refWorld, autoRotate, playFrom, playTo, playSpeed, interactive, framing, obs.camera.view]);
 
   useEffect(() => {
-    if (playFrom === undefined) api.current?.update(frame);
+    if (playFrom === undefined && !frameAtRef.current) api.current?.update(frame);
   }, [frame, playFrom]);
 
   return (
@@ -339,7 +374,7 @@ export default function Scene3D({ obs, frame, reference, autoRotate = false, cla
         <span><span className="inline-block w-3 border-t-2 border-[#d7a62a] align-middle mr-1" />bat</span>
         <span><span className="inline-block h-2 w-2 rounded-full bg-[#c8372d] align-middle mr-1" />ball</span>
         <span><span className="inline-block w-3 border-t-2 border-dashed border-[#b7f34a] align-middle mr-1" />centre / base</span>
-        {reference && <span><span className="inline-block w-3 border-t-2 border-[#d7a62a]/60 align-middle mr-1" />reference</span>}
+        {reference && <span><span className="inline-block w-3 border-t-2 border-[#d7a62a]/60 align-middle mr-1" />earlier shot</span>}
       </div>
       {world.depth !== "measured" && (
         <p className="pointer-events-none absolute right-3 top-3 max-w-[11rem] text-right text-[0.66rem] leading-snug text-[#f0b54a]">
