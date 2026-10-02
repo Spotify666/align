@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Caveat, Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
+// Hand lettering for the lesson illustrations.
+const hand = Caveat({ subsets: ["latin"], variable: "--font-hand", display: "swap", weight: ["600", "700"] });
 
 export const metadata: Metadata = {
   title: { default: "Align — cricket shot analysis", template: "%s · Align" },
@@ -32,7 +34,7 @@ const themeScript = `try{var t=localStorage.getItem("align.theme");if(t==="light
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${hand.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

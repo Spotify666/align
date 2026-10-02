@@ -63,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2" aria-label="Align home" onClick={() => setOpen(false)}>
-            <Mark />
+            <Mark size={28} />
             <span className="text-[1.08rem] font-semibold tracking-[-0.02em]">Align</span>
           </Link>
           <nav aria-label="Primary" className="hidden lg:flex items-center gap-0.5 text-sm">

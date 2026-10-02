@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { sampleAnalysis } from "@/lib/demo";
+import { sampleAnalysis, textbookClip } from "@/lib/demo";
 import { HeroVisual } from "@/components/home/hero-visual";
+import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
 import { SHOT_DISPLAY } from "@/engine/classify";
 import { Check, Swap, Question, CameraOff, Chevron, Record as RecordIcon, Upload, Target, Trend } from "@/components/icons";
@@ -13,6 +14,13 @@ export default function Home() {
   const trigger = v.events.find((e) => e.type === "trigger")?.frame ?? 20;
   const pullShot = pull.payload.observed_shot!;
   const pullEvidence = pull.payload.features.filter((f) => pullShot.evidence_ids.includes(f.id)).map((f) => f.reading);
+  // The explainer draws the textbook defence, not the sample (which has a fault to fix).
+  const book = textbookClip();
+  const at = (t: string, d: number) => book.payload.events.find((e) => e.type === t)?.frame ?? d;
+  const story = [at("setup", 0), at("backswing_top", 85), at("front_foot_plant", 100), at("contact", 105)].map((f) => ({
+    body: book.obs.body[f]!,
+    bat: [book.obs.bat.handle[f], book.obs.bat.toe[f]] as [(typeof book.obs.bat.handle)[number] | undefined, (typeof book.obs.bat.toe)[number] | undefined],
+  }));
   const keyMetrics = ["head_knee_offset", "stride_length", "bat_angle_contact"].map((id) => v.metrics.find((m) => m.id === id)!);
 
   return (
@@ -70,6 +78,20 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </Reveal>
+      </section>
+
+      {/* Learn the shot */}
+      <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-20">
+        <Reveal>
+          <p className="eyebrow">Learn the shot</p>
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="display text-3xl sm:text-5xl max-w-2xl">The forward defence in four moves.</h2>
+            <p className="max-w-sm text-sm text-fg-muted">Every report teaches the same way: your own shot, drawn, with the one idea that matters most.</p>
+          </div>
+        </Reveal>
+        <Reveal className="mt-8">
+          <ShotStory frames={story} aspect={book.obs.media.width / book.obs.media.height} hand={book.obs.athlete.handedness} />
         </Reveal>
       </section>
 

@@ -13,6 +13,7 @@ import { CaptureChecklist, DomainGrid, Limitations, PriorityPlan, ShotProbabilit
 import { ConfidenceChip, DemoBadge, STATUS_META, statusKey } from "./status";
 import { Download, Record as RecordIcon, Target } from "../icons";
 import { downloadReportPdf } from "@/lib/pdf";
+import { Lesson } from "../lesson/lesson";
 import { plainRange, plainReading, plainValue } from "@/engine/plain";
 
 interface Props {
@@ -126,6 +127,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       </section>
 
       <Summary p={p} onSeek={seek} />
+
+      <Lesson payload={p} obs={obs} />
 
       <EvidenceViewer ref={viewer} obs={obs} payload={p} videoUrl={videoUrl} mediaTimes={mediaTimes} keyframes={keyframes} reference={reference} />
 
