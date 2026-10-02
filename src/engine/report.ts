@@ -36,6 +36,7 @@ export function templateReport(p: AnalysisPayload, audience: ReportBody["audienc
   const statusCites = (() => {
     if (p.analysis_status === "capture_failed") return p.capture.checks.filter((c) => c.status === "fail").map((c) => c.id);
     if (p.observed_shot) return p.observed_shot.evidence_ids.slice(0, 6);
+    if (p.position_check) return ["position_check", ...p.limitations.slice(0, 1).map((l) => l.id)];
     return p.limitations.slice(0, 2).map((l) => l.id);
   })();
 
@@ -68,9 +69,11 @@ export function templateReport(p: AnalysisPayload, audience: ReportBody["audienc
     if (p.mode === "posture_screen") {
       const obs = p.metrics.filter((m) => m.value !== null);
       if (obs.length) {
+        const grade = (m: (typeof obs)[number]) =>
+          m.inRange === null || !m.range ? "estimate from one photo, not graded" : m.inRange ? `within the range ${m.range.lo}–${m.range.hi}` : `outside the range ${m.range.lo}–${m.range.hi}`;
         sections.push({
-          heading: "Posture observations (photo)",
-          sentences: obs.map((m) => ({ text: `${m.name}: ${fmt(m)} (estimate from one photo).`, cites: [`metric_${m.id}`] })),
+          heading: p.position_check && p.position_check.verdict !== "not_side_on" ? "Front-foot defence position (photo)" : "Posture observations (photo)",
+          sentences: obs.map((m) => ({ text: `${m.name}: ${fmt(m)} (${grade(m)}).`, cites: [`metric_${m.id}`] })),
         });
       }
     }
@@ -174,6 +177,7 @@ function citationUniverse(p: AnalysisPayload): Map<string, number[]> {
   for (const id of p.delivery.evidenceIds) put(id, [p.delivery.bounceDistanceM, p.delivery.bounceUncertaintyM, p.delivery.heightAtBatterM]);
   if (p.observed_shot) for (const id of p.observed_shot.evidence_ids) put(id, [p.observed_shot.probability * 100, p.capture_confidence * 100]);
   for (const f of p.evidence_frames) put(`frame_${f}`, [f]);
+  if (p.position_check) put("position_check", [p.position_check.met, p.position_check.checked, p.position_check.frame + 1, p.photo_set?.length ?? 1]);
   return u;
 }
 

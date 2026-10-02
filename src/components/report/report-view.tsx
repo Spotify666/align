@@ -236,9 +236,15 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         <section aria-labelledby="posture-h" className="space-y-4">
           <SectionHead
             id="posture-h"
-            eyebrow="Posture screen"
-            title={p.photo_set ? "What the photos show" : "What the photo shows"}
-            note="Estimates from still images. Not graded: a photo can't confirm the shot or the moment of contact."
+            eyebrow={positionGraded(p) ? "Front-foot defence formula" : "Posture screen"}
+            title={positionGraded(p) ? `Position check: ${p.position_check!.met} of ${p.position_check!.checked} met` : p.photo_set ? "What the photos show" : "What the photo shows"}
+            note={
+              positionGraded(p)
+                ? "Each check compares one measurement from the photo with its range; open a check to see where the range comes from. A photo shows one moment, taken to be contact. A drive can look the same at contact, so the shot itself needs a video."
+                : p.position_check?.verdict === "not_side_on"
+                  ? "Filmed along the pitch, forward distances and leg angles are foreshortened, so the formula needs a side-on photo. Shown, not graded."
+                  : "Estimates from still images. Not graded: too little of the batter is visible to check the position."
+            }
           />
           {p.photo_set && (
             <div className="card overflow-x-auto">
@@ -262,8 +268,10 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
                         {ph.phase && <span className="ml-1.5 text-fg-subtle capitalize">· {ph.phase}</span>}
                       </td>
                       {ph.observations.map((m) => (
-                        <td key={m.id} className="num px-3 py-2.5">
+                        <td key={m.id} className={`num px-3 py-2.5 ${m.inRange === false ? "text-bad" : ""}`}>
                           {m.value !== null ? `${m.value.toFixed(m.decimals)} ${m.unit.replace("× stature", "×H")}` : <span className="text-fg-subtle">—</span>}
+                          {m.inRange === true && <span className="ml-1 text-ok" aria-label="within range">✓</span>}
+                          {m.inRange === false && <span className="ml-1" aria-label="outside range">!</span>}
                         </td>
                       ))}
                     </tr>
@@ -273,7 +281,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             </div>
           )}
           <h3 className="text-sm text-fg-subtle">
-            {p.photo_set ? `Key photo (${p.photo_set.find((x) => x.phase === "contact") ? "tagged contact" : "most complete"})` : "Observations"}
+            {p.photo_set ? `Key photo (${p.photo_set.find((x) => x.phase === "contact") ? "tagged contact" : "most complete"})` : positionGraded(p) ? "Checks" : "Observations"}
           </h3>
           <div className="grid gap-3 sm:grid-cols-3">
             {p.metrics.map((m) => (
@@ -352,8 +360,12 @@ const evidenceFrame = (m: Metric) => {
 };
 
 /** The few things the batter needs, first: what went well, the one fix, the drill, the key numbers. */
+/** A photo read side-on with enough of the batter visible: its checks are graded against the formula. */
+const positionGraded = (p: AnalysisPayload) => !!p.position_check && !["not_side_on", "not_enough", "not_on_front_foot"].includes(p.position_check.verdict);
+
 function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, metricId?: string) => void }) {
   const isValid = p.analysis_status === "valid";
+  const graded = isValid || positionGraded(p);
   const measured = (isValid || p.mode === "posture_screen" ? p.metrics : (p.observations ?? [])).filter((m) => m.status !== "not_measured" && m.value !== null);
   // Out-of-range first, then the rest, at most six.
   // Needs work first, then within range, then shown-but-not-graded; at most six.
@@ -364,9 +376,9 @@ function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, me
   const drill = p.plan?.drills[0];
   return (
     <section aria-label="Summary" className="space-y-4">
-      {isValid && (
+      {graded && (
         <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryCard tone="ok" label="Doing well" title={strength?.title ?? "A sound defensive shape"} text={strength?.observation ?? "Every measured position sits inside the coaching range."} />
+          <SummaryCard tone="ok" label="Doing well" title={strength?.title ?? (isValid ? "A sound defensive shape" : "Keep working on the shape")} text={strength?.observation ?? (isValid ? "Every measured position sits inside the coaching range." : "None of the checks is inside its range yet.")} />
           <SummaryCard tone="bad" label="Fix next" title={priority?.title ?? "Nothing urgent"} text={priority?.observation ?? "Keep recording to build your personal baseline."} />
           <SummaryCard tone="brand" label="Drill" title={drill?.name ?? "Keep practising the same shape"} text={drill ? `${drill.dosage}. Cue: “${p.plan?.cue ?? drill.cue}”` : "Record again to compare."} />
         </div>
@@ -384,8 +396,8 @@ function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, me
       {key.length > 0 && (
         <div className="card overflow-hidden">
           <p className="border-b border-line px-4 py-2.5 text-sm font-semibold">
-            {isValid ? "Key measures" : p.mode === "posture_screen" ? "What the photo shows" : "What we could still see"}
-            {!isValid && <span className="ml-2 font-normal text-fg-subtle">not graded</span>}
+            {isValid ? "Key measures" : positionGraded(p) ? "Position checks" : p.mode === "posture_screen" ? "What the photo shows" : "What we could still see"}
+            {!graded && <span className="ml-2 font-normal text-fg-subtle">not graded</span>}
           </p>
           <ul className="divide-y divide-line">
             {key.map((m) => {

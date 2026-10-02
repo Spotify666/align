@@ -89,11 +89,24 @@ export default function SciencePage() {
               <p className="mt-1 text-sm text-fg-muted">{m.meaning}</p>
               <p className="mt-2 text-xs num text-fg-subtle">
                 phase {m.phase} · range {m.range ? `${m.range.lo}–${m.range.hi}` : "none (baseline only)"} · needs {m.requires.join(", ")} · index weight {m.weight}
+                {m.only ? ` · ${m.only} only` : ""}
               </p>
+              {m.basis && <p className="mt-1.5 text-xs text-fg-muted">Range: {m.basis}</p>}
             </li>
           ))}
         </ul>
         <p className="text-sm text-fg-muted">These are movement indicators, not biomarkers or diagnoses. Ranges are provisional coaching ranges for adult club batters facing medium pace from a side-on view, pending validation.</p>
+        <p className="text-sm text-fg-muted">
+          <strong className="text-fg">The position formula (photos).</strong> A side-on photo is checked against seven of these at once: stride (foot to foot), front knee, back leg,
+          head over the front knee, trunk lean, weight over the front foot, and hands ahead of the front knee. Each is met or not; the photo is taken to be the moment of contact.
+          A photo can&apos;t show timing, the bat&apos;s path or the ball, and a drive can look the same at contact, so a photo never confirms the shot or gets a score.
+        </p>
+        <p className="text-xs text-fg-subtle">
+          Sources: Stretch RA, Buys F, Du Toit E, Viljoen G (1998), Kinematics and kinetics of the drive off the front foot in cricket batting, Journal of Sports Sciences
+          (bat angle at impact in the forward defence: 62.6 ± 6.5° from horizontal; drive 77.8 ± 7.1°). Taliep MS, Galal U, Vaughan CL (2007), The position of the head and
+          centre of mass during the front foot off-drive in skilled and less-skilled cricket batsmen, Sports Biomechanics (skilled batters&apos; head and centre of mass further
+          forward; less-skilled more upright at the hip). Where no measurement exists, the range is a coaching criterion and says so.
+        </p>
       </Section>
 
       <Section id="index" eyebrow={INDEX_WEIGHTS_VERSION} title="The secondary technique index">
@@ -158,6 +171,7 @@ export default function SciencePage() {
       <Section id="refs" eyebrow="References" title="Sources">
         <ul className="space-y-2 text-sm text-fg-muted list-disc pl-5">
           <li><a className="underline" href="https://pubmed.ncbi.nlm.nih.gov/10189076/">Stretch et al., 1998 — front-foot drive and forward defence kinematics</a></li>
+          <li><a className="underline" href="https://www.researchgate.net/publication/5912436_The_position_of_the_head_and_centre_of_mass_during_the_front_foot_off-drive_in_skilled_and_less-skilled_cricket_batsmen">Taliep et al., 2007 — head and centre of mass at contact, skilled vs less-skilled batters</a></li>
           <li><a className="underline" href="https://doi.org/10.1371/journal.pcbi.1011462">OpenCap — multi-phone markerless biomechanics</a></li>
           <li><a className="underline" href="https://arxiv.org/abs/1907.03698">TrackNet — tracking small, fast sports balls</a></li>
           <li><a className="underline" href="https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker">MediaPipe Pose Landmarker</a></li>

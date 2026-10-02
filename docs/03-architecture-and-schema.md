@@ -12,7 +12,7 @@ Phone browser
   ├─ Gate: quality checks on the chosen window (engine.assessCapture)
   ├─ Tracking: MediaPipe Pose on an upscaled crop around the batter → 2D body + 3D estimate
   ├─ Marks: athlete marks stumps, bounce, contact, bat (each skippable)
-  ├─ Photos: 1–12 stills, EXIF-aware decode, letterboxed, batter found, pose → posture screen
+  ├─ Photos: 1–12 stills, EXIF-aware decode, letterboxed, batter found (person crops → whole photo → enlarged → raw pixels, CPU then GPU model), pose → position check
   ├─ Engine (pure TS, deterministic): scene → events → delivery → features → classify
   │     → status policy → metrics → domains → priorities → plan → template report
   ├─ Storage: IndexedDB (analyses, align-tracks-v1 binary tracks, WebP keyframes)
@@ -28,7 +28,8 @@ Next.js 16 (App Router) on Vercel. All analysis runs on the device; the server o
 - Deterministic: canonical JSON + SHA-256, seeded PRNG. `result_hash` excludes id and timestamp.
 - Batter-centric frame: forward = toward the bowler; left-handers are mirrored semantically, not visually.
 - Side-on: forward is the image x-axis. Front-on or behind: forward comes from the monocular 3D estimate (`poseWorld`, MediaPipe world landmarks), relative to the back ankle in the same frame. Bat and ball stay in image-plane coordinates and are never compared with body forward positions. Side-view-only metrics are marked `side_view` in the registry.
-- Photo sets: each photo is analysed on its own (posture metrics only). The payload carries `photo_set`, and its headline measures come from the photo tagged "contact".
+- Photos: each photo is checked on its own against the position formula (`POSITION_FORMULA` in `engine/analyze.ts`: foot spread, front knee, back leg, head over knee, trunk lean, weight forward, hands ahead of knee). Side-on, every check is graded and `position_check` carries the verdict; along the pitch the formula can't be applied, so posture is shown ungraded. A photo never gets a shot verdict or a score. Sets carry `photo_set`; the headline comes from the photo tagged "contact".
+- Capture size is judged on the batter (standing height in pixels, from thigh, shin and trunk lengths), not on the frame.
 - Uncertain shots carry ungraded `observations` (no ranges, no score). A different shot carries none.
 - Scale: stumps (0.711 m) → athlete height → stature units.
 

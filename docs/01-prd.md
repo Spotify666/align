@@ -31,7 +31,7 @@ One shot: the **front-foot defence**. Other shots are recognised and refused a d
 | Different shot detected | Confidently not a defence; alternative named with evidence | No |
 | Shot uncertain | Not enough evidence either way; says exactly what to change | No |
 | Capture failed | Caught before processing | No |
-| Posture screen (photo) | Single image; posture only | No |
+| Position check (photo) | Side-on image at contact, graded against the 7-check position formula; no shot verdict | No |
 
 ## Functional requirements
 

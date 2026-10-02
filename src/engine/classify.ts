@@ -23,7 +23,8 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
     contact_height: [0, 0.32, 0.05, 1.2],
     hands_height: [0.4, 0.72, 0.05, 0.6],
     back_knee_height: [0.12, 0.36, 0.04, 0.5],
-    bat_angle: [0, 30, 8, 1.3],
+    // Measured defences: 27 ± 6.5° forward of vertical at impact (Stretch et al., 1998).
+    bat_angle: [0, 40, 8, 1.3],
     bat_speed: [0, 3.6, 0.8, 1.2],
     follow_through: [0, 1.5, 0.3, 0.4],
     follow_height: [0.05, 0.38, 0.05, 1.2],

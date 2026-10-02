@@ -3,7 +3,7 @@
 
 import type { Drill } from "./types";
 
-export const DRILL_LIBRARY_VERSION = "drills-0.3.0";
+export const DRILL_LIBRARY_VERSION = "drills-0.4.0";
 
 export interface CoachingEntry {
   metricId: string;
@@ -76,8 +76,8 @@ export const COACHING: CoachingEntry[] = [
   {
     metricId: "front_knee_flexion",
     low: {
-      observation: "Your front knee was bent more than your coaching range at contact.",
-      consequence: "Collapsing the front knee can lower the head too far and cramp the bat.",
+      observation: "Your hips sank below your front knee at contact.",
+      consequence: "Collapsing the front knee lowers the head too far, cramps the bat and makes it hard to get back up.",
       cue: "Firm front leg; bend, don't collapse.",
     },
     high: {
@@ -119,11 +119,15 @@ export const COACHING: CoachingEntry[] = [
   },
   {
     metricId: "bat_angle_contact",
-    low: { observation: "", consequence: "", cue: "" },
+    low: {
+      observation: "Your bat was close to upright at contact, with the hands level with or behind the blade.",
+      consequence: "An upright bat can push the ball in the air instead of down into the ground.",
+      cue: "Hands ahead of the blade; angle the bat down.",
+    },
     high: {
-      observation: "Your bat was tilted well away from vertical at contact.",
-      consequence: "An angled bat narrows the face presented to a full ball.",
-      cue: "Top hand leads; bat face straight down the line.",
+      observation: "Your bat was tilted well forward at contact.",
+      consequence: "A bat angled too far reaches for the ball and narrows the face it meets.",
+      cue: "Top hand leads; let the ball come to the bat.",
     },
     drills: [
       d({
@@ -209,8 +213,8 @@ export const COACHING: CoachingEntry[] = [
       cue: "Lean in from the hips.",
     },
     high: {
-      observation: "You leaned further forward than your coaching range.",
-      consequence: "Excess lean narrows the base and can drag the head across the line.",
+      observation: "You were bent well forward at contact, chest close to the thigh.",
+      consequence: "Folding over narrows the base and can drag the head across the line.",
       cue: "Chest proud, head forward.",
     },
     drills: [
@@ -224,6 +228,74 @@ export const COACHING: CoachingEntry[] = [
       }),
     ],
     retest: "Trunk lean on 6 new deliveries.",
+  },
+  {
+    metricId: "foot_spread",
+    low: {
+      observation: "Your feet were close together: the front foot hadn't gone far toward the ball.",
+      consequence: "Without a stride the ball can move off the pitch before it reaches the bat.",
+      cue: "Step to the pitch of the ball.",
+    },
+    high: {
+      observation: "Your feet were stretched very wide apart.",
+      consequence: "Over-stretching locks the hips and makes it hard to stay balanced.",
+      cue: "A long stride you can hold, head over the knee.",
+    },
+    drills: [
+      d({
+        id: "drill_stride_markers",
+        name: "Stride-marker defence",
+        constraint: "Two flat markers at 0.35 and 0.45 × your height in front of your front foot; land between them.",
+        dosage: "3 sets × 10 shadow strides, then 2 × 6 throw-downs",
+        passCondition: "Front foot lands between the markers on 8 of 10.",
+        cue: "Land soft between the lines.",
+      }),
+    ],
+    retest: "Take the same side-on photo, or record a clip, at the moment of contact.",
+  },
+  {
+    metricId: "back_knee_extension",
+    low: {
+      observation: "Your back knee was well bent at contact.",
+      consequence: "A bent back leg keeps weight back and the head behind the ball.",
+      cue: "Push off the back foot; let the back leg go long.",
+    },
+    high: { observation: "", consequence: "", cue: "" },
+    drills: [
+      d({
+        id: "drill_long_back_leg",
+        name: "Long-back-leg shadow",
+        constraint: "Shadow the defence and freeze at contact: back leg long, back heel off the ground, toe still touching.",
+        dosage: "3 sets × 8, freeze 2 s each",
+        passCondition: "Back leg long and heel up at the freeze on 7 of 8.",
+        cue: "Heel up, leg long.",
+      }),
+    ],
+    retest: "Back leg at contact on a new side-on photo or clip.",
+  },
+  {
+    metricId: "hands_ahead_of_knee",
+    low: {
+      observation: "Your hands were level with or behind your front knee at contact.",
+      consequence: "With the hands back, the bat face points up and the ball can pop up to close fielders.",
+      cue: "Hands over the front pad, bat angled down.",
+    },
+    high: {
+      observation: "Your hands were pushed well out in front of your front knee.",
+      consequence: "Pushing at the ball with hard hands sends edges to the slips.",
+      cue: "Soft hands; let the ball come to you.",
+    },
+    drills: [
+      d({
+        id: "drill_top_hand_only",
+        name: "Top-hand-only defence",
+        constraint: "Bottom hand off the bat; block soft throw-downs with the top hand only.",
+        dosage: "3 sets × 8 balls",
+        passCondition: "Bat angled down and ball dropped in front on 6 of 8.",
+        cue: "Top hand in control.",
+      }),
+    ],
+    retest: "Hand position at contact on a new side-on photo or clip.",
   },
   {
     metricId: "contact_ahead_of_knee",

@@ -9,10 +9,10 @@ const isPhoto = files.every((f) => /\.(jpe?g|png|webp|heic)$/i.test(f));
 const launchArgs = { executablePath: process.env.CHROMIUM_PATH, args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] };
 const ctxOpts = { viewport: { width: +w, height: +h }, deviceScaleFactor: 1, acceptDownloads: true, isMobile: +w < 700, hasTouch: +w < 700 };
 // USER_DATA=<dir> keeps the device's saved analyses between runs (e.g. to test Compare).
-const ctx = process.env.USER_DATA
-  ? await chromium.launchPersistentContext(process.env.USER_DATA, { ...launchArgs, ...ctxOpts })
-  : await (await chromium.launch(launchArgs)).newContext(ctxOpts);
-const browser = { close: () => ctx.close() };
+const launched = process.env.USER_DATA ? null : await chromium.launch(launchArgs);
+const ctx = launched ? await launched.newContext(ctxOpts) : await chromium.launchPersistentContext(process.env.USER_DATA, { ...launchArgs, ...ctxOpts });
+// Close the browser itself (closing only a context leaves it running and the script never exits).
+const browser = { close: () => (launched ? launched.close() : ctx.close()) };
 // Pin the pose path (as a returning device would have it) for repeatable runs.
 if (process.env.POSE_DELEGATE) await ctx.addInitScript((d) => localStorage.setItem("align:pose-delegate", d), process.env.POSE_DELEGATE);
 const page = await ctx.newPage();
@@ -35,7 +35,7 @@ const deadline = Date.now() + 600000;
 while (Date.now() < deadline) {
   if (/\/report\//.test(page.url())) break;
   const h1 = await page.locator("h1").first().innerText().catch(() => "");
-  if (/can't analyse|can’t analyse|Couldn't|can't be|Tracking stopped|Analysis failed|No batter|Unsupported|too short/i.test(h1)) {
+  if (/can't analyse|can’t analyse|Couldn't|can't be|Tracking stopped|Analysis failed|No batter|Can.t read|Unsupported|too short/i.test(h1)) {
     step("STOPPED: " + h1);
     await shot("stopped");
     console.log(await page.locator("main").innerText().catch(() => ""));
