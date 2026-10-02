@@ -12,7 +12,7 @@ Phone browser
   ├─ Gate: quality checks on the chosen window (engine.assessCapture)
   ├─ Tracking: MediaPipe Pose on an upscaled crop around the batter → 2D body + 3D estimate
   ├─ Marks: athlete marks stumps, bounce, contact, bat (each skippable)
-  ├─ Photos: 1–12 stills, EXIF-aware decode, letterboxed, every person read on their own (a skeleton counts only if it fills that person's box; others greyed out and re-read if the model locks onto someone else), batter = most batter-like (hands together, not in the keeper's crouch), then largest and most central; a close call asks the athlete; pose → position check (square side-on only; at an angle, posture is shown ungraded)
+  ├─ Photos: 1–12 stills, EXIF-aware decode, letterboxed, every person read on their own (a skeleton counts only if it fills that person's box; others greyed out and re-read if the model locks onto someone else), batter = most batter-like (hands together, not in the keeper's crouch), then largest and most central; a close call asks the athlete; pose → position check (side-on: all 7 checks; at an angle: front knee, back leg, lean (lower bound) and weight forward, since stride, head and hand distances run toward the camera; along the pitch: shown ungraded)
   ├─ Engine (pure TS, deterministic): scene → events → delivery → features → classify
   │     → status policy → metrics → domains → priorities → plan → template report
   ├─ Storage: IndexedDB (analyses, align-tracks-v1 binary tracks, WebP keyframes)

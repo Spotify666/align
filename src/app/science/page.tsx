@@ -98,7 +98,7 @@ export default function SciencePage() {
         <p className="text-sm text-fg-muted">These are movement indicators, not biomarkers or diagnoses. Ranges are provisional coaching ranges for adult club batters facing medium pace from a side-on view, pending validation.</p>
         <p className="text-sm text-fg-muted">
           <strong className="text-fg">The position formula (photos).</strong> A side-on photo is checked against seven of these at once: stride (foot to foot), front knee, back leg,
-          head over the front knee, trunk lean, weight over the front foot, and hands ahead of the front knee. Each is met or not; the photo is taken to be the moment of contact.
+          head over the front knee, trunk lean, weight over the front foot, and hands ahead of the front knee. Each is met or not; the photo is taken to be the moment of contact. From an angle, four are checked (front knee, back leg, lean and weight forward): the stride and the head and hand distances run toward the camera and can&apos;t be read.
           A photo can&apos;t show timing, the bat&apos;s path or the ball, and a drive can look the same at contact, so a photo never confirms the shot or gets a score.
         </p>
         <p className="text-xs text-fg-subtle">

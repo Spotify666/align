@@ -273,29 +273,60 @@ function single(obs: CaptureObservation, i: number): CaptureObservation {
  * One photo against the position formula. Side-on, every check is graded; along the
  * pitch the formula can't be applied, so a few posture readings are shown ungraded.
  */
-function positionFromPhoto(photo: CaptureObservation, frame: number): { metrics: Metric[]; sideOn: boolean } {
+/**
+ * From a photo taken at an angle (neither square side-on nor along the pitch), the
+ * checks that survive the angle: knee angles (an estimate), weight forward (a proportion
+ * along the stride, which the angle doesn't change much) and forward lean (an angle can
+ * only make a lean look smaller, so a lean that already reads big enough is certain).
+ * Stride length and the head and hand distances run toward the camera: not read.
+ */
+const ANGLED_FORMULA = ["front_knee_flexion", "back_knee_extension", "trunk_inclination", "weight_forward"];
+
+function positionFromPhoto(photo: CaptureObservation, frame: number): { metrics: Metric[]; sideOn: boolean; angled: boolean } {
+  const angled = photo.camera.view === "oblique";
   const read = computeMetricsSafe(photo);
   const { metrics } = read;
-  // Taken at an angle: forward distances are foreshortened by an unknown amount, so the
-  // formula can't be applied either.
-  const sideOn = read.sideOn && photo.camera.view !== "oblique";
+  const sideOn = read.sideOn;
   const ids = sideOn ? POSITION_FORMULA : POSTURE_IDS;
   const out = ids.map((id) => {
     const m = metrics.find((x) => x.id === id);
+    if (angled && !ANGLED_FORMULA.includes(id)) return notVisible(id, "Needs a side-on photo: from this angle the stride runs toward the camera, so this distance can't be read.");
     if (!m || m.status === "not_measured") return notVisible(id, m?.reason);
     // Evidence points at this photo within the set.
     const own = { ...m, evidenceIds: m.evidenceIds.map((e) => (e === "frame_0" ? `frame_${frame}` : e)) };
-    return sideOn ? photoGraded(own) : photoOnly(own);
+    if (!sideOn) return photoOnly(own);
+    return angled ? photoAngled(own) : photoGraded(own);
   });
-  return { metrics: out, sideOn };
+  return { metrics: out, sideOn, angled };
 }
 
 function computeMetricsSafe(photo: CaptureObservation): { metrics: Metric[]; sideOn: boolean } {
-  const scene = buildScene(photo);
-  const events = { list: [], byType: {} };
-  const delivery = estimateDelivery(scene, events);
-  const features = extractFeatures(scene, events, { ...delivery, available: false, length: null });
-  return { metrics: computeMetrics({ scene, events, features, delivery, tier: photo.tier, postureFrame: 0 }), sideOn: scene.plane === "sagittal" };
+  const run = (o: CaptureObservation) => {
+    const scene = buildScene(o);
+    const events = { list: [], byType: {} };
+    const delivery = estimateDelivery(scene, events);
+    const features = extractFeatures(scene, events, { ...delivery, available: false, length: null });
+    return { scene, metrics: computeMetrics({ scene, events, features, delivery, tier: o.tier, postureFrame: 0 }) };
+  };
+  let { scene, metrics } = run(photo);
+  // At an angle the bowler's side isn't known from the camera: the front foot is ahead.
+  if (photo.camera.view === "oblique") {
+    const fa = scene.get(0, "front_ankle");
+    const ba = scene.get(0, "back_ankle");
+    if (fa && ba && fa.f < ba.f) ({ scene, metrics } = run({ ...photo, camera: { ...photo.camera, bowlerSide: photo.camera.bowlerSide === "left" ? "right" : "left" } }));
+  }
+  return { metrics, sideOn: scene.plane === "sagittal" };
+}
+
+function photoAngled(m: Metric): Metric {
+  const g = photoGraded(m);
+  // A lean seen from an angle reads smaller than it is: enough lean is certain, too little
+  // or too much can't be told.
+  if (m.id === "trunk_inclination" && m.range && m.value !== null) {
+    const ok = m.value >= m.range.lo;
+    return { ...g, inRange: ok ? true : null, limitation: [g.limitation, ok ? "From an angle a lean looks smaller than it is: at least this much." : "From an angle a lean looks smaller than it is, so too little lean can't be told."].join(" ") };
+  }
+  return { ...g, limitation: [g.limitation, "Photo at an angle: an estimate."].join(" ") };
 }
 
 function photoGraded(m: Metric): Metric {
@@ -321,15 +352,21 @@ function photoOnly(m: Metric): Metric {
 export interface PositionCheck {
   met: number;
   checked: number;
+  /** Taken at an angle: only the checks that survive the angle were made. */
+  angled?: boolean;
   verdict: "matches" | "mostly" | "partly" | "doesnt_match" | "not_on_front_foot" | "not_enough" | "not_side_on";
 }
 
 /** The formula's verdict: how many of the checks this photo could measure are met. */
-export function positionCheck(ms: Metric[], sideOn: boolean): PositionCheck {
+export function positionCheck(ms: Metric[], sideOn: boolean, angled = false): PositionCheck {
   const graded = ms.filter((m) => m.inRange !== null);
   const met = graded.filter((m) => m.inRange).length;
   const checked = graded.length;
   if (!sideOn) return { met, checked, verdict: "not_side_on" };
+  if (angled) {
+    if (checked < 3) return { met, checked, angled, verdict: "not_enough" };
+    return { met, checked, angled, verdict: met === checked ? "matches" : met >= checked - 1 ? "mostly" : met >= checked / 2 ? "partly" : "doesnt_match" };
+  }
   if (checked < 4) return { met, checked, verdict: "not_enough" };
   const spread = ms.find((m) => m.id === "foot_spread");
   // Feet together: the front foot hasn't gone toward the ball (a stance, a back-foot shot).
@@ -340,7 +377,7 @@ export function positionCheck(ms: Metric[], sideOn: boolean): PositionCheck {
 
 function positionHeadline(c: PositionCheck, ms: Metric[], key: number, photos: number, view: CaptureObservation["camera"]["view"]): string {
   const which = photos > 1 ? `photo ${key + 1} of ${photos}` : "this photo";
-  const tag = photos > 1 ? ` (photo ${key + 1} of ${photos})` : "";
+  const tag = photos > 1 ? ` (photo ${key + 1} of ${photos}${c.angled ? ", from an angle" : ""})` : c.angled ? " (photo from an angle)" : "";
   const off = ms.filter((m) => m.inRange === false).map((m) => m.name.toLowerCase());
   switch (c.verdict) {
     case "matches":
@@ -475,7 +512,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     const key = keyPhoto(phases, perPhoto);
     const set = frames > 1;
     const metrics = perPhoto[key] ?? [];
-    const check = positionCheck(metrics, per[key]?.sideOn ?? false);
+    const check = positionCheck(metrics, per[key]?.sideOn ?? false, per[key]?.angled ?? false);
     const graded = check.verdict !== "not_side_on" && check.verdict !== "not_enough" && check.verdict !== "not_on_front_foot";
     const { strengths, priorities } = graded ? strengthsAndPriorities(metrics) : { strengths: [], priorities: [] };
     const plan = graded ? buildPlan(priorities, metrics) : null;
@@ -503,10 +540,10 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
         { id: "lim_photo", text: "A photo checks the position at one moment, taken to be contact. It can't show timing, the bat's path or the ball, so it never confirms the shot itself." },
         ...(set ? [{ id: "lim_photo_set", text: "Each photo is measured on its own; photos are not treated as one continuous movement." }] : []),
       ],
+      // Only what gets a fuller check; camera details stay in the recording checks.
       recapture: [
-        ...(check.verdict === "not_side_on" ? ["Take the photo square side-on (camera level with the batter, at right angles to the pitch), at the moment of contact."] : []),
+        ...(check.verdict === "not_side_on" || check.angled ? ["Take a side-on photo at the moment of contact to check the stride, head and hands too."] : []),
         "Record a short video of the whole delivery to check the shot itself: timing, bat path and ball.",
-        ...recapture.filter((r) => !r.startsWith("Record a short video")),
       ],
       evidence_frames: set ? Array.from({ length: Math.min(frames, 12) }, (_, i) => i) : [0],
       ...(set
@@ -657,8 +694,8 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   const { strengths, priorities } = strengthsAndPriorities(metrics);
   const plan = buildPlan(priorities, metrics);
   const headline = priorities[0]
-    ? `Valid front-foot defence. Main priority: ${priorities[0].title.toLowerCase()}.`
-    : "Valid front-foot defence. All measured indicators are within the current coaching range.";
+    ? `Valid front-foot defence. To work on: ${priorities[0].title.toLowerCase()}.`
+    : "Valid front-foot defence. Every check is in range.";
 
   return finish({
     ...common,

@@ -10,6 +10,7 @@ export function RangeBar({
   baseline,
   decimals,
   unit,
+  format,
 }: {
   value: number;
   uncertainty: number | null;
@@ -17,6 +18,8 @@ export function RangeBar({
   baseline?: { mean: number; sd: number } | null;
   decimals: number;
   unit: string;
+  /** Display a value (defaults to fixed decimals). */
+  format?: (v: number) => string;
 }) {
   const u = uncertainty ?? 0;
   const pts = [value - u, value + u];
@@ -28,7 +31,7 @@ export function RangeBar({
   lo -= pad;
   hi += pad;
   const x = (v: number) => ((v - lo) / (hi - lo)) * 100;
-  const fmt = (v: number) => v.toFixed(decimals);
+  const fmt = (v: number) => (format ? format(v) : v.toFixed(decimals));
   const inRange = range ? value >= range.lo && value <= range.hi : null;
 
   return (

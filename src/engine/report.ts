@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { SHOT_DISPLAY } from "./classify";
 import { fmt } from "./scoring";
+import { plainRange, plainReading, plainValue } from "./plain";
 import { DRILL_LIBRARY_VERSION } from "./coaching";
 import type { AnalysisPayload } from "./types";
 
@@ -30,6 +31,8 @@ export interface Report extends ReportBody {
 }
 
 const pct = (p: number) => `${Math.round(p * 100)}%`;
+
+const READER_LIMITS = ["lim_demo", "lim_photo", "lim_photo_set", "lim_no_bat", "lim_no_ball", "lim_body_led"];
 
 export function templateReport(p: AnalysisPayload, audience: ReportBody["audience"] = "player"): Report {
   const sections: ReportBody["sections"] = [];
@@ -65,15 +68,17 @@ export function templateReport(p: AnalysisPayload, audience: ReportBody["audienc
   }
 
   if (p.analysis_status === "uncertain_shot") {
-    sections[0]!.sentences.push({ text: "Technique score withheld until the shot can be confirmed.", cites: [] });
+    sections[0]!.sentences.push({
+      text: p.mode === "posture_screen" ? "A photo can't confirm the shot itself, so no score is given." : "Technique score withheld until the shot can be confirmed.",
+      cites: [],
+    });
     if (p.mode === "posture_screen") {
       const obs = p.metrics.filter((m) => m.value !== null);
       if (obs.length) {
-        const grade = (m: (typeof obs)[number]) =>
-          m.inRange === null || !m.range ? "estimate from one photo, not graded" : m.inRange ? `within the range ${m.range.lo}–${m.range.hi}` : `outside the range ${m.range.lo}–${m.range.hi}`;
+        const grade = (m: (typeof obs)[number]) => (m.inRange === null || !m.range ? "not graded" : m.inRange ? `in range: ${plainRange(m)}` : `aim for ${plainRange(m)}`);
         sections.push({
-          heading: p.position_check && p.position_check.verdict !== "not_side_on" ? "Front-foot defence position (photo)" : "Posture observations (photo)",
-          sentences: obs.map((m) => ({ text: `${m.name}: ${fmt(m)} (${grade(m)}).`, cites: [`metric_${m.id}`] })),
+          heading: p.position_check && p.position_check.verdict !== "not_side_on" ? "Your position (photo)" : "Your posture (photo)",
+          sentences: obs.map((m) => ({ text: `${m.inRange === null ? m.name : plainReading(m)}: ${plainValue(m)} (${grade(m)}).`, cites: [`metric_${m.id}`] })),
         });
       }
     }
@@ -137,7 +142,8 @@ export function templateReport(p: AnalysisPayload, audience: ReportBody["audienc
 
   sections.push({
     heading: "Limits of this result",
-    sentences: p.limitations.slice(0, 5).map((l) => ({ text: l.text, cites: [l.id] })),
+    // Only what changes how to read the result; the technical ones stay in Technical details.
+    sentences: p.limitations.filter((l) => READER_LIMITS.includes(l.id)).slice(0, 3).map((l) => ({ text: l.text, cites: [l.id] })),
   });
 
   return { audience, sections: sections.filter((x) => x.sentences.length > 0), generator: "template-0.1.0", payloadHash: p.result_hash, drillLibrary: DRILL_LIBRARY_VERSION };
@@ -162,6 +168,8 @@ function citationUniverse(p: AnalysisPayload): Map<string, number[]> {
     u.set(id, [...(u.get(id) ?? []), ...nums.filter((x): x is number => typeof x === "number" && Number.isFinite(x))]);
   for (const m of p.metrics) {
     put(`metric_${m.id}`, [m.value, m.uncertainty, m.range?.lo, m.range?.hi, m.confidence * 100]);
+    // Shares of height and of the stride are written as percentages.
+    if (m.unit === "× stature" || m.unit === "0–1") put(`metric_${m.id}`, [m.value, m.range?.lo, m.range?.hi].map((x) => (x == null ? null : Math.round(x * 100))));
   }
   for (const f of p.features) put(f.id, [f.value]);
   for (const e of p.events) {

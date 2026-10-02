@@ -332,6 +332,8 @@ export interface AnalysisPayload {
     checked: number;
     verdict: "matches" | "mostly" | "partly" | "doesnt_match" | "not_on_front_foot" | "not_enough" | "not_side_on";
     frame: number;
+    /** Photo at an angle: only the checks that survive the angle were made. */
+    angled?: boolean;
   };
   /** Photo sets: per-photo posture observations, in the order the photos were given. */
   photo_set?: Array<{ frame: number; phase: PhotoPhase | null; observations: Metric[]; note?: string }>;

@@ -13,6 +13,7 @@ import { CaptureChecklist, DomainGrid, Limitations, PriorityPlan, ShotProbabilit
 import { ConfidenceChip, DemoBadge, STATUS_META, statusKey } from "./status";
 import { Download, Record as RecordIcon, Target } from "../icons";
 import { downloadReportPdf } from "@/lib/pdf";
+import { plainRange, plainReading, plainValue } from "@/engine/plain";
 
 interface Props {
   payload: AnalysisPayload;
@@ -45,7 +46,9 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       setAiState("unavailable");
     }
   };
-  const meta = STATUS_META[statusKey(p)];
+  // A photo whose position passes the check reads as a pass.
+  const photoPass = p.position_check && ["matches", "mostly"].includes(p.position_check.verdict);
+  const meta = photoPass ? { ...STATUS_META.valid, label: "Photo check" } : STATUS_META[statusKey(p)];
   const contact = p.events.find((e) => e.type === "contact");
   const t0 = obs.t[0] ?? 0;
   const seek = (frame: number, metricId?: string) => viewer.current?.seek(frame, metricId);
@@ -81,18 +84,6 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             <span className={`chip ${meta.ring} ${meta.tone} text-sm`}>
               <meta.Icon size={16} /> {meta.label}
             </span>
-            {p.shot_probabilities && <ConfidenceChip label="Shot" value={p.observed_shot?.probability ?? p.shot_probabilities.front_foot_defence} note="uncalibrated" />}
-            <ConfidenceChip label="Capture" value={p.capture_confidence} />
-            {p.evidence_basis === "body" && (
-              <span className="chip border-line-strong text-fg-muted" title="Bat or ball wasn't seen, so the shot was confirmed from body and hand movement. Measures that need them aren't reported.">
-                Confirmed from body movement
-              </span>
-            )}
-            {p.camera_view && p.camera_view !== "side_on" && (
-              <span className="chip border-line-strong text-fg-muted">
-                Camera: {p.camera_view === "front_on" ? "bowler's end" : p.camera_view === "behind" ? "behind batter" : p.camera_view.replace("_", " ")}
-              </span>
-            )}
           </div>
           <h1 id="verdict" className="display mt-4 text-[1.7rem] leading-[1.1] sm:text-4xl lg:text-5xl max-w-4xl">{p.headline}</h1>
           {notice}
@@ -140,46 +131,12 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       <details className="group rounded-2xl border border-line bg-surface">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 sm:px-5">
           <span>
-            <span className="font-semibold">Full analysis</span>
-            <span className="ml-2 text-sm text-fg-subtle">every measure, the evidence behind the verdict, capture checks</span>
+            <span className="font-semibold">More detail</span>
+            <span className="ml-2 text-sm text-fg-subtle">each measure, why it matters, drills</span>
           </span>
           <span className="text-fg-subtle transition-transform group-open:rotate-90">›</span>
         </summary>
         <div className="space-y-8 border-t border-line px-4 py-6 sm:px-5">
-          <details className="card p-4 group">
-              <summary className="list-none flex items-center justify-between min-h-9">
-                <span className="font-semibold">Why this result</span>
-                <span className="text-fg-subtle group-open:rotate-90 transition-transform">›</span>
-              </summary>
-              <ol className="mt-3 space-y-1.5 text-sm text-fg-muted">
-                <li>1. Capture usable? <strong className="text-fg">{p.capture.status === "fail" ? "No" : p.capture.status === "warn" ? "Yes, with warnings" : "Yes"}</strong></li>
-                <li>
-                  2. Tracked: body <strong className="text-fg">{p.tracking.body.ok ? "yes" : "no"}</strong>, bat{" "}
-                  <strong className="text-fg">{p.tracking.bat.ok ? p.tracking.bat.source.replace("_", " ") : "no"}</strong>, ball{" "}
-                  <strong className="text-fg">{p.tracking.ball.ok ? p.tracking.ball.source.replace("_", " ") : "no"}</strong>
-                </li>
-                <li>3. Delivery: <strong className="text-fg">{p.delivery.available ? (p.delivery.lengthLabel ?? "—") : "not claimed"}</strong></li>
-                <li>4–5. Shot family and compatibility: <strong className="text-fg">{meta.label}</strong></li>
-                <li>6. Technique measured: <strong className="text-fg">{isValid ? "yes" : "no — withheld"}</strong></li>
-              </ol>
-              {p.features.length > 0 && (
-                <ul className="mt-4 divide-y divide-line">
-                  {p.features.map((f) => (
-                    <li key={f.id} id={f.id} className="py-2 flex items-baseline justify-between gap-3 text-sm">
-                      <span>
-                        {f.label} <span className="text-fg-subtle">· {f.reading}</span>
-                      </span>
-                      <span className="num text-xs text-fg-muted shrink-0">{f.value?.toFixed(2)} <span className="text-fg-subtle">{f.modality}</span></span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {p.shot_probabilities && p.classifier && (
-                <div className="mt-4">
-                  <ShotProbabilityPanel probs={p.shot_probabilities} coverage={p.classifier.evidenceCoverage} />
-                </div>
-              )}
-            </details>
 
       <DeliveryPanel payload={p} onSeek={seekId} />
 
@@ -223,14 +180,6 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         </>
       )}
 
-      {!isValid && (
-        <section aria-labelledby="capture-h" className="space-y-3">
-          <SectionHead id="capture-h" eyebrow="Capture quality" title="Checks on this recording" />
-          <div className="card px-4">
-            <CaptureChecklist checks={p.capture.checks} />
-          </div>
-        </section>
-      )}
 
       {p.mode === "posture_screen" && p.metrics.some((m) => m.value !== null) && (
         <section aria-labelledby="posture-h" className="space-y-4">
@@ -240,9 +189,11 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             title={positionGraded(p) ? `Position check: ${p.position_check!.met} of ${p.position_check!.checked} met` : p.photo_set ? "What the photos show" : "What the photo shows"}
             note={
               positionGraded(p)
-                ? "Each check compares one measurement from the photo with its range; open a check to see where the range comes from. A photo shows one moment, taken to be contact. A drive can look the same at contact, so the shot itself needs a video."
+                ? p.position_check?.angled
+                  ? "Checked from one photo taken at an angle: the knees, the lean and where your weight is. Stride, head and hands need a side-on photo. A video shows the whole shot."
+                  : "Checked from one photo, taken to be the moment the ball meets the bat. A video shows the whole shot."
                 : p.position_check?.verdict === "not_side_on"
-                  ? "Not taken square side-on, so the stride, lean and leg angles are foreshortened by an unknown amount and the formula can't be applied. Shown, not graded. Take the photo level with the batter, at right angles to the pitch."
+                  ? "Taken from the bowler's end or behind, so the stride and lean can't be judged. Shown, not graded. A side-on photo gets checked."
                   : "Estimates from still images. Not graded: too little of the batter is visible to check the position."
             }
           />
@@ -308,7 +259,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       )}
 
       <section aria-labelledby="narrative-h" className="space-y-3">
-        <SectionHead id="narrative-h" eyebrow="Written report" title="In plain words" note={`Generated by ${report.generator}. Every number links to its evidence.`} />
+        <SectionHead id="narrative-h" eyebrow="Written report" title="In plain words" />
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-fg-subtle">Rewrite for:</span>
           {(["player", "coach", "parent"] as const).map((a) => (
@@ -325,12 +276,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
               <ul className="mt-2 space-y-2">
                 {s.sentences.map((x, i) => (
                   <li key={i} className="leading-relaxed">
-                    {x.text}{" "}
-                    {x.cites.slice(0, 4).map((c) => (
-                      <button key={c} onClick={() => seekId(c)} className="num align-super text-[0.62rem] text-brand/90 hover:text-brand mx-0.5" title={`Evidence ${c}`}>
-                        [{c.replace(/^(metric|feat|evt|chk|lim)_/, "")}]
-                      </button>
-                    ))}
+                    {x.text}
                   </li>
                 ))}
               </ul>
@@ -339,6 +285,55 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         </div>
       </section>
 
+      {/* For coaches and developers: how the result was reached, recording checks, versions. */}
+      <details className="group/tech card p-4">
+        <summary className="list-none flex min-h-9 cursor-pointer items-center justify-between">
+          <span className="font-semibold">Technical details</span>
+          <span className="text-fg-subtle transition-transform group-open/tech:rotate-90">›</span>
+        </summary>
+        <div className="mt-4 space-y-6">
+          <details className="card p-4 group">
+              <summary className="list-none flex items-center justify-between min-h-9">
+                <span className="font-semibold">Why this result</span>
+                <span className="text-fg-subtle group-open:rotate-90 transition-transform">›</span>
+              </summary>
+              <ol className="mt-3 space-y-1.5 text-sm text-fg-muted">
+                <li>1. Capture usable? <strong className="text-fg">{p.capture.status === "fail" ? "No" : p.capture.status === "warn" ? "Yes, with warnings" : "Yes"}</strong></li>
+                <li>
+                  2. Tracked: body <strong className="text-fg">{p.tracking.body.ok ? "yes" : "no"}</strong>, bat{" "}
+                  <strong className="text-fg">{p.tracking.bat.ok ? p.tracking.bat.source.replace("_", " ") : "no"}</strong>, ball{" "}
+                  <strong className="text-fg">{p.tracking.ball.ok ? p.tracking.ball.source.replace("_", " ") : "no"}</strong>
+                </li>
+                <li>3. Delivery: <strong className="text-fg">{p.delivery.available ? (p.delivery.lengthLabel ?? "—") : "not claimed"}</strong></li>
+                <li>4–5. Shot family and compatibility: <strong className="text-fg">{meta.label}</strong></li>
+                <li>6. Technique measured: <strong className="text-fg">{isValid ? "yes" : "no — withheld"}</strong></li>
+              </ol>
+              {p.features.length > 0 && (
+                <ul className="mt-4 divide-y divide-line">
+                  {p.features.map((f) => (
+                    <li key={f.id} id={f.id} className="py-2 flex items-baseline justify-between gap-3 text-sm">
+                      <span>
+                        {f.label} <span className="text-fg-subtle">· {f.reading}</span>
+                      </span>
+                      <span className="num text-xs text-fg-muted shrink-0">{f.value?.toFixed(2)} <span className="text-fg-subtle">{f.modality}</span></span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {p.shot_probabilities && p.classifier && (
+                <div className="mt-4">
+                  <ShotProbabilityPanel probs={p.shot_probabilities} coverage={p.classifier.evidenceCoverage} />
+                </div>
+              )}
+            </details>
+      {!isValid && (
+        <section aria-labelledby="capture-h" className="space-y-3">
+          <SectionHead id="capture-h" eyebrow="Capture quality" title="Checks on this recording" />
+          <div className="card px-4">
+            <CaptureChecklist checks={p.capture.checks} />
+          </div>
+        </section>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         <Limitations payload={p} />
         <div className="card p-4">
@@ -347,6 +342,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           <p className="mt-3 text-xs text-fg-subtle">The same tracks and engine version always produce this exact report (result hash).</p>
         </div>
       </div>
+        </div>
+      </details>
         </div>
       </details>
     </div>
@@ -366,20 +363,35 @@ const positionGraded = (p: AnalysisPayload) => !!p.position_check && !["not_side
 function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, metricId?: string) => void }) {
   const isValid = p.analysis_status === "valid";
   const graded = isValid || positionGraded(p);
-  const measured = (isValid || p.mode === "posture_screen" ? p.metrics : (p.observations ?? [])).filter((m) => m.status !== "not_measured" && m.value !== null);
+  const shown = (isValid || p.mode === "posture_screen" ? p.metrics : (p.observations ?? [])).filter((m) => m.status !== "not_measured" && m.value !== null);
+  // With a verdict, only the checks that were graded: an ungraded estimate beside them reads like a score.
+  const measured = shown.some((m) => m.inRange !== null) ? shown.filter((m) => m.inRange !== null) : shown;
   // Out-of-range first, then the rest, at most six.
   // Needs work first, then within range, then shown-but-not-graded; at most six.
   const order = (m: Metric) => (m.inRange === false ? 0 : m.inRange === true ? 1 : 2);
-  const key = [...measured].sort((a, b) => order(a) - order(b)).slice(0, 6);
+  const key = [...measured].sort((a, b) => order(a) - order(b)).slice(0, positionGraded(p) ? 7 : 6);
+  const unread = p.position_check?.angled ? p.metrics.filter((m) => m.status === "not_measured") : [];
   const strength = p.strengths[0];
   const priority = p.priorities[0];
+  const strongM = strength ? p.metrics.find((m) => m.id === strength.metricId) : undefined;
+  const priorityM = priority ? p.metrics.find((m) => m.id === priority.metricId) : undefined;
   const drill = p.plan?.drills[0];
   return (
     <section aria-label="Summary" className="space-y-4">
       {graded && (
         <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryCard tone="ok" label="Doing well" title={strength?.title ?? (isValid ? "A sound defensive shape" : "Keep working on the shape")} text={strength?.observation ?? (isValid ? "Every measured position sits inside the coaching range." : "None of the checks is inside its range yet.")} />
-          <SummaryCard tone="bad" label="Fix next" title={priority?.title ?? "Nothing urgent"} text={priority?.observation ?? "Keep recording to build your personal baseline."} />
+          <SummaryCard
+            tone="ok"
+            label="Doing well"
+            title={strongM ? plainReading(strongM) : isValid ? "A sound defensive shape" : "Keep working on the shape"}
+            text={strongM ? strongM.relevance : isValid ? "Every check is inside its range." : "None of the checks is inside its range yet."}
+          />
+          <SummaryCard
+            tone="bad"
+            label="Fix next"
+            title={priorityM ? plainReading(priorityM) : "Nothing urgent"}
+            text={priorityM ? `${coachText(priority!.observation)} You: ${plainValue(priorityM)}; aim for ${plainRange(priorityM)}.` : "Every check is met. Keep the same shape."}
+          />
           <SummaryCard tone="brand" label="Drill" title={drill?.name ?? "Keep practising the same shape"} text={drill ? `${drill.dosage}. Cue: “${p.plan?.cue ?? drill.cue}”` : "Record again to compare."} />
         </div>
       )}
@@ -396,7 +408,7 @@ function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, me
       {key.length > 0 && (
         <div className="card overflow-hidden">
           <p className="border-b border-line px-4 py-2.5 text-sm font-semibold">
-            {isValid ? "Key measures" : positionGraded(p) ? "Position checks" : p.mode === "posture_screen" ? "What the photo shows" : "What we could still see"}
+            {graded ? "Your checks" : p.mode === "posture_screen" ? "What the photo shows" : "What we could still see"}
             {!graded && <span className="ml-2 font-normal text-fg-subtle">not graded</span>}
           </p>
           <ul className="divide-y divide-line">
@@ -413,24 +425,32 @@ function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, me
                       {m.inRange === true ? "✓" : m.inRange === false ? "!" : "·"}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="font-medium">{m.name}</span>
-                      {m.inRange === false && m.range && (
-                        <span className="block text-xs text-fg-muted">aim for {m.range.lo}–{m.range.hi} {unitText(m.unit)}</span>
-                      )}
-                      {m.inRange === null && isValid && <span className="block text-xs text-fg-subtle">estimate from this camera angle · not graded</span>}
+                      <span className="font-medium">{graded ? plainReading(m) : m.name}</span>
+                      <span className="block text-xs text-fg-subtle">
+                        {graded && m.name !== plainReading(m) ? m.name : ""}
+                        {m.inRange === false && m.range ? `${graded && m.name !== plainReading(m) ? " · " : ""}aim for ${plainRange(m)}` : ""}
+                      </span>
                     </span>
-                    <span className="num shrink-0">{m.value!.toFixed(m.decimals)} <span className="text-xs text-fg-subtle">{unitText(m.unit)}</span></span>
+                    <span className="num shrink-0 text-sm">{plainValue(m)}</span>
                     <span className="sr-only">{m.inRange === true ? "within range" : m.inRange === false ? "outside range" : "not graded"}</span>
                   </button>
                 </li>
               );
             })}
           </ul>
+          {unread.length > 0 && (
+            <p className="border-t border-line px-4 py-2.5 text-xs text-fg-subtle">
+              Not checked from this angle: {unread.map((m) => m.name.toLowerCase()).join(", ")}. A side-on photo checks them too.
+            </p>
+          )}
         </div>
       )}
     </section>
   );
 }
+
+/** The coaching sentence of a finding, without the engine's "Measured … vs range …" tail. */
+const coachText = (t: string) => t.replace(/\s*Measured .*$/, "");
 
 function SummaryCard({ tone, label, title, text }: { tone: "ok" | "bad" | "brand"; label: string; title: string; text: string }) {
   const color = tone === "ok" ? "!text-ok" : tone === "bad" ? "!text-bad" : "!text-brand";
