@@ -77,20 +77,29 @@ export function ShotStory({ story }: { story: Story }) {
   const auto = playing && inView && !still;
   const clockRef = useRef(0);
 
-  // One clock for the whole explainer; it runs only while playing and on screen.
+  // One clock for the whole explainer; it runs only while playing and on screen. It
+  // redraws at most 30 times a second while the batter moves, and only the progress bars
+  // (4 a second) while a moment is held: phones stay smooth.
   useEffect(() => {
     if (!auto) return;
     let raf = 0;
     let last = performance.now();
+    let drawnAt = 0;
     const tick = (now: number) => {
       clockRef.current = (clockRef.current + (now - last) / 1000) % cycle;
       last = now;
-      setClock(clockRef.current);
+      const c = clockRef.current;
+      const st = steps.find((x) => c >= x.start && c < x.start + x.dur);
+      const every = st && "hold" in st ? 250 : 33;
+      if (now - drawnAt >= every) {
+        drawnAt = now;
+        setClock(c);
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [auto, cycle]);
+  }, [auto, cycle, steps]);
 
   const jump = (i: number) => {
     clockRef.current = holdStart(i) + 0.001;
@@ -117,6 +126,20 @@ export function ShotStory({ story }: { story: Story }) {
   const moving = trail.length > 0 && Math.hypot(tip(pose)[0] - tip(trail[2]!.p)[0], tip(pose)[1] - tip(trail[2]!.p)[1]) > 3;
   const ballFrom = pose.ball ? poseAt(fi - 1.5).ball : undefined;
   const stumps = story.poses[0]!.stumps;
+  // The drawing changes only when the batter does (not on every progress tick).
+  const fKey = Math.round(fi * 4);
+  const scene3 = useMemo(
+    () => (
+      <>
+        {stumps && <Stumps at={stumps} />}
+        {moving && trail.map((x, k) => <BatShape key={k} p={x.p} id="story" ghost={x.o} />)}
+        <BatterFigure p={pose} id="story" />
+        {pose.ball && <Ball at={pose.ball} from={ballFrom} />}
+      </>
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the pose position
+    [fKey, moving],
+  );
   const heldPoses = story.moments.map((m) => story.poses[m]!);
 
   const view = useMemo(() => {
@@ -147,16 +170,11 @@ export function ShotStory({ story }: { story: Story }) {
         ))}
       </div>
       <div className="grid gap-0 lg:grid-cols-[1.35fr_1fr] lg:items-center">
-        <svg viewBox={`${x0} ${y0} ${x1 - x0} ${y1 - y0}`} className="block w-full" role="img" aria-label={`${s.k}: ${s.t}`}>
+        <svg viewBox={`${x0} ${y0} ${x1 - x0} ${y1 - y0}`} className="paper-grain block w-full" role="img" aria-label={`${s.k}: ${s.t}`}>
           <FigureDefs id="story" />
-          <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--ill-paper)" />
-          <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} filter="url(#story-grain)" />
           <ellipse cx={(pose.fa[0] + pose.ba[0]) / 2} cy={101.6} rx={Math.abs(pose.fa[0] - pose.ba[0]) / 2 + 10} ry={2} fill="var(--ill-ink)" opacity={0.08} />
           <path d={`M${x0 + 4} 101.2 Q ${(x0 + x1) / 2} 100.4 ${x1 - 4} 101.4`} stroke="var(--ill-chalk)" strokeWidth={0.7} fill="none" opacity={0.55} />
-          {stumps && <Stumps at={stumps} />}
-          {moving && trail.map((x, k) => <BatShape key={k} p={x.p} id="story" ghost={x.o} />)}
-          <BatterFigure p={pose} id="story" />
-          {pose.ball && <Ball at={pose.ball} from={ballFrom} />}
+          {scene3}
           {held !== null && (
             <g key={`${held}-${Math.floor(clock / cycle)}`}>
               <SceneNotes n={held} p={heldPoses[held]!} poses={heldPoses} />

@@ -87,28 +87,25 @@ const SHOE: Tone = ["#ffffff", "#d3d6db"];
 const BAT_TONE: Tone = ["#e8c891", "#c49d62"];
 
 /**
- * Light and shadow across a part running from a to b, `w` wide: lit on its upper-left
- * side, a firm shadow on the other (flat-colour shading, as in an animated film).
+ * Light and shadow, one gradient per colour, defined once per drawing (see FigureDefs):
+ * lit on the left, a firm shadow on the right of each part (flat-colour shading, as in an
+ * animated film). Defined once, so a moving figure only moves shapes.
  */
-function shading(id: string, a: Pt, b: Pt, w: number, tone: Tone, split = 0.6) {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const L = Math.hypot(dx, dy) || 1e-6;
-  let nx = -dy / L;
-  let ny = dx / L;
-  // Toward the shadow: away from a light at the upper left.
-  if (nx * 0.6 + ny * 0.8 < 0) [nx, ny] = [-nx, -ny];
-  const m = mid(a, b);
-  const def = (
-    <linearGradient key={id} id={id} gradientUnits="userSpaceOnUse" x1={m[0] - (nx * w) / 2} y1={m[1] - (ny * w) / 2} x2={m[0] + (nx * w) / 2} y2={m[1] + (ny * w) / 2}>
-      <stop offset={0} stopColor={tone[0]} />
-      <stop offset={split} stopColor={tone[0]} />
-      <stop offset={split} stopColor={tone[1]} />
-      <stop offset={1} stopColor={tone[1]} />
-    </linearGradient>
-  );
-  return { fill: `url(#${id})`, def };
-}
+const TONES = {
+  shirt: [SHIRT, 0.6],
+  shirtBack: [SHIRT_BACK, 0.6],
+  skin: [SKIN, 0.6],
+  skinBack: [SKIN_BACK, 0.6],
+  trousers: [TROUSERS, 0.6],
+  trousersBack: [TROUSERS_BACK, 0.6],
+  pad: [PAD, 0.66],
+  padBack: [PAD_BACK, 0.66],
+  glove: [GLOVE, 0.62],
+  shoe: [SHOE, 0.55],
+  bat: [BAT_TONE, 0.55],
+} as const satisfies Record<string, readonly [Tone, number]>;
+type ToneName = keyof typeof TONES;
+const toneFill = (id: string, name: ToneName) => `url(#${id}-${name})`;
 
 /**
  * Parts drawn as one piece: the ink outline of all of them first, then their colours, so
@@ -131,6 +128,23 @@ function Piece({ parts }: { parts: Array<{ d: string; fill: string; grow?: numbe
 export function FigureDefs({ id }: { id: string }) {
   return (
     <defs>
+      {(Object.keys(TONES) as ToneName[]).map((name) => {
+        const [[light, shade], split] = TONES[name];
+        return (
+          <linearGradient key={name} id={`${id}-${name}`} x1={0} y1={0.3} x2={1} y2={0.7}>
+            <stop offset={0} stopColor={light} />
+            <stop offset={split} stopColor={light} />
+            <stop offset={split} stopColor={shade} />
+            <stop offset={1} stopColor={shade} />
+          </linearGradient>
+        );
+      })}
+      <radialGradient id={`${id}-helmet`} cx="35%" cy="30%" r="75%">
+        <stop offset={0} stopColor="#3b5d8f" />
+        <stop offset={0.55} stopColor={HELMET[0]} />
+        <stop offset={0.56} stopColor={HELMET[1]} />
+        <stop offset={1} stopColor={HELMET[1]} />
+      </radialGradient>
       <filter id={`${id}-grain`}>
         <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
         <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0" />
@@ -149,14 +163,12 @@ export function BatShape({ p, id, ghost }: { p: FigurePose; id: string; ghost?: 
   // Handle, then shoulders of the blade, a toe a touch wider: a cricket bat, not a plank.
   const blade = polygon([at(12, 1, 1.6), at(14.5, 1, 2.9), at(47, 1, 3.1), at(48, 0.6, 3.1), at(48, -0.6, 3.1), at(47, -1, 3.1), at(14.5, -1, 2.9), at(12, -1, 1.6)]);
   if (ghost !== undefined) return <path d={blade} fill={BAT_TONE[0]} opacity={ghost} />;
-  const sh = shading(`${id}-bat`, at(30, 0, 0), at(31, 0, 0), 6.2, BAT_TONE, 0.55);
   return (
     <g>
-      <defs>{sh.def}</defs>
       <path d={`M${f(batA)} L${f(at(13, 0, 0))}`} stroke={INK} strokeWidth={2.8} strokeLinecap="round" />
       <path d={`M${f(batA)} L${f(at(13, 0, 0))}`} stroke="#33302d" strokeWidth={1.5} strokeLinecap="round" />
       <path d={`M${f(at(3, 1, 0.8))} L${f(at(3, -1, 0.8))} M${f(at(6, 1, 0.8))} L${f(at(6, -1, 0.8))} M${f(at(9, 1, 0.8))} L${f(at(9, -1, 0.8))}`} stroke="#5a5550" strokeWidth={0.4} />
-      <path d={blade} fill={sh.fill} stroke={INK} strokeWidth={0.8} strokeLinejoin="round" />
+      <path d={blade} fill={toneFill(id, "bat")} stroke={INK} strokeWidth={0.8} strokeLinejoin="round" />
     </g>
   );
 }
@@ -190,6 +202,87 @@ export function Ball({ at, from }: { at: Pt; from?: Pt }) {
   );
 }
 
+/** Points through which a smooth curve passes (Catmull-Rom as cubic Béziers). */
+function curveThrough(pts: Pt[]): string {
+  let d = "";
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)]!;
+    const p1 = pts[i]!;
+    const p2 = pts[i + 1]!;
+    const p3 = pts[Math.min(pts.length - 1, i + 2)]!;
+    const c1: Pt = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2: Pt = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${f(c1)} ${f(c2)} ${f(p2)}`;
+  }
+  return d;
+}
+
+/**
+ * The torso, built around the spine (hips to shoulders): rounded shoulders, the chest, a
+ * taper to the waist and out again to the hips. Its width comes from how far apart the
+ * shoulders and hips are in the picture (broad when the chest faces the camera, narrower
+ * as the batter turns), never thinner than a chest edge-on. The neck rises from a base
+ * no further than a neck's length from the head: when the head leans out over the front
+ * knee, the upper back and trapezius rise toward it, as a body does, instead of the
+ * head floating on a long neck above square shoulders.
+ */
+function torso(p: FigurePose) {
+  const S = mid(p.fs, p.bs);
+  const Hm = mid(p.fh, p.bh);
+  let ux = S[0] - Hm[0];
+  let uy = S[1] - Hm[1];
+  const Ls = Math.hypot(ux, uy) || 1;
+  ux /= Ls;
+  uy /= Ls;
+  // Across the body, toward the front shoulder.
+  let vx = -uy;
+  let vy = ux;
+  if ((p.fs[0] - p.bs[0]) * vx + (p.fs[1] - p.bs[1]) * vy < 0) [vx, vy] = [-vx, -vy];
+  const ws = Math.abs((p.fs[0] - p.bs[0]) * vx + (p.fs[1] - p.bs[1]) * vy) / 2;
+  const wh = Math.abs((p.fh[0] - p.bh[0]) * vx + (p.fh[1] - p.bh[1]) * vy) / 2;
+  const sw = Math.max(5.8, ws);
+  const hw = Math.max(5.6, wh + 1.4);
+  const waist = Math.max(5.2, Math.min(sw * 0.8, hw * 0.94));
+  const P = (s: number, x: number): Pt => [Hm[0] + ux * s * Ls + vx * x, Hm[1] + uy * s * Ls + vy * x];
+  // The neck's base: above the shoulders, drawn toward the head when it leans away.
+  const toHead: Pt = [p.head[0] - S[0], p.head[1] - S[1]];
+  const dh = Math.hypot(toHead[0], toHead[1]) || 1;
+  const rise = Math.min(dh * 0.62, Math.max(3.4, dh - 10.5));
+  const N: Pt = [S[0] + (toHead[0] / dh) * rise, S[1] + (toHead[1] / dh) * rise];
+  // Across the neck, toward the front shoulder.
+  let nx = -toHead[1] / dh;
+  let ny = toHead[0] / dh;
+  if (nx * vx + ny * vy < 0) [nx, ny] = [-nx, -ny];
+  const off = (q: Pt, x: number, y: number): Pt => [q[0] + vx * x + ux * y, q[1] + vy * x + uy * y];
+  // One side, neck to hip; the other is its mirror.
+  const side = (k: 1 | -1) => {
+    const sh = k === 1 ? p.fs : p.bs;
+    const neck: Pt = [N[0] + nx * k * 2.9, N[1] + ny * k * 2.9];
+    const top = off(sh, k * 0.8, 3.6);
+    // The trapezius: a convex slope from the neck to the top of the shoulder, rounder the
+    // further the neck is drawn from the shoulder (the upper back curving over).
+    const m = lerp(neck, top, 0.5);
+    const len = Math.hypot(top[0] - neck[0], top[1] - neck[1]) || 1;
+    let ox = -(top[1] - neck[1]) / len;
+    let oy = (top[0] - neck[0]) / len;
+    if (ox * (m[0] - Hm[0]) + oy * (m[1] - Hm[1]) < 0) [ox, oy] = [-ox, -oy];
+    const bulge = 0.6 + len * 0.1;
+    // The front shoulder rounds into the arm hanging from it; the back one, its arm reaching
+    // forward out of sight, runs smoothly down the back instead of leaving a stub.
+    const armpit = k === 1 ? sw + 1.2 : sw + 2.6;
+    return [neck, [m[0] + ox * bulge, m[1] + oy * bulge] as Pt, top, off(sh, k * 3.4, 0.9), P(0.8, k * armpit), P(0.62, k * sw * 0.94), P(0.36, k * waist), P(0.04, k * hw)];
+  };
+  const r = side(1);
+  const l = side(-1).reverse();
+  const outline = `M${f(r[0]!)}${curveThrough(r)} L${f(l[0]!)}${curveThrough(l)} Z`;
+  // The placket, then a white collar at the neck.
+  const down: Pt = [-toHead[0] / dh, -toHead[1] / dh];
+  const at = (x: number, y: number): Pt => [N[0] + nx * x + down[0] * y, N[1] + ny * x + down[1] * y];
+  const details = `M${f(at(0, 3.4))} L${f(P(0.6, 0))}`;
+  const collar = `M${f(at(3.2, -0.4))} L${f(at(0, 3.6))} L${f(at(-3.2, -0.4))} L${f(at(-1.5, 0.6))} L${f(at(0, 1.6))} L${f(at(1.5, 0.6))} Z`;
+  return { outline, details, collar, neck: N };
+}
+
 /**
  * Widths in figure units (standing height 100), from adult proportions: a thigh about 10
  * at the hip swelling slightly and narrowing to 7 at the knee, a padded shin about 7.5
@@ -198,47 +291,38 @@ export function Ball({ at, from }: { at: Pt; from?: Pt }) {
  * edge-on) drawing in at the waist, a head about 13 tall.
  */
 export function BatterFigure({ p, id = "fig" }: { p: FigurePose; id?: string }) {
-  const defs: React.ReactNode[] = [];
-  const tone = (key: string, a: Pt, b: Pt, w: number, t: Tone, split?: number) => {
-    const sh = shading(`${id}-${key}`, a, b, w, t, split);
-    defs.push(sh.def);
-    return sh.fill;
-  };
-  const shoulders = mid(p.fs, p.bs);
-  const hips = mid(p.fh, p.bh);
+  const tone = (name: ToneName) => toneFill(id, name);
   const neckTop: Pt = [p.head[0] - 0.8, p.head[1] + 4.2];
-  const spineAt = (u: number) => lerp(shoulders, hips, u);
-  const inward = (q: Pt, u: number): Pt => lerp(q, spineAt(0.62), u);
-  const waistF = inward(lerp(p.fs, p.fh, 0.66), 0.22);
-  const waistB = inward(lerp(p.bs, p.bh, 0.66), 0.22);
-  const broad = Math.max(12, Math.hypot(p.fs[0] - p.bs[0], p.fs[1] - p.bs[1]) + 5);
+  const chest = torso(p);
   const leg = (side: "f" | "b") => {
     const [h, k, a, heel, toe] = side === "f" ? [p.fh, p.fk, p.fa, p.fheel, p.ftoe] : [p.bh, p.bk, p.ba, p.bheel, p.btoe];
     const back = side === "b";
     return [
-      { d: capsule(heel, toe, 4.8, 4), fill: tone(`${side}shoe`, heel, toe, 4.8, SHOE, 0.55) },
-      { d: limb(h, k, [[0, 10], [0.3, 10.4], [0.75, 7.6], [1, 7]]), fill: tone(`${side}thigh`, h, k, 10.4, back ? TROUSERS_BACK : TROUSERS) },
-      { d: limb(k, a, [[0, 8.2], [0.1, 8.8], [0.22, 7.6], [0.7, 7.3], [1, 6.4]]), fill: tone(`${side}pad`, k, a, 8.8, back ? PAD_BACK : PAD, 0.66) },
+      { d: capsule(heel, toe, 4.8, 4), fill: tone("shoe") },
+      { d: limb(h, k, [[0, 10], [0.3, 10.4], [0.75, 7.6], [1, 7]]), fill: tone(back ? "trousersBack" : "trousers") },
+      { d: limb(k, a, [[0, 8.2], [0.1, 8.8], [0.22, 7.6], [0.7, 7.3], [1, 6.4]]), fill: tone(back ? "padBack" : "pad") },
     ];
   };
   const arm = (side: "f" | "b") => {
-    const [s, e, w] = side === "f" ? [p.fs, p.fe, p.fw] : [p.bs, p.be, p.bw];
+    const [s0, e, w] = side === "f" ? [p.fs, p.fe, p.fw] : [p.bs, p.be, p.bw];
     const back = side === "b";
-    const sleeveEnd = lerp(s, e, 0.45);
+    const sleeveEnd = lerp(s0, e, 0.45);
+    // The back arm starts just inside the torso, so its rounded end never shows past the back.
+    const s = back ? lerp(s0, e, 0.14) : s0;
     return [
-      { d: limb(s, e, [[0, 5.2], [0.35, 5], [0.65, 4.3], [1, 3.7]]), fill: tone(`${side}upper`, s, e, 5.2, back ? SKIN_BACK : SKIN) },
-      { d: limb(e, w, [[0, 3.7], [0.3, 4.1], [1, 2.9]]), fill: tone(`${side}fore`, e, w, 4.1, back ? SKIN_BACK : SKIN) },
-      { d: limb(s, sleeveEnd, [[0, 6.2], [1, 5.8]]), fill: tone(`${side}sleeve`, s, sleeveEnd, 6.2, back ? SHIRT_BACK : SHIRT) },
+      { d: limb(s, e, [[0, 5.2], [0.35, 5], [0.65, 4.3], [1, 3.7]]), fill: tone(back ? "skinBack" : "skin") },
+      { d: limb(e, w, [[0, 3.7], [0.3, 4.1], [1, 2.9]]), fill: tone(back ? "skinBack" : "skin") },
+      { d: limb(s, sleeveEnd, [[0, 6.2], [1, 5.8]]), fill: tone(back ? "shirtBack" : "shirt") },
     ];
   };
   const [batA, batB] = batLine(p);
   const bl = Math.hypot(batB[0] - batA[0], batB[1] - batA[1]) || 1;
   const ux = (batB[0] - batA[0]) / bl;
   const uy = (batB[1] - batA[1]) / bl;
-  const glove = (w: Pt, key: string) => {
+  const glove = (w: Pt) => {
     const a: Pt = [w[0] - ux * 2, w[1] - uy * 2];
     const b: Pt = [w[0] + ux * 2, w[1] + uy * 2];
-    return { d: capsule(a, b, 4.6, 4.4), fill: tone(key, a, b, 4.6, GLOVE, 0.62) };
+    return { d: capsule(a, b, 4.6, 4.4), fill: tone("glove") };
   };
   const fingers = (w: Pt) => [-1.1, 0, 1.1].map((o) => `M${f([w[0] + ux * o - uy * 1.2, w[1] + uy * o + ux * 1.2])} L${f([w[0] + ux * o + uy * 1.6, w[1] + uy * o - ux * 1.6])}`).join(" ");
   const canes = (k: Pt, a: Pt) =>
@@ -252,20 +336,12 @@ export function BatterFigure({ p, id = "fig" }: { p: FigurePose; id?: string }) 
         return `M${f([p0[0] + nx * o, p0[1] + ny * o])} L${f([p1[0] + nx * o, p1[1] + ny * o])}`;
       })
       .join(" ");
-  const trunkFill = tone("trunk", shoulders, hips, broad, SHIRT, 0.62);
+  const trunkFill = tone("shirt");
   const helmetFill = `url(#${id}-helmet)`;
-  defs.push(
-    <radialGradient key={`${id}-helmet`} id={`${id}-helmet`} cx="35%" cy="30%" r="75%">
-      <stop offset={0} stopColor="#3b5d8f" />
-      <stop offset={0.55} stopColor={HELMET[0]} />
-      <stop offset={0.56} stopColor={HELMET[1]} />
-      <stop offset={1} stopColor={HELMET[1]} />
-    </radialGradient>,
-  );
+
   const H = p.head;
   return (
     <g strokeLinejoin="round" strokeLinecap="round">
-      <defs>{defs}</defs>
       {/* contact shadows: the feet on the ground */}
       {[mid(p.bheel, p.btoe), mid(p.fheel, p.ftoe)].map((q, i) => (
         <ellipse key={i} cx={q[0]} cy={101.2} rx={6.5} ry={1.3} fill={INK} opacity={0.14} />
@@ -275,20 +351,12 @@ export function BatterFigure({ p, id = "fig" }: { p: FigurePose; id?: string }) 
       <path d={canes(p.bk, p.ba)} stroke={INK} strokeWidth={0.35} opacity={0.3} fill="none" />
       <Piece parts={arm("b")} />
       {/* trunk, neck and head */}
-      <Piece parts={[{ d: capsule(shoulders, neckTop, 5, 4.6), fill: tone("neck", shoulders, neckTop, 5, SKIN) }]} />
-      {/* trunk: broad, rounded shoulders drawing in to the waist; trousers from the belt */}
-      <Piece
-        parts={[
-          { d: polygon([p.fs, p.bs, waistB, p.bh, p.fh, waistF]), fill: trunkFill, grow: 4 },
-          { d: capsule(spineAt(0.85), spineAt(0.05), 10.5, 11.5), fill: trunkFill },
-          { d: capsule(p.fs, lerp(p.fs, p.fe, 0.18), 7.4, 6.6), fill: trunkFill },
-          { d: capsule(p.bs, lerp(p.bs, p.be, 0.18), 7.4, 6.6), fill: trunkFill },
-        ]}
-      />
-      <Piece parts={[{ d: capsule(p.bh, p.fh, 9.6, 9.6), fill: tone("seat", p.bh, p.fh, 9.6, TROUSERS) }]} />
-      <path d={`M${f(lerp(p.bh, p.fh, -0.12))} L${f(lerp(p.fh, p.bh, -0.12))}`} transform={`translate(0 ${-3.6})`} stroke={INK} strokeWidth={0.5} opacity={0.35} />
-      {/* collar */}
-      <path d={`M${f(lerp(shoulders, p.fs, 0.35))} L${f(lerp(shoulders, spineAt(0.25), 0.6))} L${f(lerp(shoulders, p.bs, 0.35))}`} stroke="#ffffff" strokeWidth={0.9} fill="none" opacity={0.85} />
+      <Piece parts={[{ d: capsule(chest.neck, neckTop, 5.4, 4.8), fill: tone("skin") }]} />
+      {/* trousers at the hips, then the shirted torso tucked into them */}
+      <Piece parts={[{ d: capsule(p.bh, p.fh, 9.6, 9.6), fill: tone("trousers") }]} />
+      <Piece parts={[{ d: chest.outline, fill: trunkFill }]} />
+      <path d={chest.details} stroke={INK} strokeWidth={0.45} fill="none" opacity={0.28} />
+      <path d={chest.collar} fill="#f4f6f9" stroke={INK} strokeWidth={0.5} />
       {/* helmet: shell, neck guard, the face behind the grille, the peak */}
       <path d={`M${f([H[0] - 5.6, H[1] + 3.2])} Q ${f([H[0] - 6.4, H[1] + 7.2])} ${f([H[0] - 2.6, H[1] + 7.4])} L${f([H[0] - 1.6, H[1] + 4.6])} Z`} fill={HELMET[1]} stroke={INK} strokeWidth={0.6} />
       <circle cx={H[0]} cy={H[1]} r={6.4} fill={helmetFill} stroke={INK} strokeWidth={0.9} />
@@ -306,7 +374,7 @@ export function BatterFigure({ p, id = "fig" }: { p: FigurePose; id?: string }) 
       {/* bat, then the front arm and gloves over it */}
       <BatShape p={p} id={id} />
       <Piece parts={arm("f")} />
-      <Piece parts={[glove(p.bw, "bglove"), glove(p.fw, "fglove")]} />
+      <Piece parts={[glove(p.bw), glove(p.fw)]} />
       <path d={`${fingers(p.bw)} ${fingers(p.fw)}`} stroke={INK} strokeWidth={0.35} opacity={0.45} />
     </g>
   );
