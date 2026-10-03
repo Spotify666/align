@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "motion/react";
-import { BatterFigure, FigureDefs, GOOD, mid, ZONE, type FigurePose, type Pt } from "@/components/lesson/figure";
+import { Ball, BatShape, BatterFigure, batLine, FigureDefs, GOOD, mid, Stumps, ZONE, type FigurePose, type Pt } from "@/components/lesson/figure";
 import { Draw, Label, Zone, seg } from "@/components/lesson/lesson";
 import type { Story } from "@/components/lesson/pose";
 
@@ -105,13 +105,24 @@ export function ShotStory({ story }: { story: Story }) {
   else fi = step.from + Math.min(1, (clock - step.start) / step.dur) * (step.to - step.from);
   // The caption shows the moment held, or the one being played toward.
   const scene = held ?? Math.min(3, steps.filter((x) => "hold" in x && x.start <= clock).length);
-  const i0 = Math.floor(fi);
-  const pose = lerpPose(story.poses[i0]!, story.poses[Math.min(story.poses.length - 1, i0 + 1)]!, fi - i0);
+  const poseAt = (x: number) => {
+    const c = Math.max(0, Math.min(story.poses.length - 1, x));
+    const i0 = Math.floor(c);
+    return lerpPose(story.poses[i0]!, story.poses[Math.min(story.poses.length - 1, i0 + 1)]!, c - i0);
+  };
+  const pose = poseAt(fi);
+  // While the bat moves fast, the frames just before leave a fading trail.
+  const trail = held === null ? [1, 2, 3].map((k) => ({ p: poseAt(fi - k * 0.8), o: 0.26 - k * 0.07 })) : [];
+  const tip = (q: FigurePose) => batLine(q)[1];
+  const moving = trail.length > 0 && Math.hypot(tip(pose)[0] - tip(trail[2]!.p)[0], tip(pose)[1] - tip(trail[2]!.p)[1]) > 3;
+  const ballFrom = pose.ball ? poseAt(fi - 1.5).ball : undefined;
+  const stumps = story.poses[0]!.stumps;
   const heldPoses = story.moments.map((m) => story.poses[m]!);
 
   const view = useMemo(() => {
     const pts = story.poses.flatMap((p) => [p.head, p.fa, p.ba, p.ftoe, p.btoe, p.fs, p.bs, p.fw, p.bw]);
-    const x0 = Math.min(...pts.map((q) => q[0])) - 30;
+    const st = story.poses[0]!.stumps;
+    const x0 = Math.min(...pts.map((q) => q[0]), st ? st[0] - 8 : Infinity) - 22;
     const x1 = Math.max(...pts.map((q) => q[0])) + 44;
     const y0 = Math.min(...pts.map((q) => q[1])) - 30;
     return { x0, x1, y0, y1: 113 };
@@ -142,7 +153,10 @@ export function ShotStory({ story }: { story: Story }) {
           <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} filter="url(#story-grain)" />
           <ellipse cx={(pose.fa[0] + pose.ba[0]) / 2} cy={101.6} rx={Math.abs(pose.fa[0] - pose.ba[0]) / 2 + 10} ry={2} fill="var(--ill-ink)" opacity={0.08} />
           <path d={`M${x0 + 4} 101.2 Q ${(x0 + x1) / 2} 100.4 ${x1 - 4} 101.4`} stroke="var(--ill-chalk)" strokeWidth={0.7} fill="none" opacity={0.55} />
-          <BatterFigure p={pose} />
+          {stumps && <Stumps at={stumps} />}
+          {moving && trail.map((x, k) => <BatShape key={k} p={x.p} id="story" ghost={x.o} />)}
+          <BatterFigure p={pose} id="story" />
+          {pose.ball && <Ball at={pose.ball} from={ballFrom} />}
           {held !== null && (
             <g key={`${held}-${Math.floor(clock / cycle)}`}>
               <SceneNotes n={held} p={heldPoses[held]!} poses={heldPoses} />

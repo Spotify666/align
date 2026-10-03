@@ -38,7 +38,11 @@ export function textbookStory(): Story {
   const end = Math.min(obs.body.length - 1, marks[3]! + Math.round(0.4 * fps));
   const frames: number[] = [];
   for (let i = marks[0]!; i <= end; i += step) frames.push(i);
-  const raw = frames.map((i) => figurePose(obs.body[i]!, obs.media.width / obs.media.height, obs.athlete.handedness, [obs.bat.handle[i], obs.bat.toe[i]])!);
+  const { stumpsX, groundY } = obs.calibration;
+  const stumps = stumpsX !== null && groundY !== null ? ([stumpsX, groundY, 1] as const) : null;
+  const raw = frames.map(
+    (i) => figurePose(obs.body[i]!, obs.media.width / obs.media.height, obs.athlete.handedness, [obs.bat.handle[i], obs.bat.toe[i]], { ball: obs.ball.points[i], stumps })!,
+  );
   const dx0 = raw[0]!.ba[0];
   const r = (q: Pt): Pt => [Math.round((q[0] - dx0) * 10) / 10, Math.round(q[1] * 10) / 10];
   const poses = raw.map((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, r(v as Pt)])) as unknown as FigurePose);

@@ -12,13 +12,21 @@ export interface FigurePose {
   fheel: Pt; bheel: Pt; ftoe: Pt; btoe: Pt;
   /** Bat handle and toe, when the bat was tracked (otherwise it is drawn held down). */
   batH?: Pt; batT?: Pt;
+  /** The ball, when it is in this frame; the base of the batter's stumps. */
+  ball?: Pt; stumps?: Pt;
 }
 
 /**
  * Redraw a pose in figure units. Front side from the batting hand; mirrored so the batter
  * faces right. Null when the legs or trunk weren't seen.
  */
-export function figurePose(body: ImgPoint[], aspect: number, hand: "right" | "left", bat?: [ImgPoint | null | undefined, ImgPoint | null | undefined]): FigurePose | null {
+export function figurePose(
+  body: ImgPoint[],
+  aspect: number,
+  hand: "right" | "left",
+  bat?: [ImgPoint | null | undefined, ImgPoint | null | undefined],
+  scene?: { ball?: ImgPoint | null; stumps?: ImgPoint | null },
+): FigurePose | null {
   const F = hand === "right" ? "left" : "right";
   const B = F === "left" ? "right" : "left";
   const raw = (name: string): Pt | null => {
@@ -69,6 +77,8 @@ export function figurePose(body: ImgPoint[], aspect: number, hand: "right" | "le
     out.batH = T([bh0[0] * aspect, bh0[1]]);
     out.batT = T([bt0[0] * aspect, bt0[1]]);
   }
+  if (scene?.ball && scene.ball[2] >= 0.2) out.ball = T([scene.ball[0] * aspect, scene.ball[1]]);
+  if (scene?.stumps) out.stumps = T([scene.stumps[0] * aspect, scene.stumps[1]]);
   return out;
 }
 
