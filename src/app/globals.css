@@ -381,3 +381,162 @@
   background-image: url("data:image/png;base64,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");
   background-size: 64px 64px;
 }
+
+/* Landing page: the brand's own ground (the mark's deep green), whatever the theme. */
+.landing-dark {
+  --lp-fg: #f3efe4;
+  --lp-muted: #b9c4bd;
+  --lp-line: rgb(243 239 228 / 0.14);
+  background:
+    radial-gradient(110% 70% at 75% 0%, #17402f 0%, transparent 60%),
+    radial-gradient(90% 60% at 0% 100%, #0f2a20 0%, transparent 70%),
+    #0b1a14;
+  color: var(--lp-fg);
+}
+.landing-dark .lp-muted {
+  color: var(--lp-muted);
+}
+.landing-grid {
+  background-image:
+    linear-gradient(var(--lp-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--lp-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse at 50% 20%, black 20%, transparent 70%);
+}
+/* The line of the mark, dashed gold, running down the page. */
+.landing-plumb {
+  background-image: linear-gradient(#e8b23a 55%, transparent 55%);
+  background-size: 2px 16px;
+  width: 2px;
+}
+.btn-landing {
+  background: #3dbd8a;
+  color: #06130d;
+}
+.btn-landing:hover {
+  background: #5bcd9f;
+}
+.btn-landing-ghost {
+  border: 1px solid rgb(243 239 228 / 0.28);
+  color: #f3efe4;
+}
+.btn-landing-ghost:hover {
+  background: rgb(243 239 228 / 0.08);
+}
+
+/* The landing page's opening: mark in, line down, curtain open. */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  perspective: 1200px;
+  animation: intro-gone 0s linear 1.3s forwards;
+}
+.intro-half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.5%;
+  background:
+    radial-gradient(120% 70% at 50% 40%, #153a2b 0%, transparent 65%),
+    #08130f;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+.intro-left {
+  left: 0;
+  transform-origin: 0% 50%;
+  animation: intro-door-left 0.6s cubic-bezier(0.6, 0, 0.3, 1) 0.66s forwards;
+}
+.intro-right {
+  right: 0;
+  transform-origin: 100% 50%;
+  animation: intro-door-right 0.6s cubic-bezier(0.6, 0, 0.3, 1) 0.66s forwards;
+}
+.intro-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background-image: linear-gradient(#e8b23a 55%, transparent 55%);
+  background-size: 2px 16px;
+  transform: scaleY(0);
+  will-change: transform, opacity;
+  animation:
+    intro-line-down 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) 0.28s forwards,
+    intro-fade 0.2s ease-in 0.66s forwards;
+}
+.intro-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 30px;
+  box-shadow: 0 0 70px rgb(61 189 138 / 0.35);
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+  animation:
+    intro-mark-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    intro-mark-out 0.36s cubic-bezier(0.5, 0, 0.75, 0) 0.64s forwards;
+}
+@keyframes intro-mark-in {
+  from {
+    transform: translate(-50%, -50%) rotateY(-200deg) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) rotateY(0deg) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes intro-mark-out {
+  to {
+    transform: translate(-50%, -50%) scale(1.9);
+    opacity: 0;
+  }
+}
+@keyframes intro-line-down {
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes intro-fade {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes intro-door-left {
+  to {
+    transform: rotateY(-92deg);
+  }
+}
+@keyframes intro-door-right {
+  to {
+    transform: rotateY(92deg);
+  }
+}
+@keyframes intro-gone {
+  to {
+    visibility: hidden;
+  }
+}
+/* What the curtain opens onto rises into place as it opens. */
+.intro-after {
+  animation: intro-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.74s both;
+}
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro {
+    display: none;
+  }
+  .intro-after {
+    animation: none;
+  }
+}

@@ -7,7 +7,8 @@
 import { Ball, BatterFigure, FigureDefs, GOOD, ZONE, type FigurePose, type Pt } from "@/components/lesson/figure";
 import { Draw, Label, seg } from "@/components/lesson/lesson";
 
-export function AlignHero({ pose, ballFrom }: { pose: FigurePose; ballFrom?: Pt }) {
+/** `after`: seconds to wait before the notes draw on (the landing page's opening plays first). */
+export function AlignHero({ pose, ballFrom, after = 0 }: { pose: FigurePose; ballFrom?: Pt; after?: number }) {
   const eye: Pt = [pose.head[0] + 4.4, pose.head[1] + 0.6];
   const ball: Pt = pose.ball ?? [pose.fk[0], 86];
   const knee = pose.fk;
@@ -32,14 +33,14 @@ export function AlignHero({ pose, ballFrom }: { pose: FigurePose; ballFrom?: Pt 
       <ellipse cx={(pose.fa[0] + pose.ba[0]) / 2} cy={101.6} rx={Math.abs(pose.fa[0] - pose.ba[0]) / 2 + 10} ry={2} fill="var(--ill-ink)" opacity={0.08} />
       <path d={`M${x0 + 3} 101.2 Q ${(x0 + x1) / 2} 100.4 ${x1 - 3} 101.4`} stroke="var(--ill-chalk)" strokeWidth={0.7} fill="none" opacity={0.55} />
       {/* the line, behind the batter: it shows above the helmet and down to the ground */}
-      <Draw d={seg([x, top], [x, 104])} color={ZONE} w={1.6} dash="2.4 1.9" delay={0.2} />
+      <Draw d={seg([x, top], [x, 104])} color={ZONE} w={1.6} dash="2.4 1.9" delay={after + 0.2} />
       <BatterFigure p={pose} id="hero" />
       <Ball at={ball} from={ballFrom} />
-      <Label at={[x, top - 3]} text="one line" color={GOOD} delay={0.9} />
+      <Label at={[x, top - 3]} text="one line" color={GOOD} delay={after + 0.9} />
       {marks.map(([at, from, text], i) => (
         <g key={text}>
-          <Draw d={seg([from, at[1]], [tag - 1.5, at[1]])} color={GOOD} w={0.9} delay={1 + i * 0.25} />
-          <Label at={[tag, at[1] + 2.4]} text={text} color={GOOD} anchor="start" delay={1.15 + i * 0.25} />
+          <Draw d={seg([from, at[1]], [tag - 1.5, at[1]])} color={GOOD} w={0.9} delay={after + 1 + i * 0.25} />
+          <Label at={[tag, at[1] + 2.4]} text={text} color={GOOD} anchor="start" delay={after + 1.15 + i * 0.25} />
         </g>
       ))}
     </svg>

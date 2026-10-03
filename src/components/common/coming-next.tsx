@@ -14,7 +14,7 @@ export function ComingNext({ eyebrow, title, points }: { eyebrow: string; title:
       </ul>
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href="/sample" className="btn btn-primary">See sample reports</Link>
-        <Link href="/" className="btn btn-ghost">Home</Link>
+        <Link href="/home" className="btn btn-ghost">Home</Link>
       </div>
     </div>
   );
