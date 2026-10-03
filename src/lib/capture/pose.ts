@@ -349,7 +349,8 @@ export interface PoseFrame {
   hip: [number, number] | null;
 }
 
-const EMPTY = (prevHip: [number, number] | null): PoseFrame => ({
+/** A frame with no body read (the batter not in it). */
+export const EMPTY = (prevHip: [number, number] | null): PoseFrame => ({
   body: JOINTS.map(() => null),
   world: JOINTS.map(() => null),
   depth: JOINTS.map(() => 0),

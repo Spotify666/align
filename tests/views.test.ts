@@ -3,6 +3,7 @@ import { analyze } from "@/engine/analyze";
 import { fixture } from "@/engine/fixtures";
 import { decodeRaw, encodeRaw, quantise } from "@/engine/tracks-codec";
 import type { CaptureObservation } from "@/engine/types";
+import { FRONTAL_WITHHELD } from "@/engine/frontal";
 
 const opts = { analysisId: "a", createdAt: "2026-10-01T00:00:00.000Z" };
 
@@ -17,10 +18,16 @@ describe("front-on capture", () => {
     }
     expect(p.delivery.bounceDistanceM).toBeNull();
   });
-  it("labels forward body measures as estimates", () => {
-    const stride = p.metrics.find((m) => m.id === "stride_length");
-    expect(stride?.status).toBe("estimated");
-    expect(stride?.limitation).toMatch(/3D pose estimate/);
+  it("withholds forward distances and in-line angles: the 3D estimate behind them isn't reliable", () => {
+    for (const id of FRONTAL_WITHHELD) {
+      const m = p.metrics.find((x) => x.id === id);
+      expect(m?.status, id).toBe("not_measured");
+      expect(m?.value, id).toBeNull();
+      expect(m?.reason, id).toMatch(/side-on camera/);
+    }
+  });
+  it("grades the sideways checks this view sees", () => {
+    for (const id of ["balance_over_feet", "head_falling_away"]) expect(p.metrics.find((m) => m.id === id)?.inRange, id).not.toBeNull();
   });
   it("round-trips the 3D estimate through the track codec", () => {
     const obs = fixture("front_on_ffd");

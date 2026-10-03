@@ -11,6 +11,11 @@ Phone browser
   ├─ Camera: side-on / bowler's end / behind, suggested from 3D pose, athlete confirms
   ├─ Gate: quality checks on the chosen window (engine.assessCapture)
   ├─ Tracking: MediaPipe Pose on an upscaled crop around the batter → 2D body + 3D estimate
+  │     identity: the batter is identified at the stroke; when the camera zoomed, panned or cut
+  │     before it, every earlier frame is linked back from there through the person detector
+  │     (predicted motion, no jump to someone nearby; frames it can't reach aren't the batter's)
+  │     only the camera shot holding the stroke is kept, however short (cuts from the pose and
+  │     from the picture: a sudden luma jump against the frames around it)
   ├─ Marks: athlete marks stumps, bounce, contact, bat (each skippable)
   ├─ Photos: 1–12 stills, EXIF-aware decode, letterboxed, every person read on their own (a skeleton counts only if it fills that person's box; others greyed out and re-read if the model locks onto someone else), batter = most batter-like (hands together, not in the keeper's crouch), then largest and most central; a close call asks the athlete; pose → position check (side-on: all 7 checks; at an angle: front knee, back leg, lean (lower bound) and weight forward, since stride, head and hand distances run toward the camera; along the pitch: shown ungraded)
   ├─ Engine (pure TS, deterministic): scene → events → delivery → features → classify

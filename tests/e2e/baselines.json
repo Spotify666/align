@@ -15,16 +15,17 @@
   },
   "sq_vp9.mp4": {
     "steps": {
-      "Reading the video": 1,
-      "Finding the shot": 4,
-      "Finding the batter": 0.6,
-      "Camera position": 0.6,
-      "Checking the recording": 1
+      "Reading the video": 1.1,
+      "Finding the shot": 3.8,
+      "Finding the batter": 1.3,
+      "Camera position": 0,
+      "Checking the recording": 1.1,
+      "Tracking the body": 13.5
     },
     "retries": 0,
     "shot": "0:01",
-    "verdict": "This recording can't be analysed yet: clip length",
-    "total": 22.4
+    "verdict": "Valid front-foot defence",
+    "total": 22.5
   },
   "test60_vp9.mp4": {
     "steps": {

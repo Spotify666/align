@@ -1,6 +1,8 @@
 // Filmed along the pitch (from the bowler's end or behind the batter), forward distances
-// come from a monocular 3D estimate that understates depth, so measures built on them are
-// shown but not graded. What this view does see well is sideways: whether the body stays
+// come from a monocular 3D estimate. On real footage that estimate is wrong in size and
+// in direction (a broadcast defence read as a straight front knee, the head behind the
+// knee and a lean back, where the picture shows the opposite), so measures built on it
+// are withheld, not shown. What this view does see well is sideways: whether the body stays
 // balanced over the feet and whether the head goes toward the ball or falls away. Those
 // are graded instead, against physical and anatomical limits, never any clip's readings.
 // (A straight bat is the bat's own tilt from vertical, graded only when the bat is
@@ -12,6 +14,25 @@ import type { Metric, RangeRef } from "./types";
 
 /** Measures that rest on the forward axis: not graded when filmed along the pitch. */
 export const FRONTAL_UNGRADED = ["stride_length", "head_knee_offset", "weight_forward", "trunk_inclination", "front_knee_flexion", "head_speed_contact", "decision_timing"];
+
+/** Forward distances and in-line angles: withheld when filmed along the pitch (see above). */
+export const FRONTAL_WITHHELD = ["stride_length", "head_knee_offset", "weight_forward", "trunk_inclination", "front_knee_flexion"];
+
+/** A forward-axis measure from along the pitch, as not measured. Others unchanged. */
+export function withholdAlongPitch(m: Metric): Metric {
+  if (!FRONTAL_WITHHELD.includes(m.id) || m.status === "not_measured") return m;
+  return {
+    ...m,
+    status: "not_measured",
+    value: null,
+    uncertainty: null,
+    confidence: 0,
+    inRange: null,
+    evidenceIds: [],
+    limitation: undefined,
+    reason: "Not measured: it needs a side-on camera (this clip was filmed along the pitch).",
+  };
+}
 
 export const FRONTAL_METRICS: MetricDefinition[] = [
   {

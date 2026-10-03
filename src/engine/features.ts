@@ -110,13 +110,28 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
       modality: "body",
     });
   }
-  const bk = scene.get(refFrame, "back_knee");
+  // Filmed along the pitch, the back knee is often hidden behind the front leg right at
+  // contact: read it from the nearest frame within 0.08 s where it is seen (it changes
+  // little that quickly; a sweeper's knee is down well before contact).
+  const near = Math.max(1, Math.round(0.08 / (dt || 1 / 30)));
+  let bk: { u: number } | null = null;
+  let bkFrame = refFrame;
+  for (let d = 0; d <= near && !bk; d++) {
+    for (const f of d ? [refFrame - d, refFrame + d] : [refFrame]) {
+      const p = f >= 0 && f < n ? scene.get(f, "back_knee") : null;
+      if (p) {
+        bk = p;
+        bkFrame = f;
+        break;
+      }
+    }
+  }
   if (bk) {
     add("back_knee_height", bk.u / S, {
       label: "Back-knee height",
       unit: "× stature",
       reading: bk.u / S < 0.12 ? "back knee down (kneeling)" : "back knee off the ground",
-      evidenceIds: [`frame_${refFrame}`],
+      evidenceIds: [`frame_${bkFrame}`],
       modality: "body",
     });
   }
