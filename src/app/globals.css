@@ -410,11 +410,11 @@
   width: 2px;
 }
 .btn-landing {
-  background: #3dbd8a;
-  color: #06130d;
+  background: #ff7a1f;
+  color: #1a0b00;
 }
 .btn-landing:hover {
-  background: #5bcd9f;
+  background: #ff9346;
 }
 .btn-landing-ghost {
   border: 1px solid rgb(243 239 228 / 0.28);
@@ -424,14 +424,15 @@
   background: rgb(243 239 228 / 0.08);
 }
 
-/* The landing page's opening: mark in, line down, curtain open. */
+/* Align's opening: the mark, the line, the name, the idea, then the curtain. ~2.4 s. */
 .intro {
   position: fixed;
   inset: 0;
   z-index: 100;
   pointer-events: none;
   perspective: 1200px;
-  animation: intro-gone 0s linear 1.3s forwards;
+  color: #f3efe4;
+  animation: intro-gone 0s linear 2.45s forwards;
 }
 .intro-half {
   position: absolute;
@@ -442,17 +443,17 @@
     radial-gradient(120% 70% at 50% 40%, #153a2b 0%, transparent 65%),
     #08130f;
   backface-visibility: hidden;
-  will-change: transform, opacity;
+  will-change: transform;
 }
 .intro-left {
   left: 0;
   transform-origin: 0% 50%;
-  animation: intro-door-left 0.6s cubic-bezier(0.6, 0, 0.3, 1) 0.66s forwards;
+  animation: intro-door-left 0.6s cubic-bezier(0.6, 0, 0.3, 1) 1.82s forwards;
 }
 .intro-right {
   right: 0;
   transform-origin: 100% 50%;
-  animation: intro-door-right 0.6s cubic-bezier(0.6, 0, 0.3, 1) 0.66s forwards;
+  animation: intro-door-right 0.6s cubic-bezier(0.6, 0, 0.3, 1) 1.82s forwards;
 }
 .intro-line {
   position: absolute;
@@ -466,40 +467,82 @@
   transform: scaleY(0);
   will-change: transform, opacity;
   animation:
-    intro-line-down 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) 0.28s forwards,
-    intro-fade 0.2s ease-in 0.66s forwards;
+    intro-line-down 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s forwards,
+    intro-line-dim 0.3s ease 0.62s forwards,
+    intro-fade 0.2s ease-in 1.8s forwards;
+}
+.intro-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  padding: 0 1.5rem 6vh;
+  text-align: center;
+  will-change: transform, opacity;
+  animation: intro-stage-out 0.4s cubic-bezier(0.5, 0, 0.75, 0) 1.74s forwards;
 }
 .intro-mark {
-  position: absolute;
-  left: 50%;
-  top: 50%;
   border-radius: 30px;
-  box-shadow: 0 0 70px rgb(61 189 138 / 0.35);
-  transform: translate(-50%, -50%);
-  will-change: transform, opacity;
-  animation:
-    intro-mark-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both,
-    intro-mark-out 0.36s cubic-bezier(0.5, 0, 0.75, 0) 0.64s forwards;
+  box-shadow: 0 0 70px rgb(255 122 31 / 0.35);
+  animation: intro-mark-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.intro-word {
+  font-size: 2.6rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  animation: intro-word-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.55s both;
+}
+.intro-tag {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.intro-t1 {
+  animation: intro-rise-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 0.88s both;
+}
+.intro-t2 {
+  color: #ff7a1f;
+  animation: intro-rise-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 1.14s both;
 }
 @keyframes intro-mark-in {
   from {
-    transform: translate(-50%, -50%) rotateY(-200deg) scale(0.5);
+    transform: rotateY(-200deg) scale(0.5);
     opacity: 0;
   }
-  to {
-    transform: translate(-50%, -50%) rotateY(0deg) scale(1);
-    opacity: 1;
+}
+@keyframes intro-word-in {
+  from {
+    opacity: 0;
+    letter-spacing: 0.35em;
   }
 }
-@keyframes intro-mark-out {
+@keyframes intro-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes intro-stage-out {
   to {
-    transform: translate(-50%, -50%) scale(1.9);
+    transform: scale(1.18);
     opacity: 0;
   }
 }
 @keyframes intro-line-down {
   to {
     transform: scaleY(1);
+  }
+}
+@keyframes intro-line-dim {
+  to {
+    opacity: 0.3;
   }
 }
 @keyframes intro-fade {
@@ -522,9 +565,9 @@
     visibility: hidden;
   }
 }
-/* What the curtain opens onto rises into place as it opens. */
-.intro-after {
-  animation: intro-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.74s both;
+/* What the curtain opens onto rises into place as it opens (only when the curtain plays). */
+.intro ~ section .intro-after {
+  animation: intro-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 1.9s both;
 }
 @keyframes intro-rise {
   from {
@@ -533,10 +576,25 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  /* No spin, no swing: the name and the idea, still, then the whole curtain fades. */
   .intro {
+    animation:
+      intro-fade 0.4s ease 1.7s forwards,
+      intro-gone 0s linear 2.1s forwards;
+  }
+  .intro-half,
+  .intro-mark,
+  .intro-word,
+  .intro-t1,
+  .intro-t2,
+  .intro-stage {
+    animation: none;
+  }
+  .intro-line {
     display: none;
   }
-  .intro-after {
+  .intro ~ section .intro-after {
     animation: none;
   }
 }
+

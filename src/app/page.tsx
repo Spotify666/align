@@ -46,7 +46,7 @@ export default function Landing() {
 
   return (
     <main id="main">
-      <Intro />
+      <Intro always />
       {/* 1 · The line: a full first screen on the brand's own ground */}
       <section className="landing-dark relative overflow-hidden">
         <div className="landing-grid absolute inset-0" aria-hidden />
@@ -65,7 +65,7 @@ export default function Landing() {
             <h1 className="display mt-5 text-[2.3rem] leading-[1.02] min-[400px]:text-[2.5rem] sm:text-7xl lg:text-[5.2rem]">
               Eyes over the ball.
               <br />
-              <span className="text-[#3dbd8a]">Everything in line.</span>
+              <span className="text-[#ff7a1f]">Everything in line.</span>
             </h1>
             <p className="lp-muted mt-6 max-w-xl text-base sm:text-lg">
               Align watches your forward defence and shows whether your head, hands and front foot lined up with the ball. Then it gives you the one thing to
@@ -82,7 +82,7 @@ export default function Landing() {
             </ul>
           </div>
           <figure className="overflow-hidden rounded-[22px] shadow-[0_30px_80px_-30px_rgb(0_0_0/0.8)] ring-1 ring-white/10">
-            <AlignHero pose={story.poses[hero]!} ballFrom={story.poses[hero - 1]?.ball} after={1} />
+            <AlignHero pose={story.poses[hero]!} ballFrom={story.poses[hero - 1]?.ball} after={2.1} />
           </figure>
         </div>
       </section>
