@@ -1,20 +1,12 @@
 "use client";
 // An illustrated batter drawn from a pose: helmet, shirt, padded legs, gloves and a bat,
-// outlined in ink with a slight hand-drawn wobble. Every lesson illustration starts here.
-// Poses come in image coordinates (0..1) and are redrawn in figure units: standing height
-// 100, ground at y = 100, facing right (toward the bowler).
+// in flat colour with a thin ink line. Limbs taper the way a body does (a thigh is wider
+// at the hip than at the knee) and keep their length, so the figure moves like a person.
+// Every lesson illustration starts here. Poses are in figure units (see ./pose).
 
-import { J, type ImgPoint } from "@/engine/types";
+import { mid, type FigurePose, type Pt } from "./pose";
 
-export type Pt = [number, number];
-export interface FigurePose {
-  head: Pt;
-  fs: Pt; bs: Pt; fe: Pt; be: Pt; fw: Pt; bw: Pt;
-  fh: Pt; bh: Pt; fk: Pt; bk: Pt; fa: Pt; ba: Pt;
-  fheel: Pt; bheel: Pt; ftoe: Pt; btoe: Pt;
-  /** Bat handle and toe, when the bat was tracked (otherwise it is drawn held down). */
-  batH?: Pt; batT?: Pt;
-}
+export { alignAt, figurePose, mid, type FigurePose, type Pt } from "./pose";
 
 /** Illustration palette: flat colours on paper, the same in both themes except paper and ink. */
 export const INK = "var(--ill-ink)";
@@ -22,111 +14,73 @@ export const PAPER = "var(--ill-paper)";
 const SHIRT = "#2f6fb0";
 const SHIRT_DARK = "#255a91";
 const TROUSERS = "#f1ece1";
+const TROUSERS_DARK = "#ddd6c6";
 const PAD = "#fffaf0";
+const PAD_DARK = "#ebe5d6";
 const HELMET = "#1f3a5f";
+const GRILLE = "#c9ced6";
+const SKIN = "#c68e62";
 const GLOVE = "#ffffff";
 const BAT = "#e2c08a";
+const GRIP = "#7a5230";
 const SHOE = "#ffffff";
 export const GOOD = "#1f9d6b";
 export const OFF = "#e05a47";
 export const ZONE = "#e8b23a";
 
-/**
- * Redraw a pose in figure units. Front side from the batting hand; mirrored so the batter
- * faces right. Null when the legs or trunk weren't seen.
- */
-export function figurePose(body: ImgPoint[], aspect: number, hand: "right" | "left", bat?: [ImgPoint | null | undefined, ImgPoint | null | undefined]): FigurePose | null {
-  const F = hand === "right" ? "left" : "right";
-  const B = F === "left" ? "right" : "left";
-  const raw = (name: string): Pt | null => {
-    const p = body[J[name as keyof typeof J]];
-    return p && p[2] >= 0.2 ? [p[0] * aspect, p[1]] : null;
-  };
-  const req = ["nose", `${F}_shoulder`, `${B}_shoulder`, `${F}_hip`, `${B}_hip`, `${F}_knee`, `${B}_knee`, `${F}_ankle`, `${B}_ankle`];
-  if (req.some((n) => !raw(n))) return null;
-  const g = (n: string, fb?: Pt): Pt => raw(n) ?? fb!;
-  const fa = g(`${F}_ankle`);
-  const ba = g(`${B}_ankle`);
-  const mirror = fa[0] < ba[0] ? -1 : 1;
-  const d = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-  const leg = Math.max(d(g(`${F}_hip`), g(`${F}_knee`)) + d(g(`${F}_knee`), fa), d(g(`${B}_hip`), g(`${B}_knee`)) + d(g(`${B}_knee`), ba));
-  const trunk = (d(g(`${F}_hip`), g(`${F}_shoulder`)) + d(g(`${B}_hip`), g(`${B}_shoulder`))) / 2;
-  const stature = (leg + trunk) / 0.779;
-  if (!(stature > 0)) return null;
-  const k = 100 / stature;
-  const feet = [`${F}_heel`, `${B}_heel`, `${F}_foot`, `${B}_foot`, `${F}_ankle`, `${B}_ankle`].map(raw).filter((p): p is Pt => !!p);
-  const ground = Math.max(...feet.map((p) => p[1]));
-  const cx = (fa[0] + ba[0]) / 2;
-  const T = (p: Pt): Pt => [(p[0] - cx) * k * mirror, 100 + (p[1] - ground) * k];
-  const fs = T(g(`${F}_shoulder`));
-  const bs = T(g(`${B}_shoulder`));
-  const fh = T(g(`${F}_hip`));
-  const bh = T(g(`${B}_hip`));
-  const fk = T(g(`${F}_knee`));
-  const bk = T(g(`${B}_knee`));
-  const faT = T(fa);
-  const baT = T(ba);
-  const nose = T(g("nose"));
-  // Elbows and wrists hidden behind the body: put them where a defence holds them.
-  const fe = raw(`${F}_elbow`) ? T(raw(`${F}_elbow`)!) : ([fs[0] + 6, fs[1] + 10] as Pt);
-  const be = raw(`${B}_elbow`) ? T(raw(`${B}_elbow`)!) : ([bs[0] + 4, bs[1] + 12] as Pt);
-  const fw = raw(`${F}_wrist`) ? T(raw(`${F}_wrist`)!) : ([fe[0] + 4, fe[1] + 10] as Pt);
-  const bw = raw(`${B}_wrist`) ? T(raw(`${B}_wrist`)!) : ([fw[0], fw[1] + 3] as Pt);
-  const foot = (heel: string, toe: string, ankle: Pt, dir: number): [Pt, Pt] => [
-    raw(heel) ? T(raw(heel)!) : ([ankle[0] - 2.5 * dir, ankle[1] + 2] as Pt),
-    raw(toe) ? T(raw(toe)!) : ([ankle[0] + 6 * dir, ankle[1] + 2.5] as Pt),
-  ];
-  const [fheel, ftoe] = foot(`${F}_heel`, `${F}_foot`, faT, 1);
-  const [bheel, btoe] = foot(`${B}_heel`, `${B}_foot`, baT, 1);
-  // The helmet sits a little behind and above the nose.
-  const head: Pt = [nose[0] - 3.2, nose[1] - 1.6];
-  const out: FigurePose = { head, fs, bs, fe, be, fw, bw, fh, bh, fk, bk, fa: faT, ba: baT, fheel, bheel, ftoe, btoe };
-  const [bh0, bt0] = bat ?? [];
-  if (bh0 && bt0 && bh0[2] >= 0.2 && bt0[2] >= 0.2) {
-    out.batH = T([bh0[0] * aspect, bh0[1]]);
-    out.batT = T([bt0[0] * aspect, bt0[1]]);
-  }
-  return out;
-}
-
-/** Shift a pose so its front ankle lands on `at` (for the textbook outline). */
-export function alignAt(p: FigurePose, at: Pt): FigurePose {
-  const dx = at[0] - p.fa[0];
-  const dy = at[1] - p.fa[1];
-  const out = {} as FigurePose;
-  for (const [k, v] of Object.entries(p) as Array<[keyof FigurePose, Pt]>) out[k] = [v[0] + dx, v[1] + dy];
-  return out;
-}
-
-export const mid = (a: Pt, b: Pt): Pt => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-
-/** The bat, from the hands. */
+/** The bat, from the hands: the tracked bat's direction, else held down beside the front pad. */
 function batLine(p: FigurePose): [Pt, Pt] {
   const hands = mid(p.fw, p.bw);
-  // The tracked bat's direction from the hands, else held down beside the front pad.
   const target: Pt = p.batH && p.batT ? [hands[0] + p.batT[0] - p.batH[0], hands[1] + p.batT[1] - p.batH[1]] : [p.fk[0] + 5, p.fa[1] - 4];
   const dx = target[0] - hands[0];
   const dy = target[1] - hands[1];
   const L = Math.hypot(dx, dy) || 1;
-  const len = 46;
+  // A full-size bat is about half a batter's height.
+  const len = 48;
   return [hands, [hands[0] + (dx / L) * len, hands[1] + (dy / L) * len]];
 }
 
-const Limb = ({ a, b, w, fill }: { a: Pt; b: Pt; w: number; fill: string }) => (
-  <>
-    <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={INK} strokeWidth={w + 2.2} strokeLinecap="round" />
-    <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={fill} strokeWidth={w} strokeLinecap="round" />
-  </>
-);
+const f = (q: Pt) => `${q[0].toFixed(2)} ${q[1].toFixed(2)}`;
 
-/** Shared SVG definitions: the hand-drawn wobble and paper grain. Render once per SVG. */
+/** A limb as a tapered capsule from a (width wa) to b (width wb), round at both ends. */
+function capsule(a: Pt, b: Pt, wa: number, wb: number): string {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const L = Math.hypot(dx, dy) || 1e-6;
+  const nx = -dy / L;
+  const ny = dx / L;
+  const ra = wa / 2;
+  const rb = wb / 2;
+  const p1: Pt = [a[0] + nx * ra, a[1] + ny * ra];
+  const p2: Pt = [b[0] + nx * rb, b[1] + ny * rb];
+  const p3: Pt = [b[0] - nx * rb, b[1] - ny * rb];
+  const p4: Pt = [a[0] - nx * ra, a[1] - ny * ra];
+  return `M${f(p1)} L${f(p2)} A${rb.toFixed(2)} ${rb.toFixed(2)} 0 0 0 ${f(p3)} L${f(p4)} A${ra.toFixed(2)} ${ra.toFixed(2)} 0 0 0 ${f(p1)} Z`;
+}
+
+/**
+ * Parts drawn as one piece: the ink outline of all of them first, then their colours, so
+ * a knee or an elbow shows no seam where two segments overlap.
+ */
+function Piece({ parts }: { parts: Array<{ d: string; fill: string; grow?: number }> }) {
+  return (
+    <g>
+      {parts.map((x, i) => (
+        <path key={`o${i}`} d={x.d} fill={INK} stroke={INK} strokeWidth={(x.grow ?? 0) + 1.5} strokeLinejoin="round" />
+      ))}
+      {parts.map((x, i) => (
+        <path key={`f${i}`} d={x.d} fill={x.fill} stroke={x.grow ? x.fill : "none"} strokeWidth={x.grow ?? 0} strokeLinejoin="round" />
+      ))}
+    </g>
+  );
+}
+
+const polygon = (pts: Pt[]) => `M${pts.map(f).join(" L")} Z`;
+
+/** Shared SVG definitions: the paper grain. Render once per SVG. */
 export function FigureDefs({ id }: { id: string }) {
   return (
     <defs>
-      <filter id={`${id}-wobble`} x="-10%" y="-10%" width="120%" height="120%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="7" result="n" />
-        <feDisplacementMap in="SourceGraphic" in2="n" scale="1.1" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
       <filter id={`${id}-grain`}>
         <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" />
         <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0" />
@@ -135,56 +89,95 @@ export function FigureDefs({ id }: { id: string }) {
   );
 }
 
-export function BatterFigure({ p, id }: { p: FigurePose; id: string }) {
+/**
+ * Widths in figure units (standing height 100), from adult proportions: thigh about 9 at
+ * the hip narrowing to 6.5 at the knee, a padded shin about 7, upper arm 5, forearm 4, a
+ * trunk as broad as the shoulders and hips (never under 11, a chest edge-on), a head
+ * about 13 tall.
+ */
+export function BatterFigure({ p }: { p: FigurePose; id?: string }) {
   const [batA, batB] = batLine(p);
   const bdx = batB[0] - batA[0];
   const bdy = batB[1] - batA[1];
   const bl = Math.hypot(bdx, bdy) || 1;
-  const nx = -bdy / bl;
-  const ny = bdx / bl;
-  const handleEnd: Pt = [batA[0] + (bdx / bl) * 12, batA[1] + (bdy / bl) * 12];
+  const ux = bdx / bl;
+  const uy = bdy / bl;
+  const along = (d: number): Pt => [batA[0] + ux * d, batA[1] + uy * d];
+  const handleEnd = along(13);
+  const shoulders = mid(p.fs, p.bs);
+  const hips = mid(p.fh, p.bh);
+  const neckTop: Pt = [p.head[0] - 0.8, p.head[1] + 4.2];
+  // The trunk follows the shoulders and hips (broad when the chest faces the camera, as
+  // it does side-on, narrower as it turns), never thinner than a chest seen edge-on.
+  // Shoulders broader than the waist: the sides draw in a little above the hips.
+  const lerp = (a: Pt, b: Pt, u: number): Pt => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+  const spine = (q: Pt, u: number): Pt => [q[0] + (lerp(shoulders, hips, 0.62)[0] - q[0]) * u, q[1] + (lerp(shoulders, hips, 0.62)[1] - q[1]) * u];
+  const waistF = spine(lerp(p.fs, p.fh, 0.62), 0.14);
+  const waistB = spine(lerp(p.bs, p.bh, 0.62), 0.14);
+  const trunk = [
+    { d: polygon([p.fs, p.bs, waistB, p.bh, p.fh, waistF]), fill: SHIRT, grow: 4 },
+    { d: capsule(lerp(hips, shoulders, 0.15), lerp(hips, shoulders, 0.95), 10.5, 11.5), fill: SHIRT },
+  ];
+  const leg = (h: Pt, k: Pt, a: Pt, heel: Pt, toe: Pt, shade: number) => [
+    { d: capsule(heel, toe, 4.4, 3.6), fill: SHOE },
+    { d: capsule(h, k, 9, 6.4), fill: shade ? TROUSERS_DARK : TROUSERS },
+    { d: capsule(k, a, 7.4, 6.2), fill: shade ? PAD_DARK : PAD },
+  ];
+  const arm = (s: Pt, e: Pt, w: Pt, fill: string) => [
+    { d: capsule(s, e, 5, 4), fill },
+    { d: capsule(e, w, 4, 3.2), fill },
+  ];
+  const canes = (k: Pt, a: Pt) => {
+    const dx = a[0] - k[0];
+    const dy = a[1] - k[1];
+    const L = Math.hypot(dx, dy) || 1;
+    const nx = -dy / L;
+    const ny = dx / L;
+    const from = (o: number): Pt => [k[0] + dx * 0.18 + nx * o, k[1] + dy * 0.18 + ny * o];
+    const to = (o: number): Pt => [k[0] + dx * 0.9 + nx * o, k[1] + dy * 0.9 + ny * o];
+    return `M${f(from(-1.2))} L${f(to(-1.1))} M${f(from(1.2))} L${f(to(1.1))}`;
+  };
+  const glove = (w: Pt) => capsule([w[0] - ux * 1.6, w[1] - uy * 1.6], [w[0] + ux * 1.6, w[1] + uy * 1.6], 3.6, 3.6);
   const blade = [
-    [handleEnd[0] + nx * 2.6, handleEnd[1] + ny * 2.6],
-    [batB[0] + nx * 3.2, batB[1] + ny * 3.2],
-    [batB[0] - nx * 3.2, batB[1] - ny * 3.2],
-    [handleEnd[0] - nx * 2.6, handleEnd[1] - ny * 2.6],
+    [handleEnd[0] - uy * 2.4, handleEnd[1] + ux * 2.4],
+    [batB[0] - uy * 2.9, batB[1] + ux * 2.9],
+    [batB[0] + uy * 2.9, batB[1] - ux * 2.9],
+    [handleEnd[0] + uy * 2.4, handleEnd[1] - ux * 2.4],
   ]
-    .map((q) => q.map((v) => v.toFixed(2)).join(" "))
+    .map((q) => f(q as Pt))
     .join(" L");
-  const torso = [p.fs, p.bs, p.bh, p.fh].map((q) => q.map((v) => v.toFixed(2)).join(" ")).join(" L");
   return (
-    <g filter={`url(#${id}-wobble)`} strokeLinejoin="round">
-      {/* back side first */}
-      <Limb a={p.bheel} b={p.btoe} w={3.6} fill={SHOE} />
-      <Limb a={p.bh} b={p.bk} w={7.4} fill={TROUSERS} />
-      <Limb a={p.bk} b={p.ba} w={8.6} fill={PAD} />
-      <line x1={p.bk[0]} y1={p.bk[1] + 2} x2={p.ba[0]} y2={p.ba[1] - 2} stroke={INK} strokeWidth={0.5} opacity={0.5} />
-      <Limb a={p.bs} b={p.be} w={5} fill={SHIRT_DARK} />
-      <Limb a={p.be} b={p.bw} w={4.6} fill={SHIRT_DARK} />
-      {/* trunk and head */}
-      {/* neck: shirt collar up to the helmet */}
-      <Limb a={mid(p.fs, p.bs)} b={[p.head[0] - 0.5, p.head[1] + 4]} w={4.6} fill={SHIRT} />
-      {/* a rounded torso: ink first, the shirt inset over it */}
-      <path d={`M${torso} Z`} fill={INK} stroke={INK} strokeWidth={7.2} />
-      <path d={`M${torso} Z`} fill={SHIRT} stroke={SHIRT} strokeWidth={5} />
-      <circle cx={p.head[0]} cy={p.head[1]} r={6.9} fill={HELMET} stroke={INK} strokeWidth={1.1} />
-      <path d={`M${p.head[0] + 2.2} ${p.head[1] - 6.4} q 6.4 1.4 6.4 6.4`} fill="none" stroke={INK} strokeWidth={1.1} />
-      {/* grille */}
-      <path d={`M${p.head[0] + 4.6} ${p.head[1] - 1} l 3.6 0.6 M${p.head[0] + 4.4} ${p.head[1] + 1.6} l 3.6 0.4 M${p.head[0] + 3.8} ${p.head[1] + 4} l 3.2 0.2 M${p.head[0] + 6.4} ${p.head[1] - 1} l 0.4 5.4`} stroke="#c9ced6" strokeWidth={0.9} strokeLinecap="round" />
+    <g strokeLinejoin="round" strokeLinecap="round">
+      {/* back side first, a shade darker */}
+      <Piece parts={leg(p.bh, p.bk, p.ba, p.bheel, p.btoe, 1)} />
+      <path d={canes(p.bk, p.ba)} stroke={INK} strokeWidth={0.4} opacity={0.35} fill="none" />
+      <Piece parts={arm(p.bs, p.be, p.bw, SHIRT_DARK)} />
+      {/* trunk, neck and head */}
+      <Piece parts={[{ d: capsule(shoulders, neckTop, 4.8, 4.4), fill: SKIN }]} />
+      <Piece parts={trunk} />
+      <circle cx={p.head[0]} cy={p.head[1]} r={6.3} fill={HELMET} stroke={INK} strokeWidth={0.8} />
+      {/* peak and grille, facing the bowler */}
+      <path d={`M${f([p.head[0] + 1.5, p.head[1] - 5.9])} Q ${f([p.head[0] + 7.6, p.head[1] - 5.2])} ${f([p.head[0] + 8.6, p.head[1] - 2.4])} L${f([p.head[0] + 5.4, p.head[1] - 3.2])} Z`} fill={HELMET} stroke={INK} strokeWidth={0.7} />
+      <path
+        d={`M${f([p.head[0] + 5.8, p.head[1] - 1.6])} Q ${f([p.head[0] + 8.4, p.head[1] + 1.6])} ${f([p.head[0] + 5.2, p.head[1] + 5.4])} M${f([p.head[0] + 4.6, p.head[1] + 0.4])} L${f([p.head[0] + 7.6, p.head[1] + 0.6])} M${f([p.head[0] + 4.4, p.head[1] + 2.8])} L${f([p.head[0] + 7.0, p.head[1] + 3.0])}`}
+        stroke={GRILLE}
+        strokeWidth={0.7}
+        fill="none"
+      />
       {/* front leg */}
-      <Limb a={p.fheel} b={p.ftoe} w={3.6} fill={SHOE} />
-      <Limb a={p.fh} b={p.fk} w={7.6} fill={TROUSERS} />
-      <Limb a={p.fk} b={p.fa} w={8.8} fill={PAD} />
-      <line x1={p.fk[0] - 1.6} y1={p.fk[1] + 2} x2={p.fa[0] - 1.6} y2={p.fa[1] - 2} stroke={INK} strokeWidth={0.5} opacity={0.5} />
-      <line x1={p.fk[0] + 1.6} y1={p.fk[1] + 2} x2={p.fa[0] + 1.6} y2={p.fa[1] - 2} stroke={INK} strokeWidth={0.5} opacity={0.5} />
+      <Piece parts={leg(p.fh, p.fk, p.fa, p.fheel, p.ftoe, 0)} />
+      <path d={canes(p.fk, p.fa)} stroke={INK} strokeWidth={0.4} opacity={0.35} fill="none" />
       {/* bat, then the front arm and gloves over it */}
-      <line x1={batA[0]} y1={batA[1]} x2={handleEnd[0]} y2={handleEnd[1]} stroke={INK} strokeWidth={3.4} strokeLinecap="round" />
-      <line x1={batA[0]} y1={batA[1]} x2={handleEnd[0]} y2={handleEnd[1]} stroke="#7a5230" strokeWidth={1.6} strokeLinecap="round" />
-      <path d={`M${blade} Z`} fill={BAT} stroke={INK} strokeWidth={1.1} />
-      <Limb a={p.fs} b={p.fe} w={5.2} fill={SHIRT} />
-      <Limb a={p.fe} b={p.fw} w={4.8} fill={SHIRT} />
-      <circle cx={p.bw[0]} cy={p.bw[1]} r={3.4} fill={GLOVE} stroke={INK} strokeWidth={1.1} />
-      <circle cx={p.fw[0]} cy={p.fw[1]} r={3.6} fill={GLOVE} stroke={INK} strokeWidth={1.1} />
+      <path d={`M${f(batA)} L${f(handleEnd)}`} stroke={INK} strokeWidth={2.6} />
+      <path d={`M${f(batA)} L${f(handleEnd)}`} stroke={GRIP} strokeWidth={1.4} />
+      <path d={`M${blade} Z`} fill={BAT} stroke={INK} strokeWidth={0.8} />
+      <Piece parts={arm(p.fs, p.fe, p.fw, SHIRT)} />
+      <Piece
+        parts={[
+          { d: glove(p.bw), fill: GLOVE },
+          { d: glove(p.fw), fill: GLOVE },
+        ]}
+      />
     </g>
   );
 }

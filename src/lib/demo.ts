@@ -3,6 +3,7 @@ import type { CompareReference } from "@/components/report/evidence-viewer";
 import { analyze } from "@/engine/analyze";
 import { baselineSeries, ffdScript, fixture, FIXTURE_SPECS } from "@/engine/fixtures";
 import { generate } from "@/engine/fixtures/generate";
+import { figurePose, type FigurePose, type Pt, type Story } from "@/components/lesson/pose";
 import { buildBaseline, compareToBaseline } from "@/engine/baseline";
 import { quantise } from "@/engine/tracks-codec";
 
@@ -22,6 +23,27 @@ export function textbookClip() {
   const obs = quantise(generate({ ...spec.options, id: "fx_textbook", script: ffdScript() }));
   const payload = analyze(obs, { analysisId: "textbook", createdAt: CREATED });
   return { obs, payload };
+}
+
+/**
+ * The textbook defence as the home explainer plays it: the batter at 60 frames a second
+ * from the stance to just after contact, back foot planted, rounded for the page.
+ */
+export function textbookStory(): Story {
+  const { obs, payload } = textbookClip();
+  const fps = obs.media.fps ?? 120;
+  const at = (t: string, d: number) => payload.events.find((e) => e.type === t)?.frame ?? d;
+  const marks = [at("setup", 0), at("backswing_top", 85), at("front_foot_plant", 100), at("contact", 105)];
+  const step = Math.max(1, Math.round(fps / 60));
+  const end = Math.min(obs.body.length - 1, marks[3]! + Math.round(0.4 * fps));
+  const frames: number[] = [];
+  for (let i = marks[0]!; i <= end; i += step) frames.push(i);
+  const raw = frames.map((i) => figurePose(obs.body[i]!, obs.media.width / obs.media.height, obs.athlete.handedness, [obs.bat.handle[i], obs.bat.toe[i]])!);
+  const dx0 = raw[0]!.ba[0];
+  const r = (q: Pt): Pt => [Math.round((q[0] - dx0) * 10) / 10, Math.round(q[1] * 10) / 10];
+  const poses = raw.map((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, r(v as Pt)])) as unknown as FigurePose);
+  const index = (f: number) => frames.reduce((best, x, i) => (Math.abs(x - f) < Math.abs(frames[best]! - f) ? i : best), 0);
+  return { poses, fps: fps / step, moments: marks.map(index) as Story["moments"] };
 }
 
 let cachedBaseline: ReturnType<typeof buildBaseline> | null = null;

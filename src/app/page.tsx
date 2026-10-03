@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { sampleAnalysis, textbookClip } from "@/lib/demo";
+import { sampleAnalysis, textbookStory } from "@/lib/demo";
 import { HeroVisual } from "@/components/home/hero-visual";
 import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
@@ -14,13 +14,8 @@ export default function Home() {
   const trigger = v.events.find((e) => e.type === "trigger")?.frame ?? 20;
   const pullShot = pull.payload.observed_shot!;
   const pullEvidence = pull.payload.features.filter((f) => pullShot.evidence_ids.includes(f.id)).map((f) => f.reading);
-  // The explainer draws the textbook defence, not the sample (which has a fault to fix).
-  const book = textbookClip();
-  const at = (t: string, d: number) => book.payload.events.find((e) => e.type === t)?.frame ?? d;
-  const story = [at("setup", 0), at("backswing_top", 85), at("front_foot_plant", 100), at("contact", 105)].map((f) => ({
-    body: book.obs.body[f]!,
-    bat: [book.obs.bat.handle[f], book.obs.bat.toe[f]] as [(typeof book.obs.bat.handle)[number] | undefined, (typeof book.obs.bat.toe)[number] | undefined],
-  }));
+  // The explainer plays the textbook defence, not the sample (which has a fault to fix).
+  const story = textbookStory();
   const keyMetrics = ["head_knee_offset", "stride_length", "bat_angle_contact"].map((id) => v.metrics.find((m) => m.id === id)!);
 
   return (
@@ -91,7 +86,7 @@ export default function Home() {
           </div>
         </Reveal>
         <Reveal className="mt-8">
-          <ShotStory frames={story} aspect={book.obs.media.width / book.obs.media.height} hand={book.obs.athlete.handedness} />
+          <ShotStory story={story} />
         </Reveal>
       </section>
 

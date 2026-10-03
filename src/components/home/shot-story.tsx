@@ -1,18 +1,15 @@
 "use client";
 // "Learn the shot": the forward defence as a short illustrated explainer. One drawn batter
-// moves through set-up, pick-up, stride and contact (the sample clip's own frames), and the
-// idea behind each move draws itself on with a one-line caption, like an animated lesson.
+// plays the textbook defence in its own continuous motion (the textbook clip, frame by
+// frame), slowed down like a replay and held at each of the four moments that matter,
+// where the idea draws itself on with a one-line caption.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "motion/react";
-import type { ImgPoint } from "@/engine/types";
-import { BatterFigure, FigureDefs, figurePose, GOOD, mid, ZONE, type FigurePose, type Pt } from "@/components/lesson/figure";
+import { BatterFigure, FigureDefs, GOOD, mid, ZONE, type FigurePose, type Pt } from "@/components/lesson/figure";
 import { Draw, Label, Zone, seg } from "@/components/lesson/lesson";
+import type { Story } from "@/components/lesson/pose";
 
-export interface StoryFrame {
-  body: ImgPoint[];
-  bat: [ImgPoint | undefined, ImgPoint | undefined];
-}
 
 const SCENES = [
   { k: "Set up", t: "Side-on, knees soft, eyes level.", d: "Stay still as the bowler runs in. A still head sees the ball earliest." },
@@ -21,24 +18,39 @@ const SCENES = [
   { k: "Contact", t: "Meet it under your eyes.", d: "Head over the front knee, bat angled down beside the pad, soft hands: the ball drops dead." },
 ];
 
-const DWELL = 5200;
-const TWEEN = 700;
-const ease = (u: number) => (u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2);
+// The timeline, in seconds on screen: hold each moment, then play on to the next one in
+// slow motion (the stroke itself lasts a fifth of a second; real speed would be a blink).
+const HOLD = 3.8;
+type Step = { hold: number } | { from: number; to: number; speed: number };
+
+function timeline(s: Story): Array<Step & { start: number; dur: number }> {
+  const [a, b, c, d] = s.moments;
+  const end = s.poses.length - 1;
+  const steps: Step[] = [
+    { hold: 0 },
+    { from: a, to: b, speed: 0.5 },
+    { hold: 1 },
+    { from: b, to: c, speed: 0.15 },
+    { hold: 2 },
+    { from: c, to: d, speed: 0.15 },
+    { hold: 3 },
+    { from: d, to: end, speed: 0.3 },
+  ];
+  let t = 0;
+  return steps.map((x) => {
+    const dur = "hold" in x ? (x.hold === 3 ? HOLD + 0.8 : HOLD) : (x.to - x.from) / s.fps / x.speed;
+    const out = { ...x, start: t, dur };
+    t += dur;
+    return out;
+  });
+}
 
 function lerpPose(a: FigurePose, b: FigurePose, u: number): FigurePose {
   const out = {} as FigurePose;
   for (const [k, v] of Object.entries(b) as Array<[keyof FigurePose, Pt]>) {
-    const f = a[k] ?? v;
-    out[k] = [f[0] + (v[0] - f[0]) * u, f[1] + (v[1] - f[1]) * u];
+    const p = a[k] ?? v;
+    out[k] = [p[0] + (v[0] - p[0]) * u, p[1] + (v[1] - p[1]) * u];
   }
-  return out;
-}
-
-/** Shift a pose so its back ankle lands on `at`: the back foot stays planted through the shot. */
-function anchorBack(p: FigurePose, at: Pt): FigurePose {
-  const dx = at[0] - p.ba[0];
-  const out = {} as FigurePose;
-  for (const [k, v] of Object.entries(p) as Array<[keyof FigurePose, Pt]>) out[k] = [v[0] + dx, v[1]];
   return out;
 }
 
@@ -52,63 +64,66 @@ function arrowHead(a: Pt, b: Pt, size = 3.2): string {
 /** An arrow from a to b, with its head at b. */
 const arrow = (a: Pt, b: Pt) => `${seg(a, b)} ${arrowHead(a, b)}`;
 
-export function ShotStory({ frames, aspect, hand }: { frames: StoryFrame[]; aspect: number; hand: "right" | "left" }) {
+export function ShotStory({ story }: { story: Story }) {
   const still = useReducedMotion();
-  const poses = useMemo(() => {
-    const raw = frames.map((f) => figurePose(f.body, aspect, hand, f.bat));
-    const first = raw[0];
-    if (!first || raw.some((p) => !p)) return null;
-    return (raw as FigurePose[]).map((p) => anchorBack(p, first.ba));
-  }, [frames, aspect, hand]);
+  const steps = useMemo(() => timeline(story), [story]);
+  const cycle = steps.reduce((t, x) => t + x.dur, 0);
+  const holdStart = (i: number) => steps.find((x) => "hold" in x && x.hold === i)!.start;
 
-  const [scene, setScene] = useState(0);
+  const [clock, setClock] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const [pose, setPose] = useState<FigurePose | null>(poses?.[0] ?? null);
-  const shown = useRef<FigurePose | null>(poses?.[0] ?? null);
   const box = useRef<HTMLDivElement>(null);
   const inView = useInView(box, { amount: 0.4 });
   const auto = playing && inView && !still;
+  const clockRef = useRef(0);
 
-  // Move the figure to the scene's pose.
-  useEffect(() => {
-    const to = poses?.[scene];
-    if (!to || still) return;
-    const from = shown.current ?? to;
-    let raf = 0;
-    const t0 = performance.now();
-    const step = (t: number) => {
-      const u = Math.min(1, (t - t0) / TWEEN);
-      const p = lerpPose(from, to, ease(u));
-      shown.current = p;
-      setPose(p);
-      if (u < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [scene, poses, still]);
-
-  // Play through the scenes while on screen.
+  // One clock for the whole explainer; it runs only while playing and on screen.
   useEffect(() => {
     if (!auto) return;
-    const id = setTimeout(() => setScene((s) => (s + 1) % SCENES.length), DWELL);
-    return () => clearTimeout(id);
-  }, [scene, auto]);
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      clockRef.current = (clockRef.current + (now - last) / 1000) % cycle;
+      last = now;
+      setClock(clockRef.current);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [auto, cycle]);
+
+  const jump = (i: number) => {
+    clockRef.current = holdStart(i) + 0.001;
+    setClock(clockRef.current);
+  };
+
+  // Where the clock is: a held moment, or the motion between two.
+  const step = steps.find((x) => clock >= x.start && clock < x.start + x.dur) ?? steps[0]!;
+  const held = "hold" in step ? step.hold : null;
+  let fi: number;
+  if ("hold" in step) fi = story.moments[step.hold] ?? 0;
+  else fi = step.from + Math.min(1, (clock - step.start) / step.dur) * (step.to - step.from);
+  // The caption shows the moment held, or the one being played toward.
+  const scene = held ?? Math.min(3, steps.filter((x) => "hold" in x && x.start <= clock).length);
+  const i0 = Math.floor(fi);
+  const pose = lerpPose(story.poses[i0]!, story.poses[Math.min(story.poses.length - 1, i0 + 1)]!, fi - i0);
+  const heldPoses = story.moments.map((m) => story.poses[m]!);
 
   const view = useMemo(() => {
-    if (!poses) return null;
-    const pts = poses.flatMap((p) => Object.values(p) as Pt[]);
-    const x0 = Math.min(...pts.map((q) => q[0])) - 18;
+    const pts = story.poses.flatMap((p) => [p.head, p.fa, p.ba, p.ftoe, p.btoe, p.fs, p.bs, p.fw, p.bw]);
+    const x0 = Math.min(...pts.map((q) => q[0])) - 30;
     const x1 = Math.max(...pts.map((q) => q[0])) + 44;
-    const y0 = Math.min(...pts.map((q) => q[1])) - 12;
+    const y0 = Math.min(...pts.map((q) => q[1])) - 30;
     return { x0, x1, y0, y1: 113 };
-  }, [poses]);
-
-  // Reduced motion: no tween, the scene's pose as is.
-  const fig = still ? poses?.[scene] : pose;
-  if (!poses || !fig || !view) return null;
+  }, [story]);
   const { x0, x1, y0, y1 } = view;
   const s = SCENES[scene]!;
-  const id = "story";
+  // Progress through the cycle, per moment (hold plus the motion that follows it).
+  const segs = SCENES.map((_, i) => {
+    const from = holdStart(i);
+    const to = i < 3 ? holdStart(i + 1) : cycle;
+    return Math.max(0, Math.min(1, (clock - from) / (to - from)));
+  });
 
   return (
     <div ref={box} className="lesson-card">
@@ -116,30 +131,26 @@ export function ShotStory({ frames, aspect, hand }: { frames: StoryFrame[]; aspe
       <div className="flex gap-1.5 px-4 pt-4" aria-hidden>
         {SCENES.map((x, i) => (
           <span key={x.k} className="h-1 flex-1 overflow-hidden rounded-full bg-line">
-            <motion.span
-              key={`${i}-${scene}-${auto}`}
-              className="block h-full rounded-full bg-brand"
-              initial={{ width: i < scene || (i === scene && !auto) ? "100%" : "0%" }}
-              animate={{ width: i <= scene ? "100%" : "0%" }}
-              transition={{ duration: i === scene && auto ? DWELL / 1000 : 0, ease: "linear" }}
-            />
+            <span className="block h-full rounded-full bg-brand" style={{ width: `${(still ? (i <= scene ? 1 : 0) : segs[i]!) * 100}%` }} />
           </span>
         ))}
       </div>
       <div className="grid gap-0 lg:grid-cols-[1.35fr_1fr] lg:items-center">
         <svg viewBox={`${x0} ${y0} ${x1 - x0} ${y1 - y0}`} className="block w-full" role="img" aria-label={`${s.k}: ${s.t}`}>
-          <FigureDefs id={id} />
+          <FigureDefs id="story" />
           <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--ill-paper)" />
-          <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} filter={`url(#${id}-grain)`} />
-          <ellipse cx={(fig.fa[0] + fig.ba[0]) / 2} cy={101.5} rx={Math.abs(fig.fa[0] - fig.ba[0]) / 2 + 12} ry={2.2} fill="var(--ill-ink)" opacity={0.08} />
+          <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} filter="url(#story-grain)" />
+          <ellipse cx={(pose.fa[0] + pose.ba[0]) / 2} cy={101.6} rx={Math.abs(pose.fa[0] - pose.ba[0]) / 2 + 10} ry={2} fill="var(--ill-ink)" opacity={0.08} />
           <path d={`M${x0 + 4} 101.2 Q ${(x0 + x1) / 2} 100.4 ${x1 - 4} 101.4`} stroke="var(--ill-chalk)" strokeWidth={0.7} fill="none" opacity={0.55} />
-          <BatterFigure p={fig} id={id} />
-          <g key={scene}>
-            <SceneNotes n={scene} p={poses[scene]!} poses={poses} />
-          </g>
+          <BatterFigure p={pose} />
+          {held !== null && (
+            <g key={`${held}-${Math.floor(clock / cycle)}`}>
+              <SceneNotes n={held} p={heldPoses[held]!} poses={heldPoses} />
+            </g>
+          )}
         </svg>
         <div className="flex flex-col gap-3 p-5 sm:p-6">
-          <motion.div key={scene} initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: still ? 0 : 0.25 }}>
+          <motion.div key={scene} initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
             <p className="flex items-baseline gap-2 text-fg-subtle">
               <span className="text-4xl leading-none text-brand" style={{ fontFamily: "var(--font-hand), cursive" }}>{scene + 1}</span>
               <span className="text-xs font-semibold uppercase tracking-[0.08em]">{s.k}</span>
@@ -164,7 +175,7 @@ export function ShotStory({ frames, aspect, hand }: { frames: StoryFrame[]; aspe
               <button
                 key={x.k}
                 type="button"
-                onClick={() => setScene(i)}
+                onClick={() => jump(i)}
                 aria-pressed={i === scene}
                 className={`rounded-full border px-2.5 py-1 text-xs transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${i === scene ? "border-brand bg-brand-soft text-fg" : "border-line text-fg-muted hover:text-fg"}`}
               >
@@ -179,9 +190,9 @@ export function ShotStory({ frames, aspect, hand }: { frames: StoryFrame[]; aspe
   );
 }
 
-/** What each move is about, drawn on once the figure arrives. */
+/** What each move is about, drawn on while the moment is held. */
 function SceneNotes({ n, p, poses }: { n: number; p: FigurePose; poses: FigurePose[] }) {
-  const T = TWEEN / 1000 + 0.05;
+  const T = 0.25;
   const ink = "var(--ill-chalk)";
   switch (n) {
     case 0: {
@@ -203,7 +214,7 @@ function SceneNotes({ n, p, poses }: { n: number; p: FigurePose; poses: FigurePo
         const dx = q.batT[0] - q.batH[0];
         const dy = q.batT[1] - q.batH[1];
         const L = Math.hypot(dx, dy) || 1;
-        return [h[0] + (dx / L) * 46, h[1] + (dy / L) * 46];
+        return [h[0] + (dx / L) * 48, h[1] + (dy / L) * 48];
       };
       const a = tip(before);
       const b = tip(p);
