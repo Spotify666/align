@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Align — cricket shot analysis",
     short_name: "Align",
     description: "Front-foot defence analysis: confirm the shot, then measure it.",
-    start_url: "/",
+    start_url: "/home",
     display: "standalone",
     orientation: "any",
     background_color: "#0d1f19",

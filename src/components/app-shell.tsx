@@ -16,7 +16,7 @@ const PRIMARY = [
 ];
 
 const TABS = [
-  { href: "/", label: "Home", Icon: Home },
+  { href: "/home", label: "Home", Icon: Home },
   { href: "/sessions", label: "Sessions", Icon: List },
   { href: "/analyse", label: "Analyse", Icon: Plus, primary: true },
   { href: "/progress", label: "Progress", Icon: Trend },
@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
+  const active = (href: string) => path.startsWith(href);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
@@ -51,6 +51,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", close);
   }, [open]);
 
+  // The landing page stands on its own, without the app's header, tabs or footer.
+  if (path === "/") return <>{children}</>;
+
   return (
     <div className="min-h-dvh flex flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 btn btn-primary">
@@ -62,7 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2" aria-label="Align home" onClick={() => setOpen(false)}>
+          <Link href="/home" className="flex items-center gap-2" aria-label="Align home" onClick={() => setOpen(false)}>
             <Mark size={28} />
             <span className="text-[1.08rem] font-semibold tracking-[-0.02em]">Align</span>
           </Link>
