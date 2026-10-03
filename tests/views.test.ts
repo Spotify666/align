@@ -3,6 +3,7 @@ import { analyze } from "@/engine/analyze";
 import { fixture } from "@/engine/fixtures";
 import { decodeRaw, encodeRaw, quantise } from "@/engine/tracks-codec";
 import type { CaptureObservation } from "@/engine/types";
+import { FRONTAL_WITHHELD } from "@/engine/frontal";
 
 const opts = { analysisId: "a", createdAt: "2026-10-01T00:00:00.000Z" };
 
@@ -17,10 +18,16 @@ describe("front-on capture", () => {
     }
     expect(p.delivery.bounceDistanceM).toBeNull();
   });
-  it("labels forward body measures as estimates", () => {
-    const stride = p.metrics.find((m) => m.id === "stride_length");
-    expect(stride?.status).toBe("estimated");
-    expect(stride?.limitation).toMatch(/3D pose estimate/);
+  it("withholds forward distances and in-line angles: the 3D estimate behind them isn't reliable", () => {
+    for (const id of FRONTAL_WITHHELD) {
+      const m = p.metrics.find((x) => x.id === id);
+      expect(m?.status, id).toBe("not_measured");
+      expect(m?.value, id).toBeNull();
+      expect(m?.reason, id).toMatch(/side-on camera/);
+    }
+  });
+  it("grades the sideways checks this view sees", () => {
+    for (const id of ["balance_over_feet", "head_falling_away"]) expect(p.metrics.find((m) => m.id === id)?.inRange, id).not.toBeNull();
   });
   it("round-trips the 3D estimate through the track codec", () => {
     const obs = fixture("front_on_ffd");
@@ -126,6 +133,33 @@ describe("camera position guess", () => {
       expect(guessView(frames(generate({ ...spec, seed }), [20, 100]), "right")?.view).toBe("front_on");
       expect(guessView(frames(generate({ ...spec, seed, view: "behind" }), [20, 100]), "right")?.view).toBe("behind");
       expect(guessView(frames(generate({ ...spec, seed, handedness: "left" }), [20, 100]), "left")?.view).toBe("front_on");
+    }
+  });
+  it("needs no batting hand: a wrong hand or a mirrored clip still reads the same camera, and the hand comes out right", async () => {
+    const { guessView } = await import("@/lib/capture/view-guess");
+    const { generate } = await import("@/engine/fixtures/generate");
+    const { FIXTURE_SPECS } = await import("@/engine/fixtures");
+    const { JOINTS } = await import("@/engine/types");
+    const spec = FIXTURE_SPECS.find((s) => s.key === "front_on_ffd")!.options;
+    // A mirrored picture: x flips and the pose model's left and right swap; depth is unchanged.
+    const swap = (j: string) => (j.startsWith("left_") ? j.replace("left_", "right_") : j.startsWith("right_") ? j.replace("right_", "left_") : j);
+    const mirror = (o: CaptureObservation): CaptureObservation => ({
+      ...o,
+      body: o.body.map((b) => JOINTS.map((j) => b[JOINTS.indexOf(swap(j) as never)] ?? null).map((p) => (p ? ([1 - p[0], p[1], p[2]] as const) : p))),
+      poseWorld: o.poseWorld!.map((w) => JOINTS.map((j) => w[JOINTS.indexOf(swap(j) as never)] ?? null).map((p) => (p ? ([-p[0], p[1], p[2], p[3]] as const) : p))),
+    });
+    for (const seed of [1, 2, 3]) {
+      for (const view of ["front_on", "behind"] as const) {
+        const o = generate({ ...spec, seed, view });
+        for (const given of ["right", "left"] as const) {
+          const g = guessView(frames(o, [20, 60, 100]), given);
+          expect(g?.view, `${view} given ${given}`).toBe(view);
+          expect(g?.handedness, `${view} given ${given}`).toBe("right");
+          const m = guessView(frames(mirror(o), [20, 60, 100]), given);
+          expect(m?.view, `mirrored ${view} given ${given}`).toBe(view);
+          expect(m?.handedness, `mirrored ${view} given ${given}`).toBe("left");
+        }
+      }
     }
   });
 });

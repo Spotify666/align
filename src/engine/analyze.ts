@@ -18,7 +18,7 @@ import {
   REGISTRY_HASH,
   th,
 } from "./registry";
-import { FRONTAL_UNGRADED, frontalMetrics } from "./frontal";
+import { FRONTAL_UNGRADED, frontalMetrics, withholdAlongPitch } from "./frontal";
 import { assessCapture, bodyCoverage } from "./quality";
 import { buildScene } from "./scene";
 import { handsSeries, segmentEvents } from "./events";
@@ -659,9 +659,14 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
         ? `This appears to be ${named ? `a ${SHOT_DISPLAY[cls.top].toLowerCase()}` : (cls.family ?? "a different shot")}, not a front-foot defence.`
         : `We can't confirm a front-foot defence: ${UNCERTAIN_TEXT[reason] ?? "the evidence is incomplete"}.`;
     // Uncertain (never a different shot): neutral body observations, ungraded.
+    // Filmed along the pitch, the sideways measures that view sees, in place of forward ones.
     const observations =
       status === "uncertain_shot"
-        ? ungraded(computeMetrics({ scene, events, features, delivery, tier: obs.tier }).filter((m) => OBSERVATION_IDS.includes(m.id) && m.status !== "not_measured"))
+        ? ungraded(
+            frontal
+              ? frontalMetrics(scene, events.byType.contact?.frame, RANGE_SOURCE).filter((m) => m.status !== "not_measured")
+              : computeMetrics({ scene, events, features, delivery, tier: obs.tier }).filter((m) => OBSERVATION_IDS.includes(m.id) && m.status !== "not_measured"),
+          )
         : [];
     return finish({
       ...common,
@@ -675,12 +680,13 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     });
   }
 
-  // 6. Valid: technique measures. Filmed along the pitch, forward distances are a 3D
-  // estimate: shown, not graded; the sideways measures that view sees well are graded.
+  // 6. Valid: technique measures. Filmed along the pitch, forward distances and in-line
+  // angles rest on a 3D estimate: withheld (timing ones shown, not graded); the sideways
+  // measures that view sees well are graded.
   let metrics = computeMetrics({ scene, events, features, delivery, tier: obs.tier });
   if (frontal) {
     metrics = [
-      ...metrics.map((m) =>
+      ...metrics.map(withholdAlongPitch).map((m) =>
         FRONTAL_UNGRADED.includes(m.id) && m.status !== "not_measured" && m.range
           ? {
               ...m,

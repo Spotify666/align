@@ -5,6 +5,9 @@
 // Reference clips (MP4, decoded exactly, so runs are repeatable): yt.mp4 (44 s net
 // session, bowler's end), sq.mp4 (9 s broadcast, zooms and cuts), test60.mp4 (2.5 s still
 // pose, no stroke). Headless Chromium can't decode H.264: use VP9-in-MP4 copies there.
+// Variants of those clips (make-variants.sh: mirrored, lower resolution, trimmed, a zoom
+// added) check that the logic holds for other kinds of video, not only these recordings:
+// none may ever call a defence a different shot.
 // A step slower than its baseline by more than 15% (and 1.5 s), or a changed verdict or
 // chosen shot, fails. --update records the current run as the new baseline (only after a
 // deliberate, reviewed change).
@@ -13,7 +16,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const [, , base, dir, flag] = process.argv;
 const FILE = new URL("./baselines.json", import.meta.url);
-const CLIPS = (process.env.BASELINE_CLIPS ?? "yt_vp9.mp4,sq_vp9.mp4,test60_vp9.mp4").split(",");
+const CLIPS = (process.env.BASELINE_CLIPS ?? "yt_vp9.mp4,sq_vp9.mp4,test60_vp9.mp4,var_sq_mirror.mp4,var_sq_480.mp4,var_yt_mirror_trim.mp4,var_yt_zoom.mp4").split(",");
 const STEPS = ["Reading the video", "Finding the shot", "Finding the batter", "Camera position", "Checking the recording", "Tracking the body"];
 
 function run(clip) {
@@ -59,6 +62,11 @@ for (const c of CLIPS) {
     const worse = was !== undefined && is !== undefined && is > was * 1.15 && is - was > 1.5;
     if (worse) failed = true;
     console.log(`  ${worse ? "SLOWER" : "ok    "} ${s.padEnd(24)} ${String(is ?? "-").padStart(6)} s   (baseline ${was ?? "-"} s)`);
+  }
+  // Every reference clip and variant is a real defence or no stroke at all.
+  if (/different shot/i.test(b.verdict)) {
+    failed = true;
+    console.log("  CALLED A DEFENCE A DIFFERENT SHOT");
   }
   if (a && (a.verdict !== b.verdict || a.shot !== b.shot || b.retries > a.retries)) {
     failed = true;

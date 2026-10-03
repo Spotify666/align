@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { decodeTracks } from "@/engine/tracks-codec";
 import { analyze } from "@/engine/analyze";
-import { FRONTAL_UNGRADED } from "@/engine/frontal";
+import { FRONTAL_UNGRADED, FRONTAL_WITHHELD } from "@/engine/frontal";
 import type { CaptureObservation } from "@/engine/types";
 
 const load = async (name: string): Promise<CaptureObservation> =>
@@ -22,7 +22,9 @@ describe("real front-foot defences, bat and ball not tracked", () => {
       expect(p.analysis_status).not.toBe("invalid_for_requested_analysis");
       if (p.analysis_status === "valid") {
         expect(p.evidence_basis).toBe("body");
-        expect(p.metrics.filter((m) => m.status !== "not_measured").length).toBeGreaterThan(3);
+        // Graded on the sideways checks the view sees; forward distances withheld, not shown.
+        for (const id of ["balance_over_feet", "head_falling_away"]) expect(p.metrics.find((m) => m.id === id)?.inRange, id).not.toBeNull();
+        for (const m of p.metrics.filter((x) => FRONTAL_WITHHELD.includes(x.id))) expect(m.value, m.id).toBeNull();
         for (const m of p.metrics.filter((x) => FRONTAL_UNGRADED.includes(x.id))) expect(m.inRange, m.id).toBeNull();
         expect(p.priorities.every((x) => !FRONTAL_UNGRADED.includes(x.metricId))).toBe(true);
       } else {

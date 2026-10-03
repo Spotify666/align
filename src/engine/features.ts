@@ -2,7 +2,7 @@
 // Each feature records which modality it came from so that acceptance can demand
 // body + bat + ball while rejection may rest on fewer signals.
 
-import { angleFromVertical, argmax, round, smooth } from "./math";
+import { angleFromVertical, argmax, round, smooth, supported } from "./math";
 import { handsForward, handsSeries } from "./events";
 import { type Scene, sweetSpot } from "./scene";
 import type { DeliveryContext, ShotFeature } from "./types";
@@ -110,13 +110,28 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
       modality: "body",
     });
   }
-  const bk = scene.get(refFrame, "back_knee");
+  // Filmed along the pitch, the back knee is often hidden behind the front leg right at
+  // contact: read it from the nearest frame within 0.08 s where it is seen (it changes
+  // little that quickly; a sweeper's knee is down well before contact).
+  const near = Math.max(1, Math.round(0.08 / (dt || 1 / 30)));
+  let bk: { u: number } | null = null;
+  let bkFrame = refFrame;
+  for (let d = 0; d <= near && !bk; d++) {
+    for (const f of d ? [refFrame - d, refFrame + d] : [refFrame]) {
+      const p = f >= 0 && f < n ? scene.get(f, "back_knee") : null;
+      if (p) {
+        bk = p;
+        bkFrame = f;
+        break;
+      }
+    }
+  }
   if (bk) {
     add("back_knee_height", bk.u / S, {
       label: "Back-knee height",
       unit: "× stature",
       reading: bk.u / S < 0.12 ? "back knee down (kneeling)" : "back knee off the ground",
-      evidenceIds: [`frame_${refFrame}`],
+      evidenceIds: [`frame_${bkFrame}`],
       modality: "body",
     });
   }
@@ -264,6 +279,10 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
     const win = Math.round(0.4 / dt);
     if (fwd) {
       const { at, hf, hu, speed } = fwd;
+      // Extremes (lowest, highest) only from readings their neighbours back up (see
+      // supported): smoothing a lone stray reading would copy it onto the frames around it.
+      const near = Math.max(1, Math.round(0.04 / dt));
+      const handU = smooth(supported(handsSeries(scene, "u"), near), r);
       if (scene.plane === "sagittal") {
         const k = Math.max(1, Math.round(0.03 / dt));
         const sp = Math.max(...speed.slice(Math.max(0, at - k), at + k + 1).filter(Number.isFinite));
@@ -299,7 +318,9 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
           const b = scene.across!(i, "back_wrist");
           return Number.isFinite(a) && Number.isFinite(b) ? (a + b) / 2 : Number.isFinite(a) ? a : b;
         });
-        const span = x.slice(Math.max(0, at - Math.round(0.15 / dt)), Math.min(n, at + win)).filter(Number.isFinite);
+        const span = supported(x, near)
+          .slice(Math.max(0, at - Math.round(0.15 / dt)), Math.min(n, at + win))
+          .filter(Number.isFinite);
         if (span.length > win * 0.5) {
           const range = (Math.max(...span) - Math.min(...span)) / S;
           add("hands_across", range, {
@@ -314,7 +335,11 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
       // Front-foot shots take the head low over the front knee; back-foot shots stay tall.
       // Seen from any camera position (it is vertical), unlike stride from the bowler's end.
       const k = Math.round(0.15 / dt);
-      const heads = Array.from({ length: 2 * k + 1 }, (_, o) => scene.get(refFrame - k + o, "head")?.u ?? NaN).filter(Number.isFinite);
+      const headU = supported(
+        Array.from({ length: n }, (_, i) => scene.get(i, "head")?.u ?? NaN),
+        Math.max(1, Math.round(0.04 / dt)),
+      );
+      const heads = headU.slice(Math.max(0, refFrame - k), refFrame + k + 1).filter(Number.isFinite);
       if (heads.length > k) {
         const hh = Math.min(...heads) / S;
         add("head_height", hh, {
@@ -335,7 +360,7 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
       const from = Math.max(0, refFrame - k3, top !== undefined && top < refFrame ? top : 0);
       // A highest-minus-lowest reading magnifies landmark jitter, so the hand track is
       // smoothed over ±50 ms first (a stroke's rise lasts far longer than that).
-      const hs = smooth(hu, Math.max(1, Math.round(0.05 / dt)));
+      const hs = smooth(handU, Math.max(1, Math.round(0.05 / dt)));
       let low = -1;
       for (let i = from; i <= Math.min(n - 1, refFrame + k3); i++)
         if (Number.isFinite(hs[i]!) && (low < 0 || hs[i]! < hs[low]!)) low = i;
@@ -350,7 +375,7 @@ export function extractFeatures(scene: Scene, events: EventSet, delivery: Delive
           modality: "body",
         });
       }
-      const after = hu.slice(refFrame, Math.min(n, refFrame + win)).filter(Number.isFinite);
+      const after = handU.slice(refFrame, Math.min(n, refFrame + win)).filter(Number.isFinite);
       if (after.length > win * 0.5) {
         const top = Math.max(...after) / S;
         add("hands_finish", top, {

@@ -60,7 +60,7 @@ Body and hand signals (computed whether or not the bat is tracked):
 - **Hands across the body**: horizontal-bat shots swing across. Bowler's end or behind only.
 - **Head height at the stroke**: front-foot shots take the head low; back-foot shots stay tall. Any view.
 
-Filmed along the pitch, stride comes from the monocular 3D estimate, which understates depth. That bias can only make a defence look less like a front-foot shot (toward "uncertain", never toward false acceptance), so stride counts with a wider tolerance (1.6×, a judgement, not fitted). Trunk rotation there rests on the estimated depth of the shoulders, whose error on real footage has no known direction, so it **never decides the shot** from those views; it is still reported.
+Measures read from a lowest or highest point (hands rise, hands finish, hands across the body, head height) only use readings their neighbours back up: a lone reading between dropouts (a glove hidden by the bat for a few frames) is dropped rather than allowed to set the extreme. On a low-resolution copy of a broadcast defence, one such reading had made the hands appear to lift through the ball, and the defence was called a drive (engine 0.5.2). Filmed along the pitch, the back knee is often hidden behind the front leg right at contact, which would drop the one body cue that rules out a sweep (a sweeper's back knee is down). Back-knee height is therefore read at the nearest frame within 0.08 s of contact where it is seen (engine 0.5.2). Filmed along the pitch, stride comes from the monocular 3D estimate, which understates depth. That bias can only make a defence look less like a front-foot shot (toward "uncertain", never toward false acceptance), so stride counts with a wider tolerance (1.6×, a judgement, not fitted). Trunk rotation there rests on the estimated depth of the shoulders, whose error on real footage has no known direction, so it **never decides the shot** from those views; it is still reported.
 
 The report says "Confirmed from body movement". Measures that need the bat or ball are not reported, and delivery context is shown as not seen.
 
@@ -70,7 +70,7 @@ A shot is decided at contact. Neither acceptance nor rejection is given unless t
 
 ### Grading from the bowler's end or behind
 
-Forward distances filmed along the pitch come from the 3D estimate. Stride, head over knee, weight forward, trunk lean, knee angle, head stillness and decision timing are therefore shown as estimates and **not graded**: no priority or drill rests on them. Two sideways measures that this view sees directly are graded instead, against physical and anatomical limits rather than any clip's readings:
+Forward distances filmed along the pitch come from the 3D estimate, which on real footage is wrong in size and in direction: on a broadcast defence it read a clearly bent front knee as 179°, the head 12% of height behind the knee and a lean back, where the picture shows the opposite. Stride, head over knee, weight forward, trunk lean and knee angle are therefore **withheld** ("needs a side-on camera"), not shown (engine 0.5.2; before that they were shown ungraded). Head stillness and decision timing are shown, **not graded**. No priority or drill rests on any of them. Two sideways measures that this view sees directly are graded instead, against physical and anatomical limits rather than any clip's readings:
 
 | Measure | Range | Basis | Coaching |
 |---|---|---|---|
@@ -110,6 +110,7 @@ False acceptance (scoring a pull as a defence) is release-blocking. False reject
 - The same gate for front-on and behind-the-batter pulls, including clips analysed with the **wrong** camera position.
 - 40-seed stability ≥ 95% for pull → rejected, drive → rejected, valid → accepted, side-on and front-on, with and without bat and ball, at 120 and 30 fps.
 - A front-on drive is never accepted, whichever camera position is chosen.
+- Other kinds of video (`tests/e2e/make-variants.sh`, run by the regression guard): the real clips mirrored (a left-hander), at lower resolution, trimmed, and with a camera zoom added. The same logic must hold on all of them: none may be called a different shot; each verdict is recorded and any change fails the guard.
 - Real clips (`tests/real-clips.test.ts`, pose tracks only): two public front-foot defences from the bowler's end are never called a different shot, and never graded on forward distances. A sanity check, not a target.
 - Same input → same `result_hash`.
 

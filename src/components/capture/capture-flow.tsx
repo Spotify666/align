@@ -25,6 +25,7 @@ import {
   warmUp,
   roiAround,
   seek,
+  EMPTY,
   type Box,
   type PoseFrame,
   type Roi,
@@ -32,6 +33,8 @@ import {
 import { batterCandidates, boxAt, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
 import { guessView } from "@/lib/capture/view-guess";
 import { strokeSegment } from "@/lib/capture/segments";
+import { linkBack } from "@/lib/capture/link";
+import { LumaTrack } from "@/lib/capture/picture-cuts";
 import { playFrames } from "@/lib/capture/frames";
 import { openDecoded, type DecodedVideo } from "@/lib/capture/decoder";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
@@ -526,18 +529,77 @@ export function CaptureFlow() {
       let prevHip: [number, number] | null = seedHip();
       let seen = 0;
       let done = 0;
+      let ran = 0;
       // Some phones' GPU path loads but returns nothing: after 12 empty frames, start again on the CPU path.
-      const gpuDead = () => !cpuTried && done >= 12 && seen === 0;
+      const gpuDead = () => !cpuTried && ran >= 12 && seen === 0;
+      // The stroke: the frame the batter was identified on.
+      const key = times.reduce((best, t, i) => (Math.abs(t - w.peak) < Math.abs(times[best]! - w.peak) ? i : best), 0);
+      // Before the stroke, the batter is linked back from there through the person
+      // detector, so a zoom or pan can't hand the tracking to someone else.
+      const anchorBox = c ? (boxAt(c, w.peak, 0.35) ?? c.box) : null;
+      // Every video, whatever the camera does: the batter is linked back from the stroke
+      // through the person detector, every 0.08 s; the pose follower carries identity
+      // between those checks. Frames before the link breaks (a cut, the batter out of
+      // shot) aren't the batter's.
+      const every = Math.max(1, Math.round((0.08 * rFps) / stride));
+      let linked: Array<Box | null | undefined> | null = null;
+      let firstLinked = 0;
+      if (anchorBox && key > 0) {
+        stage("track", "active", "Following the batter back from the shot…");
+        const idx = times.slice(0, key + 1).map((_, i) => i).filter((i) => i % every === 0 || i === key);
+        const pre = idx.map((i) => times[i]!);
+        const people: Box[][] = [];
+        const look = (k: number, src: HTMLVideoElement | HTMLCanvasElement) => {
+          people[k] = detectPeople(det, src);
+          return alive();
+        };
+        let missed: number[] | null = null;
+        if (j.src) {
+          try {
+            missed = await j.src.read(pre, (k, frame) => look(k, frame), () => !alive());
+          } catch {
+            j.src = null; // decoder failed on this device: play through instead
+          }
+        }
+        if (!j.src) missed = await playFrames(v, pre, (k) => look(k, v), { frameDur: 1 / cFps, stop: () => !alive() });
+        for (const k of missed ?? []) {
+          if (!alive()) return;
+          await seek(v, pre[k]!);
+          look(k, v);
+        }
+        if (!alive()) return;
+        const steps = linkBack(people, anchorBox, idx.length - 1, a, Math.max(2, Math.round(0.3 / ((every * stride) / rFps))));
+        linked = [];
+        idx.forEach((i, k) => (linked![i] = steps[k]));
+        const reached = idx.filter((_, k) => steps[k]);
+        firstLinked = reached.length ? reached[0]! : key;
+      }
+      const luma = new LumaTrack(a);
       const at = (i: number, src: HTMLVideoElement | HTMLCanvasElement) => {
         const mt = times[i]!;
-        let p: PoseFrame = detectFrame(pose, src, 10 + Math.round(mt * 1000), prevHip, follower.roi);
-        if (!follower.see(p) && follower.isLost) {
-          // Lost (cut, zoom, occlusion): re-anchor on the scan's box, else the detector.
-          const anchor = c ? boxAt(c, mt, 0.3) : null;
-          if (anchor) follower.roi = roiAround(anchor, a, 0.32);
-          else follower.reacquire(detectPeople(det, src));
-          p = detectFrame(pose, src, 11 + Math.round(mt * 1000), prevHip, follower.roi);
-          follower.see(p);
+        luma.take(i, src);
+        // Before the link reaches back, not the batter's frames; on a linked check, re-anchor.
+        const lb = linked && i <= key ? linked[i] : undefined;
+        let p: PoseFrame;
+        if (linked && i < firstLinked) p = EMPTY(prevHip);
+        else {
+          if (lb) {
+            follower.roi = roiAround(lb, a, 0.32);
+            prevHip = [lb.x + lb.w / 2, lb.y + lb.h * 0.55];
+          }
+          p = detectFrame(pose, src, 10 + Math.round(mt * 1000), prevHip, follower.roi);
+          ran++;
+          if (!follower.see(p) && follower.isLost && !lb) {
+            // Lost (cut, zoom, occlusion): re-anchor on the nearest linked check before the
+            // stroke, else the scan's box, else the detector.
+            let anchor: Box | null = null;
+            for (let d = 1; linked && i <= key && d <= every && !anchor; d++) anchor = linked[i - d] ?? linked[i + d] ?? null;
+            anchor ??= c ? boxAt(c, mt, 0.3) : null;
+            if (anchor) follower.roi = roiAround(anchor, a, 0.32);
+            else follower.reacquire(detectPeople(det, src));
+            p = detectFrame(pose, src, 11 + Math.round(mt * 1000), prevHip, follower.roi);
+            follower.see(p);
+          }
         }
         if (bodyBox(p.body)) seen++;
         prevHip = p.hip;
@@ -551,7 +613,8 @@ export function CaptureFlow() {
         if (done % 4 === 0) setProgress({ done, total: count });
       };
       const reset = () => {
-        [out.body, out.depth, out.quality, out.t, world.length, seen, done, prevHip] = [[], [], [], [], 0, 0, 0, seedHip()];
+        [out.body, out.depth, out.quality, out.t, world.length, seen, done, ran, prevHip] = [[], [], [], [], 0, 0, 0, 0, seedHip()];
+        luma.reset();
         follower.roi = startRoi();
       };
       const pass = async () => {
@@ -586,8 +649,7 @@ export function CaptureFlow() {
       out.quality.sort((x, y) => x.frame - y.frame);
       setProgress({ done: count, total: count });
       // Keep only the camera shot that holds the stroke (broadcast cuts, replays).
-      const key = times.reduce((best, t, i) => (Math.abs(t - w.peak) < Math.abs(times[best]! - w.peak) ? i : best), 0);
-      const [s0, s1] = strokeSegment(out.body, a, key, Math.round(1.0 * out.fps));
+      const [s0, s1] = strokeSegment(out.body, a, key, Math.round(1.0 * out.fps), undefined, luma.cuts());
       let note = "";
       if (s0 > 0 || s1 < out.body.length) {
         const t0 = out.t[s0] ?? 0;
@@ -602,9 +664,28 @@ export function CaptureFlow() {
         seen = out.body.filter((b) => bodyBox(b)).length;
         note = " · camera cut skipped";
       }
-      // Batting hand: the grip at the stance (bat held down) in the tracked frames, else the one read while finding the camera.
+      // Camera position and batting hand from every tracked frame of the batter, not the two
+      // probes read before tracking: the head says where the camera is; the grip at the
+      // stance (bat held down), else the side nearer the camera, says which hand.
       const setup = out.body.slice(0, Math.max(3, Math.round(out.body.length * 0.2)));
-      out.handedness = gripHandedness(setup, a, 3)?.handedness ?? j.hand ?? undefined;
+      const grip = gripHandedness(setup, a, 3)?.handedness ?? null;
+      // Read before the stroke, while the batter watches the bowler: at contact the head
+      // bows over the ball and its depth reads poorly.
+      const stroke = Math.max(0, Math.min(out.body.length, key - s0));
+      const watching = (stroke >= 5 ? out.body.slice(0, stroke) : out.body).map((b, i) => ({ body: b, world: out.world[i] ?? [] }));
+      const g = j.viewChosen ? null : guessView(watching, grip ?? j.hand ?? profile.handedness);
+      if (g) {
+        const choice: ViewChoice = g.view === "front_on" || g.view === "behind" ? g.view : "side_on";
+        if (choice !== j.view) {
+          j.view = choice;
+          setView(choice);
+          setGuess(choice);
+          stage("camera", "done", `${VIEW_TEXT[choice][0]!.toUpperCase()}${VIEW_TEXT[choice].slice(1)}`);
+        }
+        j.bowlerSide = g.bowlerSide;
+        setBowlerSide(g.bowlerSide);
+      }
+      out.handedness = grip ?? g?.handedness ?? j.hand ?? undefined;
       mediaTimesRef.current = times;
       setMediaTimes(times);
       setTracking(out);
