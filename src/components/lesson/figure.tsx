@@ -241,13 +241,15 @@ function torso(p: FigurePose) {
   const ws = Math.abs((p.fs[0] - p.bs[0]) * vx + (p.fs[1] - p.bs[1]) * vy) / 2;
   const wh = Math.abs((p.fh[0] - p.bh[0]) * vx + (p.fh[1] - p.bh[1]) * vy) / 2;
   const sw = Math.max(5.8, ws);
-  const hw = Math.max(5.6, wh + 1.4);
-  const waist = Math.max(5.2, Math.min(sw * 0.8, hw * 0.94));
+  // An athlete's V: broad across the shoulders, narrowing through the lats to a trim waist,
+  // the shirt tucked in at the belt. A chest seen edge-on keeps its depth instead.
+  const waist = Math.max(Math.min(5.6, sw * 0.95), Math.min(sw * 0.56, 7));
+  const belt = Math.max(6, Math.min(waist + 0.8, wh + 2.2));
   const P = (s: number, x: number): Pt => [Hm[0] + ux * s * Ls + vx * x, Hm[1] + uy * s * Ls + vy * x];
   // The neck's base: above the shoulders, drawn toward the head when it leans away.
   const toHead: Pt = [p.head[0] - S[0], p.head[1] - S[1]];
   const dh = Math.hypot(toHead[0], toHead[1]) || 1;
-  const rise = Math.min(dh * 0.62, Math.max(3.4, dh - 10.5));
+  const rise = Math.min(dh * 0.55, Math.max(3.4, dh - 12));
   const N: Pt = [S[0] + (toHead[0] / dh) * rise, S[1] + (toHead[1] / dh) * rise];
   // Across the neck, toward the front shoulder.
   let nx = -toHead[1] / dh;
@@ -257,30 +259,39 @@ function torso(p: FigurePose) {
   // One side, neck to hip; the other is its mirror.
   const side = (k: 1 | -1) => {
     const sh = k === 1 ? p.fs : p.bs;
-    const neck: Pt = [N[0] + nx * k * 2.9, N[1] + ny * k * 2.9];
-    const top = off(sh, k * 0.8, 3.6);
+    const neck: Pt = [N[0] + nx * k * 3.1, N[1] + ny * k * 3.1];
+    // The shoulder: a rounded corner over the joint. The deltoid's bulge is the sleeve's,
+    // so a shoulder with its arm reaching out of sight shows no knob.
+    const cap = [off(sh, -k * 0.2, 3), off(sh, k * 1.6, -0.8)];
     // The trapezius: a convex slope from the neck to the top of the shoulder, rounder the
     // further the neck is drawn from the shoulder (the upper back curving over).
+    const top = cap[0]!;
     const m = lerp(neck, top, 0.5);
     const len = Math.hypot(top[0] - neck[0], top[1] - neck[1]) || 1;
     let ox = -(top[1] - neck[1]) / len;
     let oy = (top[0] - neck[0]) / len;
     if (ox * (m[0] - Hm[0]) + oy * (m[1] - Hm[1]) < 0) [ox, oy] = [-ox, -oy];
-    const bulge = 0.6 + len * 0.1;
-    // The front shoulder rounds into the arm hanging from it; the back one, its arm reaching
-    // forward out of sight, runs smoothly down the back instead of leaving a stub.
-    const armpit = k === 1 ? sw + 1.2 : sw + 2.6;
-    return [neck, [m[0] + ox * bulge, m[1] + oy * bulge] as Pt, top, off(sh, k * 3.4, 0.9), P(0.8, k * armpit), P(0.62, k * sw * 0.94), P(0.36, k * waist), P(0.04, k * hw)];
+    const bulge = 0.3 + len * 0.035;
+    // Then down from under the arm through the lats to the waist.
+    return [neck, [m[0] + ox * bulge, m[1] + oy * bulge] as Pt, ...cap, P(0.78, k * Math.max(5.4, sw - 0.4)), P(0.58, k * Math.max(5.2, sw * 0.74)), P(0.3, k * waist), P(0.02, k * belt)];
   };
   const r = side(1);
   const l = side(-1).reverse();
   const outline = `M${f(r[0]!)}${curveThrough(r)} L${f(l[0]!)}${curveThrough(l)} Z`;
+  // Form: the far side (away from the light, upper left) in shadow down the lats, a band
+  // that follows the body's edge from under the shoulder to the waist.
+  const edge = r.slice(3);
+  const depth = [0.8, 3, 3.4, 2.4, 2];
+  const inner = edge.map((q, i): Pt => [q[0] - vx * depth[i]!, q[1] - vy * depth[i]!]).reverse();
+  const shade = `M${f(edge[0]!)}${curveThrough(edge)} L${f(inner[0]!)}${curveThrough(inner)} Z`;
   // The placket, then a white collar at the neck.
   const down: Pt = [-toHead[0] / dh, -toHead[1] / dh];
   const at = (x: number, y: number): Pt => [N[0] + nx * x + down[0] * y, N[1] + ny * x + down[1] * y];
-  const details = `M${f(at(0, 3.4))} L${f(P(0.6, 0))}`;
+  // A chest facing the camera shows the line under each pectoral.
+  const pecs = ws > 8 ? ([1, -1] as const).map((k) => `M${f(P(0.71, k * 0.6))} Q${f(P(0.6, k * sw * 0.42))} ${f(P(0.69, k * sw * 0.8))}`).join(" ") : "";
+  const details = `M${f(at(0, 3.4))} L${f(P(0.62, 0))} ${pecs}`;
   const collar = `M${f(at(3.2, -0.4))} L${f(at(0, 3.6))} L${f(at(-3.2, -0.4))} L${f(at(-1.5, 0.6))} L${f(at(0, 1.6))} L${f(at(1.5, 0.6))} Z`;
-  return { outline, details, collar, neck: N };
+  return { outline, details, collar, shade, neck: N };
 }
 
 /**
@@ -290,7 +301,12 @@ function torso(p: FigurePose) {
  * below the elbow, a trunk as broad as the shoulders and hips (never under 11, a chest
  * edge-on) drawing in at the waist, a head about 13 tall.
  */
-export function BatterFigure({ p, id = "fig" }: { p: FigurePose; id?: string }) {
+export function BatterFigure({ p: seen, id = "fig" }: { p: FigurePose; id?: string }) {
+  // An athlete's build: hips drawn a little narrower than the hip joints read in a picture
+  // (a pose model places them wide), so the shoulders stay the broadest part.
+  const hm = mid(seen.fh, seen.bh);
+  const slim = (q: Pt): Pt => [hm[0] + (q[0] - hm[0]) * 0.74, hm[1] + (q[1] - hm[1]) * 0.74];
+  const p: FigurePose = { ...seen, fh: slim(seen.fh), bh: slim(seen.bh) };
   const tone = (name: ToneName) => toneFill(id, name);
   const neckTop: Pt = [p.head[0] - 0.8, p.head[1] + 4.2];
   const chest = torso(p);
@@ -299,7 +315,7 @@ export function BatterFigure({ p, id = "fig" }: { p: FigurePose; id?: string }) 
     const back = side === "b";
     return [
       { d: capsule(heel, toe, 4.8, 4), fill: tone("shoe") },
-      { d: limb(h, k, [[0, 10], [0.3, 10.4], [0.75, 7.6], [1, 7]]), fill: tone(back ? "trousersBack" : "trousers") },
+      { d: limb(h, k, [[0, 9.2], [0.3, 9.7], [0.75, 7.3], [1, 6.8]]), fill: tone(back ? "trousersBack" : "trousers") },
       { d: limb(k, a, [[0, 8.2], [0.1, 8.8], [0.22, 7.6], [0.7, 7.3], [1, 6.4]]), fill: tone(back ? "padBack" : "pad") },
     ];
   };
@@ -308,11 +324,11 @@ export function BatterFigure({ p, id = "fig" }: { p: FigurePose; id?: string }) 
     const back = side === "b";
     const sleeveEnd = lerp(s0, e, 0.45);
     // The back arm starts just inside the torso, so its rounded end never shows past the back.
-    const s = back ? lerp(s0, e, 0.14) : s0;
+    const s = back ? lerp(s0, e, 0.22) : s0;
     return [
-      { d: limb(s, e, [[0, 5.2], [0.35, 5], [0.65, 4.3], [1, 3.7]]), fill: tone(back ? "skinBack" : "skin") },
-      { d: limb(e, w, [[0, 3.7], [0.3, 4.1], [1, 2.9]]), fill: tone(back ? "skinBack" : "skin") },
-      { d: limb(s, sleeveEnd, [[0, 6.2], [1, 5.8]]), fill: tone(back ? "shirtBack" : "shirt") },
+      { d: limb(s, e, [[0, 6.6], [0.2, 6.8], [0.52, 6], [0.8, 4.8], [1, 4.2]]), fill: tone(back ? "skinBack" : "skin") },
+      { d: limb(e, w, [[0, 4.2], [0.25, 5], [1, 3.3]]), fill: tone(back ? "skinBack" : "skin") },
+      { d: limb(s, sleeveEnd, [[0, 7.6], [0.55, 7.4], [1, 6.9]]), fill: tone(back ? "shirtBack" : "shirt") },
     ];
   };
   const [batA, batB] = batLine(p);
@@ -336,7 +352,7 @@ export function BatterFigure({ p, id = "fig" }: { p: FigurePose; id?: string }) 
         return `M${f([p0[0] + nx * o, p0[1] + ny * o])} L${f([p1[0] + nx * o, p1[1] + ny * o])}`;
       })
       .join(" ");
-  const trunkFill = tone("shirt");
+  const trunkFill = SHIRT[0];
   const helmetFill = `url(#${id}-helmet)`;
 
   const H = p.head;
@@ -351,10 +367,11 @@ export function BatterFigure({ p, id = "fig" }: { p: FigurePose; id?: string }) 
       <path d={canes(p.bk, p.ba)} stroke={INK} strokeWidth={0.35} opacity={0.3} fill="none" />
       <Piece parts={arm("b")} />
       {/* trunk, neck and head */}
-      <Piece parts={[{ d: capsule(chest.neck, neckTop, 5.4, 4.8), fill: tone("skin") }]} />
+      <Piece parts={[{ d: capsule(chest.neck, neckTop, 6.2, 5), fill: tone("skin") }]} />
       {/* trousers at the hips, then the shirted torso tucked into them */}
-      <Piece parts={[{ d: capsule(p.bh, p.fh, 9.6, 9.6), fill: tone("trousers") }]} />
+      <Piece parts={[{ d: capsule(p.bh, p.fh, 9.2, 9.2), fill: tone("trousers") }]} />
       <Piece parts={[{ d: chest.outline, fill: trunkFill }]} />
+      <path d={chest.shade} fill={SHIRT[1]} opacity={0.75} />
       <path d={chest.details} stroke={INK} strokeWidth={0.45} fill="none" opacity={0.28} />
       <path d={chest.collar} fill="#f4f6f9" stroke={INK} strokeWidth={0.5} />
       {/* helmet: shell, neck guard, the face behind the grille, the peak */}
