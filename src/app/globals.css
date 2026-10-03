@@ -423,3 +423,120 @@
 .btn-landing-ghost:hover {
   background: rgb(243 239 228 / 0.08);
 }
+
+/* The landing page's opening: mark in, line down, curtain open. */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  perspective: 1200px;
+  animation: intro-gone 0s linear 1.3s forwards;
+}
+.intro-half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.5%;
+  background:
+    radial-gradient(120% 70% at 50% 40%, #153a2b 0%, transparent 65%),
+    #08130f;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+.intro-left {
+  left: 0;
+  transform-origin: 0% 50%;
+  animation: intro-door-left 0.6s cubic-bezier(0.6, 0, 0.3, 1) 0.66s forwards;
+}
+.intro-right {
+  right: 0;
+  transform-origin: 100% 50%;
+  animation: intro-door-right 0.6s cubic-bezier(0.6, 0, 0.3, 1) 0.66s forwards;
+}
+.intro-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background-image: linear-gradient(#e8b23a 55%, transparent 55%);
+  background-size: 2px 16px;
+  transform: scaleY(0);
+  will-change: transform, opacity;
+  animation:
+    intro-line-down 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) 0.28s forwards,
+    intro-fade 0.2s ease-in 0.66s forwards;
+}
+.intro-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 30px;
+  box-shadow: 0 0 70px rgb(61 189 138 / 0.35);
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+  animation:
+    intro-mark-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    intro-mark-out 0.36s cubic-bezier(0.5, 0, 0.75, 0) 0.64s forwards;
+}
+@keyframes intro-mark-in {
+  from {
+    transform: translate(-50%, -50%) rotateY(-200deg) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) rotateY(0deg) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes intro-mark-out {
+  to {
+    transform: translate(-50%, -50%) scale(1.9);
+    opacity: 0;
+  }
+}
+@keyframes intro-line-down {
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes intro-fade {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes intro-door-left {
+  to {
+    transform: rotateY(-92deg);
+  }
+}
+@keyframes intro-door-right {
+  to {
+    transform: rotateY(92deg);
+  }
+}
+@keyframes intro-gone {
+  to {
+    visibility: hidden;
+  }
+}
+/* What the curtain opens onto rises into place as it opens. */
+.intro-after {
+  animation: intro-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.74s both;
+}
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro {
+    display: none;
+  }
+  .intro-after {
+    animation: none;
+  }
+}

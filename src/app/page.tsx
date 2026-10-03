@@ -4,6 +4,7 @@ import { sampleAnalysis, textbookStory } from "@/lib/demo";
 import { AlignHero } from "@/components/home/align-hero";
 import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
+import { Intro } from "@/components/landing/intro";
 import { SHOT_DISPLAY } from "@/engine/classify";
 import { Check, Chevron, Lock, Mark, Question, Record as RecordIcon, Swap, Target, Trend } from "@/components/icons";
 
@@ -45,6 +46,7 @@ export default function Landing() {
 
   return (
     <main id="main">
+      <Intro />
       {/* 1 · The line: a full first screen on the brand's own ground */}
       <section className="landing-dark relative overflow-hidden">
         <div className="landing-grid absolute inset-0" aria-hidden />
@@ -57,7 +59,7 @@ export default function Landing() {
             Open the app <Chevron size={16} />
           </Link>
         </header>
-        <div className="relative mx-auto grid min-h-[calc(100svh-4rem)] max-w-6xl items-center gap-10 px-4 pb-14 pt-6 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:pb-20">
+        <div className="intro-after relative mx-auto grid min-h-[calc(100svh-4rem)] max-w-6xl items-center gap-10 px-4 pb-14 pt-6 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:pb-20">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e8b23a]">Cricket technique, checked on your phone</p>
             <h1 className="display mt-5 text-[2.3rem] leading-[1.02] min-[400px]:text-[2.5rem] sm:text-7xl lg:text-[5.2rem]">
@@ -79,11 +81,9 @@ export default function Landing() {
               <li className="flex items-center gap-1.5"><Question size={15} /> Says “not sure” honestly</li>
             </ul>
           </div>
-          <Reveal>
-            <figure className="overflow-hidden rounded-[22px] shadow-[0_30px_80px_-30px_rgb(0_0_0/0.8)] ring-1 ring-white/10">
-              <AlignHero pose={story.poses[hero]!} ballFrom={story.poses[hero - 1]?.ball} />
-            </figure>
-          </Reveal>
+          <figure className="overflow-hidden rounded-[22px] shadow-[0_30px_80px_-30px_rgb(0_0_0/0.8)] ring-1 ring-white/10">
+            <AlignHero pose={story.poses[hero]!} ballFrom={story.poses[hero - 1]?.ball} after={1} />
+          </figure>
         </div>
       </section>
 
