@@ -3,6 +3,7 @@ import Link from "next/link";
 import { sampleAnalysis, textbookStory } from "@/lib/demo";
 import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
+import { Intro } from "@/components/landing/intro";
 import { Check, Swap, Question, CameraOff, Chevron, Record as RecordIcon, Target, Trend } from "@/components/icons";
 
 // The app's home (the landing page at "/" tells newcomers what Align stands for): the next
@@ -24,6 +25,7 @@ export default function AppHome() {
 
   return (
     <div>
+      <Intro />
       {/* The app's home: straight to the next shot */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-[360px] grid-bg opacity-70" aria-hidden />
