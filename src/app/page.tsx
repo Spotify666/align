@@ -1,84 +1,119 @@
 import Link from "next/link";
-import { sampleAnalysis, textbookClip } from "@/lib/demo";
-import { HeroVisual } from "@/components/home/hero-visual";
+import { sampleAnalysis, textbookStory } from "@/lib/demo";
+import { AlignHero } from "@/components/home/align-hero";
 import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
 import { SHOT_DISPLAY } from "@/engine/classify";
-import { Check, Swap, Question, CameraOff, Chevron, Record as RecordIcon, Upload, Target, Trend } from "@/components/icons";
+import { Check, Swap, Question, CameraOff, Chevron, Record as RecordIcon, Target, Trend, Lock, Mark } from "@/components/icons";
+
+// What Align stands for, in the order a newcomer needs it: the idea (one straight line from
+// the eyes to the ball), the name and mark that carry it, the promises behind the product,
+// then the shot itself, how to use it, and the proof that it won't flatter you.
+const PILLARS = [
+  { Icon: Target, t: "In line", d: "It measures the alignment that makes a defence work: head, hands, front foot and ball. Not a generic form score." },
+  { Icon: Question, t: "Honest", d: "It checks you really played a defence before grading it, and says “not sure” rather than guess." },
+  { Icon: Lock, t: "Private", d: "Your video is analysed on your phone. Nothing leaves it unless you choose to save the result." },
+  { Icon: Check, t: "One fix", d: "One priority and one drill for your next net. Not twenty numbers to decode." },
+];
+
+const STEPS = [
+  { Icon: RecordIcon, t: "Film one shot", d: "Phone side-on at hip height, 6–8 m away, or from behind the bowler. Slow motion if you have it; long clips are fine." },
+  { Icon: Target, t: "Align checks it", d: "It finds the shot and the batter, confirms it was a forward defence, and measures how you played it." },
+  { Icon: Trend, t: "Train one thing", d: "Read the verdict, do the drill, re-record. Your progress builds shot by shot." },
+];
 
 export default function Home() {
   const valid = sampleAnalysis("valid_ffd")!;
   const pull = sampleAnalysis("pull")!;
   const v = valid.payload;
-  const contact = v.events.find((e) => e.type === "contact")?.frame ?? 100;
-  const trigger = v.events.find((e) => e.type === "trigger")?.frame ?? 20;
   const pullShot = pull.payload.observed_shot!;
   const pullEvidence = pull.payload.features.filter((f) => pullShot.evidence_ids.includes(f.id)).map((f) => f.reading);
-  // The explainer draws the textbook defence, not the sample (which has a fault to fix).
-  const book = textbookClip();
-  const at = (t: string, d: number) => book.payload.events.find((e) => e.type === t)?.frame ?? d;
-  const story = [at("setup", 0), at("backswing_top", 85), at("front_foot_plant", 100), at("contact", 105)].map((f) => ({
-    body: book.obs.body[f]!,
-    bat: [book.obs.bat.handle[f], book.obs.bat.toe[f]] as [(typeof book.obs.bat.handle)[number] | undefined, (typeof book.obs.bat.toe)[number] | undefined],
-  }));
+  // The explainer plays the textbook defence, not the sample (which has a fault to fix).
+  const story = textbookStory();
+  // The hero holds the moment just after contact when the ball, dropping dead, is most
+  // nearly under the eyes.
+  const c = story.moments[3];
+  const hero = Array.from({ length: 10 }, (_, k) => c + k)
+    .filter((i) => story.poses[i]?.ball)
+    .reduce((best, i) => (Math.abs(story.poses[i]!.ball![0] - story.poses[i]!.head[0]) < Math.abs(story.poses[best]!.ball![0] - story.poses[best]!.head[0]) ? i : best), c);
   const keyMetrics = ["head_knee_offset", "stride_length", "bat_angle_contact"].map((id) => v.metrics.find((m) => m.id === id)!);
 
   return (
     <div>
-      {/* Hero */}
+      {/* Hero: the idea in one line */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-[520px] grid-bg opacity-70" aria-hidden />
-        <div className="relative mx-auto max-w-6xl px-4 pt-10 sm:px-6 sm:pt-20 text-center">
-          <Link href="/guide" className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-surface px-3 py-1.5 text-xs text-fg-muted shadow-sm hover:text-fg">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand" /> Now analysing the front-foot defence · more shots after validation <Chevron size={14} />
-          </Link>
-          <h1 className="display mx-auto mt-6 max-w-4xl text-[2.6rem] sm:text-6xl lg:text-7xl">See the shot your body actually played.</h1>
-          <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-fg-muted">
-            Record one front-foot defence on your phone. Align confirms it really was a defence, measures how you played it, and gives you one thing to train next.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/analyse" className="btn btn-primary w-full sm:w-auto text-base !px-5">Analyse front-foot defence</Link>
-            <Link href="/sample/valid_ffd" className="btn btn-ghost w-full sm:w-auto text-base !px-5">See a sample report</Link>
-          </div>
-          <p className="mt-5 text-sm text-fg-subtle">Video stays on your phone · Fully automatic · Says “not enough information” when it isn’t sure</p>
-        </div>
-
-        {/* Product window */}
-        <Reveal className="relative mx-auto mt-12 max-w-6xl px-4 sm:px-6">
-          <div className="overflow-hidden rounded-[20px] border border-line bg-surface shadow-[var(--shadow-pop)]">
-            <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-line-strong" /><span className="h-2.5 w-2.5 rounded-full bg-line-strong" /><span className="h-2.5 w-2.5 rounded-full bg-line-strong" />
-              <span className="ml-3 truncate text-xs text-fg-subtle num">align · report · front-foot defence</span>
-              <span className="demo-badge ml-auto">DEMO DATA</span>
+        <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-4 pt-10 sm:px-6 sm:pt-16 lg:grid-cols-[1.1fr_1fr] lg:gap-12">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-surface py-1 pl-1 pr-3 text-xs text-fg-muted shadow-sm">
+              <Mark size={22} /> Align · your forward defence, checked on your phone
+            </p>
+            <h1 className="display mt-6 text-[2.6rem] leading-[1.02] sm:text-6xl lg:text-7xl">
+              Eyes over the ball.
+              <br />
+              <span className="text-brand">Everything in line.</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-base sm:text-lg text-fg-muted">
+              Align watches one front-foot defence and shows whether your head, hands and front foot lined up with the ball. Then it gives you the one thing to train next.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/analyse" className="btn btn-primary w-full sm:w-auto text-base !px-5">Analyse my defence</Link>
+              <Link href="/sample/valid_ffd" className="btn btn-ghost w-full sm:w-auto text-base !px-5">See a sample report</Link>
             </div>
-            <div className="grid lg:grid-cols-[1.45fr_1fr]">
-              <div className="min-w-0 aspect-[4/3] sm:aspect-[16/10] lg:aspect-auto lg:min-h-[420px]">
-                <HeroVisual obs={valid.obs} from={trigger} to={Math.min(valid.obs.body.length - 1, contact + 36)} still={contact} />
-              </div>
-              <div className="flex flex-col gap-4 border-t border-line p-5 text-left lg:border-l lg:border-t-0">
-                <span className="chip w-fit border-ok/40 text-ok"><Check size={14} /> Valid front-foot defence</span>
-                <p className="text-xl font-semibold tracking-tight">Main priority: get your head over the front knee.</p>
-                <ul className="divide-y divide-line rounded-xl border border-line">
-                  {keyMetrics.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
-                      <span className="text-fg-muted">{m.name}</span>
-                      <span className="flex items-center gap-2">
-                        <span className="num">{m.value?.toFixed(m.decimals)}</span>
-                        <span className={`h-2 w-2 rounded-full ${m.inRange === false ? "bg-bad" : "bg-ok"}`} aria-hidden />
-                        <span className="sr-only">{m.inRange === false ? "outside range" : "within range"}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="rounded-xl bg-brand-soft p-3 text-sm">
-                  <p className="font-medium">Cue: “{v.plan?.cue}”</p>
-                  <p className="mt-1 text-fg-muted">{v.plan?.drills[0]?.name} · {v.plan?.drills[0]?.dosage}</p>
-                </div>
-                <Link href="/sample/valid_ffd" className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-brand">Open the full report <Chevron size={16} /></Link>
-              </div>
+            <p className="mt-5 text-sm text-fg-subtle">Video stays on your phone · Fully automatic · Says “not sure” when it isn’t</p>
+          </div>
+          <Reveal>
+            <figure className="lesson-card">
+              <AlignHero pose={story.poses[hero]!} ballFrom={story.poses[hero - 1]?.ball} />
+              <figcaption className="flex items-center justify-between gap-3 border-t border-line px-4 py-3 text-sm">
+                <span className="text-fg-muted">The forward defence: the ball drops dead</span>
+                <span className="chip border-ok/40 text-ok"><Check size={14} /> In line</span>
+              </figcaption>
+            </figure>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* The name and the mark */}
+      <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-20">
+        <Reveal>
+          <div className="card grid gap-8 p-6 sm:p-10 lg:grid-cols-[1.5fr_1fr] lg:items-center">
+            <div>
+              <p className="eyebrow">Why “Align”</p>
+              <h2 className="display mt-3 text-3xl sm:text-5xl">A good defence is one straight line.</h2>
+              <p className="mt-4 max-w-2xl text-fg-muted">
+                Eyes over the ball. Head over the front knee. The bat coming down beside the pad. When those line up, the ball drops dead at your feet; when they
+                don’t, it finds the edge. Align is built to see that line, and to show you which part of you was out of it.
+              </p>
+            </div>
+            <div className="flex items-center gap-5 rounded-2xl bg-brand-soft p-5">
+              <span className="shrink-0 overflow-hidden rounded-[22px] shadow-[var(--shadow-card)]"><Mark size={88} /></span>
+              <p className="text-sm text-fg-muted">
+                <span className="block font-semibold text-fg">The mark is the shot.</span>
+                An eye kept level, directly above the ball, joined by one line. Everything Align measures comes back to it.
+              </p>
             </div>
           </div>
         </Reveal>
+      </section>
+
+      {/* What Align stands for */}
+      <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-20">
+        <Reveal>
+          <p className="eyebrow">What Align stands for</p>
+          <h2 className="display mt-3 text-3xl sm:text-5xl max-w-3xl">Feedback you can trust, and train with.</h2>
+        </Reveal>
+        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {PILLARS.map(({ Icon, t, d }, i) => (
+            <Reveal key={t} delay={i * 0.05}>
+              <li className="card h-full p-6">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand"><Icon size={20} /></span>
+                <h3 className="mt-5 text-lg font-semibold tracking-tight">{t}</h3>
+                <p className="mt-2 text-sm text-fg-muted">{d}</p>
+              </li>
+            </Reveal>
+          ))}
+        </ul>
       </section>
 
       {/* Learn the shot */}
@@ -91,38 +126,61 @@ export default function Home() {
           </div>
         </Reveal>
         <Reveal className="mt-8">
-          <ShotStory frames={story} aspect={book.obs.media.width / book.obs.media.height} hand={book.obs.athlete.handedness} />
+          <ShotStory story={story} />
         </Reveal>
       </section>
 
-      {/* How to analyse */}
+      {/* How it works, and what comes back */}
       <section className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
         <Reveal>
-          <p className="eyebrow">How to analyse your front-foot defence</p>
+          <p className="eyebrow">How it works</p>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="display text-3xl sm:text-5xl max-w-2xl">Film it. Upload it. Align does the rest.</h2>
-            <Link href="/guide" className="btn btn-ghost">Read the full guide</Link>
+            <h2 className="display text-3xl sm:text-5xl max-w-2xl">Film it. Align checks it. You train it.</h2>
+            <Link href="/guide" className="btn btn-ghost">How to film</Link>
           </div>
         </Reveal>
-        <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { Icon: RecordIcon, k: "Film", t: "Record in slow motion", d: "Phone side-on at hip height, 6–8 m away, on a stand — or from behind the bowler. Long clips are fine." },
-            { Icon: Upload, k: "Upload", t: "Add the clip", d: "One tap. No trimming, no settings." },
-            { Icon: Target, k: "Automatic", t: "Align finds everything", d: "The shot, the batter holding the bat, the camera angle — then checks the recording and tracks the body." },
-            { Icon: Trend, k: "Train", t: "Read and train", d: "The verdict, your measures and one drill. Re-record to see the change." },
-          ].map(({ Icon, k, t, d }, i) => (
-            <Reveal key={t} delay={i * 0.05}>
-              <li className="card card-hover h-full p-6">
-                <div className="flex items-center justify-between">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand"><Icon size={20} /></span>
-                  <span className="text-xs font-medium uppercase tracking-wide text-fg-subtle">{k}</span>
-                </div>
-                <h3 className="mt-5 text-lg font-semibold tracking-tight">{t}</h3>
-                <p className="mt-2 text-sm text-fg-muted">{d}</p>
-              </li>
-            </Reveal>
-          ))}
-        </ol>
+        <div className="mt-10 grid gap-4 lg:grid-cols-[1fr_1.05fr]">
+          <ol className="grid gap-4">
+            {STEPS.map(({ Icon, t, d }, i) => (
+              <Reveal key={t} delay={i * 0.05}>
+                <li className="card flex h-full gap-4 p-5">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand"><Icon size={20} /></span>
+                  <div>
+                    <h3 className="font-semibold tracking-tight"><span className="num text-fg-subtle">{i + 1}.</span> {t}</h3>
+                    <p className="mt-1 text-sm text-fg-muted">{d}</p>
+                  </div>
+                </li>
+              </Reveal>
+            ))}
+          </ol>
+          <Reveal delay={0.08}>
+            <Link href="/sample/valid_ffd" className="card card-hover flex h-full flex-col gap-4 p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-fg-subtle">Your report</span>
+                <span className="demo-badge">DEMO DATA</span>
+              </div>
+              <span className="chip w-fit border-ok/40 text-ok"><Check size={14} /> Valid front-foot defence</span>
+              <p className="text-xl font-semibold tracking-tight">Main priority: get your head over the front knee.</p>
+              <ul className="divide-y divide-line rounded-xl border border-line">
+                {keyMetrics.map((m) => (
+                  <li key={m.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                    <span className="text-fg-muted">{m.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="num">{m.value?.toFixed(m.decimals)}</span>
+                      <span className={`h-2 w-2 rounded-full ${m.inRange === false ? "bg-bad" : "bg-ok"}`} aria-hidden />
+                      <span className="sr-only">{m.inRange === false ? "outside range" : "within range"}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="rounded-xl bg-brand-soft p-3 text-sm">
+                <p className="font-medium">Cue: “{v.plan?.cue}”</p>
+                <p className="mt-1 text-fg-muted">{v.plan?.drills[0]?.name} · {v.plan?.drills[0]?.dosage}</p>
+              </div>
+              <span className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-brand">Open the full sample report <Chevron size={16} /></span>
+            </Link>
+          </Reveal>
+        </div>
       </section>
 
       {/* Wrong-shot trust demo */}
@@ -178,32 +236,6 @@ export default function Home() {
         </ul>
       </section>
 
-      {/* Capture tiers */}
-      <section className="border-y border-line bg-surface">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
-          <Reveal>
-            <p className="eyebrow">Choose your evidence level</p>
-            <h2 className="display mt-3 text-3xl sm:text-5xl max-w-3xl">Start with one phone. Add precision when you need it.</h2>
-          </Reveal>
-          <div className="mt-10 grid gap-4 lg:grid-cols-3">
-            {[
-              { t: "Quick Check", k: "One phone · 120–240 fps", d: "Shot recognition, timing and 2D measures. Depth-sensitive values are clearly marked as estimates.", tag: "Available now", tone: "border-ok/40 text-ok" },
-              { t: "3D Session", k: "Two synced phones · calibrated", d: "Triangulated joints, trunk rotation and higher-confidence spatial measures.", tag: "Preview", tone: "border-warn/40 text-warn" },
-              { t: "Lab / Academy", k: "Multi-camera · optional bat sensor", d: "Highest-confidence movement data and squad reports.", tag: "Planned", tone: "border-line-strong text-fg-subtle" },
-            ].map((x, i) => (
-              <Reveal key={x.t} delay={i * 0.05}>
-                <div className="card h-full p-6">
-                  <span className={`chip ${x.tone}`}>{x.tag}</span>
-                  <h3 className="mt-4 text-2xl font-semibold tracking-tight">{x.t}</h3>
-                  <p className="num mt-1 text-sm text-fg-subtle">{x.k}</p>
-                  <p className="mt-3 text-sm text-fg-muted">{x.d}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Players and coaches */}
       <section className="mx-auto max-w-6xl px-4 sm:px-6 py-20 grid gap-4 lg:grid-cols-2">
         <Reveal>
@@ -242,10 +274,11 @@ export default function Home() {
 
       <section className="band">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20 text-center">
-          <h2 className="display text-4xl sm:text-6xl">Record one shot.</h2>
-          <p className="mx-auto mt-4 max-w-xl text-band-muted">Confirm the shot, understand why it happened, and know exactly what to train next.</p>
+          <span className="inline-block overflow-hidden rounded-[18px]"><Mark size={64} /></span>
+          <h2 className="display mt-6 text-4xl sm:text-6xl">Get in line.</h2>
+          <p className="mx-auto mt-4 max-w-xl text-band-muted">Record one forward defence and see exactly where your line breaks, and the one thing that fixes it.</p>
           <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
-            <Link href="/analyse" className="btn btn-primary !px-5">Analyse front-foot defence</Link>
+            <Link href="/analyse" className="btn btn-primary !px-5">Analyse my defence</Link>
             <Link href="/guide" className="btn !px-5 border border-white/20 text-band-fg hover:bg-white/10">How it works</Link>
           </div>
         </div>
