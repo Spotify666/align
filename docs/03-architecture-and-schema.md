@@ -8,12 +8,16 @@ Phone browser
   ├─ Scan: whole clip (≤ 5 min) → person boxes (EfficientDet-Lite0), motion, camera cuts
   │     → candidate shot windows, each verified by pose (head to feet in view)
   ├─ Batter: candidates verified by pose; athlete taps the batter when several remain
-  ├─ Camera: side-on / bowler's end / behind, suggested from 3D pose, athlete confirms
+  ├─ Camera: side-on / bowler's end / behind, suggested from 3D pose, athlete confirms; re-decided
+  │     after tracking from the batter's own frames before the stroke: the head faces the bowler
+  │     (nose nearer the camera = bowler's end), so no batting hand is needed and a mirrored clip
+  │     reads the same; the batting hand comes from the grip, else from which side is nearer
   ├─ Gate: quality checks on the chosen window (engine.assessCapture)
   ├─ Tracking: MediaPipe Pose on an upscaled crop around the batter → 2D body + 3D estimate
-  │     identity: the batter is identified at the stroke; when the camera zoomed, panned or cut
-  │     before it, every earlier frame is linked back from there through the person detector
-  │     (predicted motion, no jump to someone nearby; frames it can't reach aren't the batter's)
+  │     identity, for every video: the batter is identified at the stroke and linked back from
+  │     there through the person detector every 0.08 s (predicted motion, no jump to someone
+  │     nearby); the pose follower carries identity in between; frames before the link breaks
+  │     (a cut) aren't the batter's
   │     only the camera shot holding the stroke is kept, however short (cuts from the pose and
   │     from the picture: a sudden luma jump against the frames around it)
   ├─ Marks: athlete marks stumps, bounce, contact, bat (each skippable)

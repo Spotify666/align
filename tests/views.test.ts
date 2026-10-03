@@ -135,4 +135,31 @@ describe("camera position guess", () => {
       expect(guessView(frames(generate({ ...spec, seed, handedness: "left" }), [20, 100]), "left")?.view).toBe("front_on");
     }
   });
+  it("needs no batting hand: a wrong hand or a mirrored clip still reads the same camera, and the hand comes out right", async () => {
+    const { guessView } = await import("@/lib/capture/view-guess");
+    const { generate } = await import("@/engine/fixtures/generate");
+    const { FIXTURE_SPECS } = await import("@/engine/fixtures");
+    const { JOINTS } = await import("@/engine/types");
+    const spec = FIXTURE_SPECS.find((s) => s.key === "front_on_ffd")!.options;
+    // A mirrored picture: x flips and the pose model's left and right swap; depth is unchanged.
+    const swap = (j: string) => (j.startsWith("left_") ? j.replace("left_", "right_") : j.startsWith("right_") ? j.replace("right_", "left_") : j);
+    const mirror = (o: CaptureObservation): CaptureObservation => ({
+      ...o,
+      body: o.body.map((b) => JOINTS.map((j) => b[JOINTS.indexOf(swap(j) as never)] ?? null).map((p) => (p ? ([1 - p[0], p[1], p[2]] as const) : p))),
+      poseWorld: o.poseWorld!.map((w) => JOINTS.map((j) => w[JOINTS.indexOf(swap(j) as never)] ?? null).map((p) => (p ? ([-p[0], p[1], p[2], p[3]] as const) : p))),
+    });
+    for (const seed of [1, 2, 3]) {
+      for (const view of ["front_on", "behind"] as const) {
+        const o = generate({ ...spec, seed, view });
+        for (const given of ["right", "left"] as const) {
+          const g = guessView(frames(o, [20, 60, 100]), given);
+          expect(g?.view, `${view} given ${given}`).toBe(view);
+          expect(g?.handedness, `${view} given ${given}`).toBe("right");
+          const m = guessView(frames(mirror(o), [20, 60, 100]), given);
+          expect(m?.view, `mirrored ${view} given ${given}`).toBe(view);
+          expect(m?.handedness, `mirrored ${view} given ${given}`).toBe("left");
+        }
+      }
+    }
+  });
 });

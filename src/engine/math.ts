@@ -89,6 +89,24 @@ export function smooth(xs: readonly number[], radius: number): number[] {
   });
 }
 
+/**
+ * Drops a reading that too few of its neighbours back up: fewer than half of the frames
+ * within ±radius were seen (a lone frame between dropouts). Such a reading can't set a
+ * maximum or minimum on its own; a fully seen series is returned unchanged.
+ */
+export function supported(xs: readonly number[], radius: number): number[] {
+  const need = Math.max(2, Math.ceil((2 * radius + 1) / 2));
+  return xs.map((x, i) => {
+    if (!Number.isFinite(x)) return NaN;
+    let seen = 0;
+    for (let j = i - radius; j <= i + radius; j++) {
+      const v = xs[j];
+      if (v !== undefined && Number.isFinite(v)) seen++;
+    }
+    return seen >= need ? x : NaN;
+  });
+}
+
 /** Central-difference derivative per second. */
 export function derivative(xs: readonly number[], dtSec: number): number[] {
   return xs.map((_, i) => {

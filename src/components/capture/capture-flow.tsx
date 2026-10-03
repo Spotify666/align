@@ -537,50 +537,51 @@ export function CaptureFlow() {
       // Before the stroke, the batter is linked back from there through the person
       // detector, so a zoom or pan can't hand the tracking to someone else.
       const anchorBox = c ? (boxAt(c, w.peak, 0.35) ?? c.box) : null;
-      // Only needed when the scan can't vouch for the batter at the window start: it
-      // didn't see them there, or they jumped in size or place before the stroke (the
-      // camera zoomed, panned or cut). A camera on a stand skips it.
-      const startBox = c ? boxAt(c, w.start, 0.35) : null;
-      const steady =
-        !!startBox &&
-        !!anchorBox &&
-        Math.abs(Math.log(startBox.h / anchorBox.h)) < Math.log(1.3) &&
-        Math.hypot((startBox.x + startBox.w / 2 - (anchorBox.x + anchorBox.w / 2)) * a, startBox.y + startBox.h / 2 - (anchorBox.y + anchorBox.h / 2)) <
-          0.5 * Math.max(startBox.h, anchorBox.h);
-      let linked: Array<Box | null> | null = null;
-      if (anchorBox && key > 0 && !steady) {
+      // Every video, whatever the camera does: the batter is linked back from the stroke
+      // through the person detector, every 0.08 s; the pose follower carries identity
+      // between those checks. Frames before the link breaks (a cut, the batter out of
+      // shot) aren't the batter's.
+      const every = Math.max(1, Math.round((0.08 * rFps) / stride));
+      let linked: Array<Box | null | undefined> | null = null;
+      let firstLinked = 0;
+      if (anchorBox && key > 0) {
         stage("track", "active", "Following the batter back from the shot…");
-        const pre = times.slice(0, key + 1);
+        const idx = times.slice(0, key + 1).map((_, i) => i).filter((i) => i % every === 0 || i === key);
+        const pre = idx.map((i) => times[i]!);
         const people: Box[][] = [];
-        const look = (i: number, src: HTMLVideoElement | HTMLCanvasElement) => {
-          people[i] = detectPeople(det, src);
+        const look = (k: number, src: HTMLVideoElement | HTMLCanvasElement) => {
+          people[k] = detectPeople(det, src);
           return alive();
         };
         let missed: number[] | null = null;
         if (j.src) {
           try {
-            missed = await j.src.read(pre, (i, frame) => look(i, frame), () => !alive());
+            missed = await j.src.read(pre, (k, frame) => look(k, frame), () => !alive());
           } catch {
             j.src = null; // decoder failed on this device: play through instead
           }
         }
-        if (!j.src) missed = await playFrames(v, pre, (i) => look(i, v), { frameDur: 1 / cFps, stop: () => !alive() });
-        for (const i of missed ?? []) {
+        if (!j.src) missed = await playFrames(v, pre, (k) => look(k, v), { frameDur: 1 / cFps, stop: () => !alive() });
+        for (const k of missed ?? []) {
           if (!alive()) return;
-          await seek(v, pre[i]!);
-          look(i, v);
+          await seek(v, pre[k]!);
+          look(k, v);
         }
         if (!alive()) return;
-        linked = linkBack(people, anchorBox, key, a, Math.max(4, Math.round(0.3 * rFps / stride)));
+        const steps = linkBack(people, anchorBox, idx.length - 1, a, Math.max(2, Math.round(0.3 / ((every * stride) / rFps))));
+        linked = [];
+        idx.forEach((i, k) => (linked![i] = steps[k]));
+        const reached = idx.filter((_, k) => steps[k]);
+        firstLinked = reached.length ? reached[0]! : key;
       }
       const luma = new LumaTrack(a);
       const at = (i: number, src: HTMLVideoElement | HTMLCanvasElement) => {
         const mt = times[i]!;
         luma.take(i, src);
-        // Linked frames follow the link; frames it couldn't reach aren't the batter's.
+        // Before the link reaches back, not the batter's frames; on a linked check, re-anchor.
         const lb = linked && i <= key ? linked[i] : undefined;
         let p: PoseFrame;
-        if (lb === null) p = EMPTY(prevHip);
+        if (linked && i < firstLinked) p = EMPTY(prevHip);
         else {
           if (lb) {
             follower.roi = roiAround(lb, a, 0.32);
@@ -589,8 +590,11 @@ export function CaptureFlow() {
           p = detectFrame(pose, src, 10 + Math.round(mt * 1000), prevHip, follower.roi);
           ran++;
           if (!follower.see(p) && follower.isLost && !lb) {
-            // Lost (cut, zoom, occlusion): re-anchor on the scan's box, else the detector.
-            const anchor = c ? boxAt(c, mt, 0.3) : null;
+            // Lost (cut, zoom, occlusion): re-anchor on the nearest linked check before the
+            // stroke, else the scan's box, else the detector.
+            let anchor: Box | null = null;
+            for (let d = 1; linked && i <= key && d <= every && !anchor; d++) anchor = linked[i - d] ?? linked[i + d] ?? null;
+            anchor ??= c ? boxAt(c, mt, 0.3) : null;
             if (anchor) follower.roi = roiAround(anchor, a, 0.32);
             else follower.reacquire(detectPeople(det, src));
             p = detectFrame(pose, src, 11 + Math.round(mt * 1000), prevHip, follower.roi);
@@ -660,9 +664,28 @@ export function CaptureFlow() {
         seen = out.body.filter((b) => bodyBox(b)).length;
         note = " · camera cut skipped";
       }
-      // Batting hand: the grip at the stance (bat held down) in the tracked frames, else the one read while finding the camera.
+      // Camera position and batting hand from every tracked frame of the batter, not the two
+      // probes read before tracking: the head says where the camera is; the grip at the
+      // stance (bat held down), else the side nearer the camera, says which hand.
       const setup = out.body.slice(0, Math.max(3, Math.round(out.body.length * 0.2)));
-      out.handedness = gripHandedness(setup, a, 3)?.handedness ?? j.hand ?? undefined;
+      const grip = gripHandedness(setup, a, 3)?.handedness ?? null;
+      // Read before the stroke, while the batter watches the bowler: at contact the head
+      // bows over the ball and its depth reads poorly.
+      const stroke = Math.max(0, Math.min(out.body.length, key - s0));
+      const watching = (stroke >= 5 ? out.body.slice(0, stroke) : out.body).map((b, i) => ({ body: b, world: out.world[i] ?? [] }));
+      const g = j.viewChosen ? null : guessView(watching, grip ?? j.hand ?? profile.handedness);
+      if (g) {
+        const choice: ViewChoice = g.view === "front_on" || g.view === "behind" ? g.view : "side_on";
+        if (choice !== j.view) {
+          j.view = choice;
+          setView(choice);
+          setGuess(choice);
+          stage("camera", "done", `${VIEW_TEXT[choice][0]!.toUpperCase()}${VIEW_TEXT[choice].slice(1)}`);
+        }
+        j.bowlerSide = g.bowlerSide;
+        setBowlerSide(g.bowlerSide);
+      }
+      out.handedness = grip ?? g?.handedness ?? j.hand ?? undefined;
       mediaTimesRef.current = times;
       setMediaTimes(times);
       setTracking(out);
