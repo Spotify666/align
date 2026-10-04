@@ -248,12 +248,13 @@
     background-image: repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 12px);
     height: 6px;
   }
+  /* A cricket outfield's mowing stripes (not graph paper). */
   .grid-bg {
-    background-image:
-      linear-gradient(var(--line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line) 1px, transparent 1px);
-    background-size: 56px 56px;
-    background-position: -1px -1px;
+    background-image: repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--brand) 7%, transparent) 0 calc(100% / 12),
+      transparent calc(100% / 12) calc(100% / 6)
+    );
     mask-image: radial-gradient(ellipse at 50% 0%, black 30%, transparent 75%);
   }
   .btn {
@@ -396,12 +397,92 @@
 .landing-dark .lp-muted {
   color: var(--lp-muted);
 }
-.landing-grid {
-  background-image:
-    linear-gradient(var(--lp-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--lp-line) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse at 50% 20%, black 20%, transparent 70%);
+/* The ground behind the landing page's dark sections: mowing stripes one slat wide. */
+.lp-ground {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0.028) 0 calc(100% / 12),
+    transparent calc(100% / 12) calc(100% / 6)
+  );
+}
+/* The pitch, to scale: W wide (10 ft), 6.6 W between the stumps (66 ft). */
+.lp-pitch {
+  --w: clamp(84px, min(15vw, 12.5svh), 160px);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--w);
+  height: calc(var(--w) * 7.4);
+  transform: translate(-50%, -50%);
+  background: linear-gradient(rgb(214 196 150 / 0.07), rgb(214 196 150 / 0.04));
+}
+/* Middle stump to middle stump: the line. */
+.lp-line {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--w) * 0.4);
+  bottom: calc(var(--w) * 0.4);
+  width: 2px;
+  margin-left: -1px;
+  background-image: linear-gradient(rgb(232 178 58 / 0.45) 55%, transparent 55%);
+  background-size: 2px 14px;
+}
+.lp-end {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(var(--w) * 1.6);
+}
+.lp-end-top {
+  top: calc(var(--w) * 0.4 - var(--w) * 0.8);
+}
+.lp-end-bottom {
+  bottom: calc(var(--w) * 0.4 - var(--w) * 0.8);
+  transform: scaleY(-1);
+}
+.lp-end i {
+  position: absolute;
+  background: rgb(243 239 228 / 0.16);
+}
+/* Bowling crease through the stumps (8 ft 8 in), popping crease 4 ft in front (12 ft and
+   on), return creases 4 ft 4 in either side of middle stump. */
+.lp-bowling {
+  top: 50%;
+  left: 6.5%;
+  right: 6.5%;
+  height: 1.5px;
+}
+.lp-popping {
+  top: calc(50% + var(--w) * 0.4);
+  left: -14%;
+  right: -14%;
+  height: 1.5px;
+}
+.lp-return {
+  top: calc(50% - var(--w) * 0.4);
+  height: calc(var(--w) * 0.8 + 1.5px);
+  width: 1.5px;
+}
+.lp-return-l {
+  left: 6.5%;
+}
+.lp-return-r {
+  right: 6.5%;
+}
+/* The stumps from above: three small marks across the bowling crease. */
+.lp-stumps {
+  top: calc(50% - 2px);
+  left: calc(50% - var(--w) * 0.045 - 2px);
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: rgb(243 239 228 / 0.5) !important;
+  box-shadow:
+    calc(var(--w) * 0.045) 0 0 rgb(243 239 228 / 0.5),
+    calc(var(--w) * 0.09) 0 0 rgb(243 239 228 / 0.5);
 }
 /* The line of the mark, dashed gold, running down the page. */
 .landing-plumb {
@@ -434,7 +515,7 @@
   color: #f3efe4;
   animation: intro-gone 0s linear 2.85s forwards;
 }
-/* The curtain: twelve vertical slats, seamless while closed (one background, cut into
+/* The curtain: twelve vertical slats, in the outfield's mowing stripes, seamless while closed (one background, cut into
    strips), each turning on its own axis to edge-on and shading as it turns away, one after
    another from left to right. */
 .intro-slat {
@@ -452,6 +533,12 @@
   backface-visibility: hidden;
   will-change: transform;
   animation: intro-slat-turn 0.62s cubic-bezier(0.65, 0, 0.35, 1) calc(1.66s + var(--i) * 0.045s) forwards;
+}
+.intro-slat:nth-child(odd)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / 0.028);
 }
 .intro-slat::after {
   content: "";
@@ -608,3 +695,13 @@
   }
 }
 
+/* On a phone the pitch sits behind the headline: keep it, quieter, without the gold line
+   running through the words. */
+@media (max-width: 639px) {
+  .lp-pitch {
+    opacity: 0.6;
+  }
+  .lp-line {
+    display: none;
+  }
+}

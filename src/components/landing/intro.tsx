@@ -37,7 +37,8 @@ export function Intro({ always = false }: { always?: boolean }) {
       <div className="intro-line" />
       <div className="intro-stage">
         <div className="intro-mark">
-          <span className="block overflow-hidden rounded-[30px]">
+          {/* shifted so the mark's own gold line sits on the screen's */}
+          <span className="relative block overflow-hidden rounded-[30px]" style={{ left: (112 * 5) / 64 }}>
             <Mark size={112} />
           </span>
         </div>

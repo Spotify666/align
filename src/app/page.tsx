@@ -5,6 +5,7 @@ import { AlignHero } from "@/components/home/align-hero";
 import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
 import { Intro } from "@/components/landing/intro";
+import { Ground } from "@/components/landing/pitch";
 import { SHOT_DISPLAY } from "@/engine/classify";
 import { Check, Chevron, Lock, Mark, Question, Record as RecordIcon, Swap, Target, Trend } from "@/components/icons";
 
@@ -49,7 +50,7 @@ export default function Landing() {
       <Intro always />
       {/* 1 · The line: a full first screen on the brand's own ground */}
       <section className="landing-dark relative overflow-hidden">
-        <div className="landing-grid absolute inset-0" aria-hidden />
+        <Ground pitch />
         <header className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-4 pt-[env(safe-area-inset-top)] sm:px-6">
           <Link href="/" className="flex items-center gap-2" aria-label="Align">
             <span className="overflow-hidden rounded-[9px] ring-1 ring-white/15"><Mark size={32} /></span>
@@ -104,8 +105,10 @@ export default function Landing() {
           </Reveal>
           <Reveal delay={0.08}>
             <figure className="landing-dark relative flex flex-col items-center gap-6 overflow-hidden rounded-[28px] px-6 py-10 text-center">
+              <Ground />
               <span className="landing-plumb absolute top-0 left-1/2 h-10 -translate-x-1/2 opacity-60" aria-hidden />
-              <span className="relative overflow-hidden rounded-[30px] ring-1 ring-white/15"><Mark size={132} /></span>
+              {/* shifted so the mark's own gold line continues the one above it */}
+              <span className="relative overflow-hidden rounded-[30px] ring-1 ring-white/15" style={{ left: (132 * 5) / 64 }}><Mark size={132} /></span>
               <figcaption className="relative max-w-xs">
                 <span className="block text-lg font-semibold">The mark is the shot.</span>
                 <span className="lp-muted mt-1 block text-sm">An eye held level, directly above the ball, on one gold line. Everything Align measures comes back to it.</span>
@@ -207,9 +210,10 @@ export default function Landing() {
 
       {/* 7 · The ask */}
       <section className="landing-dark relative overflow-hidden">
+        <Ground />
         <span className="landing-plumb absolute top-0 left-1/2 h-24 -translate-x-1/2 opacity-60" aria-hidden />
         <div className="relative mx-auto max-w-3xl px-4 py-24 text-center sm:px-6 sm:py-28">
-          <span className="inline-block overflow-hidden rounded-[20px] ring-1 ring-white/15"><Mark size={72} /></span>
+          <span className="relative inline-block overflow-hidden rounded-[20px] ring-1 ring-white/15" style={{ left: (72 * 5) / 64 }}><Mark size={72} /></span>
           <h2 className="display mt-8 text-5xl sm:text-7xl">Get in line.</h2>
           <p className="lp-muted mx-auto mt-5 max-w-xl text-lg">Film one forward defence and see exactly where your line breaks, and the one thing that fixes it.</p>
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
