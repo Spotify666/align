@@ -432,28 +432,33 @@
   pointer-events: none;
   perspective: 1200px;
   color: #f3efe4;
-  animation: intro-gone 0s linear 2.45s forwards;
+  animation: intro-gone 0s linear 2.7s forwards;
 }
-.intro-half {
+/* The curtain: twelve vertical slats, seamless while closed (one background, cut into
+   strips), each turning on its own axis to edge-on and shading as it turns away. */
+.intro-slat {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 50.5%;
+  left: calc(var(--i) * 100% / 12);
+  width: calc(100% / 12 + 1px);
   background:
     radial-gradient(120% 70% at 50% 40%, #153a2b 0%, transparent 65%),
     #08130f;
+  background-size: 1200% 100%;
+  background-position: calc(var(--i) / 11 * 100%) 0;
+  box-shadow: inset 1px 0 0 rgb(243 239 228 / 0.035);
   backface-visibility: hidden;
   will-change: transform;
+  animation: intro-slat-turn 0.62s cubic-bezier(0.65, 0, 0.35, 1) calc(1.7s + var(--d) * 0.065s) forwards;
 }
-.intro-left {
-  left: 0;
-  transform-origin: 0% 50%;
-  animation: intro-door-left 0.6s cubic-bezier(0.6, 0, 0.3, 1) 1.82s forwards;
-}
-.intro-right {
-  right: 0;
-  transform-origin: 100% 50%;
-  animation: intro-door-right 0.6s cubic-bezier(0.6, 0, 0.3, 1) 1.82s forwards;
+.intro-slat::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  animation: intro-slat-shade 0.62s cubic-bezier(0.65, 0, 0.35, 1) calc(1.7s + var(--d) * 0.065s) forwards;
 }
 .intro-line {
   position: absolute;
@@ -469,7 +474,7 @@
   animation:
     intro-line-down 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s forwards,
     intro-line-dim 0.3s ease 0.62s forwards,
-    intro-fade 0.2s ease-in 1.8s forwards;
+    intro-fade 0.2s ease-in 1.62s forwards;
 }
 .intro-stage {
   position: absolute;
@@ -482,7 +487,7 @@
   padding: 0 1.5rem 6vh;
   text-align: center;
   will-change: transform, opacity;
-  animation: intro-stage-out 0.4s cubic-bezier(0.5, 0, 0.75, 0) 1.74s forwards;
+  animation: intro-stage-out 0.28s cubic-bezier(0.5, 0, 0.75, 0) 1.56s forwards;
 }
 .intro-mark {
   border-radius: 30px;
@@ -550,14 +555,17 @@
     opacity: 0;
   }
 }
-@keyframes intro-door-left {
+@keyframes intro-slat-turn {
+  from {
+    transform: perspective(2400px) rotateY(0deg);
+  }
   to {
-    transform: rotateY(-92deg);
+    transform: perspective(2400px) rotateY(calc(var(--dir) * 90deg));
   }
 }
-@keyframes intro-door-right {
+@keyframes intro-slat-shade {
   to {
-    transform: rotateY(92deg);
+    opacity: 0.55;
   }
 }
 @keyframes intro-gone {
@@ -567,7 +575,7 @@
 }
 /* What the curtain opens onto rises into place as it opens (only when the curtain plays). */
 .intro ~ section .intro-after {
-  animation: intro-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 1.9s both;
+  animation: intro-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 1.82s both;
 }
 @keyframes intro-rise {
   from {
@@ -582,7 +590,8 @@
       intro-fade 0.4s ease 1.7s forwards,
       intro-gone 0s linear 2.1s forwards;
   }
-  .intro-half,
+  .intro-slat,
+  .intro-slat::after,
   .intro-mark,
   .intro-word,
   .intro-t1,
