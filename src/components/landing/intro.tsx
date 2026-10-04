@@ -7,21 +7,16 @@ import { Mark } from "@/components/icons";
 // the landing page plays it every time it is opened.
 let played = false;
 
-// The curtain: vertical slats that turn on their own axes in a wave outward from the line.
+// The curtain: vertical slats that turn on their own axes, one after another, in a single
+// sweep across the screen (left to right, all the same way), so nothing parts in the middle.
 const SLATS = 12;
-const slats = Array.from({ length: SLATS }, (_, i) => ({
-  "--i": i,
-  // Order of turning: the two slats either side of the line first, the outermost last.
-  "--d": Math.floor(Math.abs(i - (SLATS - 1) / 2)),
-  // Each half turns away from the line, mirrored.
-  "--dir": i < SLATS / 2 ? -1 : 1,
-})) as CSSProperties[];
+const slats = Array.from({ length: SLATS }, (_, i) => ({ "--i": i })) as CSSProperties[];
 
 /**
  * Align's opening, like a film studio's ident before the feature, telling the idea before
  * the page does: the mark spins in, its gold line drops from the eye to the ball, the name
  * appears, then "Eyes over the ball. Everything in line.", and the curtain, a row of
- * vertical slats, turns open in a wave from the line outward. About 2.6 s, all CSS (it starts before any
+ * vertical slats, turns open in one sweep across the screen. About 2.6 s, all CSS (it starts before any
  * script loads and runs on the compositor), and it never blocks a tap. With reduced
  * motion asked for, it shows still and fades.
  */

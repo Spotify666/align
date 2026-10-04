@@ -432,10 +432,11 @@
   pointer-events: none;
   perspective: 1200px;
   color: #f3efe4;
-  animation: intro-gone 0s linear 2.7s forwards;
+  animation: intro-gone 0s linear 2.85s forwards;
 }
 /* The curtain: twelve vertical slats, seamless while closed (one background, cut into
-   strips), each turning on its own axis to edge-on and shading as it turns away. */
+   strips), each turning on its own axis to edge-on and shading as it turns away, one after
+   another from left to right. */
 .intro-slat {
   position: absolute;
   top: 0;
@@ -450,7 +451,7 @@
   box-shadow: inset 1px 0 0 rgb(243 239 228 / 0.035);
   backface-visibility: hidden;
   will-change: transform;
-  animation: intro-slat-turn 0.62s cubic-bezier(0.65, 0, 0.35, 1) calc(1.7s + var(--d) * 0.065s) forwards;
+  animation: intro-slat-turn 0.62s cubic-bezier(0.65, 0, 0.35, 1) calc(1.66s + var(--i) * 0.045s) forwards;
 }
 .intro-slat::after {
   content: "";
@@ -458,7 +459,7 @@
   inset: 0;
   background: #000;
   opacity: 0;
-  animation: intro-slat-shade 0.62s cubic-bezier(0.65, 0, 0.35, 1) calc(1.7s + var(--d) * 0.065s) forwards;
+  animation: intro-slat-shade 0.62s cubic-bezier(0.65, 0, 0.35, 1) calc(1.66s + var(--i) * 0.045s) forwards;
 }
 .intro-line {
   position: absolute;
@@ -560,7 +561,7 @@
     transform: perspective(2400px) rotateY(0deg);
   }
   to {
-    transform: perspective(2400px) rotateY(calc(var(--dir) * 90deg));
+    transform: perspective(2400px) rotateY(-90deg);
   }
 }
 @keyframes intro-slat-shade {
