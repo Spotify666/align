@@ -38,6 +38,8 @@ interface Props {
   /** false: no drag or zoom, and touch scrolls the page (for a decorative hero). */
   interactive?: boolean;
   framing?: "wide" | "close";
+  /** "side": square to the pitch from the off side, the view a side-on phone would have had. */
+  angle?: "auto" | "side";
 }
 
 const lerp3 = (a: V3 | null | undefined, b: V3 | null | undefined, t: number): V3 | null => {
@@ -79,7 +81,7 @@ function skeletonSegments(js: (V3 | null)[]) {
 const HOLD_S = 1.1; // pause on the finished shot before looping
 const FADE_S = 0.35;
 
-export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = false, className, label, play, interactive = true, framing = "wide" }: Props) {
+export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = false, className, label, play, interactive = true, framing = "wide", angle = "auto" }: Props) {
   const mount = useRef<HTMLDivElement>(null);
   const world = useMemo(() => smoothWorld(worldFrames(obs), obs.media.fps), [obs]);
   const refWorld = useMemo(() => (reference ? smoothWorld(worldFrames(reference.obs), reference.obs.media.fps) : null), [reference]);
@@ -107,12 +109,13 @@ export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = f
     const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
     // Start where the phone was, a little to the side so depth reads; drag to orbit.
     const view = obs.camera.view;
-    if (view === "front_on") camera.position.set(6.2, 1.7, 2.2);
+    if (angle === "side") camera.position.set(0.9, 1.15, 5.6);
+    else if (view === "front_on") camera.position.set(6.2, 1.7, 2.2);
     else if (view === "behind") camera.position.set(-4.4, 1.8, 2.2);
     else if (framing === "close") camera.position.set(3.5, 1.55, 4.1);
     else camera.position.set(4.6, 1.9, 5.4);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(view === "front_on" || view === "behind" ? 0.5 : framing === "close" ? 0.9 : 1.1, 0.85, 0);
+    controls.target.set(angle === "side" ? 0.9 : view === "front_on" || view === "behind" ? 0.5 : framing === "close" ? 0.9 : 1.1, 0.85, 0);
     controls.enabled = interactive;
     if (!interactive) renderer.domElement.style.touchAction = "pan-y";
     controls.enableDamping = true;
@@ -360,7 +363,7 @@ export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = f
     };
     // Rebuild only when the data changes; frame updates go through api.current.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [world, refWorld, autoRotate, playFrom, playTo, playSpeed, interactive, framing, obs.camera.view]);
+  }, [world, refWorld, autoRotate, playFrom, playTo, playSpeed, interactive, framing, obs.camera.view, angle]);
 
   useEffect(() => {
     if (playFrom === undefined && !frameAtRef.current) api.current?.update(frame);

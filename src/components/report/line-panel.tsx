@@ -52,6 +52,7 @@ export function LinePanel({ payload: p, fps, onSeek }: { payload: AnalysisPayloa
   const late = metric("set_late");
   const arrivals = line.arrivals;
   const frameMs = fps ? Math.round(1000 / fps) : null;
+  const fpsText = fps ? `${Math.round(fps)} fps` : "";
 
   return (
     <section aria-labelledby="line-h" className="card overflow-hidden">
@@ -88,7 +89,7 @@ export function LinePanel({ payload: p, fps, onSeek }: { payload: AnalysisPayloa
                   <text x={0} y={rowY(i) + 4} fontSize={11.5} fill="var(--color-fg)">
                     {part.label}
                   </text>
-                  <rect x={x(blo)} y={rowY(i) - 9} width={Math.max(2, x(bhi) - x(blo))} height={18} rx={9} fill="var(--color-band)" opacity={0.35} />
+                  <rect x={x(blo)} y={rowY(i) - 9} width={Math.max(2, x(bhi) - x(blo))} height={18} rx={9} fill="#e8b23a" opacity={0.32} />
                   {v !== null && (
                     <>
                       <circle cx={x(v)} cy={rowY(i)} r={7} fill={color} stroke="var(--color-surface)" strokeWidth={2} />
@@ -114,7 +115,7 @@ export function LinePanel({ payload: p, fps, onSeek }: { payload: AnalysisPayloa
               );
             })}
             <p className="pt-1 text-xs text-fg-subtle">
-              Shaded: where professionals&apos; head, shoulder and knee sit ({axis === "sideways" ? "323 international defences" : "coaching geometry, checked on side-on photos"}). Measured{" "}
+              Gold: where professionals&apos; head, shoulder and knee sit ({axis === "sideways" ? "323 international defences" : "coaching geometry, checked on side-on photos"}). Measured{" "}
               {line.referenceKind === "contact" ? "at contact" : "at the set position (bat and ball not seen, so contact is placed where your body had set)"}.
             </p>
             {onSeek && (
@@ -145,7 +146,7 @@ export function LinePanel({ payload: p, fps, onSeek }: { payload: AnalysisPayloa
               <span className={sync.inRange === false ? "text-bad" : "text-fg"}>within {Math.round(sync.value)} ms</span>
               <span className="text-fg-muted">
                 {" "}
-                of each other (aim for 150 ms or less{frameMs ? `; ± ${frameMs} ms, one frame at ${Math.round(1000 / frameMs)} fps` : ""}).
+                of each other (aim for 150 ms or less{frameMs ? `; ± ${frameMs} ms, one frame at ${fpsText}` : ""}).
               </span>
             </p>
           )}
@@ -186,7 +187,7 @@ function Arrivals({ arrivals, moment, axis }: { arrivals: NonNullable<NonNullabl
   const L = 132;
   const R = 10;
   const x = (v: number) => L + ((v - lo) / (hi - lo)) * (W - L - R);
-  const rowY = (i: number) => 18 + i * 24;
+  const rowY = (i: number) => 24 + i * 24;
   const H = rowY(rows.length) + 22;
   const key = ["foot", "knee", "shoulder"].map((k) => arrivals[k as keyof typeof arrivals].ms).filter((v): v is number => v !== null);
   const ticks: number[] = [];
@@ -196,18 +197,18 @@ function Arrivals({ arrivals, moment, axis }: { arrivals: NonNullable<NonNullabl
       <p className="text-sm font-semibold">When each part arrived</p>
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" role="img" aria-label={`When the front foot, knee, shoulder and head reached their set position, in milliseconds from ${moment}.`}>
         {key.length >= 2 && (
-          <rect x={x(Math.min(...key))} y={6} width={Math.max(2, x(Math.max(...key)) - x(Math.min(...key)))} height={rowY(2) + 12 - 6} rx={6} fill="var(--color-band)" opacity={0.3} />
+          <rect x={x(Math.min(...key))} y={6} width={Math.max(2, x(Math.max(...key)) - x(Math.min(...key)))} height={rowY(2) + 12 - 6} rx={6} fill="#e8b23a" opacity={0.28} />
         )}
         {ticks.map((t) => (
           <g key={t}>
             <line x1={x(t)} x2={x(t)} y1={6} y2={H - 16} stroke="var(--color-line)" strokeWidth={t === 0 ? 0 : 1} />
             <text x={x(t)} y={H - 4} textAnchor="middle" fontSize={9} fill="var(--color-fg-subtle)">
-              {t === 0 ? "" : `${t > 0 ? "+" : ""}${t}`}
+              {t === 0 ? "0" : `${t > 0 ? "+" : ""}${t}`}
             </text>
           </g>
         ))}
-        <line x1={x(0)} x2={x(0)} y1={2} y2={H - 14} stroke="var(--color-brand)" strokeWidth={2} />
-        <text x={x(0)} y={H - 4} textAnchor="middle" fontSize={9.5} fontWeight={600} fill="var(--color-brand)">
+        <line x1={x(0)} x2={x(0)} y1={10} y2={H - 14} stroke="var(--color-brand)" strokeWidth={2} />
+        <text x={x(0) + 3} y={8} textAnchor="start" fontSize={9.5} fontWeight={600} fill="var(--color-brand)">
           {moment === "contact" ? "contact" : "set"}
         </text>
         {rows.map((r, i) => {
@@ -221,14 +222,14 @@ function Arrivals({ arrivals, moment, axis }: { arrivals: NonNullable<NonNullabl
                 <circle cx={x(a.ms)} cy={rowY(i)} r={5.5} fill={a.ms > 70 && moment === "contact" ? "var(--color-bad)" : "var(--color-data)"} />
               ) : (
                 <text x={L} y={rowY(i) + 4} fontSize={9.5} fill="var(--color-fg-subtle)">
-                  {a.still ? "hardly moved" : "not seen"}
+                  {a.still ? (r.id === "foot" && axis === "sideways" ? "stride toward the camera: not timed" : "hardly moved") : "not seen"}
                 </text>
               )}
             </g>
           );
         })}
       </svg>
-      <figcaption className="text-xs text-fg-subtle">Milliseconds from {moment}; negative = before. Shaded: the spread of foot, knee and shoulder.</figcaption>
+      <figcaption className="text-xs text-fg-subtle">Milliseconds from {moment}; negative = before. Gold: the spread of foot, knee and shoulder.</figcaption>
     </figure>
   );
 }

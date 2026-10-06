@@ -102,6 +102,29 @@ The report lists the missing evidence and the recapture fix. It never forces a l
 
 False acceptance (scoring a pull as a defence) is release-blocking. False rejection costs a re-record. Thresholds are set accordingly.
 
+## Forward and down, and zoom (engine 0.6)
+
+Two physical checks guard the verdict, measured on real footage:
+
+- **A defence goes forward and down into the ball.** A valid verdict needs the head to drop at
+  least 5% of standing height from the stance, or the hips at least 3% (the knee taking the
+  weight). Real defences: head 17–39%, hips 10–23%; a stance and backlift with no stroke: 3%
+  and 2% (it used to be accepted); pulls, cuts and back-foot defences: about 0.
+- **A zooming camera never names a different shot.** When the batter's size in the picture
+  changes ≥ 1.8× during the clip (broadcast zooms), stride and follow-through are distorted; a
+  real defence was read as a drive. Such clips are uncertain, never "different shot".
+- **Contact without bat or ball** is placed at the set position (front foot, knee and shoulder
+  all arrived): the gloved hands are tracked too poorly to time it (200 ms early on a real clip).
+
+## The line (how the defence is graded)
+
+Head, front shoulder and front knee over the front foot, held until contact, with the foot,
+knee and shoulder arriving together: `src/engine/alignment.ts`, the `ffd-model` skill, and the
+report's "The line" panel. Offsets are from the front ankle in units of standing height, along
+the pitch when filmed side-on and sideways from either end. Sideways ranges come from 323
+international defences (KU CricShot 3D); side-on ranges from coaching geometry checked on
+side-on photos.
+
 ## Release gates (CI)
 
 - **Population gate** (`tests/population.test.ts`, 420 cases on a seed never used for development): side-on defences confirmed ≥ 95%; along the pitch ≥ 75% (measured 77–83% across seeds with realistic bottom-hand jitter); no defence ever called a different shot; **zero** drives, half-drives, pulls, cuts or back-foot defences confirmed.

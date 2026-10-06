@@ -21,7 +21,7 @@ front shoulder **arrive together**.
   is shown, not graded.
 - Zooming camera: offsets use each frame's own body size and only frames where the scale is
   steady; no timing at all.
-- Bands (`LINE_BANDS`): sideways = 10th–90th percentile of 323 international defences (KU
+- Bands (`LINE_BANDS`): sideways = 5th–95th percentile (plus 1% of height for landmark error) of 323 international defences (KU
   CricShot 3D). Forward = coaching geometry checked on side-on photos — the 3D estimates
   compress depth (stride reads ~0.33 × height vs ~0.68 on side-on footage), so never derive
   forward ranges from them.

@@ -14,6 +14,8 @@ import { ConfidenceChip, DemoBadge, STATUS_META, statusKey } from "./status";
 import { Download, Record as RecordIcon, Target } from "../icons";
 import { downloadReportPdf } from "@/lib/pdf";
 import { Lesson } from "../lesson/lesson";
+import { LinePanel } from "./line-panel";
+import { ComparePanel } from "./compare-panel";
 import { plainRange, plainReading, plainValue } from "@/engine/plain";
 
 interface Props {
@@ -29,9 +31,11 @@ interface Props {
   /** Shown under the verdict (e.g. an offer to add bat and ball marks). */
   notice?: React.ReactNode;
   title?: string;
+  /** The on-device analysis id, for comparing with other shots and sharing this one. */
+  analysisId?: string;
 }
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, title }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, title, analysisId }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [aiReport, setAiReport] = useState<Report | null>(null);
   const [aiState, setAiState] = useState<"idle" | "loading" | "unavailable" | "fallback">("idle");
@@ -128,9 +132,26 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
 
       <Summary p={p} onSeek={seek} />
 
+      <LinePanel payload={p} fps={obs.media.fps} onSeek={(f) => seek(f)} />
+
       <Lesson payload={p} obs={obs} />
 
       <EvidenceViewer ref={viewer} obs={obs} payload={p} videoUrl={videoUrl} mediaTimes={mediaTimes} keyframes={keyframes} reference={reference} />
+
+      {p.plan && (
+        <section id="plan" aria-labelledby="plan-h" className="space-y-4 scroll-mt-20">
+          <SectionHead id="plan-h" eyebrow="Coaching plan" title="One priority, step by step to match speed" />
+          <PriorityPlan plan={p.plan} />
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/analyse" className="btn btn-primary">
+              <RecordIcon size={16} /> Record next attempt
+            </Link>
+            <span className="text-sm text-fg-muted">The next report shows the change against this one and your baseline.</span>
+          </div>
+        </section>
+      )}
+
+      <ComparePanel payload={p} fps={obs.media.fps} analysisId={analysisId} />
 
       <details className="group rounded-2xl border border-line bg-surface">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 sm:px-5">
@@ -147,13 +168,13 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       {isValid && (
         <>
           <section aria-labelledby="domains" className="space-y-4">
-            <SectionHead id="domains" eyebrow="Six domains" title="How the defence was executed" />
+            <SectionHead id="domains" eyebrow="Seven domains" title="How the defence was executed" />
             <DomainGrid domains={p.domains} />
           </section>
 
           <section aria-labelledby="indicators" className="space-y-4">
             <SectionHead id="indicators" eyebrow="Movement indicators" title="Measures, ranges and evidence" note="Ranges are provisional coaching ranges (v0.1), not population norms. Not-measured means the capture could not support it — never zero." />
-            {(["footwork", "head_trunk", "bat_contact", "setup", "sequence", "outcome"] as const).map((d) => {
+            {(["alignment", "footwork", "head_trunk", "bat_contact", "setup", "sequence", "outcome"] as const).map((d) => {
               const ms = p.metrics.filter((m) => m.domain === d);
               if (!ms.length) return null;
               return (
@@ -169,18 +190,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             })}
           </section>
 
-          {p.plan && (
-            <section id="plan" aria-labelledby="plan-h" className="space-y-4 scroll-mt-20">
-              <SectionHead id="plan-h" eyebrow="Coaching plan" title="One priority. Up to two drills." />
-              <PriorityPlan plan={p.plan} />
-              <div className="flex flex-wrap items-center gap-3">
-                <Link href="/analyse" className="btn btn-primary">
-                  <RecordIcon size={16} /> Record next attempt
-                </Link>
-                <span className="text-sm text-fg-muted">The next report shows the change against this one and your baseline.</span>
-              </div>
-            </section>
-          )}
+
         </>
       )}
 
@@ -391,10 +401,10 @@ function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, me
             text={strongM ? strongM.relevance : isValid ? "Every check is inside its range." : "None of the checks is inside its range yet."}
           />
           <SummaryCard
-            tone="bad"
-            label="Fix next"
-            title={priorityM ? plainReading(priorityM) : "Nothing urgent"}
-            text={priorityM ? `${coachText(priority!.observation)} You: ${plainValue(priorityM)}; aim for ${plainRange(priorityM)}.` : "Every check is met. Keep the same shape."}
+            tone={priorityM ? "bad" : "brand"}
+            label={priorityM ? "Fix next" : "Next level"}
+            title={priorityM ? plainReading(priorityM) : (p.plan?.priority.title ?? "Nothing urgent")}
+            text={priorityM ? `${coachText(priority!.observation)} You: ${plainValue(priorityM)}; aim for ${plainRange(priorityM)}.` : p.plan ? `Every check is met. ${p.plan.consequence}` : "Every check is met. Keep the same shape."}
           />
           <SummaryCard tone="brand" label="Drill" title={drill?.name ?? "Keep practising the same shape"} text={drill ? `${drill.dosage}. Cue: “${p.plan?.cue ?? drill.cue}”` : "Record again to compare."} />
         </div>

@@ -115,6 +115,24 @@ export function templateReport(p: AnalysisPayload, audience: ReportBody["audienc
         cites: p.delivery.evidenceIds.length ? p.delivery.evidenceIds : ["evt_bounce"],
       });
     }
+    // The line: the defence's defining position, and how it was held and timed.
+    const lineMs = ["line_head", "line_shoulder", "line_knee"].map((id) => p.metrics.find((m) => m.id === id)).filter((m): m is NonNullable<typeof m> => !!m && m.value !== null && m.inRange !== null);
+    if (lineMs.length) {
+      const out = lineMs.filter((m) => m.inRange === false);
+      const held = p.metrics.find((m) => m.id === "line_held" && m.value !== null);
+      const sync = p.metrics.find((m) => m.id === "sync_spread" && m.value !== null);
+      const when = p.line?.referenceKind === "set" ? "at the set position" : "at contact";
+      sections.push({
+        heading: "The line",
+        sentences: [
+          out.length
+            ? { text: `Out of line ${when}: ${out.map((m) => `${plainReading(m).toLowerCase()} (${plainValue(m)}; aim for ${plainRange(m)})`).join("; ")}.`, cites: out.map((m) => `metric_${m.id}`) }
+            : { text: `In line ${when}: ${lineMs.map((m) => plainReading(m).toLowerCase()).join(", ")}.`, cites: lineMs.map((m) => `metric_${m.id}`) },
+          ...(held ? [{ text: `Held in line for ${Math.round(held.value! * 100)}% of the time from the front foot's landing to contact.`, cites: [`metric_${held.id}`] }] : []),
+          ...(sync ? [{ text: `Front foot, knee and shoulder arrived within ${Math.round(sync.value!)} ms of each other${sync.inRange === false ? ", out of sync" : ", together"}.`, cites: [`metric_${sync.id}`] }] : []),
+        ],
+      });
+    }
     if (p.strengths.length) {
       sections.push({
         heading: "Strengths",
@@ -169,7 +187,7 @@ function citationUniverse(p: AnalysisPayload): Map<string, number[]> {
   for (const m of p.metrics) {
     put(`metric_${m.id}`, [m.value, m.uncertainty, m.range?.lo, m.range?.hi, m.confidence * 100]);
     // Shares of height and of the stride are written as percentages.
-    if (m.unit === "× stature" || m.unit === "0–1") put(`metric_${m.id}`, [m.value, m.range?.lo, m.range?.hi].map((x) => (x == null ? null : Math.round(x * 100))));
+    if (m.unit === "× stature" || m.unit === "0–1" || m.unit === "share of frames") put(`metric_${m.id}`, [m.value, m.range?.lo, m.range?.hi].map((x) => (x == null ? null : Math.round(x * 100))));
   }
   for (const f of p.features) put(f.id, [f.value]);
   for (const e of p.events) {

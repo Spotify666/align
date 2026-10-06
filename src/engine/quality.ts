@@ -93,7 +93,7 @@ export function assessCapture(obs: CaptureObservation): CaptureQuality {
     label: "Batter size",
     status: px === null ? "not_applicable" : px < th("capture.fail_batter_px") ? "fail" : px < th("capture.min_batter_px") ? "warn" : "pass",
     value: px === null ? `${obs.media.width}×${obs.media.height}` : `about ${Math.round(px)} px tall (${obs.media.width}×${obs.media.height} ${isPhoto ? "photo" : "video"})`,
-    requirement: `Batter at least ${th("capture.min_batter_px")} px tall`,
+    requirement: `Batter at least ${th("capture.min_batter_px")} px tall (under ${th("capture.fail_batter_px")} px the body can't be read)`,
     correction: isPhoto ? "Use a larger photo, or one taken closer, so the batter fills more of it." : "Record at 1080p, or move closer so the batter fills more of the frame.",
   });
 

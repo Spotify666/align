@@ -24,7 +24,7 @@ Done in this change (engine 0.6.0, metrics ffd-0.6.0):
 
 - **The line** (`src/engine/alignment.ts`): head, front shoulder and front knee measured from the
   front ankle at contact, along the pitch side-on and sideways from either end. Sideways ranges
-  are the 10th–90th percentile of 323 international defences (KU CricShot 3D); side-on ranges
+  are the 5th–95th percentile (plus 1% of height for landmark error) of 323 international defences (KU CricShot 3D); side-on ranges
   are coaching geometry checked on side-on photos (the 3D estimates compress forward distance).
   Same stack whatever the ball's length.
 - **Held to contact**: share of frames from the front foot's landing to contact in line.
@@ -48,7 +48,18 @@ Done in this change (engine 0.6.0, metrics ffd-0.6.0):
   side-on video, or two phones, measures the forward line.
 - **Testing**: real-media matrix of 54 cases (phone clips 240p–720p at 15–30 fps, broadcast
   clips 320×240–720p, photos 120–1200 px, side-on, front-on and angled); see
-  `scripts/eval/README.md`.
+  `scripts/eval/README.md`. Results at ship:
+  - phone defences (480p, 240p, mirrored, 15 fps): all valid, line in, held 100%, foot–knee–
+    shoulder within 67–100 ms, contact at the set position within ~1 frame of the true one
+    (checked on skeleton overlays); a clip with no stroke: "no batting stroke";
+  - side-on photos 9/9, front-on 3–4/4, angled 4/4; a junior's photo 5/9 with head over the
+    ball and stride to work on; a stance photo: "front foot hasn't stepped"; an 81 px batter:
+    "too small: about 81 px tall, needs at least 100 px";
+  - broadcast clips that cut or zoom: declined with the reason, none called a wrong shot (a
+    zoomed defence used to be called a drive); 12 fps and 91 px-tall clips declined;
+  - GPU and CPU pose give the same verdicts (the "other devices" check).
+- **Drills to perfection**: when every check passes, the report offers the next level (the same
+  shot faster: throw-downs → machine → live) instead of nothing.
 
 Open:
 - Broadcast highlight clips that cut or zoom around the shot are mostly declined ("the batter

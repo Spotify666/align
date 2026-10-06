@@ -95,6 +95,7 @@ export function LocalReport({ id }: { id: string }) {
       baseline={state.baseline}
       reference={state.reference}
       title={state.stored.title}
+      analysisId={state.remote ? undefined : id}
       notice={
         canMark ? (
           <div className="mt-4 flex flex-col gap-3 rounded-xl border border-brand/40 bg-surface/80 p-4 sm:flex-row sm:items-center sm:justify-between">

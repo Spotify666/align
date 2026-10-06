@@ -14,11 +14,13 @@ import { FIXTURE_SPECS } from "@/engine/fixtures";
 import { ffdScript } from "@/engine/fixtures/index";
 import { alignAt, BatterFigure, FigureDefs, figurePose, GhostFigure, GOOD, mid, OFF, ZONE, type FigurePose, type GhostPart, type Pt } from "./figure";
 
-const ORDER = ["front_knee_flexion", "head_knee_offset", "foot_spread", "stride_length", "trunk_inclination", "weight_forward", "hands_ahead_of_knee", "back_knee_extension"];
+const ORDER = ["line_head", "line_shoulder", "line_knee", "front_knee_flexion", "foot_spread", "stride_length", "trunk_inclination", "weight_forward", "hands_ahead_of_knee", "back_knee_extension"];
 
 const CHAPTER: Record<string, string> = {
+  line_head: "The line: your head",
+  line_shoulder: "The line: your front shoulder",
+  line_knee: "The line: your front knee",
   front_knee_flexion: "The front knee",
-  head_knee_offset: "Where the head goes",
   foot_spread: "The stride",
   stride_length: "The stride",
   trunk_inclination: "Leaning in",
@@ -31,7 +33,9 @@ const CHAPTER: Record<string, string> = {
 const GHOST: Record<string, GhostPart[]> = {
   front_knee_flexion: ["front_leg"],
   back_knee_extension: ["back_leg"],
-  head_knee_offset: ["head"],
+  line_head: ["head"],
+  line_shoulder: ["trunk"],
+  line_knee: ["front_leg"],
   foot_spread: ["stride"],
   stride_length: ["stride"],
   trunk_inclination: ["trunk", "head"],
@@ -236,16 +240,22 @@ function Annotation({ m, p }: { m: Metric; p: FigurePose }) {
         </g>
       );
     }
-    case "head_knee_offset": {
-      const top = p.head[1] - 9;
+    case "line_head":
+    case "line_shoulder":
+    case "line_knee": {
+      // The line rises from the front ankle; the part should sit on it (inside the band).
+      const part = m.id === "line_head" ? p.head : m.id === "line_shoulder" ? p.fs : p.fk;
+      const top = p.head[1] - 10;
+      const word = m.id === "line_head" ? "head" : m.id === "line_shoulder" ? "front shoulder" : "front knee";
+      const off = (part[0] - p.fa[0]) / 100;
       return (
         <g>
-          {r && <Zone x0={p.fk[0] + r.lo * 100} x1={p.fk[0] + r.hi * 100} y0={top} y1={p.fk[1]} />}
-          <Draw d={seg([p.head[0], p.head[1] + 7], [p.head[0], p.fk[1]])} color={color} w={1.3} dash="2.2 1.8" delay={0.4} />
-          <Draw d={seg([p.fk[0], p.fk[1] - 4], [p.fk[0], p.fk[1] + 4])} color="var(--ill-chalk)" w={1.2} delay={0.6} />
-          <Draw d={seg([p.fk[0], p.fk[1]], [p.head[0], p.fk[1]])} color={color} w={1.6} delay={0.9} />
-          <Label at={[p.head[0], top - 1]} text={v >= 0 ? "head ahead" : "head behind"} color={color} />
-          <Label at={[p.fk[0], p.fk[1] + 11]} text="front knee" delay={1.3} />
+          {r && <Zone x0={p.fa[0] + r.lo * 100} x1={p.fa[0] + r.hi * 100} y0={part[1] - 5} y1={part[1] + 5} />}
+          <Draw d={seg([p.fa[0], top], [p.fa[0], 103])} color="var(--ill-chalk)" w={1.1} dash="2.2 1.8" delay={0.3} />
+          <Draw d={seg([p.fa[0], part[1]], [part[0], part[1]])} color={color} w={1.7} delay={0.8} />
+          <motion.circle cx={part[0]} cy={part[1]} r={2.2} fill={color} initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.7 }} />
+          <Label at={[p.fa[0], top - 2]} text="the line" delay={0.6} />
+          <Label at={[part[0] + (off >= 0 ? 4 : -4), part[1] - 7]} text={Math.abs(off) < 0.01 ? `${word} on it` : `${word} ${off > 0 ? "ahead" : "behind"}`} color={color} anchor={off >= 0 ? "start" : "end"} />
         </g>
       );
     }

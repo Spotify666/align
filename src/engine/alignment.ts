@@ -10,15 +10,16 @@
 // so the same numbers hold for any batter and any length of ball: the stride changes with
 // the length, the stack over the front foot does not.
 //
-// Ranges. Sideways: the 10th–90th percentile of 323 front-foot defences by international
+// Ranges. Sideways: the 5th–95th percentile of 323 front-foot defences by international
 // batters (KU CricShot 3D: monocular 3D pose estimates from broadcast footage, at the deepest
-// point of the stride); sideways is in the picture, so those estimates hold. Forward (side-on):
+// point of the stride), widened by 1% of height for landmark error; sideways is in the
+// picture, so those estimates hold. (The 10th–90th put a fifth of international batters,
+// Dravid's own broadcast frames among them, "out of line".) Forward (side-on):
 // the same estimates compress distances toward the camera (their strides read about half
 // what side-on footage shows), so the forward ranges are coaching geometry (head over the
 // front toe, shoulder over the knee, knee over the foot) checked against side-on photos of
 // defences. Provisional: not lab measurements.
 
-import { angleAt } from "./math";
 import type { Scene, SemanticJoint } from "./scene";
 import type { CameraView, Handedness, LineSummary } from "./types";
 
@@ -34,14 +35,14 @@ export const LINE_BANDS: Record<LineAxis, Record<LinePart, readonly [number, num
   forward: { head: [-0.03, 0.16], shoulder: [-0.03, 0.11], knee: [-0.04, 0.05] },
   // + = toward the off side. The head goes over the line of the ball, which passes just
   // outside the front pad; the shoulder and knee stay over the foot.
-  sideways: { head: [0.04, 0.21], shoulder: [-0.05, 0.08], knee: [-0.06, 0.03] },
+  sideways: { head: [0.03, 0.23], shoulder: [-0.07, 0.11], knee: [-0.07, 0.06] },
 };
 
 /** Landmark noise allowed on top of a band when deciding whether a frame is in line. */
 const IN_LINE_TOL = 0.01;
 
 export const LINE_SOURCE = "Side-on: coaching geometry (head over the front toe, front shoulder over the knee, knee over the foot), checked against side-on photos of defences. Provisional.";
-export const LINE_SOURCE_SIDEWAYS = "From either end of the pitch: 10th–90th percentile of 323 front-foot defences by international batters (KU CricShot 3D pose estimates). Provisional.";
+export const LINE_SOURCE_SIDEWAYS = "From either end of the pitch: 5th–95th percentile of 323 front-foot defences by international batters (KU CricShot 3D pose estimates), widened by 1% of height for landmark error. Provisional.";
 
 export type Offsets = Record<LinePart, number>;
 

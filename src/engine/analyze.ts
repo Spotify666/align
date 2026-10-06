@@ -27,7 +27,7 @@ import { extractFeatures } from "./features";
 import { classify, leadingAlternative, SHOT_DISPLAY, type Classification } from "./classify";
 import { ALIGNMENT_IDS, computeMetrics } from "./metrics";
 import { lineSummary, measureAlignment, type Alignment } from "./alignment";
-import { buildPlan, domainResults, strengthsAndPriorities, techniqueIndex } from "./scoring";
+import { buildPlan, domainResults, nextLevelPlan, strengthsAndPriorities, techniqueIndex } from "./scoring";
 import type {
   AnalysisPayload,
   AnalysisStatus,
@@ -545,8 +545,12 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       status_reason: failing[0]?.id ?? "body_not_tracked",
       headline:
         failing[0]?.id === "chk_duration" && obs.media.trimmed
-          ? `This recording can't be analysed yet: the batter is in view for only ${(obs.media.durationMs / 1000).toFixed(1)} s before the camera cuts or zooms away.`
-          : `This recording can't be analysed yet: ${(failing[0]?.label ?? "batter not tracked").toLowerCase()}.`,
+          ? obs.media.durationMs < 400
+            ? "This recording can't be analysed yet: the batter couldn't be followed through the stroke, because the camera cuts or zooms away."
+            : `This recording can't be analysed yet: the batter is in view for only ${(obs.media.durationMs / 1000).toFixed(1)} s before the camera cuts or zooms away.`
+          : failing[0]?.id === "chk_resolution"
+            ? `This ${obs.media.kind === "photo" ? "photo" : "recording"} can't be analysed yet: the batter is ${failing[0].value.replace(/ \(.*$/, "")} (at least ${th("capture.fail_batter_px")} px is needed, ${th("capture.min_batter_px")} px or more for full accuracy).`
+            : `This recording can't be analysed yet: ${(failing[0]?.label ?? "batter not tracked").toLowerCase()}.`,
       observed_shot: null,
       shot_probabilities: null,
       classifier: null,
@@ -810,7 +814,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   const domains = domainResults(metrics);
   const index = techniqueIndex(metrics, domains);
   const { strengths, priorities } = strengthsAndPriorities(metrics);
-  const plan = buildPlan(priorities, metrics);
+  const plan = buildPlan(priorities, metrics) ?? nextLevelPlan(metrics);
   const headline = priorities[0]
     ? `Valid front-foot defence. To work on: ${priorities[0].title.toLowerCase()}.`
     : "Valid front-foot defence. Every check is in range.";
