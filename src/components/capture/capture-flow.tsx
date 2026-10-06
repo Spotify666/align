@@ -19,6 +19,7 @@ import {
   Follower,
   loadPersonDetector,
   decideDelegate,
+  knownDelegate,
   loadPose,
   loadScanPose,
   loadStillPose,
@@ -30,13 +31,15 @@ import {
   type PoseFrame,
   type Roi,
 } from "@/lib/capture/pose";
-import { batterCandidates, boxAt, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
+import { batterCandidates, boxAt, finishScan, MAX_SCAN_SEC, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
+import { visionPool } from "@/lib/capture/vision-pool";
 import { guessView } from "@/lib/capture/view-guess";
 import { strokeSegment } from "@/lib/capture/segments";
 import { linkBack } from "@/lib/capture/link";
 import { LumaTrack } from "@/lib/capture/picture-cuts";
 import { playFrames } from "@/lib/capture/frames";
 import { openDecoded, type DecodedVideo } from "@/lib/capture/decoder";
+import type { AnyCanvas } from "@/lib/capture/canvas";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
 import { gripHandedness } from "@/lib/capture/grip";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
@@ -49,6 +52,7 @@ import { MomentPicker } from "./moment-picker";
 import { BatterPicker } from "./batter-picker";
 import { ViewPicker } from "./view-picker";
 import { Camera, Check, Chevron, Lock, Upload, Record as RecordIcon, Target } from "../icons";
+import { timeEnd, timeFlush, timeStart } from "@/lib/capture/timing";
 
 // One screen to add a clip; everything after that runs on its own. Each automatic
 // decision (which shot, which person, where the camera was) is shown as it is made,
@@ -104,6 +108,25 @@ interface Win {
 
 const MAX_FRAMES = 300;
 const WINDOW_SEC = 3.4;
+
+/**
+ * The frames tracked for a shot window, and the ones (every 0.08 s up to the stroke) on
+ * which the batter is linked back from the stroke through the person detector.
+ */
+function trackPlan(w: Win, m: Meta, slow: number) {
+  const cFps = m.containerFps ?? 30;
+  const rFps = cFps * slow;
+  const windowLen = Math.min(m.durationSec - w.start, w.end - w.start);
+  const containerFrames = Math.max(2, Math.floor(windowLen * cFps));
+  const stride = Math.max(1, Math.ceil(containerFrames / MAX_FRAMES));
+  const count = Math.floor(containerFrames / stride);
+  const times = Array.from({ length: count }, (_, i) => w.start + (i * stride + 0.5) / cFps);
+  // The stroke: the frame the batter was identified on.
+  const key = times.reduce((best, t, i) => (Math.abs(t - w.peak) < Math.abs(times[best]! - w.peak) ? i : best), 0);
+  const every = Math.max(1, Math.round((0.08 * rFps) / stride));
+  const idx = times.slice(0, key + 1).map((_, i) => i).filter((i) => i % every === 0 || i === key);
+  return { cFps, rFps, windowLen, stride, count, times, key, every, idx, pre: idx.map((i) => times[i]!) };
+}
 const GATE_SAMPLES = 12;
 const MAX_AUTO_TRIES = 3;
 const VIDEO_EXT = /\.(mp4|m4v|mov|webm|mkv|3gp|3g2|avi|wmv|flv|mts|m2ts|ts)$/i;
@@ -184,7 +207,10 @@ export function CaptureFlow() {
     run.current++;
   }, []);
   // Fetch the on-device models while the athlete is still choosing a clip.
-  useEffect(() => warmUp(), []);
+  useEffect(() => {
+    warmUp();
+    visionPool()?.warm();
+  }, []);
 
   // Opened from a report to add bat and ball marks (same browser session only).
   useEffect(() => {
@@ -239,6 +265,14 @@ export function CaptureFlow() {
     setWin(w);
     setPick(i);
   };
+  // Re-render for scan progress at most ten times a second.
+  const lastScanTick = useRef(0);
+  const scanTick = (f: number) => {
+    const now = performance.now();
+    if (f < 1 && now - lastScanTick.current < 100) return;
+    lastScanTick.current = now;
+    setScanProgress(f);
+  };
 
   function resetClip() {
     abort.current?.abort();
@@ -274,6 +308,8 @@ export function CaptureFlow() {
     urlRef.current = u;
     setPhase("working");
     stage("read", "active");
+    timeStart("total");
+    timeStart("read");
     const [track, decoded] = await Promise.all([readVideoTrack(f), openDecoded(f)]);
     const v = video.current!;
     try {
@@ -298,17 +334,40 @@ export function CaptureFlow() {
     job.current.src = decoded && decoded.width === m.width && decoded.height === m.height ? decoded : null;
     job.current.meta = m;
     setMeta(m);
+    timeEnd("read");
     stage("read", "done", `${m.width}×${m.height} · ${fps ? `${Math.round(fps)} fps` : "frame rate unknown"} · ${m.durationSec.toFixed(1)} s`);
 
     stage("shot", "active", "Getting the on-device analyser ready (first time only)…");
     try {
-      const [det, scanPose] = await Promise.all([loadPersonDetector(), loadScanPose()]);
-      if (!alive()) return;
-      stage("shot", "active", m.durationSec > 20 ? "Looking through the whole clip…" : "");
       abort.current = new AbortController();
-      const scanned = await scanVideo(v, det, WINDOW_SEC, setScanProgress, abort.current.signal, scanPose, job.current.src);
-      if (!alive() || abort.current.signal.aborted) return;
+      const signal = abort.current.signal;
+      // A returning device knows its pose path: get the tracking model ready during the scan.
+      if (knownDelegate()) void loadPose().catch(() => undefined);
+      const pool = job.current.src ? visionPool() : null;
+      stage("shot", "active", m.durationSec > 20 ? "Looking through the whole clip…" : "");
+      timeStart("scan");
+      let scanned: ScanResult | null = null;
+      if (pool) {
+        // Exactly decoded frames, the clip shared between the workers (same samples as one pass).
+        const limit = Math.min(v.duration, MAX_SCAN_SEC);
+        const part = await pool.scan(f, limit, v.videoWidth / Math.max(1, v.videoHeight), scanTick, signal).catch(() => null);
+        if (!alive() || signal.aborted) return;
+        if (part) scanned = finishScan(part.samples, part.motion, limit, WINDOW_SEC, scanTick);
+      }
+      if (!scanned) {
+        timeStart("models");
+        const [det, scanPose] = await Promise.all([loadPersonDetector(), loadScanPose()]);
+        timeEnd("models");
+        if (!alive()) return;
+        scanned = await scanVideo(v, det, WINDOW_SEC, scanTick, signal, scanPose, job.current.src);
+      }
+      timeEnd("scan");
+      timeFlush();
+      if (!alive() || signal.aborted) return;
+      timeStart("verifyWindows");
       const res = { ...scanned, windows: await verifyWindows(v, await loadStillPose(), scanned) };
+      timeEnd("verifyWindows");
+      timeFlush();
       if (!alive()) return;
       job.current.scan = res;
       setScan(res);
@@ -330,6 +389,7 @@ export function CaptureFlow() {
     if (!sc || !w || !m) return;
     const v = video.current!;
     stage("batter", "active");
+    timeStart("batter");
     const { at, candidates } = batterCandidates(sc.samples, w);
     const cs = await verifyCandidates(v, candidates, w, at, m.width / m.height);
     if (!alive()) return;
@@ -339,6 +399,8 @@ export function CaptureFlow() {
     setBatter(0);
     await seek(v, at);
     setStill(snapshot(v));
+    timeEnd("batter");
+    timeFlush();
     stage(
       "batter",
       "done",
@@ -352,6 +414,7 @@ export function CaptureFlow() {
     const j = job.current;
     if (!j.win || !j.meta) return;
     stage("camera", "active");
+    timeStart("camera");
     if (!j.viewChosen) {
       const v = video.current!;
       const stillPose = await loadStillPose();
@@ -375,6 +438,8 @@ export function CaptureFlow() {
         setBowlerSide(g.bowlerSide);
       }
     }
+    timeEnd("camera");
+    timeFlush();
     stage("camera", "done", `${VIEW_TEXT[j.view][0]!.toUpperCase()}${VIEW_TEXT[j.view].slice(1)}${j.viewChosen ? " (your choice)" : ""}`);
     await fromCheck(id);
   }
@@ -385,7 +450,10 @@ export function CaptureFlow() {
     if (!j.win || !j.meta || !j.scan) return;
     stage("check", "active");
     try {
+      timeStart("gate");
       const q = await runGate(j.win, j.meta, j.cands[j.batter]);
+      timeEnd("gate");
+      timeFlush();
       if (!alive()) return;
       setGate(q);
       if (q.status === "fail") {
@@ -430,7 +498,7 @@ export function CaptureFlow() {
     const len = Math.min(w.end, m.durationSec) - w.start;
     const times = Array.from({ length: GATE_SAMPLES }, (_, i) => w.start + (len * (i + 0.5)) / GATE_SAMPLES);
     let follow: Roi | null = null;
-    const at = (i: number, from: HTMLVideoElement | HTMLCanvasElement) => {
+    const at = (i: number, from: HTMLVideoElement | AnyCanvas) => {
       quality[i] = sampler.sample(from, i);
       // Where the scan saw the batter at this moment, else where pose last found them.
       let p = detectStill(stillPose, from, cropFor(c, times[i]!, m));
@@ -501,19 +569,17 @@ export function CaptureFlow() {
     try {
       // The faster pose path on this device, decided once (on a frame of this shot) and then
       // kept, so the same clip always gives the same result here.
+      timeStart("track.setup");
       await seek(video.current!, w.start + 0.5 / (m.containerFps ?? 30));
       await decideDelegate(video.current!);
       const [firstPose, det] = await Promise.all([loadPose(), loadPersonDetector()]);
+      timeEnd("track.setup");
       let pose = firstPose;
       let cpuTried = false;
       const c = j.cands[j.batter];
       const a = m.width / m.height;
-      const cFps = m.containerFps ?? 30;
-      const rFps = cFps * j.slow;
-      const windowLen = Math.min(m.durationSec - w.start, w.end - w.start);
-      const containerFrames = Math.max(2, Math.floor(windowLen * cFps));
-      const stride = Math.max(1, Math.ceil(containerFrames / MAX_FRAMES));
-      const count = Math.floor(containerFrames / stride);
+      const plan = trackPlan(w, m, j.slow);
+      const { cFps, rFps, stride, count, key, every } = plan;
       const v = video.current!;
       const sampler = new FrameQualitySampler(a);
       const world: CameraPoint[][] = [];
@@ -531,7 +597,7 @@ export function CaptureFlow() {
         durationMs: ((count * stride) / rFps) * 1000,
         kind: "video",
       };
-      const times = Array.from({ length: count }, (_, i) => w.start + (i * stride + 0.5) / cFps);
+      const times = [...plan.times];
       const startRoi = () => roiAround(c ? (boxAt(c, w.start, 1) ?? c.box) : { x: 0, y: 0, w: 1, h: 1 }, a, 0.32);
       const follower = new Follower(c ? (boxAt(c, w.start, 1) ?? c.box) : { x: 0, y: 0, w: 1, h: 1 }, a);
       const qEvery = Math.max(1, Math.round(count / 24));
@@ -547,8 +613,6 @@ export function CaptureFlow() {
       let ran = 0;
       // Some phones' GPU path loads but returns nothing: after 12 empty frames, start again on the CPU path.
       const gpuDead = () => !cpuTried && ran >= 12 && seen === 0;
-      // The stroke: the frame the batter was identified on.
-      const key = times.reduce((best, t, i) => (Math.abs(t - w.peak) < Math.abs(times[best]! - w.peak) ? i : best), 0);
       // Before the stroke, the batter is linked back from there through the person
       // detector, so a zoom or pan can't hand the tracking to someone else.
       const anchorBox = c ? (boxAt(c, w.peak, 0.35) ?? c.box) : null;
@@ -556,20 +620,48 @@ export function CaptureFlow() {
       // through the person detector, every 0.08 s; the pose follower carries identity
       // between those checks. Frames before the link breaks (a cut, the batter out of
       // shot) aren't the batter's.
-      const every = Math.max(1, Math.round((0.08 * rFps) / stride));
       let linked: Array<Box | null | undefined> | null = null;
       let firstLinked = 0;
       if (anchorBox && key > 0) {
         stage("track", "active", "Following the batter back from the shot…");
-        const idx = times.slice(0, key + 1).map((_, i) => i).filter((i) => i % every === 0 || i === key);
-        const pre = idx.map((i) => times[i]!);
+        timeStart("track.linkBack");
+        const { idx, pre } = plan;
         const people: Box[][] = [];
-        const look = (k: number, src: HTMLVideoElement | HTMLCanvasElement) => {
+        const look = (k: number, src: HTMLVideoElement | AnyCanvas) => {
           people[k] = detectPeople(det, src);
           return alive();
         };
         let missed: number[] | null = null;
-        if (j.src) {
+        const pool = j.src ? visionPool() : null;
+        if (j.src && pool) {
+          // The page decodes each frame (its own pixels, as always) and hands the pixels to the
+          // workers, which find the people in parallel: exactly the boxes the page would find.
+          // A few frames at a time, so a high-resolution clip never queues up much memory.
+          try {
+            const redo: number[] = [];
+            const chunk = 4 * pool.size;
+            for (let s0 = 0; s0 < pre.length && alive(); s0 += chunk) {
+              const jobs: Array<Promise<void>> = [];
+              const miss = await j.src.read(
+                pre.slice(s0, s0 + chunk),
+                (k, frame) => {
+                  const ctx = frame.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
+                  const img = ctx.getImageData(0, 0, frame.width, frame.height);
+                  jobs.push(pool.people(img).then((p) => void (people[s0 + k] = p), () => void redo.push(s0 + k)));
+                  return alive();
+                },
+                () => !alive(),
+              );
+              await Promise.all(jobs);
+              redo.push(...miss.map((k) => s0 + k));
+            }
+            // Anything a worker couldn't do, the page does itself.
+            const left = redo.length ? await j.src.read(redo.map((k) => pre[k]!), (i, frame) => look(redo[i]!, frame), () => !alive()) : [];
+            missed = left.map((i) => redo[i]!);
+          } catch {
+            j.src = null; // decoder failed on this device: play through instead
+          }
+        } else if (j.src) {
           try {
             missed = await j.src.read(pre, (k, frame) => look(k, frame), () => !alive());
           } catch {
@@ -583,6 +675,8 @@ export function CaptureFlow() {
           look(k, v);
         }
         if (!alive()) return;
+        timeEnd("track.linkBack");
+        timeFlush();
         const steps = linkBack(people, anchorBox, idx.length - 1, a, Math.max(2, Math.round(0.3 / ((every * stride) / rFps))));
         linked = [];
         idx.forEach((i, k) => (linked![i] = steps[k]));
@@ -590,7 +684,7 @@ export function CaptureFlow() {
         firstLinked = reached.length ? reached[0]! : key;
       }
       const luma = new LumaTrack(a);
-      const at = (i: number, src: HTMLVideoElement | HTMLCanvasElement) => {
+      const at = (i: number, src: HTMLVideoElement | AnyCanvas) => {
         const mt = times[i]!;
         luma.take(i, src);
         // Before the link reaches back, not the batter's frames; on a linked check, re-anchor.
@@ -652,7 +746,10 @@ export function CaptureFlow() {
         }
       };
       setProgress({ done: 0, total: count });
+      timeStart("track.pass");
       await pass();
+      timeEnd("track.pass");
+      timeFlush();
       if (!alive()) return;
       if (gpuDead()) {
         cpuTried = true;
@@ -819,6 +916,7 @@ export function CaptureFlow() {
   async function finish(finalMarks: Marks, tr: TrackingResult | null = tracking, photoKeyframes?: Record<number, Blob>) {
     if (!tr) return;
     stage("report", "active");
+    timeStart("report");
     try {
       const id = remark?.id ?? crypto.randomUUID();
       const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: tr.handedness ?? profile.handedness, heightCm: profile.heightCm });
@@ -864,6 +962,8 @@ export function CaptureFlow() {
         sessionCapture.set(id, { tracking: tr, view: finalMarks.view === "front_on" || finalMarks.view === "behind" ? finalMarks.view : "side_on", bowlerSide: finalMarks.bowlerSide, title, createdAt, recordedAt });
       }
       stage("report", "done");
+      timeEnd("report");
+      timeEnd("total");
       router.push(`/report/${id}`);
     } catch (e) {
       fail("Analysis failed", e instanceof Error ? e.message : "Something went wrong while preparing the report.");
@@ -915,7 +1015,7 @@ export function CaptureFlow() {
                 <div>
                   <p className="eyebrow">Front-foot defence</p>
                   <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Add your shot</h1>
-                  <p className="mt-2 text-fg-muted">A video of any length — one ball, a net session or match footage — or a few photos. Align finds the shot, the batter and the camera angle on its own.</p>
+                  <p className="mt-2 text-fg-muted">A video of any length — one ball, a net session or match footage — or a few photos. Aline finds the shot, the batter and the camera angle on its own.</p>
                 </div>
 
                 <div className="card p-4 space-y-3">
@@ -1340,11 +1440,11 @@ export function decodeMessage(f: File, track: VideoTrackInfo | null): { title: s
       title: "This browser can't play HEVC video",
       body:
         "The clip is HEVC (H.265), the default on many iPhones and newer Android phones.\n\n" +
-        "Any of these fixes it:\n• Open Align in Safari (iPhone, iPad, Mac) or recent Chrome / Edge.\n" +
+        "Any of these fixes it:\n• Open Aline in Safari (iPhone, iPad, Mac) or recent Chrome / Edge.\n" +
         "• iPhone: Settings → Camera → Formats → Most Compatible, then record again.\n" +
         "• Send the clip to yourself on WhatsApp or save it from Google Photos — that converts it to H.264.",
     };
-  if (codec === "av01") return { title: "This device can't play AV1 video", body: "Re-export the clip as MP4 (H.264), or open Align in a recent Chrome or Edge." };
+  if (codec === "av01") return { title: "This device can't play AV1 video", body: "Re-export the clip as MP4 (H.264), or open Aline in a recent Chrome or Edge." };
   if (["avi", "wmv", "flv", "mts", "m2ts", "ts"].includes(ext))
     return { title: `.${ext.toUpperCase()} files can't be played in a browser`, body: "Convert the clip to MP4 (H.264) — most phones and free converters can — then add it again." };
   if (ext === "mkv") return { title: "This MKV file can't be played here", body: "Re-save it as MP4 (H.264) and add it again. MP4 and MOV work on every phone and computer." };

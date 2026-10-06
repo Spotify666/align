@@ -1,6 +1,6 @@
-# Align — working context
+# Aline — working context
 
-Align analyses one cricket shot, the **front-foot defence (FFD)**, from a phone video or photo,
+Aline (formerly Align; repo and storage keys keep "align") analyses one cricket shot, the **front-foot defence (FFD)**, from a phone video or photo,
 in the browser (MediaPipe pose on device), and coaches the batter toward a perfect one.
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Supabase · Vercel.
 
@@ -24,7 +24,10 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
    previous build; only then finalise and push.
 4. **A complete experience**, not a basic one: the line visual, timing, comparison with other
    profiles (match %), a drill ladder to perfection, saved body dynamics.
-5. **Ship it**: merge after green CI, verify production, then tell the athlete once that it is
+5. **Fast, never at the cost of the logic**: every step of an analysis within a minute on a
+   phone. Speed comes from not repeating work and using more cores, never from fewer frames,
+   smaller models or looser rules; prove it by comparing tracks before and after.
+6. **Ship it**: merge after green CI, verify production, then tell the athlete once that it is
    live. Don't make them ask. Keep messages short (they read on an Android phone).
 
 ## Working rules
@@ -52,6 +55,8 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Coaching and drill ladders | `coaching.ts`, `scoring.ts` (`buildPlan`) |
 | Shot signature and match % | `signature.ts`, `src/lib/compare.ts`, Supabase `shot_profiles` |
 | Capture (scan, pick batter, gate, track) | `src/components/capture/capture-flow.tsx`, `src/lib/capture/*` |
+| Parallel model work (workers; must give the page's exact results) | `src/lib/capture/vision.worker.ts`, `vision-pool.ts` |
+| Brand (mark geometry, flat and 3D logo, icons) | `src/components/brand/*`, `scripts/brand-icons.mjs` |
 | Report | `src/components/report/*` (`line-panel.tsx`, `compare-panel.tsx`, `panels.tsx`) |
 | Synthetic fixtures and population | `src/engine/fixtures/*` |
 | Real-media evaluation | `scripts/eval/*` |

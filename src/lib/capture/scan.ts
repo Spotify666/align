@@ -9,6 +9,7 @@ import { J } from "@/engine/types";
 import { bodyBox, detectObjects, detectStill, roiAround, seek, type Box, type PoseFrame, type Roi } from "./pose";
 import { playFrames } from "./frames";
 import type { DecodedVideo } from "./decoder";
+import { makeCanvas, type AnyCanvas } from "./canvas";
 
 export interface ScanSample {
   /** Media time, seconds. */
@@ -49,7 +50,7 @@ export interface ScanResult {
 }
 
 export const MAX_SCAN_SEC = 300;
-const THUMB_W = 176;
+export const THUMB_W = 176;
 const LUMA_W = 48;
 
 type RVFC = (cb: (now: number, meta: { mediaTime: number }) => void) => number;
@@ -82,14 +83,14 @@ export async function scanVideo(
   const aspect = video.videoWidth / Math.max(1, video.videoHeight);
 
   const detCanvas = canvas(aspect >= 1 ? 480 : Math.round(480 * aspect), aspect >= 1 ? Math.round(480 / aspect) : 480);
-  const thumbCanvas = canvas(THUMB_W, Math.round(THUMB_W / aspect));
-  const dctx = detCanvas.getContext("2d")!;
+  // On the page: real canvases (thumbnails as data URLs).
+  const thumbCanvas = canvas(THUMB_W, Math.round(THUMB_W / aspect)) as HTMLCanvasElement;
+  const dctx = detCanvas.getContext("2d") as CanvasRenderingContext2D;
   const tctx = thumbCanvas.getContext("2d")!;
   const probes = new Map<number, ScanSample>();
 
-  const keyOf = (t: number) => Math.round(t * 100) / 100;
   /** People, bat hints and posture on a frame (the one the video shows, or a decoded one). */
-  const look = (key: number, from: HTMLVideoElement | HTMLCanvasElement = video) => {
+  const look = (key: number, from: HTMLVideoElement | AnyCanvas = video) => {
     dctx.drawImage(from, 0, 0, detCanvas.width, detCanvas.height);
     const { people, bats } = detectObjects(det, detCanvas);
     let head: number | null = null;
@@ -99,7 +100,7 @@ export async function scanVideo(
     probes.set(key, { t: key, people, bats, head, motion: 0, cut: false, thumb: thumbCanvas.toDataURL("image/jpeg", 0.6) });
   };
   /** Small JPEG of a frame (for choosing a shot). */
-  const thumbOf = (from: HTMLVideoElement | HTMLCanvasElement) => {
+  const thumbOf = (from: HTMLVideoElement | AnyCanvas) => {
     tctx.drawImage(from, 0, 0, thumbCanvas.width, thumbCanvas.height);
     return thumbCanvas.toDataURL("image/jpeg", 0.6);
   };
@@ -121,7 +122,7 @@ export async function scanVideo(
     // in between; movement and cuts on the same pass. No time budget, which would vary
     // with the device.
     try {
-      const motion = await densePass(src, video, limit, det, pose, (f) => onProgress(f), signal, (smp) => probes.set(smp.t, smp), keyOf, thumbOf);
+      const motion = await densePass(src, video, limit, det, pose, (f) => onProgress(f), signal, (smp) => probes.set(smp.t, smp), thumbOf);
       return finishScan([...probes.values()].sort((a, b) => a.t - b.t), motion, limit, windowMedia, onProgress);
     } catch {
       probes.clear(); // decoder failed on this device: play through instead
@@ -166,10 +167,10 @@ export async function scanVideo(
   return finishScan(sorted(), motion, limit, windowMedia, onProgress);
 }
 
-type Motion = { t: number[]; m: number[]; cut: boolean[] };
+export type Motion = { t: number[]; m: number[]; cut: boolean[] };
 
 /** Movement and cuts (from the dense pass) onto the model samples, then the shot windows. */
-function finishScan(samples: ScanSample[], motion: Motion, limit: number, windowMedia: number, onProgress: (f: number) => void): ScanResult {
+export function finishScan(samples: ScanSample[], motion: Motion, limit: number, windowMedia: number, onProgress: (f: number) => void): ScanResult {
   let prevT = -Infinity;
   for (const s of samples) {
     let m = 0;
@@ -231,46 +232,85 @@ function motionMeter(aspect: number): { take: (t: number, from: CanvasImageSourc
   return { take, reset, out };
 }
 
+type GridEntry = { t: number; motion: boolean; posture: number };
+const DET_EVERY = 5;
+const keyOf = (t: number) => Math.round(t * 100) / 100;
+
 /**
- * One exact decode pass over the clip on fixed grids: movement and cuts every ~0.09 s,
- * posture every 0.3 s (at most 240 frames), people every fifth posture frame.
+ * The exact-frame scan's fixed grids: movement and cuts every ~0.08 s, posture every 0.3 s
+ * (at most 240 frames), people every fifth posture frame.
  */
-async function densePass(
-  src: DecodedVideo,
-  video: HTMLVideoElement,
-  limit: number,
-  det: OD,
-  pose: PL | undefined,
-  onProgress: (f: number) => void,
-  signal: AbortSignal | undefined,
-  emit: (s: ScanSample) => void,
-  keyOf: (t: number) => number,
-  thumbOf: (from: HTMLCanvasElement) => string,
-): Promise<Motion> {
-  const aspect = video.videoWidth / Math.max(1, video.videoHeight);
-  const meter = motionMeter(aspect);
+export function scanGrid(limit: number): GridEntry[] {
   const step = Math.max(0.08, limit / 500);
   const postureStep = Math.max(0.3, limit / 240);
-  const detEvery = 5;
-  const detCanvas = canvas(aspect >= 1 ? 480 : Math.round(480 * aspect), aspect >= 1 ? Math.round(480 / aspect) : 480);
-  const dctx = detCanvas.getContext("2d")!;
-  const grid: Array<{ t: number; motion: boolean; posture: number }> = [];
+  const grid: GridEntry[] = [];
   for (let k = 0; k * step < limit - 0.02; k++) grid.push({ t: keyOf(k * step), motion: true, posture: -1 });
   for (let k = 0; postureStep / 2 + k * postureStep < limit; k++) grid.push({ t: keyOf(postureStep / 2 + k * postureStep), motion: false, posture: k });
-  grid.sort((a, b) => a.t - b.t || a.posture - b.posture);
+  return grid.sort((a, b) => a.t - b.t || a.posture - b.posture);
+}
 
+/**
+ * Split the grid into up to `n` parts that can be scanned separately (on several cores) and
+ * give exactly the samples one pass gives: each part starts on a frame where people are
+ * detected (the posture crop starts afresh there), and reads the movement frame before its
+ * first one, so its first movement reading compares with the same frame.
+ */
+export function splitGrid(grid: GridEntry[], n: number): Array<{ from: number; to: number }> {
+  const starts = grid.map((g, i) => (g.posture >= 0 && g.posture % DET_EVERY === 0 ? i : -1)).filter((i) => i > 0);
+  const parts = Math.max(1, Math.min(n, starts.length + 1));
+  const cuts: number[] = [];
+  for (let k = 1; k < parts; k++) {
+    const target = (grid.length * k) / parts;
+    const best = starts.reduce((b, i) => (Math.abs(i - target) < Math.abs(b - target) ? i : b), starts[0]!);
+    if (!cuts.includes(best) && best > (cuts[cuts.length - 1] ?? 0)) cuts.push(best);
+  }
+  const bounds = [0, ...cuts, grid.length];
+  return bounds.slice(1).map((to, k) => ({ from: bounds[k]!, to }));
+}
+
+export interface ScanPart {
+  samples: ScanSample[];
+  motion: Motion;
+}
+
+/**
+ * Scan grid entries [from, to) on exactly decoded frames: movement and cuts, people and
+ * bat hints on detection frames, posture (how low the head is) on posture frames, the crop
+ * following the batter between detections. Runs on the page or in a worker.
+ */
+export async function scanPart(
+  src: DecodedVideo,
+  aspect: number,
+  limit: number,
+  grid: GridEntry[],
+  part: { from: number; to: number },
+  det: OD,
+  pose: PL | undefined,
+  onProgress: (t: number) => void,
+  stop: () => boolean,
+  thumbOf: (from: AnyCanvas) => string,
+): Promise<ScanPart> {
+  const meter = motionMeter(aspect);
+  const detCanvas = canvas(aspect >= 1 ? 480 : Math.round(480 * aspect), aspect >= 1 ? Math.round(480 / aspect) : 480);
+  const dctx = detCanvas.getContext("2d") as CanvasRenderingContext2D;
+  // The movement frame before this part: read, not reported.
+  let lead = -1;
+  for (let i = part.from - 1; i >= 0 && lead < 0; i--) if (grid[i]!.motion) lead = i;
+  const idx = [...(lead >= 0 ? [lead] : []), ...Array.from({ length: part.to - part.from }, (_, k) => part.from + k)];
+  const samples: ScanSample[] = [];
   let people: Box[] = [];
   let bats: Box[] = [];
   let thumb = "";
   let crop: Roi | null = null;
   await src.read(
-    grid.map((g) => g.t),
-    (i, frame) => {
-      if (signal?.aborted) return false;
-      const g = grid[i]!;
+    idx.map((i) => grid[i]!.t),
+    (k, frame) => {
+      if (stop()) return false;
+      const g = grid[idx[k]!]!;
       if (g.motion) meter.take(g.t, frame);
+      if (idx[k] === lead) return;
       if (g.posture >= 0) {
-        const detected = g.posture % detEvery === 0;
+        const detected = g.posture % DET_EVERY === 0;
         if (detected) {
           dctx.drawImage(frame, 0, 0, detCanvas.width, detCanvas.height);
           ({ people, bats } = detectObjects(det, detCanvas));
@@ -286,12 +326,42 @@ async function densePass(
           const b = bodyBox(p.body);
           if (b) crop = roiAround(b, aspect, 0.3);
         }
-        emit({ t: g.t, people, bats: detected ? bats : [], head, motion: 0, cut: false, thumb });
+        samples.push({ t: g.t, people, bats: detected ? bats : [], head, motion: 0, cut: false, thumb });
       }
-      onProgress(g.t / limit);
+      onProgress(g.t);
     },
+    stop,
   );
-  return meter.out;
+  const motion = meter.out;
+  if (lead >= 0) for (const a of [motion.t, motion.m, motion.cut] as unknown[][]) a.shift();
+  return { samples, motion };
+}
+
+/** Put scanned parts back together, in order. */
+export function joinParts(parts: ScanPart[]): ScanPart {
+  return {
+    samples: parts.flatMap((p) => p.samples),
+    motion: { t: parts.flatMap((p) => p.motion.t), m: parts.flatMap((p) => p.motion.m), cut: parts.flatMap((p) => p.motion.cut) },
+  };
+}
+
+/** One exact decode pass over the whole clip on the page (see scanPart). */
+async function densePass(
+  src: DecodedVideo,
+  video: HTMLVideoElement,
+  limit: number,
+  det: OD,
+  pose: PL | undefined,
+  onProgress: (f: number) => void,
+  signal: AbortSignal | undefined,
+  emit: (s: ScanSample) => void,
+  thumbOf: (from: AnyCanvas) => string,
+): Promise<Motion> {
+  const aspect = video.videoWidth / Math.max(1, video.videoHeight);
+  const grid = scanGrid(limit);
+  const res = await scanPart(src, aspect, limit, grid, { from: 0, to: grid.length }, det, pose, (t) => onProgress(t / limit), () => !!signal?.aborted, thumbOf);
+  res.samples.forEach(emit);
+  return res.motion;
 }
 
 /** Whole-frame movement and camera cuts, sampled as densely as playback allows. */
@@ -661,6 +731,6 @@ function grow(b: Box | Roi, m: number): Roi {
   return { x, y, w: Math.min(1 - x, b.w * (1 + 2 * m)), h: Math.min(1 - y, b.h * (1 + 2 * m)) };
 }
 
-function canvas(w: number, h: number): HTMLCanvasElement {
-  return Object.assign(document.createElement("canvas"), { width: Math.max(8, w), height: Math.max(8, h) });
+function canvas(w: number, h: number): AnyCanvas {
+  return makeCanvas(Math.max(8, w), Math.max(8, h));
 }

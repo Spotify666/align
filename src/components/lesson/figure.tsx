@@ -153,13 +153,34 @@ export function FigureDefs({ id }: { id: string }) {
   );
 }
 
+/** Glove length along the handle, in figure units (about 8 cm). */
+const GLOVE_LEN = 4.6;
+
+/**
+ * Where the hands hold the bat: the top hand (front side) at the top of the handle, the
+ * bottom hand just below it, touching, both centred on the handle (the way a batter grips
+ * it), around the point between the tracked wrists. Null when the hands are apart (a hand
+ * off the bat): then they are drawn where they were seen.
+ */
+export function grip(p: FigurePose): { top: Pt; bottom: Pt; u: Pt } | null {
+  if (Math.hypot(p.fw[0] - p.bw[0], p.fw[1] - p.bw[1]) > 14) return null;
+  const [hands, toe] = batLine(p);
+  const L = Math.hypot(toe[0] - hands[0], toe[1] - hands[1]) || 1;
+  const u: Pt = [(toe[0] - hands[0]) / L, (toe[1] - hands[1]) / L];
+  const h = GLOVE_LEN / 2;
+  return { top: [hands[0] - u[0] * h, hands[1] - u[1] * h], bottom: [hands[0] + u[0] * h, hands[1] + u[1] * h], u };
+}
+
 /** The bat alone (also used, faded, for the trail it leaves when it moves fast). */
 export function BatShape({ p, id, ghost }: { p: FigurePose; id: string; ghost?: number }) {
-  const [batA, batB] = batLine(p);
-  const L = Math.hypot(batB[0] - batA[0], batB[1] - batA[1]) || 1;
-  const ux = (batB[0] - batA[0]) / L;
-  const uy = (batB[1] - batA[1]) / L;
-  const at = (d: number, side: number, w: number): Pt => [batA[0] + ux * d - uy * side * w, batA[1] + uy * d + ux * side * w];
+  const [hands, batB] = batLine(p);
+  const L0 = Math.hypot(batB[0] - hands[0], batB[1] - hands[1]) || 1;
+  const ux = (batB[0] - hands[0]) / L0;
+  const uy = (batB[1] - hands[1]) / L0;
+  // From the top of the handle, just above the top hand, to the toe.
+  const top = GLOVE_LEN + 0.6;
+  const batA: Pt = [hands[0] - ux * top, hands[1] - uy * top];
+  const at = (d: number, side: number, w: number): Pt => [batA[0] + ux * (d + top) - uy * side * w, batA[1] + uy * (d + top) + ux * side * w];
   // Handle, then shoulders of the blade, a toe a touch wider: a cricket bat, not a plank.
   const blade = polygon([at(12, 1, 1.6), at(14.5, 1, 2.9), at(47, 1, 3.1), at(48, 0.6, 3.1), at(48, -0.6, 3.1), at(47, -1, 3.1), at(14.5, -1, 2.9), at(12, -1, 1.6)]);
   if (ghost !== undefined) return <path d={blade} fill={BAT_TONE[0]} opacity={ghost} />;
@@ -167,10 +188,29 @@ export function BatShape({ p, id, ghost }: { p: FigurePose; id: string; ghost?: 
     <g>
       <path d={`M${f(batA)} L${f(at(13, 0, 0))}`} stroke={INK} strokeWidth={2.8} strokeLinecap="round" />
       <path d={`M${f(batA)} L${f(at(13, 0, 0))}`} stroke="#33302d" strokeWidth={1.5} strokeLinecap="round" />
-      <path d={`M${f(at(3, 1, 0.8))} L${f(at(3, -1, 0.8))} M${f(at(6, 1, 0.8))} L${f(at(6, -1, 0.8))} M${f(at(9, 1, 0.8))} L${f(at(9, -1, 0.8))}`} stroke="#5a5550" strokeWidth={0.4} />
+      <path d={`M${f(at(-3, 1, 0.8))} L${f(at(-3, -1, 0.8))} M${f(at(3, 1, 0.8))} L${f(at(3, -1, 0.8))} M${f(at(9, 1, 0.8))} L${f(at(9, -1, 0.8))}`} stroke="#5a5550" strokeWidth={0.4} />
       <path d={blade} fill={toneFill(id, "bat")} stroke={INK} strokeWidth={0.8} strokeLinejoin="round" />
     </g>
   );
+}
+
+/**
+ * The elbow of an arm whose hand reaches `hand` from `shoulder`, keeping the upper arm and
+ * forearm their seen lengths and bending the way the seen elbow bends. A hand out of reach
+ * leaves the arm straight toward it.
+ */
+function elbowFor(shoulder: Pt, hand: Pt, l1: number, l2: number, seen: Pt): Pt {
+  const dx = hand[0] - shoulder[0];
+  const dy = hand[1] - shoulder[1];
+  const d = Math.hypot(dx, dy) || 1e-6;
+  const ux = dx / d;
+  const uy = dy / d;
+  if (d >= l1 + l2 - 1e-3) return [shoulder[0] + ux * d * (l1 / (l1 + l2)), shoulder[1] + uy * d * (l1 / (l1 + l2))];
+  const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
+  const h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+  // Bend to the side the seen elbow is on.
+  const side = Math.sign(ux * (seen[1] - shoulder[1]) - uy * (seen[0] - shoulder[0])) || 1;
+  return [shoulder[0] + ux * a - uy * h * side, shoulder[1] + uy * a + ux * h * side];
 }
 
 /** The batter's stumps and bails, side on, at their base. */
@@ -319,8 +359,18 @@ export function BatterFigure({ p: seen, id = "fig" }: { p: FigurePose; id?: stri
       { d: limb(k, a, [[0, 8.2], [0.1, 8.8], [0.22, 7.6], [0.7, 7.3], [1, 6.4]]), fill: tone(back ? "padBack" : "pad") },
     ];
   };
+  // Both hands on the handle, the top one above the bottom one; the arms reach them.
+  const hold = grip(p);
+  const reach = (s: Pt, e: Pt, w: Pt, to: Pt | undefined): [Pt, Pt] => {
+    if (!to) return [e, w];
+    const l1 = Math.hypot(e[0] - s[0], e[1] - s[1]);
+    const l2 = Math.hypot(w[0] - e[0], w[1] - e[1]);
+    return [elbowFor(s, to, l1, l2, e), to];
+  };
+  const [fe, fw] = reach(p.fs, p.fe, p.fw, hold?.top);
+  const [be, bw] = reach(p.bs, p.be, p.bw, hold?.bottom);
   const arm = (side: "f" | "b") => {
-    const [s0, e, w] = side === "f" ? [p.fs, p.fe, p.fw] : [p.bs, p.be, p.bw];
+    const [s0, e, w] = side === "f" ? [p.fs, fe, fw] : [p.bs, be, bw];
     const back = side === "b";
     const sleeveEnd = lerp(s0, e, 0.45);
     // The back arm starts just inside the torso, so its rounded end never shows past the back.
@@ -336,9 +386,9 @@ export function BatterFigure({ p: seen, id = "fig" }: { p: FigurePose; id?: stri
   const ux = (batB[0] - batA[0]) / bl;
   const uy = (batB[1] - batA[1]) / bl;
   const glove = (w: Pt) => {
-    const a: Pt = [w[0] - ux * 2, w[1] - uy * 2];
-    const b: Pt = [w[0] + ux * 2, w[1] + uy * 2];
-    return { d: capsule(a, b, 4.6, 4.4), fill: tone("glove") };
+    const a: Pt = [w[0] - ux * (GLOVE_LEN / 2 - 0.3), w[1] - uy * (GLOVE_LEN / 2 - 0.3)];
+    const b: Pt = [w[0] + ux * (GLOVE_LEN / 2 - 0.3), w[1] + uy * (GLOVE_LEN / 2 - 0.3)];
+    return { d: capsule(a, b, 4.8, 4.4), fill: tone("glove") };
   };
   const fingers = (w: Pt) => [-1.1, 0, 1.1].map((o) => `M${f([w[0] + ux * o - uy * 1.2, w[1] + uy * o + ux * 1.2])} L${f([w[0] + ux * o + uy * 1.6, w[1] + uy * o - ux * 1.6])}`).join(" ");
   const canes = (k: Pt, a: Pt) =>
@@ -390,9 +440,11 @@ export function BatterFigure({ p: seen, id = "fig" }: { p: FigurePose; id?: stri
       <path d={canes(p.fk, p.fa)} stroke={INK} strokeWidth={0.35} opacity={0.3} fill="none" />
       {/* bat, then the front arm and gloves over it */}
       <BatShape p={p} id={id} />
+      <Piece parts={[glove(bw)]} />
+      <path d={fingers(bw)} stroke={INK} strokeWidth={0.35} opacity={0.45} />
       <Piece parts={arm("f")} />
-      <Piece parts={[glove(p.bw), glove(p.fw)]} />
-      <path d={`${fingers(p.bw)} ${fingers(p.fw)}`} stroke={INK} strokeWidth={0.35} opacity={0.45} />
+      <Piece parts={[glove(fw)]} />
+      <path d={fingers(fw)} stroke={INK} strokeWidth={0.35} opacity={0.45} />
     </g>
   );
 }

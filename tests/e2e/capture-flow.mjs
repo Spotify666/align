@@ -14,11 +14,23 @@ const ctx = launched ? await launched.newContext(ctxOpts) : await chromium.launc
 // Close the browser itself (closing only a context leaves it running and the script never exits).
 const browser = { close: () => (launched ? launched.close() : ctx.close()) };
 // Pin the pose path (as a returning device would have it) for repeatable runs.
+// NO_WORKERS=1 runs every step on the page (no worker pool).
+if (process.env.NO_WORKERS) await ctx.addInitScript(() => localStorage.setItem("align:workers", "off"));
 if (process.env.POSE_DELEGATE) await ctx.addInitScript((d) => localStorage.setItem("align:pose-delegate", d), process.env.POSE_DELEGATE);
 const page = await ctx.newPage();
-page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
-page.on("console", (m) => { if (m.type() === "error" && !/ERR_CERT|favicon/.test(m.text())) console.log("CONSOLE", m.text().slice(0, 200)); });
 const t0 = Date.now();
+// THROTTLE=<n> slows the page's CPU n× (4 ≈ a mid-range phone), to time each step as a phone would.
+const cdp = await ctx.newCDPSession(page);
+if (process.env.THROTTLE) await cdp.send("Emulation.setCPUThrottlingRate", { rate: +process.env.THROTTLE });
+// PROFILE=<file.cpuprofile> records a CPU profile of the whole analysis (open in Chrome DevTools).
+if (process.env.PROFILE) {
+  await cdp.send("Profiler.enable");
+  await cdp.send("Profiler.setSamplingInterval", { interval: 1000 });
+}
+page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
+// Errors inside the analysis workers.
+page.on("worker", (w) => w.on("console", (m) => m.type() === "error" && !/XNNPACK/.test(m.text()) && console.log("WORKER", m.text().slice(0, 300))));
+page.on("console", (m) => { if (m.text().startsWith("[align:time]")) console.log(`${((Date.now() - t0) / 1000).toFixed(1)}s ${m.text()}`); if (m.type() === "error" && !/ERR_CERT|favicon/.test(m.text())) console.log("CONSOLE", m.text().slice(0, 200)); });
 const step = (s) => console.log(`${((Date.now() - t0) / 1000).toFixed(1)}s ${s}`);
 const shot = (name) => page.screenshot({ path: `${out}_${name}.png`, fullPage: false });
 
@@ -27,6 +39,7 @@ await page.getByLabel(/Analyse my movement on this device/).check();
 await shot("add");
 await page.locator(isPhoto ? "input[type=file][multiple]" : "input[type=file]").first().setInputFiles(files);
 step("files set");
+if (process.env.PROFILE) await cdp.send("Profiler.start");
 
 // Log each automatic decision as it appears.
 const seen = new Set();
@@ -67,6 +80,10 @@ while (Date.now() < deadline) {
 }
 await page.waitForURL(/\/report\//, { timeout: 60000 });
 await page.locator("#verdict").waitFor({ timeout: 30000 });
+if (process.env.PROFILE) {
+  const { profile } = await cdp.send("Profiler.stop");
+  (await import("node:fs")).writeFileSync(process.env.PROFILE, JSON.stringify(profile));
+}
 step("report: " + (await page.locator("#verdict").innerText()));
 step(`sections: observations=${await page.getByText("What we could still see").count()} posture=${await page.getByText(/What the photos? shows?/).count()} addBallBat=${await page.getByRole("link", { name: "Add ball and bat" }).count()}`);
 await page.waitForTimeout(1500);

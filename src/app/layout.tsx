@@ -10,19 +10,19 @@ const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono"
 const hand = Caveat({ subsets: ["latin"], variable: "--font-hand", display: "swap", weight: ["600", "700"] });
 
 export const metadata: Metadata = {
-  title: { default: "Align — cricket shot analysis", template: "%s · Align" },
+  title: { default: "Aline — cricket shot analysis", template: "%s · Aline" },
   description:
     "Shot analysis for cricket, starting with the front-foot defence. Reconstruct body, bat and ball, confirm the shot before grading it, then train one measurable priority.",
-  applicationName: "Align",
-  appleWebApp: { capable: true, title: "Align", statusBarStyle: "default" },
+  applicationName: "Aline",
+  appleWebApp: { capable: true, title: "Aline", statusBarStyle: "default" },
   icons: { apple: "/apple-touch-icon.png" },
   formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f7f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0d0f" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f5f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#121212" },
   ],
   width: "device-width",
   initialScale: 1,

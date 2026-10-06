@@ -37,7 +37,7 @@ export default function PrivacyPage() {
           ["Coach sharing", "Coaches see nothing until you enter their invite code. You can revoke the link; every share and consent change is recorded in your activity log."],
           ["Under 18", "A parent or guardian must agree before analysis and before saving to an account."],
           ["Security", "Encrypted in transit (TLS) and at rest. Database rules make every row visible only to its owner and consented coaches."],
-          ["Not medical", "Align describes technique. It does not diagnose, predict injury or replace a physiotherapist."],
+          ["Not medical", "Aline describes technique. It does not diagnose, predict injury or replace a physiotherapist."],
         ].map(([t, d]) => (
           <div key={t} className="card p-5"><p className="font-semibold">{t}</p><p className="mt-1 text-sm text-fg-muted">{d}</p></div>
         ))}

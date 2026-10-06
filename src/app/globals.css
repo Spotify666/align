@@ -1,69 +1,71 @@
 @import "tailwindcss";
 
 /*
-  Align design tokens.
-  Light is the default; dark follows the system (or the manual toggle).
-  One brand accent (pitch green). Status colours are reserved for status and always
-  ship with an icon and words. Media "stages" (video, reconstruction, 3D) stay dark in
-  both themes, like a broadcast monitor, so overlays read the same everywhere.
+  Aline design tokens.
+  The brand is the mark's: near-black and warm white, nothing else. Light is the default;
+  dark follows the system (or the manual toggle), with the brand turned to white. Status
+  colours are reserved for status and always ship with an icon and words. Media "stages"
+  (video, reconstruction, 3D) stay dark in both themes, like a broadcast monitor, so
+  overlays read the same everywhere.
 */
 :root {
-  --bg: #f7f7f5;
+  --bg: #f6f5f2;
   --surface: #ffffff;
   --sunken: #efeeea;
-  --tint: #f0efea;
-  --line: #e4e2dc;
-  --line-strong: #cfccc4;
-  --fg: #121417;
-  --fg-muted: #4a5058;
-  --fg-subtle: #676d75;
-  --brand: #0f6e4f;
-  --brand-hover: #0b5b41;
-  --brand-fg: #ffffff;
-  --brand-soft: #e4f1ea;
+  --tint: #eeede9;
+  --line: #e3e1dc;
+  --line-strong: #cdcac3;
+  --fg: #161616;
+  --fg-muted: #4b4a48;
+  --fg-subtle: #6a6966;
+  --brand: #1e1e1e;
+  --brand-hover: #000000;
+  --brand-fg: #fbfaf7;
+  --brand-soft: #ebeae6;
   --ok: #11795a;
   --bad: #c1342a;
   --warn: #9a5b00;
-  --neutral: #5b6470;
+  --neutral: #5d5c59;
   --data: #2563eb;
-  --band: #101316;
-  --band-fg: #f3f2ee;
-  --band-muted: #a9b0b7;
-  --stage: #0e1114;
+  --band: #1e1e1e;
+  --band-fg: #fbfaf7;
+  --band-muted: #a9a8a4;
+  --stage: #111111;
   /* Lesson illustrations: warm paper and pen ink. */
   --ill-paper: #f8f1e3;
   --ill-ink: #22262b;
   --ill-chalk: #22262b;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.05);
-  --shadow-pop: 0 12px 32px -12px rgb(16 24 40 / 0.18), 0 2px 6px rgb(16 24 40 / 0.06);
+  --shadow-card: 0 1px 2px rgb(20 20 20 / 0.04), 0 1px 3px rgb(20 20 20 / 0.05);
+  --shadow-pop: 0 12px 32px -12px rgb(20 20 20 / 0.18), 0 2px 6px rgb(20 20 20 / 0.06);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0b0d0f;
-    --surface: #121518;
-    --sunken: #0e1113;
-    --tint: #1a1e22;
-    --line: #23282d;
-    --line-strong: #353c43;
-    --fg: #f2f2ef;
-    --fg-muted: #b4bac1;
-    --fg-subtle: #8d949c;
-    --brand: #3dbd8a;
-    --brand-hover: #5bcd9f;
-    --brand-fg: #06130d;
-    --brand-soft: #12271e;
+    --bg: #121212;
+    --surface: #1a1a1a;
+    --sunken: #151515;
+    --tint: #222222;
+    --line: #2a2a2a;
+    --line-strong: #3b3b3b;
+    --fg: #f4f2ed;
+    --fg-muted: #b8b6b1;
+    --fg-subtle: #8f8d89;
+    --brand: #f4f2ed;
+    --brand-hover: #ffffff;
+    --brand-fg: #161616;
+    --brand-soft: #262626;
     --ok: #47c38f;
     --bad: #f2675c;
     --warn: #f0b54a;
-    --neutral: #9ba5b0;
+    --neutral: #a3a19c;
     --data: #74aaff;
-    --band: #15191c;
-    --band-fg: #f3f2ee;
-    --band-muted: #a9b0b7;
-    --ill-paper: #1c2129;
-    --ill-ink: #0c0f13;
+    --band: #1a1a1a;
+    --band-fg: #f4f2ed;
+    --band-muted: #a9a8a4;
+    --stage: #0d0d0d;
+    --ill-paper: #1f1e1c;
+    --ill-ink: #0c0c0c;
     --ill-chalk: #f1ead8;
     --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
     --shadow-pop: 0 16px 40px -16px rgb(0 0 0 / 0.7);
@@ -71,29 +73,30 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0b0d0f;
-  --surface: #121518;
-  --sunken: #0e1113;
-  --tint: #1a1e22;
-  --line: #23282d;
-  --line-strong: #353c43;
-  --fg: #f2f2ef;
-  --fg-muted: #b4bac1;
-  --fg-subtle: #8d949c;
-  --brand: #3dbd8a;
-  --brand-hover: #5bcd9f;
-  --brand-fg: #06130d;
-  --brand-soft: #12271e;
+  --bg: #121212;
+  --surface: #1a1a1a;
+  --sunken: #151515;
+  --tint: #222222;
+  --line: #2a2a2a;
+  --line-strong: #3b3b3b;
+  --fg: #f4f2ed;
+  --fg-muted: #b8b6b1;
+  --fg-subtle: #8f8d89;
+  --brand: #f4f2ed;
+  --brand-hover: #ffffff;
+  --brand-fg: #161616;
+  --brand-soft: #262626;
   --ok: #47c38f;
   --bad: #f2675c;
   --warn: #f0b54a;
-  --neutral: #9ba5b0;
+  --neutral: #a3a19c;
   --data: #74aaff;
-  --band: #15191c;
-  --band-fg: #f3f2ee;
-  --band-muted: #a9b0b7;
-  --ill-paper: #1c2129;
-  --ill-ink: #0c0f13;
+  --band: #1a1a1a;
+  --band-fg: #f4f2ed;
+  --band-muted: #a9a8a4;
+  --stage: #0d0d0d;
+  --ill-paper: #1f1e1c;
+  --ill-ink: #0c0c0c;
   --ill-chalk: #f1ead8;
   --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02);
   --shadow-pop: 0 16px 40px -16px rgb(0 0 0 / 0.7);
@@ -383,15 +386,15 @@
   background-size: 64px 64px;
 }
 
-/* Landing page: the brand's own ground (the mark's deep green), whatever the theme. */
+/* Landing page: the mark's own ground (near-black, a soft light from above), whatever the theme. */
 .landing-dark {
-  --lp-fg: #f3efe4;
-  --lp-muted: #b9c4bd;
-  --lp-line: rgb(243 239 228 / 0.14);
+  --lp-fg: #fbfaf7;
+  --lp-muted: #a9a8a4;
+  --lp-line: rgb(251 250 247 / 0.14);
   background:
-    radial-gradient(110% 70% at 75% 0%, #17402f 0%, transparent 60%),
-    radial-gradient(90% 60% at 0% 100%, #0f2a20 0%, transparent 70%),
-    #0b1a14;
+    radial-gradient(110% 70% at 70% 0%, #2c2c2b 0%, transparent 60%),
+    radial-gradient(90% 60% at 0% 100%, #232322 0%, transparent 70%),
+    #1e1e1e;
   color: var(--lp-fg);
 }
 .landing-dark .lp-muted {
@@ -417,7 +420,7 @@
   width: var(--w);
   height: calc(var(--w) * 7.4);
   transform: translate(-50%, -50%);
-  background: linear-gradient(rgb(214 196 150 / 0.07), rgb(214 196 150 / 0.04));
+  background: linear-gradient(rgb(251 250 247 / 0.05), rgb(251 250 247 / 0.025));
 }
 /* Middle stump to middle stump: the line. */
 .lp-line {
@@ -427,7 +430,7 @@
   bottom: calc(var(--w) * 0.4);
   width: 2px;
   margin-left: -1px;
-  background-image: linear-gradient(rgb(232 178 58 / 0.45) 55%, transparent 55%);
+  background-image: linear-gradient(rgb(251 250 247 / 0.35) 55%, transparent 55%);
   background-size: 2px 14px;
 }
 .lp-end {
@@ -484,35 +487,35 @@
     calc(var(--w) * 0.045) 0 0 rgb(243 239 228 / 0.5),
     calc(var(--w) * 0.09) 0 0 rgb(243 239 228 / 0.5);
 }
-/* The line of the mark, dashed gold, running down the page. */
+/* The line of the mark, dashed, running down the page. */
 .landing-plumb {
-  background-image: linear-gradient(#e8b23a 55%, transparent 55%);
+  background-image: linear-gradient(rgb(251 250 247 / 0.6) 55%, transparent 55%);
   background-size: 2px 16px;
   width: 2px;
 }
 .btn-landing {
-  background: #ff7a1f;
-  color: #1a0b00;
+  background: #fbfaf7;
+  color: #161616;
 }
 .btn-landing:hover {
-  background: #ff9346;
+  background: #ffffff;
 }
 .btn-landing-ghost {
-  border: 1px solid rgb(243 239 228 / 0.28);
-  color: #f3efe4;
+  border: 1px solid rgb(251 250 247 / 0.28);
+  color: #fbfaf7;
 }
 .btn-landing-ghost:hover {
-  background: rgb(243 239 228 / 0.08);
+  background: rgb(251 250 247 / 0.08);
 }
 
-/* Align's opening: the mark, the line, the name, the idea, then the curtain. ~2.4 s. */
+/* Aline's opening: the mark, the line, the idea, then the curtain. ~2.4 s. */
 .intro {
   position: fixed;
   inset: 0;
   z-index: 100;
   pointer-events: none;
   perspective: 1200px;
-  color: #f3efe4;
+  color: #fbfaf7;
   animation: intro-gone 0s linear 2.85s forwards;
 }
 /* The curtain: twelve vertical slats, in the outfield's mowing stripes, seamless while closed (one background, cut into
@@ -525,11 +528,11 @@
   left: calc(var(--i) * 100% / 12);
   width: calc(100% / 12 + 1px);
   background:
-    radial-gradient(120% 70% at 50% 40%, #153a2b 0%, transparent 65%),
-    #08130f;
+    radial-gradient(120% 70% at 50% 40%, #2c2c2b 0%, transparent 65%),
+    #1a1a1a;
   background-size: 1200% 100%;
   background-position: calc(var(--i) / 11 * 100%) 0;
-  box-shadow: inset 1px 0 0 rgb(243 239 228 / 0.035);
+  box-shadow: inset 1px 0 0 rgb(251 250 247 / 0.035);
   backface-visibility: hidden;
   will-change: transform;
   animation: intro-slat-turn 0.62s cubic-bezier(0.65, 0, 0.35, 1) calc(1.66s + var(--i) * 0.045s) forwards;
@@ -555,7 +558,7 @@
   left: 50%;
   width: 2px;
   margin-left: -1px;
-  background-image: linear-gradient(#e8b23a 55%, transparent 55%);
+  background-image: linear-gradient(rgb(251 250 247 / 0.7) 55%, transparent 55%);
   background-size: 2px 16px;
   transform: scaleY(0);
   will-change: transform, opacity;
@@ -601,7 +604,7 @@
   animation: intro-rise-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 0.88s both;
 }
 .intro-t2 {
-  color: #ff7a1f;
+  color: #a9a8a4;
   animation: intro-rise-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 1.14s both;
 }
 @keyframes intro-mark-in {

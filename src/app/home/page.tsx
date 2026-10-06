@@ -6,11 +6,11 @@ import { Reveal } from "@/components/common/reveal";
 import { Intro } from "@/components/landing/intro";
 import { Check, Swap, Question, CameraOff, Chevron, Record as RecordIcon, Target, Trend } from "@/components/icons";
 
-// The app's home (the landing page at "/" tells newcomers what Align stands for): the next
+// The app's home (the landing page at "/" tells newcomers what Aline stands for): the next
 // shot first, then the shot explained, how to film it, and what a report can say.
 const STEPS = [
   { Icon: RecordIcon, t: "Film one shot", d: "Phone side-on at hip height, 6–8 m away, or from behind the bowler. Slow motion if you have it; long clips are fine." },
-  { Icon: Target, t: "Align checks it", d: "It finds the shot and the batter, confirms it was a forward defence, and measures how you played it." },
+  { Icon: Target, t: "Aline checks it", d: "It finds the shot and the batter, confirms it was a forward defence, and measures how you played it." },
   { Icon: Trend, t: "Train one thing", d: "Read the verdict, do the drill, re-record. Your progress builds shot by shot." },
 ];
 
@@ -34,12 +34,12 @@ export default function AppHome() {
             <div>
               <p className="eyebrow">Your next net session</p>
               <h1 className="display mt-2 text-3xl sm:text-5xl">Film one defence. Get your line checked.</h1>
-              <p className="mt-3 max-w-xl text-fg-muted">Eyes over the ball, head over the front knee, bat beside the pad: Align shows which part was out of line and the one thing to fix.</p>
+              <p className="mt-3 max-w-xl text-fg-muted">Eyes over the ball, head over the front knee, bat beside the pad: Aline shows which part was out of line and the one thing to fix.</p>
             </div>
             <div className="flex shrink-0 flex-col gap-2.5 sm:w-56">
               <Link href="/analyse" className="btn btn-primary text-base">Analyse my defence</Link>
               <Link href="/sample/valid_ffd" className="btn btn-ghost">See a sample report</Link>
-              <Link href="/" className="inline-flex items-center justify-center gap-1 pt-1 text-sm text-fg-subtle hover:text-fg">What Align stands for <Chevron size={14} /></Link>
+              <Link href="/" className="inline-flex items-center justify-center gap-1 pt-1 text-sm text-fg-subtle hover:text-fg">What Aline stands for <Chevron size={14} /></Link>
             </div>
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function AppHome() {
         <Reveal>
           <p className="eyebrow">How it works</p>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="display text-3xl sm:text-5xl max-w-2xl">Film it. Align checks it. You train it.</h2>
+            <h2 className="display text-3xl sm:text-5xl max-w-2xl">Film it. Aline checks it. You train it.</h2>
             <Link href="/guide" className="btn btn-ghost">How to film</Link>
           </div>
         </Reveal>

@@ -7,6 +7,7 @@
 // frames come back every time.
 
 import { createFile, DataStream, Endianness, MP4BoxBuffer, type Sample } from "mp4box";
+import { makeCanvas, type AnyCanvas } from "./canvas";
 
 export interface DecodedVideo {
   width: number;
@@ -19,7 +20,7 @@ export interface DecodedVideo {
    * canvas holds that frame, upright, at display size, until the callback returns.
    * Returning false stops early. Resolves to the targets that were not delivered.
    */
-  read(targets: number[], onFrame: (index: number, frame: HTMLCanvasElement, time: number) => boolean | void, stop?: () => boolean): Promise<number[]>;
+  read(targets: number[], onFrame: (index: number, frame: AnyCanvas, time: number) => boolean | void, stop?: () => boolean): Promise<number[]>;
   close(): void;
 }
 
@@ -30,9 +31,9 @@ interface Frame {
   decode: number; // index in decode order
 }
 
-/** Open a clip for exact decoding, or null when this browser or file can't (callers fall back to playback). */
+/** Open a clip for exact decoding, or null when this browser or file can't (callers fall back to playback). Works in a worker too. */
 export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
-  if (typeof VideoDecoder === "undefined" || typeof document === "undefined") return null;
+  if (typeof VideoDecoder === "undefined") return null;
   try {
     const mp4 = createFile();
     let info: Awaited<ReturnType<NonNullable<typeof mp4.onReady>>> | null = null;
@@ -96,10 +97,9 @@ export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
     const ch = track.video?.height ?? 0;
     const width = rot === 90 || rot === 270 ? ch : cw;
     const height = rot === 90 || rot === 270 ? cw : ch;
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    // A page canvas on the page (as always), an offscreen one in a worker.
+    const canvas = makeCanvas(width, height);
+    const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
 
     const syncBefore = (d: number) => {
       for (let k = d; k >= 0; k--) if (samples[k]!.is_sync) return k;

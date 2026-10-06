@@ -20,6 +20,16 @@ const COLORS = {
   stumps: 0xe9e3d3,
 };
 
+/** A batter in whites and a blue shirt, as in the illustrations: the near side lit, the far side a shade darker. */
+const KIT = {
+  shirt: [0x3a7cc2, 0x2a5f99],
+  whites: [0xf1ece1, 0xc9c1b1],
+  skin: [0xc98f63, 0x9c6a47],
+  glove: [0xffffff, 0xd5d9df],
+  helmet: 0x1f3a63,
+  shoe: [0xf6f6f6, 0xcfd2d6],
+} as const;
+
 interface Props {
   obs: CaptureObservation;
   frame: number;
@@ -78,6 +88,35 @@ function skeletonSegments(js: (V3 | null)[]) {
   });
 }
 
+const UP = new THREE.Vector3(0, 1, 0);
+const v3 = (p: V3) => new THREE.Vector3(p[0], p[1], p[2]);
+const midV = (a: V3, b: V3): V3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+
+/** A tapered limb between two joints (the cylinder's +y end is the far joint). */
+function placeLimb(m: THREE.Object3D, a: V3 | null | undefined, b: V3 | null | undefined) {
+  if (!a || !b) return void (m.visible = false);
+  const d = new THREE.Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  const len = d.length();
+  if (len < 1e-4) return void (m.visible = false);
+  m.visible = true;
+  m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+  m.quaternion.setFromUnitVectors(UP, d.divideScalar(len));
+  m.scale.set(1, len, 1);
+}
+
+/** A rounded part spanning `across` (x) and `along` (y), `deep` thick, centred at c. */
+function placeBlock(m: THREE.Object3D, c: V3, along: THREE.Vector3, across: THREE.Vector3, sx: number, sy: number, sz: number) {
+  const y = along.clone().normalize();
+  const x = across.clone().sub(y.clone().multiplyScalar(across.dot(y)));
+  if (x.lengthSq() < 1e-8) x.set(1, 0, 0).sub(y.clone().multiplyScalar(y.x));
+  x.normalize();
+  const z = new THREE.Vector3().crossVectors(x, y).normalize();
+  m.visible = true;
+  m.position.set(...c);
+  m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
+  m.scale.set(sx, sy, sz);
+}
+
 const HOLD_S = 1.1; // pause on the finished shot before looping
 const FADE_S = 0.35;
 
@@ -112,8 +151,8 @@ export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = f
     if (angle === "side") camera.position.set(0.9, 1.15, 5.6);
     else if (view === "front_on") camera.position.set(6.2, 1.7, 2.2);
     else if (view === "behind") camera.position.set(-4.4, 1.8, 2.2);
-    else if (framing === "close") camera.position.set(3.5, 1.55, 4.1);
-    else camera.position.set(4.6, 1.9, 5.4);
+    else if (framing === "close") camera.position.set(3.2, 1.5, 3.7);
+    else camera.position.set(3.9, 1.75, 4.5);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(angle === "side" ? 0.9 : view === "front_on" || view === "behind" ? 0.5 : framing === "close" ? 0.9 : 1.1, 0.85, 0);
     controls.enabled = interactive;
@@ -156,27 +195,113 @@ export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = f
       scene.add(s);
     }
 
-    // Body skeleton.
-    const estimated = world.depth !== "measured";
-    const boneGeom = new THREE.BufferGeometry();
-    boneGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(BONES.length * 6), 3));
-    const boneMat = estimated
-      ? new THREE.LineDashedMaterial({ color: COLORS.body, dashSize: 0.05, gapSize: 0.025, transparent: true, opacity: 0.95 })
-      : new THREE.LineBasicMaterial({ color: COLORS.body });
-    const bones = new THREE.LineSegments(boneGeom, boneMat);
-    scene.add(bones);
-
-    const jointMesh = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(0.028, 12, 10),
-      new THREE.MeshStandardMaterial({ color: COLORS.body, emissive: COLORS.body, emissiveIntensity: 0.35 }),
-      obs.body[0]?.length ?? 17,
-    );
-    scene.add(jointMesh);
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.1, 20, 16),
-      new THREE.MeshStandardMaterial({ color: COLORS.body, transparent: true, opacity: 0.25, emissive: COLORS.body, emissiveIntensity: 0.2 }),
-    );
-    scene.add(head);
+    // The batter: limbs, trunk, helmet and gloves with volume (not a stick figure), the
+    // front side (nearer the bowler) lit, the back side a shade darker so crossing arms and
+    // legs read in depth.
+    const front: "left" | "right" = obs.athlete.handedness === "left" ? "right" : "left";
+    const back: "left" | "right" = front === "left" ? "right" : "left";
+    const mats: THREE.MeshStandardMaterial[] = [];
+    const mat = (color: number, rough = 0.7) => {
+      const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0 });
+      mats.push(m);
+      return m;
+    };
+    const tone = (pair: readonly [number, number], side: "left" | "right") => (side === front ? pair[0] : pair[1]);
+    const body = new THREE.Group();
+    scene.add(body);
+    const limbGeom = (r0: number, r1: number) => new THREE.CylinderGeometry(r1, r0, 1, 16, 1, true);
+    const ball3 = (r: number) => new THREE.SphereGeometry(r, 18, 14);
+    type Limb = { mesh: THREE.Mesh; a: number; b: number; ends: [THREE.Mesh, THREE.Mesh] };
+    const limbs: Limb[] = [];
+    const addLimb = (a: number, b: number, r0: number, r1: number, color: number) => {
+      const m = mat(color);
+      const mesh = new THREE.Mesh(limbGeom(r0, r1), m);
+      const ea = new THREE.Mesh(ball3(r0), m);
+      const eb = new THREE.Mesh(ball3(r1), m);
+      body.add(mesh, ea, eb);
+      limbs.push({ mesh, a, b, ends: [ea, eb] });
+    };
+    for (const side of [back, front] as const) {
+      const j = (n: string) => J[`${side}_${n}` as keyof typeof J];
+      addLimb(j("hip"), j("knee"), 0.082, 0.062, tone(KIT.whites, side)); // thigh
+      addLimb(j("knee"), j("ankle"), 0.066, 0.05, tone(KIT.whites, side)); // padded shin
+      addLimb(j("heel"), j("foot"), 0.042, 0.036, tone(KIT.shoe, side)); // shoe
+      addLimb(j("shoulder"), j("elbow"), 0.05, 0.04, tone(KIT.shirt, side)); // upper arm, sleeve
+      addLimb(j("elbow"), j("wrist"), 0.038, 0.031, tone(KIT.skin, side)); // forearm
+    }
+    // Gloves: rounded blocks at the hands, along the forearm.
+    const gloves = [back, front].map((side) => {
+      const m = new THREE.Mesh(ball3(1), mat(tone(KIT.glove, side), 0.55));
+      body.add(m);
+      return { mesh: m, e: J[`${side}_elbow` as keyof typeof J], w: J[`${side}_wrist` as keyof typeof J] };
+    });
+    // Trunk (chest to waist, tapering), hips, neck and helmet.
+    // The trunk turned from a profile (radius by height, waist to the top of the shoulders):
+    // a trim waist, the chest and back filling out, the shoulders rounding over to the neck.
+    const trunkGeom = new THREE.LatheGeometry(
+      [[0.78, 0], [0.8, 0.18], [0.9, 0.45], [0.99, 0.68], [1, 0.8], [0.92, 0.9], [0.7, 0.97], [0.36, 1]].map(([r, y]) => new THREE.Vector2(r, y)),
+      28,
+    ).translate(0, -0.5, 0);
+    const trunk = new THREE.Mesh(trunkGeom, mat(KIT.shirt[0]));
+    const pelvis = new THREE.Mesh(ball3(1), mat(KIT.whites[0]));
+    const neck = new THREE.Mesh(limbGeom(0.05, 0.046), mat(KIT.skin[0]));
+    const head = new THREE.Mesh(ball3(0.11), mat(KIT.helmet, 0.35));
+    const face = new THREE.Mesh(ball3(0.072), mat(KIT.skin[0]));
+    body.add(trunk, pelvis, neck, head, face);
+    const placeBody = (js: (V3 | null)[]) => {
+      for (const l of limbs) {
+        const a = js[l.a];
+        const b = js[l.b];
+        placeLimb(l.mesh, a, b);
+        l.ends[0].visible = !!a && l.mesh.visible;
+        l.ends[1].visible = !!b && l.mesh.visible;
+        if (a) l.ends[0].position.set(...a);
+        if (b) l.ends[1].position.set(...b);
+      }
+      for (const g of gloves) {
+        const e = js[g.e];
+        const w = js[g.w];
+        g.mesh.visible = !!(e && w);
+        if (e && w) {
+          const d = v3(w).sub(v3(e)).normalize();
+          const c: V3 = [w[0] + d.x * 0.045, w[1] + d.y * 0.045, w[2] + d.z * 0.045];
+          placeBlock(g.mesh, c, d, new THREE.Vector3(0, 0, 1), 0.04, 0.055, 0.035);
+        }
+      }
+      const ls = js[J.left_shoulder];
+      const rs = js[J.right_shoulder];
+      const lh = js[J.left_hip];
+      const rh = js[J.right_hip];
+      const nose = js[J.nose];
+      const ok = !!(ls && rs && lh && rh);
+      trunk.visible = pelvis.visible = ok;
+      if (ls && rs && lh && rh) {
+        const sm = midV(ls, rs);
+        const hm = midV(lh, rh);
+        const spine = v3(sm).sub(v3(hm));
+        const len = spine.length();
+        const across = v3(rs).sub(v3(ls));
+        const half = Math.max(0.12, across.length() / 2 + 0.035);
+        // From the waist (a little above the hip joints) to the top of the shoulders.
+        const lo = v3(hm).add(spine.clone().multiplyScalar(0.12));
+        const hi = v3(sm).add(spine.clone().normalize().multiplyScalar(0.06));
+        const c = lo.clone().add(hi).multiplyScalar(0.5);
+        placeBlock(trunk, [c.x, c.y, c.z], spine, across, half, hi.distanceTo(lo), 0.105);
+        const hipAcross = v3(rh).sub(v3(lh));
+        placeBlock(pelvis, hm, spine, hipAcross, Math.max(0.12, hipAcross.length() / 2 + 0.06), Math.max(0.08, len * 0.2), 0.11);
+        if (nose) {
+          // The head's centre sits behind and above the nose, over the neck.
+          const toNose = v3(nose).sub(v3(sm));
+          const hc = v3(sm).add(toNose.clone().multiplyScalar(0.8)).add(new THREE.Vector3(0, 0.03, 0));
+          head.visible = face.visible = neck.visible = true;
+          head.position.copy(hc);
+          const fwd = v3(nose).sub(hc);
+          fwd.y = 0;
+          face.position.copy(hc.clone().add(fwd.lengthSq() > 1e-6 ? fwd.normalize().multiplyScalar(0.05) : new THREE.Vector3()).add(new THREE.Vector3(0, -0.025, 0)));
+          placeLimb(neck, sm, [hc.x, hc.y - 0.06, hc.z]);
+        } else head.visible = face.visible = neck.visible = false;
+      } else head.visible = face.visible = neck.visible = false;
+    };
 
     // Bat.
     const bat = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.04, 0.108), new THREE.MeshStandardMaterial({ color: COLORS.bat, roughness: 0.5 }));
@@ -222,7 +347,6 @@ export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = f
       scene.add(refBones);
     }
 
-    const m4 = new THREE.Matrix4();
     const selfFps = obs.media.fps && obs.media.fps > 0 ? obs.media.fps : 30;
     const refFps = reference?.obs.media.fps && reference.obs.media.fps > 0 ? reference.obs.media.fps : selfFps;
     const midAnkle = (w: typeof world, f: number): [number, number] | null => {
@@ -246,16 +370,7 @@ export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = f
     const update = (f: number) => {
       const fr = Math.max(0, Math.min(world.joints.length - 1, f));
       const js = jointsAt(world, fr);
-      setSegments(boneGeom, skeletonSegments(js));
-      bones.computeLineDistances();
-      js.forEach((p, i) => {
-        m4.makeTranslation(p ? p[0] : 0, p ? p[1] : -10, p ? p[2] : 0);
-        jointMesh.setMatrixAt(i, m4);
-      });
-      jointMesh.instanceMatrix.needsUpdate = true;
-      const nose = js[J.nose];
-      head.visible = !!nose;
-      if (nose) head.position.set(nose[0] - 0.06, nose[1], nose[2]);
+      placeBody(js);
 
       const b = at(world.bat, fr, (p, q, t) => (p && q ? ([lerp3(p[0], q[0], t)!, lerp3(p[1], q[1], t)!] as [V3, V3]) : t < 0.5 ? (p ?? q) : (q ?? p)));
       bat.visible = !!b;
@@ -277,7 +392,10 @@ export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = f
       const c = at(world.centre, fr, lerp3);
       const fa = js[J.left_ankle];
       const ba = js[J.right_ankle];
-      const segs: Array<[V3, V3] | null> = [c ? [c, [c[0], 0.01, c[2]]] : null, fa && ba ? [[fa[0], 0.01, fa[2]], [ba[0], 0.01, ba[2]]] : null];
+      // The centre line: a plumb line through the centre of mass, from the ground up to the
+      // top of the head, so head, trunk and base can be read against one vertical.
+      const top = head.visible ? head.position.y + 0.11 : (c?.[1] ?? 0) + 0.8;
+      const segs: Array<[V3, V3] | null> = [c ? [[c[0], top, c[2]], [c[0], 0.01, c[2]]] : null, fa && ba ? [[fa[0], 0.01, fa[2]], [ba[0], 0.01, ba[2]]] : null];
       setSegments(comGeom, segs);
       com.computeLineDistances();
 
@@ -294,7 +412,7 @@ export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = f
     update(playing ? playFrom! : frame);
 
     // Fade the figure out and back in around the loop point, so the replay never snaps.
-    const fading = [boneMat, jointMesh.material, head.material, bat.material, ball.material, trailMat, com.material] as THREE.Material[];
+    const fading = [...mats, bat.material, ball.material, trailMat, com.material] as THREE.Material[];
     const baseOpacity = fading.map((m) => m.opacity);
     fading.forEach((m) => (m.transparent = true));
     const setAlpha = (a: number) => fading.forEach((m, i) => (m.opacity = baseOpacity[i]! * a));
@@ -373,15 +491,15 @@ export default function Scene3D({ obs, frame, reference, frameAt, autoRotate = f
     <div className={className ?? "relative h-full w-full"}>
       <div ref={mount} className="absolute inset-0" role="img" aria-label={label ?? "3D reconstruction of body, bat and ball. Drag to rotate."} />
       <div className="pointer-events-none absolute left-3 bottom-3 right-3 flex flex-wrap gap-x-3 gap-y-1 text-[0.68rem] text-white/70 num">
-        <span><span className="inline-block w-3 border-t-2 border-[#5ed6e6] align-middle mr-1" />{world.depth === "measured" ? "body (triangulated)" : "body (depth estimated)"}</span>
+        <span><span className="inline-block h-2 w-2 rounded-full bg-[#3a7cc2] align-middle mr-1" />{world.depth === "measured" ? "body (triangulated)" : "body (depth estimated)"}</span>
         <span><span className="inline-block w-3 border-t-2 border-[#d7a62a] align-middle mr-1" />bat</span>
         <span><span className="inline-block h-2 w-2 rounded-full bg-[#c8372d] align-middle mr-1" />ball</span>
-        <span><span className="inline-block w-3 border-t-2 border-dashed border-[#b7f34a] align-middle mr-1" />centre / base</span>
+        <span><span className="inline-block w-3 border-t-2 border-dashed border-[#b7f34a] align-middle mr-1" />centre line / base</span>
         {reference && <span><span className="inline-block w-3 border-t-2 border-[#d7a62a]/60 align-middle mr-1" />earlier shot</span>}
       </div>
       {world.depth !== "measured" && (
         <p className="pointer-events-none absolute right-3 top-3 max-w-[11rem] text-right text-[0.66rem] leading-snug text-[#f0b54a]">
-          Single camera: depth is an estimate, drawn dashed.
+          Single camera: depth is an estimate.
         </p>
       )}
     </div>

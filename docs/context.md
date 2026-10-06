@@ -3,6 +3,44 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-10-06 · Faster analysis, a human 3D figure, and the Aline brand
+
+> the video analysis is taking a lot of time and too slow … user cannot spend 5 mins … anything
+> related to analysis should be within a minute, every step
+
+> increasing the speed should not mean compromising on the logic, if that is not working then
+> no point of this change
+
+> in 3d the centre line can extend until the head … the illustration should feel more human
+> like not stick figure like … the hands feel like an overlap and do not convey what the human
+> has to take action in real life
+
+> use this as logo and change colours on the site accordingly and maintain the branding …
+> improve the resolution, create a 3d model version of it, enhance, make it better and use it
+
+Done:
+- **Speed, same logic**: profiled every step (`[align:time]` logs; `THROTTLE=4` in the e2e
+  harness approximates a phone). 96 of 126 s was the pose and person models on one core. Now:
+  the whole-clip scan ("finding the shot") is split across 2–3 workers (`vision.worker.ts`,
+  `vision-pool.ts`), each decoding and scanning its own part with exactly the page's code; the
+  person detection that links the batter back from the stroke runs in the workers on the
+  page's own decoded pixels (handed over frame by frame), so the boxes are exactly the page's;
+  the tracking model loads during the scan; progress redraws are throttled. Tracking, the
+  batter, camera and recording checks stay on the page. A worker decoding a frame itself turns
+  it into very slightly different colours, which moved a sync timing by one frame, so nothing
+  that feeds a measurement uses worker-decoded pixels. Checked on the real-media matrix:
+  tracked frames, verdicts and measures identical to the previous build. Workers can be
+  switched off (`localStorage align:workers = off`, `NO_WORKERS=1`).
+- **3D**: the batter is a solid figure (whites, blue shirt, helmet, forearms, gloves), not
+  lines; the near side lit and the far side darker so crossing limbs read in depth; the
+  centre line runs from the ground up to the top of the head.
+- **Demo illustrations**: both gloves on the handle, the top hand above the bottom hand, the
+  arms reaching them (two-bone reach keeping each arm's length).
+- **Brand**: the ALINE mark redrawn as clean vector geometry (`src/components/brand`), a 3D
+  extruded version in the landing hero, app icons and favicon from the same geometry
+  (`scripts/brand-icons.mjs`), the site in the mark's near-black and warm white (status
+  colours kept for status only), and the name shown as Aline.
+
 ## 2026-10-06 · Take a photo with the camera
 
 > capture a photo should also be an option, is that avl?
