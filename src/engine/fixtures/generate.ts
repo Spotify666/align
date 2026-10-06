@@ -265,7 +265,7 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     const nose = add(headC, [0.09, -0.02, 0.02]);
 
     const kneeDrop = s.backKneeDrop ? interp(s.backKneeDrop, t) : 0;
-    const fKnee = ik(fHip, fa, seg.thigh, seg.shank, [1, 0, 0.3]);
+    const fKnee = ik(fHip, fa, seg.thigh, seg.shank, [1, 0, -0.1]);
     let bKnee = ik(bHip, ba, seg.thigh, seg.shank, [1, 0, 0.3]);
     if (kneeDrop) bKnee = [bKnee[0] + kneeDrop * 0.4, Math.max(0.05, bKnee[1] - kneeDrop), bKnee[2]];
 

@@ -27,7 +27,7 @@ describe("1. valid front-foot defence", () => {
     expect(p.analysis_status).toBe("valid");
     expect(p.observed_shot?.label).toBe("front_foot_defence");
     expect(p.metrics.length).toBeGreaterThan(8);
-    expect(p.domains).toHaveLength(6);
+    expect(p.domains).toHaveLength(7);
     expect(p.technique_index).not.toBeNull();
     expect(Number.isInteger(p.technique_index!.value)).toBe(true);
   });
@@ -121,12 +121,12 @@ describe("5. photo-only upload", () => {
     for (const id of [...TIMING, ...BAT, "stride_length"]) expect(metric(p, id)).toBeUndefined();
   });
   it("checks the position against the front-foot defence formula", () => {
-    // The fixture is a sound defence with the head a little behind the front knee.
+    // The fixture is a sound defence with the head a little behind the front foot.
     expect(p.position_check?.verdict).toBe("mostly");
-    expect(p.position_check?.checked).toBe(7);
+    expect(p.position_check?.checked).toBe(9);
     for (const m of p.metrics) expect(m.range, m.id).not.toBeNull();
-    expect(p.metrics.filter((m) => m.inRange === false).map((m) => m.id)).toEqual(["head_knee_offset"]);
-    expect(p.priorities[0]?.metricId).toBe("head_knee_offset");
+    expect(p.metrics.filter((m) => m.inRange === false).map((m) => m.id)).toEqual(["line_head"]);
+    expect(p.priorities[0]?.metricId).toBe("line_head");
   });
 });
 
@@ -209,11 +209,11 @@ describe("10. baseline comparison", () => {
     expect(series.every((p) => p.analysis_status === "valid")).toBe(true);
     expect(baseline.established).toBe(true);
     expect(baseline.n).toBe(8);
-    expect(baseline.metrics.head_knee_offset!.sd).toBeGreaterThan(0);
+    expect(baseline.metrics.line_head!.sd).toBeGreaterThan(0);
     expect(baseline.repeatability).not.toBeNull();
   });
   it("compares against the athlete's distribution and reports uncertainty", () => {
-    const head = cmp.find((c) => c.metricId === "head_knee_offset")!;
+    const head = cmp.find((c) => c.metricId === "line_head")!;
     expect(head.reading).toBe("below your usual range");
     expect(head.uncertainty).toBeGreaterThan(0);
     expect(cmp.every((c) => Number.isFinite(c.z))).toBe(true);
@@ -224,7 +224,7 @@ describe("10. baseline comparison", () => {
     expect(compareToBaseline(current, small)).toHaveLength(0);
   });
   it("keeps personal baseline separate from coaching ranges", () => {
-    expect(metric(current, "head_knee_offset")!.range!.kind).toBe("provisional_coaching");
+    expect(metric(current, "line_head")!.range!.kind).toBe("provisional_coaching");
     expect(JSON.stringify(baseline)).not.toContain("provisional_coaching");
   });
 });

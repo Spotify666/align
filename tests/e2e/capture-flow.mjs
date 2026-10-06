@@ -42,6 +42,13 @@ while (Date.now() < deadline) {
     await browser.close();
     process.exit(0);
   }
+  // Asked who bats (two people look alike): take the suggestion, as most athletes would.
+  if (/Which one is the batter/.test(h1)) {
+    step("ASKED: which one is the batter → suggested");
+    await page.getByRole("button", { name: /Analyse this person|Follow this person/ }).click();
+    await page.waitForTimeout(500);
+    continue;
+  }
   const items = await page.locator("[aria-label='Analysis progress'] li").allInnerTexts().catch(() => []);
   for (const it of items) {
     const line = it.replace(/\s+/g, " ").trim();

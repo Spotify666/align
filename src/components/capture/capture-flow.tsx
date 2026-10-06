@@ -454,6 +454,21 @@ export function CaptureFlow() {
       at(i, v);
     }
     const s = job.current.slow;
+    // Judge the stroke itself: broadcast and edited clips open on a wide shot (the batter too
+    // small to read) and cut away to the field after the shot. Only samples from 0.8 s before
+    // to 0.6 s after the stroke's peak count (at least the five nearest it).
+    const near = times.map((t, i) => ({ t, i })).sort((a, b) => Math.abs(a.t - w.peak) - Math.abs(b.t - w.peak));
+    const keep = near
+      .filter((x, k) => (x.t >= w.peak - 0.8 && x.t <= w.peak + 0.6) || k < 5)
+      .map((x) => x.i)
+      .sort((a, b) => a - b);
+    if (keep.length < body.length) {
+      const pick = <T,>(xs: T[]) => keep.map((i) => xs[i]!);
+      body.splice(0, body.length, ...pick(body));
+      const qs = pick(quality).map((q, k) => ({ ...q, frame: k }));
+      quality.splice(0, quality.length, ...qs);
+      times.splice(0, times.length, ...pick(times));
+    }
     const probe: CaptureObservation = {
       schema: "align.observation/1",
       id: "probe",
@@ -663,6 +678,7 @@ export function CaptureFlow() {
         times.splice(0, s0);
         seen = out.body.filter((b) => bodyBox(b)).length;
         note = " · camera cut skipped";
+        out.trimmed = true;
       }
       // Camera position and batting hand from every tracked frame of the batter, not the two
       // probes read before tracking: the head says where the camera is; the grip at the
@@ -686,6 +702,7 @@ export function CaptureFlow() {
         setBowlerSide(g.bowlerSide);
       }
       out.handedness = grip ?? g?.handedness ?? j.hand ?? undefined;
+      out.sourceStartMs = (times[0] ?? 0) * 1000;
       mediaTimesRef.current = times;
       setMediaTimes(times);
       setTracking(out);

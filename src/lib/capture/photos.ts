@@ -139,6 +139,24 @@ export function batterScore(frame: PoseFrame, box: Box, aspect: number, bats: Bo
   return batterLikeness(frame.body, aspect, bats) * Math.sqrt(box.h) * centre * (joints >= ENOUGH ? 1 : 0.8);
 }
 
+/** Two skeletons of one person: most joints seen in both lie within a fifth of the body's height of each other. */
+export function sameBody(a: PoseFrame, b: PoseFrame, aspect: number): boolean {
+  const pts = (f: PoseFrame) => f.body.map((p) => (p && p[2] > 0.5 ? ([p[0] * aspect, p[1]] as const) : null));
+  const pa = pts(a);
+  const pb = pts(b);
+  const ys = pa.filter((p): p is readonly [number, number] => !!p).map((p) => p[1]);
+  if (ys.length < 6) return false;
+  const height = Math.max(...ys) - Math.min(...ys);
+  const d: number[] = [];
+  pa.forEach((p, i) => {
+    const q = pb[i];
+    if (p && q) d.push(Math.hypot(p[0] - q[0], p[1] - q[1]));
+  });
+  if (d.length < 6) return false;
+  d.sort((x, y) => x - y);
+  return d[Math.floor(d.length / 2)]! < 0.2 * height;
+}
+
 interface Found {
   frame: PoseFrame | null;
   batter: Box | null;
@@ -162,7 +180,12 @@ function findBatter(pose: PoseLandmarker, canvas: HTMLCanvasElement, people: Box
     const joints = owned ? strong(frame) : 0;
     return { box: b, frame, joints, score: owned ? batterScore(frame, b, aspect, bats) : 0 };
   });
-  const ranked = read.filter((r) => r.score > 0).sort((a, b) => b.score - a.score);
+  // A small or blurry photo can find one batter twice (the whole body, and a box around
+  // part of it): two readings of the same skeleton are one person, not a choice to ask about.
+  const ranked = read
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .filter((r, i, all) => !all.slice(0, i).some((q) => sameBody(q.frame, r.frame, aspect)));
   if (ranked[0]) {
     const top = ranked[0];
     return {

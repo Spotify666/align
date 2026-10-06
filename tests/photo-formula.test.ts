@@ -19,8 +19,8 @@ describe("front-foot defence position formula (photos)", () => {
   it("a textbook defence position meets every check", () => {
     const p = analyze(photo(ffdScript()), opts);
     expect(p.metrics.map((m) => m.id)).toEqual(POSITION_FORMULA);
-    expect(p.position_check).toMatchObject({ verdict: "matches", met: 7, checked: 7 });
-    expect(p.headline).toMatch(/all 7 checks met/);
+    expect(p.position_check).toMatchObject({ verdict: "matches", met: 9, checked: 9 });
+    expect(p.headline).toMatch(/all 9 checks met/);
     // Graded, but never a shot verdict or a score.
     expect(p.analysis_status).toBe("uncertain_shot");
     expect(p.observed_shot).toBeNull();
@@ -34,21 +34,34 @@ describe("front-foot defence position formula (photos)", () => {
   ] as const)("a %s at contact doesn't pass", (_, script) => {
     const p = analyze(photo(script), opts);
     expect(["doesnt_match", "not_on_front_foot", "partly"]).toContain(p.position_check?.verdict);
-    expect(p.position_check!.met).toBeLessThanOrEqual(4);
+    // A back-foot defence keeps its head over its feet (the line holds) but never steps forward.
+    expect(p.position_check!.met).toBeLessThanOrEqual(6);
   });
 
   it("a weak point is named and coached", () => {
     const p = analyze(photo(ffdScript({ headFwd: -0.14 })), opts);
-    expect(p.metrics.find((m) => m.id === "head_knee_offset")?.inRange).toBe(false);
-    expect(p.priorities.map((x) => x.metricId)).toContain("head_knee_offset");
+    expect(p.metrics.find((m) => m.id === "line_head")?.inRange).toBe(false);
+    expect(p.priorities.map((x) => x.metricId)).toContain("line_head");
     expect(p.plan?.drills.length).toBeGreaterThan(0);
+    // A ladder from where this result starts to match speed, with a measurable target.
+    expect(p.plan?.ladder?.length).toBeGreaterThanOrEqual(3);
+    expect(p.plan?.target).toMatch(/Head over the ball/);
   });
 
-  it("from along the pitch, posture is shown but not graded", () => {
-    const p = analyze(photo(ffdScript(), { view: "front_on" }), opts);
-    expect(p.position_check?.verdict).toBe("not_side_on");
-    expect(p.metrics.every((m) => m.inRange === null)).toBe(true);
-    expect(p.priorities).toHaveLength(0);
+  it("from along the pitch, the line is graded sideways and the rest shown, not graded", () => {
+    for (const view of ["front_on", "behind"] as const) {
+      const p = analyze(photo(ffdScript(), { view }), opts);
+      expect(p.position_check, view).toMatchObject({ front: true, verdict: "matches", met: 4, checked: 4 });
+      expect(p.headline).toMatch(/line \(photo from along the pitch\)/);
+      const graded = p.metrics.filter((m) => m.inRange !== null).map((m) => m.id);
+      expect(graded.sort()).toEqual(["balance_over_feet", "line_head", "line_knee", "line_shoulder"]);
+      for (const m of p.metrics.filter((x) => x.id.startsWith("line_"))) expect(m.axis).toBe("sideways");
+    }
+  });
+  it("from along the pitch, falling away to the leg side is caught", () => {
+    const p = analyze(photo(ffdScript({ sideLean: -25 }), { view: "front_on" }), opts);
+    expect(p.metrics.find((m) => m.id === "line_head")?.inRange).toBe(false);
+    expect(p.priorities[0]?.observation).toMatch(/leg side|falling away/);
   });
 
   it("every graded check says where its range comes from", () => {
@@ -84,7 +97,7 @@ describe("photos not taken square side-on", () => {
     const graded = p.metrics.filter((m) => m.inRange !== null).map((m) => m.id).sort();
     expect(graded).toEqual(["back_knee_extension", "front_knee_flexion", "trunk_inclination", "weight_forward"]);
     // Distances along the stride run toward the camera: not read, and says why.
-    for (const id of ["foot_spread", "head_knee_offset", "hands_ahead_of_knee"]) {
+    for (const id of ["foot_spread", "line_head", "hands_ahead_of_knee"]) {
       const m = p.metrics.find((x) => x.id === id)!;
       expect(m.status).toBe("not_measured");
       expect(m.reason).toMatch(/side-on/);
@@ -113,7 +126,7 @@ describe("direction of play and batting hand", () => {
   it("left-handed batters are checked on their own front leg", () => {
     const p = analyze(photo(ffdScript(), { handedness: "left", seed: 77 }), opts);
     expect(p.handedness).toBe("left");
-    expect(p.position_check).toMatchObject({ verdict: "matches", met: 7 });
+    expect(p.position_check).toMatchObject({ verdict: "matches", met: 9 });
   });
   it("a real defence with several checks below the textbook gets things to work on, not 'not a defence'", () => {
     const p = analyze(photo(ffdScript({ headFwd: -0.15, lean: 4, stride: 0.42 })), opts);

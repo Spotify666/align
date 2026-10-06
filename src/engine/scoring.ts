@@ -4,10 +4,10 @@
 
 import { clamp, round } from "./math";
 import { DOMAIN_LABELS, INDEX_WEIGHTS_VERSION, METRICS, th } from "./registry";
-import { coachingFor } from "./coaching";
+import { coachingFor, wordingFor } from "./coaching";
 import type { DomainResult, Finding, Metric, MetricDomain, PlanItem } from "./types";
 
-const DOMAINS: MetricDomain[] = ["setup", "footwork", "head_trunk", "sequence", "bat_contact", "outcome"];
+const DOMAINS: MetricDomain[] = ["alignment", "setup", "footwork", "head_trunk", "sequence", "bat_contact", "outcome"];
 
 export function fmt(m: Pick<Metric, "value" | "decimals" | "unit">): string {
   if (m.value === null) return "—";
@@ -102,10 +102,11 @@ export function strengthsAndPriorities(metrics: Metric[]) {
     .map(({ m }) => {
       const side = m.value! < m.range!.lo ? "low" : "high";
       const entry = coachingFor(m.id)!;
+      const w = wordingFor(entry, side, m.axis);
       return {
         metricId: m.id,
         title: m.name,
-        observation: `${entry[side].observation || `${m.name} is outside the coaching range.`} Measured ${fmt(m)} vs range ${m.range!.lo}–${m.range!.hi}.`,
+        observation: `${w.observation || `${m.name} is outside the coaching range.`} Measured ${fmt(m)} vs range ${m.range!.lo}–${m.range!.hi}.`,
         evidenceIds: [`metric_${m.id}`, ...m.evidenceIds],
       };
     });
@@ -120,12 +121,23 @@ export function buildPlan(priorities: Finding[], metrics: Metric[]): PlanItem | 
   const entry = coachingFor(top.metricId);
   if (!entry || m.value === null || !m.range) return null;
   const side = m.value < m.range.lo ? "low" : "high";
+  const w = wordingFor(entry, side, m.axis);
+  // Where to start the ladder: far outside the range, back to shadow work; just outside,
+  // straight to throw-downs. Then up a step each time a step's pass condition is met.
+  const ladder = [...entry.drills].sort((a, b) => (a.level ?? 3) - (b.level ?? 3));
+  const far = outside(m);
+  const startLevel: 1 | 2 | 3 | 4 = far >= 1 ? 1 : far >= 0.4 ? 2 : 3;
+  const from = ladder.findIndex((d) => (d.level ?? 3) >= startLevel);
+  const drills = (from >= 0 ? ladder.slice(from) : ladder).slice(0, 2);
   return {
     priority: top,
-    consequence: entry[side].consequence,
-    cue: entry[side].cue,
-    drills: entry.drills.slice(0, 2),
+    consequence: w.consequence,
+    cue: w.cue,
+    drills: drills.length ? drills : entry.drills.slice(0, 2),
     retest: entry.retest,
+    ladder,
+    startLevel: (drills[0]?.level ?? startLevel) as 1 | 2 | 3 | 4,
+    target: `${m.name}: ${m.range.lo}–${m.range.hi}${m.unit && !m.unit.startsWith("×") && m.unit !== "share of frames" ? ` ${m.unit}` : m.unit === "share of frames" ? " of the frames" : ` ${m.unit}`} (now ${fmt(m)}).`,
   };
 }
 

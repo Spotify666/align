@@ -3,12 +3,12 @@
 
 import type { Metric } from "./types";
 
-type M = Pick<Metric, "id" | "value" | "unit" | "decimals" | "range" | "inRange">;
+type M = Pick<Metric, "id" | "value" | "unit" | "decimals" | "range" | "inRange"> & { axis?: Metric["axis"] };
 
 /** One value in the measure's plain unit. */
 export function plainNumber(m: Pick<Metric, "unit" | "decimals">, v: number): string {
   if (m.unit === "× stature") return `${Math.round(v * 100)}%`;
-  if (m.unit === "0–1") return `${Math.round(v * 100)}%`;
+  if (m.unit === "0–1" || m.unit === "share of frames") return `${Math.round(v * 100)}%`;
   if (m.unit.startsWith("°")) return `${Math.round(v)}°`;
   return `${v.toFixed(m.decimals)}`;
 }
@@ -17,6 +17,7 @@ export function plainNumber(m: Pick<Metric, "unit" | "decimals">, v: number): st
 export function plainUnit(m: Pick<Metric, "unit">): string {
   if (m.unit === "× stature") return "of height";
   if (m.unit === "0–1") return "forward";
+  if (m.unit === "share of frames") return "of the time";
   if (m.unit === "° from vertical") return "from upright";
   if (m.unit.startsWith("°")) return "";
   return m.unit.replace("× stature/s", "× height/s");
@@ -30,7 +31,12 @@ const READINGS: Record<string, { ok: string; low: string; high: string }> = {
   stride_length: { ok: "Good stride to the ball", low: "Short stride", high: "Over-long stride" },
   front_knee_flexion: { ok: "Front knee bent", low: "Hips sinking below the knee", high: "Front leg too straight" },
   back_knee_extension: { ok: "Back leg long", low: "Back knee bent", high: "Back leg long" },
-  head_knee_offset: { ok: "Head over the front knee", low: "Head behind the front knee", high: "Head too far past the knee" },
+  line_head: { ok: "Head over the ball", low: "Head behind the front foot", high: "Head past the front foot" },
+  line_shoulder: { ok: "Front shoulder in the line", low: "Front shoulder held back", high: "Front shoulder over-leaning" },
+  line_knee: { ok: "Front knee over the foot", low: "Front leg propped straight", high: "Front knee collapsing past the toe" },
+  line_held: { ok: "Line held to contact", low: "Line not held to contact", high: "Line held to contact" },
+  sync_spread: { ok: "Foot, knee and shoulder together", low: "Foot, knee and shoulder together", high: "Foot, knee and shoulder out of sync" },
+  set_late: { ok: "Set before the ball arrived", low: "Set before the ball arrived", high: "Still moving at contact" },
   trunk_inclination: { ok: "Leaning into the shot", low: "Too upright", high: "Bent over too far" },
   weight_forward: { ok: "Weight on the front foot", low: "Weight back", high: "Weight too far forward" },
   hands_ahead_of_knee: { ok: "Hands ahead, bat angled down", low: "Hands behind the front pad", high: "Hands pushed out" },
@@ -41,12 +47,18 @@ const READINGS: Record<string, { ok: string; low: string; high: string }> = {
   bat_speed_contact: { ok: "Soft hands", low: "Soft hands", high: "Bat moving fast: hard hands" },
   ball_exit_speed: { ok: "Ball deadened", low: "Ball deadened", high: "Ball came off fast" },
   balance_over_feet: { ok: "Balanced over your feet", low: "Balanced over your feet", high: "Falling over" },
-  head_falling_away: { ok: "Head toward the ball", low: "Head toward the ball", high: "Head falling away" },
+};
+
+/** The line read from either end of the pitch: the same parts, sideways. */
+const SIDEWAYS: Record<string, { ok: string; low: string; high: string }> = {
+  line_head: { ok: "Head over the line of the ball", low: "Head falling away to the leg side", high: "Head reaching across to the off side" },
+  line_shoulder: { ok: "Front shoulder down the line", low: "Front shoulder opening up", high: "Front shoulder diving across" },
+  line_knee: { ok: "Front knee over the foot", low: "Front knee falling in", high: "Front knee pushed out" },
 };
 
 /** What the value means for the defence, in a few words. */
 export function plainReading(m: M & { name: string }): string {
-  const r = READINGS[m.id];
+  const r = (m.axis === "sideways" && SIDEWAYS[m.id]) || READINGS[m.id];
   if (!r || m.value === null || !m.range) return m.name;
   if (m.inRange === true) return r.ok;
   if (m.value < m.range.lo) return r.low;

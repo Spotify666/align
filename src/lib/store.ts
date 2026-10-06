@@ -14,6 +14,8 @@ export interface StoredAnalysis {
   tags: string[];
   representative: boolean;
   cloud: { syncedAt: string } | null;
+  /** Shared for comparison as a shot profile (numbers only): its id in the account. */
+  sharedProfileId?: string | null;
 }
 
 const DB = "align";
@@ -52,7 +54,7 @@ export async function saveAnalysis(a: StoredAnalysis, tracks: Uint8Array, keyfra
   });
 }
 
-export async function updateAnalysis(id: string, patch: Partial<Pick<StoredAnalysis, "title" | "notes" | "tags" | "representative" | "cloud">>) {
+export async function updateAnalysis(id: string, patch: Partial<Pick<StoredAnalysis, "title" | "notes" | "tags" | "representative" | "cloud" | "sharedProfileId">>) {
   const cur = await getAnalysis(id);
   if (!cur) return;
   await tx(["analyses"], "readwrite", (t) => {

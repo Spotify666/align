@@ -151,4 +151,65 @@ export async function deleteFromCloud(id: string) {
   }
   const { error } = await sb.from("analyses").delete().eq("id", id);
   if (error) throw error;
+  // A shared shot profile made from this analysis goes with it.
+  await sb.from("shot_profiles").delete().eq("analysis_id", id);
+}
+
+// ---------- Shot profiles: a shot's signature, shareable for comparison ----------
+
+export interface SharedProfile {
+  id: string;
+  display_name: string;
+  handedness: "right" | "left" | null;
+  skill_level: string | null;
+  axis: "forward" | "sideways" | null;
+  media: "video" | "photo";
+  signature: import("@/engine/signature").ShotSignature;
+  created_at: string;
+  analysis_id: string | null;
+  shared: boolean;
+}
+
+const PROFILE_COLUMNS = "id, display_name, handedness, skill_level, axis, media, signature, created_at, analysis_id, shared";
+
+/** Share one shot's signature (numbers only) under a chosen name. Returns the profile id. */
+export async function shareShotProfile(input: {
+  analysisId: string;
+  displayName: string;
+  handedness: "right" | "left";
+  skill: string | null;
+  signature: import("@/engine/signature").ShotSignature;
+  engineVersion: string;
+}): Promise<string> {
+  const user = await currentUser();
+  if (!user) throw new Error("Sign in first");
+  const { data, error } = await supabase()
+    .from("shot_profiles")
+    .insert({
+      analysis_id: input.analysisId,
+      display_name: input.displayName.trim().slice(0, 40),
+      handedness: input.handedness,
+      skill_level: input.skill,
+      axis: input.signature.axis,
+      media: input.signature.media,
+      signature: input.signature,
+      shared: true,
+      engine_version: input.engineVersion,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+export async function unshareShotProfile(id: string) {
+  const { error } = await supabase().from("shot_profiles").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Profiles other players shared (and this player's own), newest first. */
+export async function listShotProfiles(limit = 60): Promise<SharedProfile[]> {
+  const { data, error } = await supabase().from("shot_profiles").select(PROFILE_COLUMNS).order("created_at", { ascending: false }).limit(limit);
+  if (error) throw error;
+  return (data ?? []) as SharedProfile[];
 }

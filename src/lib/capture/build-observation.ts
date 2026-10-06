@@ -45,6 +45,10 @@ export interface TrackingResult {
   kind: "video" | "photo";
   /** Batting hand read from the grip in this clip or photo, when clear (else the profile's). */
   handedness?: "right" | "left";
+  /** Source time (ms) of the first tracked frame. */
+  sourceStartMs?: number;
+  /** A camera cut or a lost batter cut the tracked stretch short. */
+  trimmed?: boolean;
 }
 
 const lerp2 = (a: [number, number], b: [number, number], s: number): [number, number] => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s];
@@ -149,6 +153,8 @@ export function buildObservation(opts: {
       fpsSource: tr.fpsSource,
       durationMs: tr.durationMs,
       frameCount: n,
+      ...(tr.sourceStartMs !== undefined ? { sourceStartMs: Math.round(tr.sourceStartMs) } : {}),
+      ...(tr.trimmed ? { trimmed: true } : {}),
     },
     tier: opts.tier,
     athlete: { handedness: opts.handedness, heightCm: opts.heightCm },

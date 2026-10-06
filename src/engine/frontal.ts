@@ -3,8 +3,9 @@
 // in direction (a broadcast defence read as a straight front knee, the head behind the
 // knee and a lean back, where the picture shows the opposite), so measures built on it
 // are withheld, not shown. What this view does see well is sideways: whether the body stays
-// balanced over the feet and whether the head goes toward the ball or falls away. Those
-// are graded instead, against physical and anatomical limits, never any clip's readings.
+// balanced over the feet (here) and whether the head, front shoulder and front knee line up
+// over the front foot (the line: alignment.ts). Those are graded instead, against physical
+// limits and professionals' positions, never any clip's own readings.
 // (A straight bat is the bat's own tilt from vertical, graded only when the bat is
 // tracked: hands move sideways toward the line of the ball even with a straight bat.)
 
@@ -13,10 +14,10 @@ import type { Scene, SemanticJoint } from "./scene";
 import type { Metric, RangeRef } from "./types";
 
 /** Measures that rest on the forward axis: not graded when filmed along the pitch. */
-export const FRONTAL_UNGRADED = ["stride_length", "head_knee_offset", "weight_forward", "trunk_inclination", "front_knee_flexion", "head_speed_contact", "decision_timing"];
+export const FRONTAL_UNGRADED = ["stride_length", "weight_forward", "trunk_inclination", "front_knee_flexion", "head_speed_contact", "decision_timing"];
 
 /** Forward distances and in-line angles: withheld when filmed along the pitch (see above). */
-export const FRONTAL_WITHHELD = ["stride_length", "head_knee_offset", "weight_forward", "trunk_inclination", "front_knee_flexion"];
+export const FRONTAL_WITHHELD = ["stride_length", "weight_forward", "trunk_inclination", "front_knee_flexion"];
 
 /** A forward-axis measure from along the pitch, as not measured. Others unchanged. */
 export function withholdAlongPitch(m: Metric): Metric {
@@ -51,22 +52,6 @@ export const FRONTAL_METRICS: MetricDefinition[] = [
     weight: 1.1,
     direction: "lower",
   },
-  {
-    id: "head_falling_away",
-    name: "Head toward the ball",
-    domain: "head_trunk",
-    unit: "× stature",
-    decimals: 2,
-    phase: "Contact",
-    meaning: "How far your head sits on the leg side of your front foot at contact, seen from the bowler's end. 0 = over the front foot or toward the ball.",
-    relevance: "The head leads a defence toward the line of the ball; a head on the leg side of the front foot is falling away, which takes the eyes off the line and opens the bat face.",
-    // Anatomical: up to half a head width (~0.04 × stature) on the leg side, part of the
-    // head is still over the front foot.
-    range: { lo: 0, hi: 0.04 },
-    requires: ["body", "contact"],
-    weight: 1.2,
-    direction: "lower",
-  },
 ];
 
 const median = (xs: number[]) => {
@@ -88,12 +73,12 @@ function comAcross(across: (j: SemanticJoint) => number): number {
   return 0.08 * across("head") + 0.5 * (hips + shoulders) / 2 + 0.1 * shoulders + 0.2 * thighs + 0.12 * shanks;
 }
 
-/** The sideways measures, from the frames around contact. */
+/** The sideways measures, from the frames around contact (a photo: its one frame). */
 export function frontalMetrics(scene: Scene, contact: number | undefined, range: Omit<RangeRef, "lo" | "hi">): Metric[] {
   const across = scene.across;
-  if (!across || contact === undefined || !scene.dt) return [];
+  if (!across || contact === undefined) return [];
   const S = scene.stature;
-  const k = Math.max(1, Math.round(0.05 / scene.dt));
+  const k = scene.dt ? Math.max(1, Math.round(0.05 / scene.dt)) : 0;
   const around = Array.from({ length: 2 * k + 1 }, (_, o) => contact - k + o).filter((i) => i >= 0 && i < scene.n);
   const out: Metric[] = [];
   const make = (def: MetricDefinition, value: number, evidence: number[]): Metric => {
@@ -131,15 +116,5 @@ export function frontalMetrics(scene: Scene, contact: number | undefined, range:
   const balance = median(outside);
   if (Number.isFinite(balance)) out.push(make(FRONTAL_METRICS[0]!, balance, [contact]));
 
-  // Which way is the off side: toes point there from both feet in a side-on stance.
-  const toes = Array.from({ length: scene.n }, (_, i) =>
-    (["front", "back"] as const).map((side) => across(i, `${side}_foot`) - across(i, `${side}_ankle`)).filter(Number.isFinite),
-  ).flat();
-  const off = median(toes);
-  if (Number.isFinite(off) && Math.abs(off) > 0.01 * S) {
-    const legSide = around.map((i) => Math.max(0, -Math.sign(off) * (across(i, "head") - across(i, "front_ankle"))) / S);
-    const away = median(legSide);
-    if (Number.isFinite(away)) out.push(make(FRONTAL_METRICS[1]!, away, [contact]));
-  }
   return out;
 }

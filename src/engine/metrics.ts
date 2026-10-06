@@ -9,6 +9,10 @@ import { bodyCentre, type P, type Scene, type SemanticJoint, sweetSpot } from ".
 import type { DeliveryContext, Metric } from "./types";
 import type { EventSet } from "./events";
 import type { FeatureSet } from "./features";
+import { LINE_SOURCE_SIDEWAYS, type Alignment } from "./alignment";
+
+/** The line and its timing: read in the picture's own plane, so valid from any camera position. */
+export const ALIGNMENT_IDS = ["line_head", "line_shoulder", "line_knee", "line_held", "sync_spread", "set_late"];
 
 type Requirement = MetricDefinition["requires"][number];
 
@@ -33,6 +37,8 @@ export interface MetricContext {
   tier: "quick" | "session3d" | "lab";
   /** Photo posture screen: treat this frame as the reference moment (never called "contact"). */
   postureFrame?: number;
+  /** The line at contact and how it formed (see alignment.ts). */
+  alignment?: Alignment | null;
 }
 
 function avail(ctx: MetricContext): Record<Requirement, boolean> {
@@ -68,6 +74,8 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
   const S = scene.stature;
   const contact = events.byType.contact;
   const cf = ctx.postureFrame ?? contact?.frame ?? features.refFrame;
+  // Contact not seen: measures are taken at the set position the ball was met from.
+  const atSet = ctx.postureFrame === undefined && ctx.alignment?.referenceKind === "set";
   const twoD = !scene.depth;
   const evidence = (...ids: (string | undefined)[]) => ids.filter((x): x is string => !!x);
 
@@ -86,7 +94,7 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
       unit: def.unit,
       decimals: def.decimals,
       confidence: 0,
-      phase: def.phase,
+      phase: atSet && def.phase === "Contact" ? "Set position" : def.phase,
       meaning: def.meaning,
       relevance: def.relevance,
       range: def.range ? { ...def.range, ...RANGE_SOURCE, ...(def.basis ? { source: def.basis } : {}) } : null,
@@ -97,6 +105,10 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
       out.push({ ...base, reason: `Not measured: ${REQUIREMENT_TEXT[missing[0]!]}.` });
       continue;
     }
+    const al = ctx.alignment ?? null;
+    const sideways = al?.axis === "sideways";
+    const range = sideways && def.rangeSideways ? def.rangeSideways : def.range;
+    if (range !== def.range) base.range = range ? { ...range, ...RANGE_SOURCE, source: LINE_SOURCE_SIDEWAYS } : null;
 
     let value = NaN;
     let unc = NaN;
@@ -203,15 +215,49 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
         }
         break;
       }
-      case "head_knee_offset": {
-        const hd = at(scene, "head", cf);
-        const k = at(scene, "front_knee", cf);
-        if (hd && k) {
-          value = (hd.f - k.f) / S;
-          unc = (Math.SQRT2 * posSigma(scene, Math.min(hd.c, k.c))) / S;
-          conf = Math.min(hd.c, k.c);
-          ev = evidence(contact?.id, `frame_${cf}`);
+      case "line_head":
+      case "line_shoulder":
+      case "line_knee": {
+        const part = def.id.slice(5) as "head" | "shoulder" | "knee";
+        if (!al) break;
+        if (part === "head" && al.sideUnclear) {
+          limitation = "Which side is the off side isn't clear (your batting hand and your toes disagree), so the head's side is shown, not graded.";
         }
+        value = al.atContact[part];
+        const joint = part === "head" ? "head" : part === "shoulder" ? "front_shoulder" : "front_knee";
+        const p = at(scene, joint, cf);
+        const c = p?.c ?? 0.6;
+        unc = (Math.SQRT2 * posSigma(scene, c)) / S;
+        conf = c;
+        ev = evidence(contact?.id, `frame_${cf}`);
+        break;
+      }
+      case "line_held": {
+        if (!al || al.held === null) break;
+        value = al.held;
+        // One frame either way of the landing moves the share by about one frame's worth.
+        unc = 1 / Math.max(al.heldFrames, 1);
+        conf = 0.75;
+        ev = evidence(events.byType.front_foot_plant?.id, contact?.id);
+        if (al.referenceKind === "contact" && (al.arrivals?.foot.ms ?? 0) > 0) limitation = "Your front foot was still landing at contact, so the line was never set before the ball arrived.";
+        if (al.referenceKind === "set") limitation = "Bat and ball not seen: held from the front foot's landing to the set position the ball was met from.";
+        break;
+      }
+      case "sync_spread": {
+        if (!al || al.spreadMs === null) break;
+        value = al.spreadMs;
+        unc = 2 * (scene.dt ?? 0) * 1000;
+        conf = 0.7;
+        ev = evidence(contact?.id);
+        break;
+      }
+      case "set_late": {
+        if (!al || al.latestMs === null) break;
+        value = Math.max(0, al.latestMs);
+        // One frame for the arrival, plus the contact estimate (two frames when it is read from the hands).
+        unc = ((contact && contact.confidence >= 0.65 ? 1 : 3) * (scene.dt ?? 0)) * 1000;
+        conf = Math.min(0.7, contact?.confidence ?? 0.5);
+        ev = evidence(contact?.id);
         break;
       }
       case "head_speed_contact": {
@@ -328,7 +374,12 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
       out.push({ ...base, reason: "Not measured: the required landmarks were not visible at the needed frames." });
       continue;
     }
-    if (scene.plane === "frontal" && def.requires.includes("body")) {
+    if (sideways && def.id === "line_head" && al?.sideUnclear) {
+      const v = round(value, def.decimals + 1);
+      out.push({ ...base, status: "estimated", value: v, uncertainty: null, confidence: round(clamp(conf, 0, 1), 2), range: null, inRange: null, evidenceIds: ev, limitation });
+      continue;
+    }
+    if (scene.plane === "frontal" && def.requires.includes("body") && !ALIGNMENT_IDS.includes(def.id)) {
       estimated = true;
       limitation = [limitation, "Filmed along the pitch: forward distances come from a 3D pose estimate."].filter(Boolean).join(" ");
     }
@@ -338,11 +389,12 @@ export function computeMetrics(ctx: MetricContext): Metric[] {
     const v = round(value, def.decimals + 1);
     out.push({
       ...base,
+      ...(ALIGNMENT_IDS.slice(0, 3).includes(def.id) && al ? { axis: al.axis } : {}),
       status: estimated ? "estimated" : "measured",
       value: v,
       uncertainty: Number.isFinite(unc) ? round(Math.max(unc, 10 ** -def.decimals), def.decimals + 1) : null,
       confidence: round(clamp(conf, 0, 1), 2),
-      inRange: def.range ? v >= def.range.lo && v <= def.range.hi : null,
+      inRange: range ? v >= range.lo && v <= range.hi : null,
       evidenceIds: ev,
       limitation,
     });

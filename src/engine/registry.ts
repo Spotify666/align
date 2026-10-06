@@ -5,9 +5,10 @@
 
 import { canonicalJson, sha256 } from "./math";
 import { FRONTAL_METRICS } from "./frontal";
+import { LINE_BANDS, LINE_SOURCE } from "./alignment";
 
-export const ENGINE_VERSION = "0.5.2";
-export const METRIC_VERSION = "ffd-0.5.0";
+export const ENGINE_VERSION = "0.6.0";
+export const METRIC_VERSION = "ffd-0.6.0";
 export const CLASSIFIER_VERSION = "prototype-bands-0.5.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
 
@@ -24,7 +25,7 @@ export const THRESHOLDS = {
   "capture.min_batter_px": { value: 250, unit: "px standing height", rationale: "Below this a thigh spans under ~60 px, so a 2 px landmark error moves a joint angle by about 3°." },
   "capture.fail_batter_px": { value: 100, unit: "px standing height", rationale: "Below this a thigh spans about 25 px: joint angles are uncertain by 6° or more, too coarse to grade." },
   "capture.min_fps_timing": { value: 60, unit: "fps", rationale: "At 60 fps one frame is ~17 ms; below that contact and timing windows are coarser than the movements they describe." },
-  "capture.min_fps_any": { value: 24, unit: "fps", rationale: "Below 24 fps a bat swing spans only a few frames." },
+  "capture.min_fps_any": { value: 15, unit: "fps", rationale: "Below 15 fps a defence spans too few frames to find the stroke. Real defences re-tracked at 15 and 10 fps kept the same verdict; timing is reported with one frame of uncertainty." },
   "capture.min_duration_ms": { value: 1200, unit: "ms", rationale: "Needs setup, delivery and follow-through in one clip." },
   "capture.min_body_coverage": { value: 0.85, unit: "fraction", rationale: "Batter must be visible in most frames." },
   "capture.fail_body_coverage": { value: 0.5, unit: "fraction", rationale: "Batter missing from half the clip." },
@@ -53,6 +54,9 @@ export const THRESHOLDS = {
   "ffd.accept.max_unknown": { value: 0.1, unit: "probability", rationale: "Out-of-distribution mass must be small." },
   "ffd.accept.min_evidence_coverage": { value: 0.75, unit: "fraction", rationale: "Most discriminative features must be observed." },
   "stroke.min_hand_speed": { value: 0.6, unit: "× stature/s", rationale: "Below this peak hand speed, and without a front-foot stride, no batting stroke was played (a still pose, someone standing in shot)." },
+  "ffd.min_head_drop": { value: 0.05, unit: "× stature", rationale: "A front-foot defence goes forward and down into the ball: the head drops, or the hips do as the front knee bends (either is enough: a beginner may stay upright or keep the leg straight). Real defences lowered the head 0.17–0.39 × height; a stance and backlift with no stroke, 0.03." },
+  "ffd.min_hip_drop": { value: 0.03, unit: "× stature", rationale: "Hips: real defences 0.10–0.23 × height; a stance and backlift 0.02; back-foot shots about 0." },
+  "stroke.max_zoom_for_rejection": { value: 1.8, unit: "× size change", rationale: "Broadcast clips that zoomed 2.3–2.4× during the stroke were classified correctly only 2 times in 3 (a defence read as a drive). Past this zoom no different shot is named; the result is uncertain instead." },
   "stroke.min_stride": { value: 0.12, unit: "× stature", rationale: "A front-foot movement this large counts as a stroke even when the hands are hidden." },
   "ffd.accept_body.min_probability": { value: 0.8, unit: "probability", rationale: "Bat or ball not seen: the same probability bar as full evidence, plus a wider margin, near-complete body evidence and a fully visible contact." },
   "ffd.accept_body.min_margin": { value: 0.5, unit: "probability", rationale: "Without the bat, a defence must beat the drive and every other shot by a wide margin (full evidence: 0.3)." },
@@ -83,13 +87,15 @@ const ADULT = "Adult club-level batters, medium pace, side-on capture";
 export interface MetricDefinition {
   id: string;
   name: string;
-  domain: "setup" | "footwork" | "head_trunk" | "sequence" | "bat_contact" | "outcome";
+  domain: "alignment" | "setup" | "footwork" | "head_trunk" | "sequence" | "bat_contact" | "outcome";
   unit: string;
   decimals: number;
   phase: string;
   meaning: string;
   relevance: string;
   range: { lo: number; hi: number } | null;
+  /** Filmed or photographed along the pitch, the line is read sideways, against this range. */
+  rangeSideways?: { lo: number; hi: number };
   /** "side_view": needs the forward axis in the image plane (side-on camera). */
   requires: Array<"body" | "bat" | "ball" | "depth" | "timing" | "scale" | "contact" | "bounce" | "baseline" | "side_view">;
   /** Weight in the secondary technique index, 0 = excluded. */
@@ -103,6 +109,104 @@ export interface MetricDefinition {
 }
 
 export const METRICS: MetricDefinition[] = [
+  // The line: front shoulder, head and front knee over the front foot from landing to
+  // contact, arriving together. The defence's defining position, in any camera position.
+  {
+    id: "line_head",
+    name: "Head over the ball",
+    domain: "alignment",
+    unit: "× stature",
+    decimals: 2,
+    phase: "Contact",
+    meaning: "Where your head is relative to your front ankle at contact. Side-on: how far forward of it (toward the bowler). From either end of the pitch: how far toward the off side of it, over the line of the ball.",
+    relevance: "The head leads the line. Over the ball, the eyes see its last movement and the bat comes down under them; behind it or falling away, the bat follows the head off the line.",
+    range: { lo: LINE_BANDS.forward.head[0], hi: LINE_BANDS.forward.head[1] },
+    rangeSideways: { lo: LINE_BANDS.sideways.head[0], hi: LINE_BANDS.sideways.head[1] },
+    requires: ["body", "contact"],
+    weight: 1.4,
+    direction: "band",
+    basis: LINE_SOURCE,
+  },
+  {
+    id: "line_shoulder",
+    name: "Front shoulder in the line",
+    domain: "alignment",
+    unit: "× stature",
+    decimals: 2,
+    phase: "Contact",
+    meaning: "Where your front shoulder is relative to your front ankle at contact (side-on: forward of it; from either end: toward the off side of it).",
+    relevance: "The front shoulder leads the body into the line of the ball and stays over the front foot; a shoulder left behind or swinging away pulls the bat across the line.",
+    range: { lo: LINE_BANDS.forward.shoulder[0], hi: LINE_BANDS.forward.shoulder[1] },
+    rangeSideways: { lo: LINE_BANDS.sideways.shoulder[0], hi: LINE_BANDS.sideways.shoulder[1] },
+    requires: ["body", "contact"],
+    weight: 1.3,
+    direction: "band",
+    basis: LINE_SOURCE,
+  },
+  {
+    id: "line_knee",
+    name: "Front knee over the front foot",
+    domain: "alignment",
+    unit: "× stature",
+    decimals: 2,
+    phase: "Contact",
+    meaning: "Where your front knee is relative to your front ankle at contact (side-on: forward of it; from either end: toward the off side of it).",
+    relevance: "The knee over the foot is the base of the line: it takes the weight forward and lets the head go over the ball without falling.",
+    range: { lo: LINE_BANDS.forward.knee[0], hi: LINE_BANDS.forward.knee[1] },
+    rangeSideways: { lo: LINE_BANDS.sideways.knee[0], hi: LINE_BANDS.sideways.knee[1] },
+    requires: ["body", "contact"],
+    weight: 1.1,
+    direction: "band",
+    basis: LINE_SOURCE,
+  },
+  {
+    id: "line_held",
+    name: "Held in line to contact",
+    domain: "alignment",
+    unit: "share of frames",
+    decimals: 2,
+    phase: "Front-foot landing → contact",
+    meaning: "From the moment your front foot lands until the bat meets the ball, the share of frames in which your head, front shoulder and front knee are all in line over the front foot.",
+    relevance: "The line has to be there when the ball arrives, not just pass through it: a line that is still forming at contact means the head or the shoulder is still moving as you play.",
+    range: { lo: 0.7, hi: 1 },
+    requires: ["body", "contact"],
+    weight: 1.2,
+    direction: "higher",
+    only: "video",
+    basis: "Coaching: the head and front shoulder lead into the line and hold it until contact. Provisional threshold.",
+  },
+  {
+    id: "sync_spread",
+    name: "Foot, knee and shoulder together",
+    domain: "alignment",
+    unit: "ms",
+    decimals: 0,
+    phase: "Stride → contact",
+    meaning: "The time between the first and the last of your front foot, front knee and front shoulder arriving in their set position. The knee arrives when it has taken your weight: when your hips stop lowering.",
+    relevance: "The three move as one: the foot lands as the knee takes the weight and the shoulder arrives over it. One arriving well before or after the others breaks the line.",
+    range: { lo: 0, hi: 150 },
+    requires: ["body", "contact"],
+    weight: 1,
+    direction: "lower",
+    only: "video",
+    basis: "Coaching: front foot, front knee and front shoulder arrive together. Provisional threshold: 150 ms is about one stride's settling time; one frame of measurement error each.",
+  },
+  {
+    id: "set_late",
+    name: "Set before the ball arrives",
+    domain: "alignment",
+    unit: "ms",
+    decimals: 0,
+    phase: "Contact",
+    meaning: "How long after contact the last of your front foot, front knee and front shoulder was still moving into position. 0 = all set before the bat met the ball.",
+    relevance: "Skilled batters land the front foot and settle before contact; still arriving as the ball is played means the position is set by the ball, not by you.",
+    range: { lo: 0, hi: 70 },
+    requires: ["body", "contact"],
+    weight: 1,
+    direction: "lower",
+    only: "video",
+    basis: "Skilled batters' front foot lands just before contact. Allowance: about two frames at 30 fps for the contact estimate. Provisional.",
+  },
   {
     id: "decision_timing",
     name: "Decision timing",
@@ -193,21 +297,6 @@ export const METRICS: MetricDefinition[] = [
     weight: 1,
     direction: "band",
     basis: "Coaching: weight over the front knee. Skilled batters keep their centre of mass further forward at contact (Taliep et al., 2007). Provisional numbers.",
-  },
-  {
-    id: "head_knee_offset",
-    name: "Head over front knee",
-    domain: "head_trunk",
-    unit: "× stature",
-    decimals: 2,
-    phase: "Contact",
-    meaning: "Forward distance of the head relative to the front knee. Positive = head ahead of knee.",
-    relevance: "Head level with or slightly ahead of the front knee keeps the bat face over the ball.",
-    range: { lo: -0.03, hi: 0.09 },
-    requires: ["body", "contact"],
-    weight: 1.3,
-    direction: "band",
-    basis: "Coaching: head over the front knee, eyes over the ball. Skilled batters' heads are further forward (Taliep et al., 2007). Provisional numbers.",
   },
   {
     id: "head_speed_contact",
@@ -357,6 +446,7 @@ export const METRICS: MetricDefinition[] = [
 export const RANGE_SOURCE = { kind: "provisional_coaching" as const, cohort: ADULT, source: PROVISIONAL };
 
 export const DOMAIN_LABELS: Record<MetricDefinition["domain"], string> = {
+  alignment: "The line and its timing",
   setup: "Setup and perception",
   footwork: "Footwork and base",
   head_trunk: "Head and trunk control",
@@ -365,7 +455,7 @@ export const DOMAIN_LABELS: Record<MetricDefinition["domain"], string> = {
   outcome: "Outcome and repeatability",
 };
 
-export const INDEX_WEIGHTS_VERSION = "index-weights-0.1.0";
+export const INDEX_WEIGHTS_VERSION = "index-weights-0.2.0";
 
 export const REGISTRY_HASH = sha256(
   canonicalJson({

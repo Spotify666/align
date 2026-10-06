@@ -33,7 +33,7 @@ export default function DesignSystemPage() {
   const valid = sampleAnalysis("valid_ffd")!.payload;
   const pull = sampleAnalysis("pull")!.payload;
   const failed = sampleAnalysis("capture_failed")!.payload;
-  const metric = valid.metrics.find((m) => m.id === "head_knee_offset")!;
+  const metric = valid.metrics.find((m) => m.id === "line_head")!;
   const nm = valid.metrics.find((m) => m.status === "not_measured")!;
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 space-y-14">
