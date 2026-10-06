@@ -42,8 +42,16 @@ Done:
   old build too).
 - **Open**: tracking (the full pose model on every frame of the shot, in order) is now most
   of the time and can't be split without changing results; on a budget phone a long net clip
-  can still take over a minute. Odd-sized videos (e.g. 240×427) use the playback fallback,
-  which isn't repeatable run to run.
+  can still take over a minute.
+
+> fix the odd-sized videos too
+
+Done: videos whose pixels aren't quite square (a pixel-aspect box like 426:427, so a 240×426
+file shows as 240×427) used to fail the decoder's size check and fall back to playing the
+video, which isn't repeatable. The decoder now sizes frames exactly as the player does
+(stretching one side, never shrinking), so they take the exact path: two runs of each of the
+three such test clips give identical tracks, with the same verdicts as before, and faster
+(the 15 fps clip 53 → 21 s). Files with square pixels (all phone recordings) are untouched.
 - **3D**: the batter is a solid figure (whites, blue shirt, helmet, forearms, gloves), not
   lines; the near side lit and the far side darker so crossing limbs read in depth; the
   centre line runs from the ground up to the top of the head.

@@ -105,8 +105,15 @@ export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
     const rot = ((Math.round((Math.atan2(m[1]! / 65536, m[0]! / 65536) * 180) / Math.PI / 90) * 90) % 360 + 360) % 360;
     const cw = track.video?.width ?? 0;
     const ch = track.video?.height ?? 0;
-    const width = rot === 90 || rot === 270 ? ch : cw;
-    const height = rot === 90 || rot === 270 ? cw : ch;
+    // Pixels that aren't quite square (the file's pixel aspect ratio): stretch one side, never
+    // shrink the other, exactly as the player sizes the picture, so the frames are the
+    // player's display size (a 240×426 file with a 426:427 pixel aspect shows as 240×427).
+    const pasp = (trak.mdia.minf.stbl.stsd.entries[0] as { pasp?: { hSpacing: number; vSpacing: number } }).pasp;
+    const par = pasp && pasp.hSpacing > 0 && pasp.vSpacing > 0 ? pasp.hSpacing / pasp.vSpacing : 1;
+    const dw = par > 1 ? Math.round(cw * par) : cw;
+    const dh = par < 1 ? Math.round(ch / par) : ch;
+    const width = rot === 90 || rot === 270 ? dh : dw;
+    const height = rot === 90 || rot === 270 ? dw : dh;
     // A page canvas on the page (as always), an offscreen one in a worker.
     const canvas = makeCanvas(width, height);
     const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
@@ -143,7 +150,7 @@ export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
         ctx.save();
         ctx.translate(width / 2, height / 2);
         ctx.rotate((rot * Math.PI) / 180);
-        ctx.drawImage(vf, -cw / 2, -ch / 2, cw, ch);
+        ctx.drawImage(vf, -dw / 2, -dh / 2, dw, dh);
         ctx.restore();
       };
       // wait mode: frames queue here and are painted and handed over one at a time.
