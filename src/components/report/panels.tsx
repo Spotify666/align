@@ -84,13 +84,17 @@ export function DomainGrid({ domains }: { domains: DomainResult[] }) {
   );
 }
 
+const LEVELS = ["Shadow", "Tee or dropped ball", "Throw-downs", "Machine or live"] as const;
+
 export function PriorityPlan({ plan }: { plan: PlanItem }) {
+  const ladder = plan.ladder?.length ? plan.ladder : plan.drills;
+  const start = plan.startLevel ?? 1;
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
+    <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
       <div className="card p-5">
         <p className="eyebrow">Primary practice focus</p>
         <h3 className="display text-3xl mt-2">{plan.priority.title}</h3>
-        <p className="mt-3 text-fg-muted">{plan.priority.observation}</p>
+        <p className="mt-3 text-fg-muted">{plan.priority.observation.replace(/\s*Measured .*$/, "")}</p>
         <p className="mt-3 text-sm text-fg-muted">
           <span className="text-fg font-medium">Likely effect: </span>
           {plan.consequence}
@@ -98,25 +102,52 @@ export function PriorityPlan({ plan }: { plan: PlanItem }) {
         <p className="mt-4 rounded-lg border border-brand/40 bg-brand/5 p-3 text-lg">
           <span className="eyebrow block mb-1">Cue</span>“{plan.cue}”
         </p>
-        <p className="mt-4 text-sm text-fg-subtle">Retest: {plan.retest}</p>
+        {plan.target && (
+          <p className="mt-4 text-sm">
+            <span className="font-medium">Target: </span>
+            <span className="text-fg-muted">{plan.target.replaceAll("× stature", "× your height")}</span>
+          </p>
+        )}
+        <p className="mt-2 text-sm text-fg-subtle">Retest: {plan.retest}</p>
       </div>
-      <ol className="flex flex-col gap-3">
-        {plan.drills.map((d, i) => (
-          <li key={d.id} id={d.id} className="card p-4">
-            <p className="num text-xs text-fg-subtle">DRILL {i + 1}</p>
-            <h4 className="mt-1 font-semibold">{d.name}</h4>
-            <p className="mt-1 text-sm text-fg-muted">{d.constraint}</p>
-            <dl className="mt-3 grid grid-cols-[5.5rem_1fr] gap-y-1 text-sm">
-              <dt className="text-fg-subtle">Dosage</dt>
-              <dd className="num">{d.dosage}</dd>
-              <dt className="text-fg-subtle">Pass when</dt>
-              <dd>{d.passCondition}</dd>
-              <dt className="text-fg-subtle">Cue</dt>
-              <dd>{d.cue}</dd>
-            </dl>
-          </li>
-        ))}
-      </ol>
+      <div className="card p-5">
+        <p className="eyebrow">Your path to a perfect defence</p>
+        <p className="mt-1 text-sm text-fg-muted">
+          Start at the highlighted step. Move up a step only when you pass it, then film again.
+        </p>
+        <ol className="mt-4 space-y-3" aria-label="Drill progression">
+          {ladder.map((d) => {
+            const level = d.level ?? 3;
+            const here = level === start;
+            const done = level < start;
+            return (
+              <li key={d.id} id={d.id} className={`relative rounded-xl border p-3.5 pl-12 ${here ? "border-brand bg-brand/5" : "border-line"} ${done ? "opacity-60" : ""}`}>
+                <span
+                  className={`absolute left-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold num ${here ? "bg-brand text-brand-fg" : "bg-line text-fg-muted"}`}
+                  aria-hidden
+                >
+                  {level}
+                </span>
+                <p className="text-xs text-fg-subtle">
+                  {LEVELS[level - 1]}
+                  {here && <span className="ml-2 font-semibold text-brand">Start here</span>}
+                  {done && <span className="ml-2">(already past this)</span>}
+                </p>
+                <h4 className="mt-0.5 font-semibold">{d.name}</h4>
+                <p className="mt-1 text-sm text-fg-muted">{d.constraint}</p>
+                <dl className="mt-2 grid grid-cols-[5rem_1fr] gap-y-1 text-sm">
+                  <dt className="text-fg-subtle">Dosage</dt>
+                  <dd className="num">{d.dosage}</dd>
+                  <dt className="text-fg-subtle">Pass when</dt>
+                  <dd>{d.passCondition}</dd>
+                  <dt className="text-fg-subtle">Cue</dt>
+                  <dd>“{d.cue}”</dd>
+                </dl>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
     </div>
   );
 }

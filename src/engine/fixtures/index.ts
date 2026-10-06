@@ -31,9 +31,11 @@ export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: nu
     hipC: [
       [0, [0.95, 0.88, 0.02]],
       [0.5, [0.95, 0.88, 0.02]],
-      [0.78, [1.2 + stride * 0.25, 0.84 - (v.hipDrop ?? 0.06), 0.04]],
-      [0.86, [1.24 + stride * 0.28, 0.82 - (v.hipDrop ?? 0.06), 0.05]],
-      [2, [1.24 + stride * 0.28, 0.83 - (v.hipDrop ?? 0.06), 0.05]],
+      // Hips between the feet, the front shoulder over the front foot and the head over the
+      // line of the ball, as in professionals' defences (KU CricShot 3D, see alignment.ts).
+      [0.78, [1.2 + stride * 0.25, 0.84 - (v.hipDrop ?? 0.06), 0.01]],
+      [0.86, [1.215 + stride * 0.28, 0.82 - (v.hipDrop ?? 0.06), 0.015]],
+      [2, [1.215 + stride * 0.28, 0.83 - (v.hipDrop ?? 0.06), 0.015]],
     ],
     lean: [
       [0, 8],
@@ -44,8 +46,8 @@ export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: nu
     sideLean: [
       [0, 12],
       [0.5, 12],
-      [0.84, v.sideLean ?? 10],
-      [2, v.sideLean ?? 10],
+      [0.84, v.sideLean ?? 4],
+      [2, v.sideLean ?? 4],
     ],
     shoulderYaw: [
       [0, 0],
@@ -367,7 +369,7 @@ export function halfDriveScript(): ShotScript {
 // ---------- Fixture definitions ----------
 
 /** The athlete's "current attempt": head arrives slightly behind the front knee. */
-const ATTEMPT = { headFwd: -0.02 };
+const ATTEMPT = { headFwd: -0.08 };
 
 export interface FixtureSpec {
   key: string;

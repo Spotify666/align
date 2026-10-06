@@ -17,6 +17,7 @@ const base = ({ size = 18, ...p }: P) => ({
 export const Check = (p: P) => (<svg {...base(p)}><path d="M5 12.5l4.2 4.2L19 7" /></svg>);
 export const Cross = (p: P) => (<svg {...base(p)}><path d="M6 6l12 12M18 6L6 18" /></svg>);
 export const Question = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 014.8.9c0 1.7-2.4 2.1-2.4 3.6" /><path d="M12 17h.01" /></svg>);
+export const Camera = (p: P) => (<svg {...base(p)}><path d="M9.5 5h5l1.5 2H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2h3z" /><circle cx="12" cy="13" r="3.5" /></svg>);
 export const CameraOff = (p: P) => (<svg {...base(p)}><path d="M3 3l18 18" /><path d="M9.5 5H15l1.5 2H19a2 2 0 012 2v8m-2.6 2H5a2 2 0 01-2-2V9a2 2 0 012-2h1" /><path d="M10 10.2a3 3 0 004 4" /></svg>);
 export const Swap = (p: P) => (<svg {...base(p)}><path d="M7 4L3 8l4 4" /><path d="M3 8h13a4 4 0 014 4" /><path d="M17 20l4-4-4-4" /><path d="M21 16H8a4 4 0 01-4-4" /></svg>);
 export const Info = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>);

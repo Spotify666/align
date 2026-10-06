@@ -18,15 +18,16 @@ import {
   REGISTRY_HASH,
   th,
 } from "./registry";
-import { FRONTAL_UNGRADED, frontalMetrics, withholdAlongPitch } from "./frontal";
+import { FRONTAL_METRICS, FRONTAL_UNGRADED, frontalMetrics, withholdAlongPitch } from "./frontal";
 import { assessCapture, bodyCoverage } from "./quality";
 import { buildScene } from "./scene";
 import { handsSeries, segmentEvents } from "./events";
 import { estimateDelivery } from "./delivery";
 import { extractFeatures } from "./features";
 import { classify, leadingAlternative, SHOT_DISPLAY, type Classification } from "./classify";
-import { computeMetrics } from "./metrics";
-import { buildPlan, domainResults, strengthsAndPriorities, techniqueIndex } from "./scoring";
+import { ALIGNMENT_IDS, computeMetrics } from "./metrics";
+import { lineSummary, measureAlignment, type Alignment } from "./alignment";
+import { buildPlan, domainResults, nextLevelPlan, strengthsAndPriorities, techniqueIndex } from "./scoring";
 import type {
   AnalysisPayload,
   AnalysisStatus,
@@ -205,8 +206,42 @@ function strokePlayed(scene: ReturnType<typeof buildScene>, stride: number | und
   return peak / scene.stature >= th("stroke.min_hand_speed") || (stride ?? 0) >= th("stroke.min_stride");
 }
 
+/**
+ * How far the head and the hips went down from the stance (× stature), up to `upTo`: a
+ * front-foot defence bends the front knee and takes the head down over the ball. Standing
+ * height: the tallest the batter stood before the stroke (85th percentile, so one bad frame
+ * can't set it); lowest: around the reference moment (3-frame medians).
+ */
+export function lowering(scene: ReturnType<typeof buildScene>, ref: number): { head: number; hips: number } {
+  const S = scene.stature;
+  const dt = scene.dt ?? 1 / 30;
+  const head = (i: number) => (scene.inPicture(i, "head")?.[1] ?? NaN) / S;
+  const hips = (i: number) => {
+    const a = scene.inPicture(i, "front_hip");
+    const b = scene.inPicture(i, "back_hip");
+    return a && b ? (a[1] + b[1]) / 2 / S : NaN;
+  };
+  const q = (xs: number[], p: number) => {
+    const v = xs.filter(Number.isFinite).sort((a, b) => a - b);
+    return v.length ? v[Math.min(v.length - 1, Math.floor(v.length * p))]! : NaN;
+  };
+  const drop = (sig: (i: number) => number) => {
+    const before = Array.from({ length: Math.max(1, ref + 1) }, (_, i) => sig(i));
+    const tall = q(before, 0.85);
+    let low = Infinity;
+    for (let i = Math.max(1, ref - Math.round(0.2 / dt)); i <= Math.min(scene.n - 2, ref + Math.round(0.3 / dt)); i++) {
+      const m = q([sig(i - 1), sig(i), sig(i + 1)], 0.5);
+      if (Number.isFinite(m)) low = Math.min(low, m);
+    }
+    return Number.isFinite(tall) && Number.isFinite(low) ? tall - low : NaN;
+  };
+  return { head: drop(head), hips: drop(hips) };
+}
+
 const UNCERTAIN_TEXT: Record<string, string> = {
   no_stroke: "no batting stroke was found in the clip",
+  no_lowering: "the batter's head and hips didn't go forward and down into the ball, as they do in a defence, in this part of the clip",
+  camera_zoom: "the camera zoomed in during the stroke, and a zoom makes a stride and a follow-through look like a drive",
   contact_hidden: "the moment the bat meets the ball is hidden, so the shot can't be decided",
   body_hidden: "without the bat or ball in view the shot is read from the body, and the hands or legs are hidden for too much of the stroke",
   body_inconclusive: "without the bat or ball in view, the body movement alone fits more than one shot",
@@ -231,14 +266,19 @@ const EMPTY_DELIVERY: AnalysisPayload["delivery"] = {
 };
 
 /** Body observations safe to show without a shot verdict: no bat, ball or timing. */
-const OBSERVATION_IDS = ["stride_length", "front_knee_flexion", "head_knee_offset", "trunk_inclination", "weight_forward"];
+const OBSERVATION_IDS = ["line_head", "line_shoulder", "line_knee", "line_held", "sync_spread", "stride_length", "front_knee_flexion", "trunk_inclination", "weight_forward"];
 /**
  * The front-foot defence position formula: every check one side-on frame can measure.
  * Photos are graded against it; the shot itself (timing, bat path, ball) needs a video.
  */
-export const POSITION_FORMULA = ["foot_spread", "front_knee_flexion", "back_knee_extension", "head_knee_offset", "trunk_inclination", "weight_forward", "hands_ahead_of_knee"];
-// Filmed along the pitch, forward distances and leg angles are foreshortened: shown, not graded.
-const POSTURE_IDS = ["front_knee_flexion", "head_knee_offset", "trunk_inclination"];
+export const POSITION_FORMULA = ["line_head", "line_shoulder", "line_knee", "foot_spread", "front_knee_flexion", "back_knee_extension", "trunk_inclination", "weight_forward", "hands_ahead_of_knee"];
+/**
+ * From either end of the pitch a photo shows the line sideways: head over the line of the
+ * ball, front shoulder and knee over the front foot, weight over the feet. Graded on those.
+ * Forward distances and leg angles are foreshortened there: shown, not graded.
+ */
+export const FRONT_FORMULA = ["line_head", "line_shoulder", "line_knee", "balance_over_feet"];
+const POSTURE_IDS = ["front_knee_flexion", "trunk_inclination"];
 
 /** Strip coaching ranges so an observation can't be read as a grade. */
 function ungraded(ms: Metric[]): Metric[] {
@@ -282,42 +322,46 @@ function single(obs: CaptureObservation, i: number): CaptureObservation {
  */
 const ANGLED_FORMULA = ["front_knee_flexion", "back_knee_extension", "trunk_inclination", "weight_forward"];
 
-function positionFromPhoto(photo: CaptureObservation, frame: number): { metrics: Metric[]; sideOn: boolean; angled: boolean } {
+function positionFromPhoto(photo: CaptureObservation, frame: number): { metrics: Metric[]; sideOn: boolean; angled: boolean; front: boolean; alignment: Alignment | null } {
   const angled = photo.camera.view === "oblique";
   const read = computeMetricsSafe(photo);
   const { metrics } = read;
   const sideOn = read.sideOn;
-  const ids = sideOn ? POSITION_FORMULA : POSTURE_IDS;
+  const front = !sideOn && (photo.camera.view === "front_on" || photo.camera.view === "behind");
+  const ids = sideOn ? POSITION_FORMULA : front ? [...FRONT_FORMULA, ...POSTURE_IDS] : POSTURE_IDS;
   const out = ids.map((id) => {
     const m = metrics.find((x) => x.id === id);
     if (angled && !ANGLED_FORMULA.includes(id)) return notVisible(id, "Needs a side-on photo: from this angle the stride runs toward the camera, so this distance can't be read.");
     if (!m || m.status === "not_measured") return notVisible(id, m?.reason);
     // Evidence points at this photo within the set.
     const own = { ...m, evidenceIds: m.evidenceIds.map((e) => (e === "frame_0" ? `frame_${frame}` : e)) };
+    if (front) return FRONT_FORMULA.includes(id) ? photoGraded(own) : photoOnly(own);
     if (!sideOn) return photoOnly(own);
     return angled ? photoAngled(own) : photoGraded(own);
   });
-  return { metrics: out, sideOn, angled };
+  return { metrics: out, sideOn, angled, front, alignment: angled ? null : read.alignment };
 }
 
-function computeMetricsSafe(photo: CaptureObservation): { metrics: Metric[]; sideOn: boolean } {
+function computeMetricsSafe(photo: CaptureObservation): { metrics: Metric[]; sideOn: boolean; alignment: Alignment | null } {
   const run = (o: CaptureObservation) => {
     const scene = buildScene(o);
     const events = { list: [], byType: {} };
     const delivery = estimateDelivery(scene, events);
     const features = extractFeatures(scene, events, { ...delivery, available: false, length: null });
-    return { scene, metrics: computeMetrics({ scene, events, features, delivery, tier: o.tier, postureFrame: 0 }) };
+    const alignment = measureAlignment(scene, 0, o.camera.view, o.athlete.handedness);
+    const ms = computeMetrics({ scene, events, features, delivery, tier: o.tier, postureFrame: 0, alignment });
+    return { scene, alignment, metrics: scene.plane === "frontal" ? [...ms, ...frontalMetrics(scene, 0, RANGE_SOURCE)] : ms };
   };
-  let { scene, metrics } = run(photo);
+  let { scene, metrics, alignment } = run(photo);
   // The bowler is on the front foot's side: in a stance and in every stroke the front foot
   // is the one nearer the bowler. (Where the head points misleads: a batter looks down at
   // the ball.) Not for photos along the pitch, where forward isn't across the image.
   if (photo.camera.view !== "front_on" && photo.camera.view !== "behind") {
     const fa = scene.get(0, "front_ankle");
     const ba = scene.get(0, "back_ankle");
-    if (fa && ba && fa.f < ba.f) ({ scene, metrics } = run({ ...photo, camera: { ...photo.camera, bowlerSide: photo.camera.bowlerSide === "left" ? "right" : "left" } }));
+    if (fa && ba && fa.f < ba.f) ({ scene, metrics, alignment } = run({ ...photo, camera: { ...photo.camera, bowlerSide: photo.camera.bowlerSide === "left" ? "right" : "left" } }));
   }
-  return { metrics, sideOn: scene.plane === "sagittal" };
+  return { metrics, sideOn: scene.plane === "sagittal", alignment };
 }
 
 function photoAngled(m: Metric): Metric {
@@ -356,14 +400,20 @@ export interface PositionCheck {
   checked: number;
   /** Taken at an angle: only the checks that survive the angle were made. */
   angled?: boolean;
+  /** Taken from either end of the pitch: the line checked sideways. */
+  front?: boolean;
   verdict: "matches" | "mostly" | "partly" | "doesnt_match" | "not_on_front_foot" | "not_enough" | "not_side_on";
 }
 
 /** The formula's verdict: how many of the checks this photo could measure are met. */
-export function positionCheck(ms: Metric[], sideOn: boolean, angled = false): PositionCheck {
+export function positionCheck(ms: Metric[], sideOn: boolean, angled = false, front = false): PositionCheck {
   const graded = ms.filter((m) => m.inRange !== null);
   const met = graded.filter((m) => m.inRange).length;
   const checked = graded.length;
+  if (front) {
+    if (checked < 3) return { met, checked, front, verdict: "not_enough" };
+    return { met, checked, front, verdict: met === checked ? "matches" : met >= checked - 1 ? "mostly" : met >= checked / 2 ? "partly" : "doesnt_match" };
+  }
   if (!sideOn) return { met, checked, verdict: "not_side_on" };
   if (angled) {
     if (checked < 3) return { met, checked, angled, verdict: "not_enough" };
@@ -381,15 +431,16 @@ export function positionCheck(ms: Metric[], sideOn: boolean, angled = false): Po
 
 function positionHeadline(c: PositionCheck, ms: Metric[], key: number, photos: number, view: CaptureObservation["camera"]["view"]): string {
   const which = photos > 1 ? `photo ${key + 1} of ${photos}` : "this photo";
-  const tag = photos > 1 ? ` (photo ${key + 1} of ${photos}${c.angled ? ", from an angle" : ""})` : c.angled ? " (photo from an angle)" : "";
+  const how = c.angled ? "from an angle" : c.front ? "from along the pitch" : "";
+  const tag = photos > 1 ? ` (photo ${key + 1} of ${photos}${how ? `, ${how}` : ""})` : how ? ` (photo ${how})` : "";
   const off = ms.filter((m) => m.inRange === false).map((m) => m.name.toLowerCase());
   switch (c.verdict) {
     case "matches":
-      return `Front-foot defence position${tag}: all ${c.checked} checks met.`;
+      return `Front-foot defence ${c.front ? "line" : "position"}${tag}: all ${c.checked} checks met.`;
     case "mostly":
-      return `Front-foot defence position${tag}: ${c.met} of ${c.checked} checks met. To work on: ${off[0]}.`;
+      return `Front-foot defence ${c.front ? "line" : "position"}${tag}: ${c.met} of ${c.checked} checks met. To work on: ${off[0]}.`;
     case "partly":
-      return `Front-foot defence position${tag}: ${c.met} of ${c.checked} checks met. To work on: ${off.slice(0, 2).join(" and ")}.`;
+      return `Front-foot defence ${c.front ? "line" : "position"}${tag}: ${c.met} of ${c.checked} checks met. To work on: ${off.slice(0, 2).join(" and ")}.`;
     case "doesnt_match":
       return `${which[0]!.toUpperCase()}${which.slice(1)} doesn't look like a front-foot defence position: ${c.met} of ${c.checked} checks met.`;
     case "not_on_front_foot":
@@ -404,7 +455,7 @@ function positionHeadline(c: PositionCheck, ms: Metric[], key: number, photos: n
 }
 
 function notVisible(id: string, why?: string): Metric {
-  const def = METRICS.find((d) => d.id === id)!;
+  const def = (METRICS.find((d) => d.id === id) ?? FRONTAL_METRICS.find((d) => d.id === id))!;
   return {
     id,
     name: def.name,
@@ -492,7 +543,14 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       mode: obs.media.kind === "photo" ? "posture_screen" : "video",
       analysis_status: "capture_failed",
       status_reason: failing[0]?.id ?? "body_not_tracked",
-      headline: `This recording can't be analysed yet: ${(failing[0]?.label ?? "batter not tracked").toLowerCase()}.`,
+      headline:
+        failing[0]?.id === "chk_duration" && obs.media.trimmed
+          ? obs.media.durationMs < 400
+            ? "This recording can't be analysed yet: the batter couldn't be followed through the stroke, because the camera cuts or zooms away."
+            : `This recording can't be analysed yet: the batter is in view for only ${(obs.media.durationMs / 1000).toFixed(1)} s before the camera cuts or zooms away.`
+          : failing[0]?.id === "chk_resolution"
+            ? `This ${obs.media.kind === "photo" ? "photo" : "recording"} can't be analysed yet: the batter is ${failing[0].value.replace(/ \(.*$/, "")} (at least ${th("capture.fail_batter_px")} px is needed, ${th("capture.min_batter_px")} px or more for full accuracy).`
+            : `This recording can't be analysed yet: ${(failing[0]?.label ?? "batter not tracked").toLowerCase()}.`,
       observed_shot: null,
       shot_probabilities: null,
       classifier: null,
@@ -516,7 +574,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     const key = keyPhoto(phases, perPhoto);
     const set = frames > 1;
     const metrics = perPhoto[key] ?? [];
-    const check = positionCheck(metrics, per[key]?.sideOn ?? false, per[key]?.angled ?? false);
+    const check = positionCheck(metrics, per[key]?.sideOn ?? false, per[key]?.angled ?? false, per[key]?.front ?? false);
     const graded = check.verdict !== "not_side_on" && check.verdict !== "not_enough" && check.verdict !== "not_on_front_foot";
     const { strengths, priorities } = graded ? strengthsAndPriorities(metrics) : { strengths: [], priorities: [] };
     const plan = graded ? buildPlan(priorities, metrics) : null;
@@ -532,6 +590,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       status_reason: "photo_only",
       headline: positionHeadline(check, metrics, key, frames, obs.camera.view),
       position_check: { ...check, frame: key },
+      ...(per[key]?.alignment ? { line: { ...lineSummary(per[key]!.alignment!), referenceFrame: key } } : {}),
       observed_shot: null,
       shot_probabilities: null,
       classifier: null,
@@ -591,7 +650,55 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     });
   }
   const cls = classify(features, { frontal, batSeen: tracking.bat.ok, cameraMoving: scene.cameraMoving });
-  const { status, reason } = statusOf(obs, cls, tracking, contactVisibility(scene, events.byType.contact?.frame), contactObserved(scene, events.byType.contact?.frame));
+  const contactEv = events.byType.contact;
+  // Contact is known when the bat meeting the ball was seen (or marked); otherwise it is an
+  // estimate from the body, and the line is read at the set position instead (alignment.ts).
+  const contactKnown = !!contactEv && contactEv.confidence >= 0.65;
+  const alignment: Alignment | null = contactEv ? measureAlignment(scene, contactEv.frame, obs.camera.view, obs.athlete.handedness, { contactKnown }) : null;
+  let { status, reason } = statusOf(obs, cls, tracking, contactVisibility(scene, contactEv?.frame), contactObserved(scene, contactEv?.frame));
+  // Without bat and ball, contact is placed at the set position: the defence meets the ball
+  // from there, and the body shows it far better than the gloved hands do.
+  if (contactEv && alignment?.referenceKind === "set" && alignment.reference !== contactEv.frame) {
+    const moved = {
+      ...contactEv,
+      frame: alignment.reference,
+      tMs: Math.round(scene.t[alignment.reference] ?? 0),
+      method: "set position: front foot, knee and shoulder all arrived (bat and ball not seen)",
+    };
+    events.list = events.list.map((e) => (e.type === "contact" ? moved : e)).sort((a, b) => a.frame - b.frame || a.type.localeCompare(b.type));
+    events.byType.contact = moved;
+  }
+  // Along the pitch the old landing time came from the 3D estimate's forward axis; the
+  // picture itself shows when the front foot stops (alignment.ts): use that.
+  const landed = alignment?.arrivals?.foot.frame;
+  if (frontal && landed !== null && landed !== undefined) {
+    const plant = {
+      id: "evt_front_foot_plant",
+      type: "front_foot_plant" as const,
+      frame: landed,
+      tMs: Math.round(scene.t[landed] ?? 0),
+      confidence: 0.7,
+      method: "front foot stops moving in the picture",
+    };
+    events.list = [...events.list.filter((e) => e.type !== "front_foot_plant"), plant].sort((a, b) => a.frame - b.frame || a.type.localeCompare(b.type));
+    events.byType.front_foot_plant = plant;
+  }
+  // A heavy zoom during the stroke (broadcast footage) stretches the stride and sweeps the
+  // hands through the picture: never name a different shot on that.
+  if (status === "invalid_for_requested_analysis" && scene.zoom >= th("stroke.max_zoom_for_rejection")) {
+    status = "uncertain_shot";
+    reason = "camera_zoom";
+  }
+  // A defence goes forward and down into the ball. Without that, whatever else fits, it
+  // isn't one (a stance, a backlift, a shuffle).
+  if (status === "valid") {
+    const ref = events.byType.contact?.frame ?? scene.n - 1;
+    const low = lowering(scene, ref);
+    if (!(low.head >= th("ffd.min_head_drop")) && !(low.hips >= th("ffd.min_hip_drop"))) {
+      status = "uncertain_shot";
+      reason = "no_lowering";
+    }
+  }
   const bodyLed = status === "valid" && reason === "accepted_body";
   if (bodyLed) {
     const unseen = [!tracking.bat.ok && "bat", !tracking.ball.ok && "ball"].filter(Boolean).join(" and ");
@@ -648,6 +755,8 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
 
   if (status !== "valid") {
     const extraRecapture: string[] = [];
+    if (reason === "camera_zoom") extraRecapture.push("Use footage from a fixed camera (a phone on a tripod) that doesn't zoom during the shot.");
+    if (reason === "no_lowering") extraRecapture.push("Record the whole stroke: from the stance until after the bat meets the ball.");
     if (reason === "body_hidden" || reason === "body_inconclusive")
       extraRecapture.push("Keep the bat and the ball's path in frame, or film side-on at hip height so the hands and front leg stay visible throughout.");
     if (reason === "ball_missing") extraRecapture.push("Keep the bounce area and the ball's path to the bat in frame.");
@@ -664,8 +773,11 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       status === "uncertain_shot"
         ? ungraded(
             frontal
-              ? frontalMetrics(scene, events.byType.contact?.frame, RANGE_SOURCE).filter((m) => m.status !== "not_measured")
-              : computeMetrics({ scene, events, features, delivery, tier: obs.tier }).filter((m) => OBSERVATION_IDS.includes(m.id) && m.status !== "not_measured"),
+              ? [
+                  ...computeMetrics({ scene, events, features, delivery, tier: obs.tier, alignment }).filter((m) => ALIGNMENT_IDS.includes(m.id) && m.status !== "not_measured"),
+                  ...frontalMetrics(scene, events.byType.contact?.frame, RANGE_SOURCE).filter((m) => m.status !== "not_measured"),
+                ]
+              : computeMetrics({ scene, events, features, delivery, tier: obs.tier, alignment }).filter((m) => OBSERVATION_IDS.includes(m.id) && m.status !== "not_measured"),
           )
         : [];
     return finish({
@@ -683,7 +795,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   // 6. Valid: technique measures. Filmed along the pitch, forward distances and in-line
   // angles rest on a 3D estimate: withheld (timing ones shown, not graded); the sideways
   // measures that view sees well are graded.
-  let metrics = computeMetrics({ scene, events, features, delivery, tier: obs.tier });
+  let metrics = computeMetrics({ scene, events, features, delivery, tier: obs.tier, alignment });
   if (frontal) {
     metrics = [
       ...metrics.map(withholdAlongPitch).map((m) =>
@@ -702,7 +814,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   const domains = domainResults(metrics);
   const index = techniqueIndex(metrics, domains);
   const { strengths, priorities } = strengthsAndPriorities(metrics);
-  const plan = buildPlan(priorities, metrics);
+  const plan = buildPlan(priorities, metrics) ?? nextLevelPlan(metrics);
   const headline = priorities[0]
     ? `Valid front-foot defence. To work on: ${priorities[0].title.toLowerCase()}.`
     : "Valid front-foot defence. Every check is in range.";
@@ -714,6 +826,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     evidence_basis: bodyLed ? "body" : "full",
     headline,
     metrics,
+    ...(alignment ? { line: lineSummary(alignment) } : {}),
     domains,
     technique_index: index,
     strengths,

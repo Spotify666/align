@@ -1,0 +1,326 @@
+[
+ {
+  "id": "v01",
+  "file": "v01_coach_frontOn_480x854.mp4",
+  "truth": "ffd",
+  "note": "phone, front-on, kid, many FFDs"
+ },
+ {
+  "id": "v02",
+  "file": "v02_coach_frontOn_240x426.mp4",
+  "truth": "ffd",
+  "note": "same at 240p"
+ },
+ {
+  "id": "v03",
+  "file": "v03_coach_mirror_480x854.mp4",
+  "truth": "ffd",
+  "note": "mirrored (left-hander)"
+ },
+ {
+  "id": "v04",
+  "file": "v04_broadcast_dravid_720.mp4",
+  "truth": "ffd",
+  "note": "broadcast, behind bowler, zoom+cuts"
+ },
+ {
+  "id": "v05",
+  "file": "v05_broadcast_dravid_360.mp4",
+  "truth": "ffd",
+  "note": "same at 360p"
+ },
+ {
+  "id": "v06",
+  "file": "cs_defense_320x240.mp4",
+  "truth": "ffd",
+  "note": "broadcast 320x240 12fps"
+ },
+ {
+  "id": "v07",
+  "file": "cs_cover_320x240.mp4",
+  "truth": "other",
+  "note": "cover drive"
+ },
+ {
+  "id": "v08",
+  "file": "cs_flick_320x240.mp4",
+  "truth": "other",
+  "note": "flick"
+ },
+ {
+  "id": "v09",
+  "file": "cs_hook_320x240.mp4",
+  "truth": "other",
+  "note": "hook"
+ },
+ {
+  "id": "v10",
+  "file": "cs_late_cut_320x240.mp4",
+  "truth": "other",
+  "note": "late cut"
+ },
+ {
+  "id": "v11",
+  "file": "cs_lofted_320x240.mp4",
+  "truth": "other",
+  "note": "lofted"
+ },
+ {
+  "id": "v12",
+  "file": "cs_pull_320x240.mp4",
+  "truth": "other",
+  "note": "pull"
+ },
+ {
+  "id": "v13",
+  "file": "cs_square_cut_320x240.mp4",
+  "truth": "other",
+  "note": "square cut"
+ },
+ {
+  "id": "v14",
+  "file": "cs_straight_320x240.mp4",
+  "truth": "other",
+  "note": "straight drive"
+ },
+ {
+  "id": "v15",
+  "file": "cs_sweep_320x240.mp4",
+  "truth": "other",
+  "note": "sweep"
+ },
+ {
+  "id": "v16",
+  "file": "v16_still_nostroke.mp4",
+  "truth": "none",
+  "note": "still pose, no stroke"
+ },
+ {
+  "id": "v17",
+  "file": "v17_coach_15fps_360.mp4",
+  "truth": "ffd",
+  "note": "15 fps, 360p, low bitrate"
+ },
+ {
+  "id": "p01",
+  "file": "p01_club_sideOn_360.jpg",
+  "truth": "ffd_pos",
+  "note": "club batter side-on"
+ },
+ {
+  "id": "p02",
+  "file": "p02_club_sideOn_720.jpg",
+  "truth": "ffd_pos",
+  "note": "same, upscaled 720"
+ },
+ {
+  "id": "p03",
+  "file": "p03_club_sideOn_180.jpg",
+  "truth": "ffd_pos",
+  "note": "same, 180 px"
+ },
+ {
+  "id": "p04",
+  "file": "p04_club_sideOn_120.jpg",
+  "truth": "ffd_pos",
+  "note": "same, 120 px"
+ },
+ {
+  "id": "p05",
+  "file": "p05_kohli_frontOn_1200.jpg",
+  "truth": "ffd_pos",
+  "note": "Kohli front-on (camera on the off side, near side-on)"
+ },
+ {
+  "id": "p06",
+  "file": "p06_kohli_frontOn_300.jpg",
+  "truth": "ffd_pos",
+  "note": "same, 300 px (camera on the off side, near side-on)"
+ },
+ {
+  "id": "p07",
+  "file": "p07_keeper_angled_312.jpg",
+  "truth": "ffd_pos_front",
+  "note": "batter + keeper, angled"
+ },
+ {
+  "id": "p08",
+  "file": "p08_two_batters_720.jpg",
+  "truth": "ffd_pos",
+  "note": "two identical batters"
+ },
+ {
+  "id": "p09",
+  "file": "p09_dravid_frame_720.jpg",
+  "truth": "ffd_pos_front",
+  "note": "broadcast frame"
+ },
+ {
+  "id": "p10",
+  "file": "p10_dravid_frame_240.jpg",
+  "truth": "ffd_pos_front",
+  "note": "broadcast frame 240"
+ },
+ {
+  "id": "p11",
+  "file": "p11_cs_pull_frame.jpg",
+  "truth": "other_pos",
+  "note": "tiny broadcast pull"
+ },
+ {
+  "id": "p12",
+  "file": "p12_cs_sweep_frame.jpg",
+  "truth": "other_pos",
+  "note": "tiny broadcast sweep"
+ },
+ {
+  "id": "qdef1",
+  "file": "q_defense_1.mp4",
+  "truth": "ffd",
+  "note": "broadcast 720p 25fps defense"
+ },
+ {
+  "id": "qdef2",
+  "file": "q_defense_2.mp4",
+  "truth": "ffd",
+  "note": "broadcast 720p 25fps defense"
+ },
+ {
+  "id": "qdef3",
+  "file": "q_defense_3.mp4",
+  "truth": "ffd",
+  "note": "broadcast 720p 25fps defense"
+ },
+ {
+  "id": "qdef4",
+  "file": "q_defense_4.mp4",
+  "truth": "ffd",
+  "note": "broadcast 720p 25fps defense"
+ },
+ {
+  "id": "qdef5",
+  "file": "q_defense_5.mp4",
+  "truth": "ffd",
+  "note": "broadcast 720p 25fps defense"
+ },
+ {
+  "id": "qcov1",
+  "file": "q_cover_1.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps cover"
+ },
+ {
+  "id": "qcov2",
+  "file": "q_cover_2.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps cover"
+ },
+ {
+  "id": "qcov3",
+  "file": "q_cover_3.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps cover"
+ },
+ {
+  "id": "qcov4",
+  "file": "q_cover_4.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps cover"
+ },
+ {
+  "id": "qcov5",
+  "file": "q_cover_5.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps cover"
+ },
+ {
+  "id": "qpul1",
+  "file": "q_pull_1.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps pull"
+ },
+ {
+  "id": "qpul2",
+  "file": "q_pull_2.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps pull"
+ },
+ {
+  "id": "qpul3",
+  "file": "q_pull_3.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps pull"
+ },
+ {
+  "id": "qpul4",
+  "file": "q_pull_4.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps pull"
+ },
+ {
+  "id": "qpul5",
+  "file": "q_pull_5.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps pull"
+ },
+ {
+  "id": "qstr1",
+  "file": "q_straight_1.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps straight"
+ },
+ {
+  "id": "qstr2",
+  "file": "q_straight_2.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps straight"
+ },
+ {
+  "id": "qstr3",
+  "file": "q_straight_3.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps straight"
+ },
+ {
+  "id": "qstr4",
+  "file": "q_straight_4.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps straight"
+ },
+ {
+  "id": "qstr5",
+  "file": "q_straight_5.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps straight"
+ },
+ {
+  "id": "qswe1",
+  "file": "q_sweep_1.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps sweep"
+ },
+ {
+  "id": "qswe2",
+  "file": "q_sweep_2.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps sweep"
+ },
+ {
+  "id": "qswe3",
+  "file": "q_sweep_3.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps sweep"
+ },
+ {
+  "id": "qswe4",
+  "file": "q_sweep_4.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps sweep"
+ },
+ {
+  "id": "qswe5",
+  "file": "q_sweep_5.mp4",
+  "truth": "other",
+  "note": "broadcast 720p 25fps sweep"
+ }
+]

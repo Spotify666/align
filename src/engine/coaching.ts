@@ -3,51 +3,348 @@
 
 import type { Drill } from "./types";
 
-export const DRILL_LIBRARY_VERSION = "drills-0.4.0";
+export const DRILL_LIBRARY_VERSION = "drills-0.5.0";
+
+type Wording = { observation: string; consequence: string; cue: string };
 
 export interface CoachingEntry {
   metricId: string;
   /** Wording when the value is below / above the range. */
-  low: { observation: string; consequence: string; cue: string };
-  high: { observation: string; consequence: string; cue: string };
+  low: Wording;
+  high: Wording;
+  /** The line read from either end of the pitch: the same fault seen sideways. */
+  sideways?: { low: Wording; high: Wording };
+  /** Easiest first: shadow, static or dropped ball, throw-downs, machine or live. */
   drills: Drill[];
   retest: string;
+}
+
+/** The wording for a metric outside its range, for the axis it was read along. */
+export function wordingFor(entry: CoachingEntry, side: "low" | "high", axis?: "forward" | "sideways"): Wording {
+  return (axis === "sideways" && entry.sideways?.[side]) || entry[side];
 }
 
 const d = (x: Drill) => x;
 
 export const COACHING: CoachingEntry[] = [
+  // ----- The line: head, front shoulder and front knee over the front foot, to contact -----
   {
-    metricId: "head_knee_offset",
+    metricId: "line_head",
     low: {
-      observation: "Your head finished behind your front knee at contact.",
-      consequence: "This can leave the bat face open to the ball and make edges more likely.",
-      cue: "Lead with your head: nose over the front toe.",
+      observation: "Your head was behind your front foot at contact.",
+      consequence: "With the head back, the ball is met in front of your eyes: it goes in the air or finds the edge.",
+      cue: "Nose over the front toe.",
     },
     high: {
-      observation: "Your head travelled well past your front knee at contact.",
-      consequence: "Over-reaching can pull you off balance and away from the line.",
-      cue: "Let the head arrive over the knee, not beyond it.",
+      observation: "Your head went well past your front foot.",
+      consequence: "Reaching beyond the foot tips you forward, so the bat can't come down straight under the eyes.",
+      cue: "Head over the toe, not beyond it.",
+    },
+    sideways: {
+      low: {
+        observation: "Your head was on the leg side of the line at contact: falling away from the ball.",
+        consequence: "Falling away takes the eyes off the line and drags the bat across it: edges to the slips.",
+        cue: "Head to the ball, over the front foot.",
+      },
+      high: {
+        observation: "Your head leaned too far to the off side, past the line of the ball.",
+        consequence: "Reaching across overbalances you to the off side and plays you around the front pad.",
+        cue: "Head over the ball, not across it.",
+      },
     },
     drills: [
       d({
+        id: "drill_nose_over_toe",
+        level: 1,
+        name: "Nose-over-toe freeze",
+        constraint: "Shadow the stride in front of a mirror or your phone camera. Freeze where the bat would meet the ball.",
+        dosage: "3 sets × 10 shadows",
+        passCondition: "In the freeze, your nose is straight above your front toe (side-on) or just outside it, over the ball's line (front-on) on 9 of 10.",
+        cue: "Nose over toe.",
+      }),
+      d({
         id: "drill_head_lead_tee",
+        level: 2,
         name: "Head-lead tee block",
         constraint: "Ball on a low tee one stride ahead; a cone 10 cm past the tee you must not pass with your head.",
         dosage: "3 sets × 8 blocks, 30 s rest",
-        passCondition: "On video, nose is over the front toe at contact in 7 of 8 reps.",
+        passCondition: "On video, the head is over the ball at contact in 7 of 8 reps.",
         cue: "Nose over toe, then bat.",
       }),
       d({
         id: "drill_drop_feed",
+        level: 3,
         name: "Drop-feed forward defence",
         constraint: "Partner drops a ball from shoulder height one stride ahead; play it into the ground.",
         dosage: "4 sets × 6 balls",
-        passCondition: "Ball stops within 2 m of the bat on 5 of 6.",
+        passCondition: "Ball stops within 2 m of the bat on 5 of 6, head over it at contact.",
         cue: "Head, then front foot, then bat.",
       }),
+      d({
+        id: "drill_line_throwdowns",
+        level: 4,
+        name: "Throw-downs to a line",
+        constraint: "Throw-downs (then a machine) on a good length just outside off stump; a strip of tape on the line of off stump. Head goes over the tape.",
+        dosage: "4 sets × 6 balls at rising pace",
+        passCondition: "Filmed, the head is in line at contact on 5 of 6, with the ball dying within 2 m.",
+        cue: "Head to the line, then play.",
+      }),
     ],
-    retest: "Record 6 deliveries next session and compare head-over-knee to this report.",
+    retest: "Film 6 deliveries from the same camera position; the head should be in line on 5 of 6.",
+  },
+  {
+    metricId: "line_shoulder",
+    low: {
+      observation: "Your front shoulder stayed behind your front foot at contact.",
+      consequence: "A shoulder left behind keeps the weight back: the bat comes through at an angle and the ball pops up.",
+      cue: "Front shoulder leads to the ball.",
+    },
+    high: {
+      observation: "Your front shoulder went past your front foot.",
+      consequence: "Over-leaning tips you forward and drags the bat across the ball.",
+      cue: "Shoulder over the knee, then stop.",
+    },
+    sideways: {
+      low: {
+        observation: "Your front shoulder swung toward the leg side: opening up before contact.",
+        consequence: "An open front shoulder swings the bat across the line of the ball instead of down it.",
+        cue: "Point the front shoulder down the line of the ball.",
+      },
+      high: {
+        observation: "Your front shoulder dived across to the off side.",
+        consequence: "Diving across plays you around the front pad and off balance.",
+        cue: "Shoulder over the foot, foot to the line.",
+      },
+    },
+    drills: [
+      d({
+        id: "drill_top_hand_shadow",
+        level: 1,
+        name: "Top-hand shadow",
+        constraint: "Shadow the defence holding the bat in the top hand only, front shoulder pointing at a cone placed down the line of off stump.",
+        dosage: "3 sets × 10 shadows",
+        passCondition: "At the freeze the front shoulder points at the cone and sits over the front foot on 9 of 10.",
+        cue: "Shoulder to the cone.",
+      }),
+      d({
+        id: "drill_top_hand_drop",
+        level: 2,
+        name: "Top-hand drop feed",
+        constraint: "Partner drops a ball one stride ahead; defend it with the top hand only, front elbow high.",
+        dosage: "3 sets × 8 balls",
+        passCondition: "Bat face straight and the ball dying within 2 m on 6 of 8.",
+        cue: "Front elbow up, shoulder leads.",
+      }),
+      d({
+        id: "drill_bottom_hand_light",
+        level: 3,
+        name: "Light-bottom-hand throw-downs",
+        constraint: "Throw-downs on a good length; the bottom hand holds the handle with thumb and first finger only, so the front shoulder and top hand do the work.",
+        dosage: "4 sets × 6 balls",
+        passCondition: "Filmed, the front shoulder is over the front foot at contact on 5 of 6.",
+        cue: "Top hand and shoulder lead.",
+      }),
+      d({
+        id: "drill_line_machine",
+        level: 4,
+        name: "Shoulder-to-the-line machine work",
+        constraint: "Bowling machine on a good length outside off, building pace each set; a cone down the line of off stump.",
+        dosage: "4 sets × 6 balls, rising pace",
+        passCondition: "Filmed, the shoulder is in line at contact on 5 of 6 at your fastest set.",
+        cue: "Shoulder down the line.",
+      }),
+    ],
+    retest: "Film 6 deliveries from the same camera position; the front shoulder should be in line on 5 of 6.",
+  },
+  {
+    metricId: "line_knee",
+    low: {
+      observation: "Your front knee was behind your front foot: a straight, propped front leg.",
+      consequence: "With the front leg straight the weight can't go forward; the head stays back and the ball is played at arm's length.",
+      cue: "Bend the front knee over the toe.",
+    },
+    high: {
+      observation: "Your front knee went well past your toe.",
+      consequence: "A collapsing knee drops the head too low and leaves you stuck on the front foot.",
+      cue: "Knee over toe, firm base.",
+    },
+    sideways: {
+      low: {
+        observation: "Your front knee fell in toward the leg side.",
+        consequence: "A knee falling in takes the base off the line, and the bat follows it.",
+        cue: "Knee over the foot, pointing at the bowler.",
+      },
+      high: {
+        observation: "Your front knee pushed out to the off side.",
+        consequence: "It tips the base outward and puts the front pad in the bat's way.",
+        cue: "Knee over the foot.",
+      },
+    },
+    drills: [
+      d({
+        id: "drill_knee_lunge_hold",
+        level: 1,
+        name: "Knee-over-toe lunge hold",
+        constraint: "Stride to a marker one stride ahead and hold the defence for 3 s; a stick upright at the front toe shows where the knee should be.",
+        dosage: "3 sets × 8 holds",
+        passCondition: "Knee touches the stick's line, not past it, on 7 of 8, no wobble.",
+        cue: "Knee to the stick.",
+      }),
+      d({
+        id: "drill_bent_knee_drop",
+        level: 2,
+        name: "Bent-knee drop feed",
+        constraint: "Partner drops a ball one stride ahead; you must play it with the front knee bent over the toe.",
+        dosage: "3 sets × 8 balls",
+        passCondition: "On video, knee over the front foot at contact on 6 of 8.",
+        cue: "Soft front knee.",
+      }),
+      d({
+        id: "drill_stride_markers_knee",
+        level: 3,
+        name: "Stride-marker defence",
+        constraint: "Two flat markers at 0.35 and 0.45 × your height in front of your front foot; land between them.",
+        dosage: "3 sets × 10 shadow strides, then 2 × 6 throw-downs",
+        passCondition: "Front foot lands between the markers, knee over it, on 8 of 10.",
+        cue: "Land soft between the lines.",
+      }),
+      d({
+        id: "drill_knee_machine",
+        level: 4,
+        name: "Firm-base machine work",
+        constraint: "Bowling machine on a full and a good length, alternating; land and hold for a count of one after each ball.",
+        dosage: "4 sets × 6 balls",
+        passCondition: "Filmed, the knee is over the front foot at contact on 5 of 6.",
+        cue: "Land, bend, hold.",
+      }),
+    ],
+    retest: "Film 6 deliveries from the same camera position; the front knee should be in line on 5 of 6.",
+  },
+  {
+    metricId: "line_held",
+    low: {
+      observation: "Your line wasn't held from the front foot's landing to contact.",
+      consequence: "With the head or shoulder still moving as the ball arrives, you play it on the move: late, and off the line.",
+      cue: "Land, set, then play.",
+    },
+    high: { observation: "", consequence: "", cue: "" },
+    drills: [
+      d({
+        id: "drill_freeze_clap",
+        level: 1,
+        name: "Freeze on the clap",
+        constraint: "Shadow the defence; a partner claps at the moment the bat would meet the ball. Freeze on the clap and check the line on video.",
+        dosage: "3 sets × 10 shadows",
+        passCondition: "Head, front shoulder and front knee already in line on the clap on 9 of 10.",
+        cue: "Set before the clap.",
+      }),
+      d({
+        id: "drill_hold_finish_line",
+        level: 2,
+        name: "Hold-the-finish defence",
+        constraint: "Drop feeds then throw-downs on a full length; after each defence hold the position, back toe grounded, for a two-second count.",
+        dosage: "3 sets × 8 balls, 30 s rest",
+        passCondition: "Held still for two seconds without a step on 7 of 8.",
+        cue: "Freeze for two.",
+      }),
+      d({
+        id: "drill_line_throwdowns_hold",
+        level: 3,
+        name: "Line-and-hold throw-downs",
+        constraint: "Throw-downs on a good length; a tape line on the line of off stump. Land, play, and hold over the tape until the ball stops.",
+        dosage: "4 sets × 6 balls",
+        passCondition: "Filmed, in line from landing to contact on 5 of 6.",
+        cue: "Land, set, play, hold.",
+      }),
+    ],
+    retest: "Film 6 deliveries; the line should be held from landing to contact on 5 of 6.",
+  },
+  {
+    metricId: "sync_spread",
+    low: { observation: "", consequence: "", cue: "" },
+    high: {
+      observation: "Your front foot, front knee and front shoulder arrived at different times.",
+      consequence: "When one part arrives early and another late, the line is built in pieces and breaks against pace or movement.",
+      cue: "Foot, knee, shoulder: together.",
+    },
+    drills: [
+      d({
+        id: "drill_one_count",
+        level: 1,
+        name: "One-count shadow",
+        constraint: "Shadow to a metronome (60 bpm): on one beat the foot lands, the knee bends and the shoulder arrives over it, all together.",
+        dosage: "3 sets × 10 shadows",
+        passCondition: "Filmed at 60 fps or more, all three arrive within 100 ms on 8 of 10.",
+        cue: "One beat: land, bend, lean.",
+      }),
+      d({
+        id: "drill_drop_on_landing",
+        level: 2,
+        name: "Drop on landing",
+        constraint: "Partner holds a ball at shoulder height one stride ahead and drops it as your front foot lands; defend it.",
+        dosage: "3 sets × 8 balls",
+        passCondition: "Front knee and shoulder set as the foot lands, ball dying within 2 m, on 6 of 8.",
+        cue: "Land into the shot.",
+      }),
+      d({
+        id: "drill_bounce_cue",
+        level: 3,
+        name: "Land-on-bounce throw-downs",
+        constraint: "Throw-downs on a good length: the front foot lands as the ball bounces, and the knee and shoulder land with it.",
+        dosage: "4 sets × 6 balls",
+        passCondition: "Filmed, foot, knee and shoulder within 150 ms of each other on 5 of 6.",
+        cue: "Bounce, land, set.",
+      }),
+    ],
+    retest: "Film 6 deliveries (60 fps or slow motion if you can); foot, knee and shoulder should arrive within 150 ms of each other.",
+  },
+  {
+    metricId: "set_late",
+    low: { observation: "", consequence: "", cue: "" },
+    high: {
+      observation: "Part of your body was still moving into position after the bat met the ball.",
+      consequence: "Set after contact means the ball decided your position, not you: late on anything quicker or moving.",
+      cue: "Be set before the ball arrives.",
+    },
+    drills: [
+      d({
+        id: "drill_early_set_shadow",
+        level: 1,
+        name: "Early-set shadow",
+        constraint: "On a partner's 'go', stride into the defence; they clap 0.3 s later. Be still before the clap.",
+        dosage: "3 sets × 10 shadows",
+        passCondition: "Still before the clap on 9 of 10.",
+        cue: "Set, then the clap.",
+      }),
+      d({
+        id: "drill_bounce_cue_drop",
+        level: 2,
+        name: "Bounce-cue drop feed",
+        constraint: "Partner drops the ball from head height one stride ahead; your front foot must land before it bounces.",
+        dosage: "3 sets × 8 balls",
+        passCondition: "Foot down before the bounce and the ball dying within 2 m on 6 of 8.",
+        cue: "Down before the bounce.",
+      }),
+      d({
+        id: "drill_length_call",
+        level: 3,
+        name: "Length-call throw-downs",
+        constraint: "Call 'up' or 'back' out loud on release, then play the matching shot.",
+        dosage: "4 sets × 6 mixed lengths",
+        passCondition: "Correct call and movement before bounce on 5 of 6.",
+        cue: "Call it on release.",
+      }),
+      d({
+        id: "drill_machine_pace",
+        level: 4,
+        name: "Machine at rising pace",
+        constraint: "Bowling machine on a good length; start comfortable and raise the speed each set only when the previous set passes.",
+        dosage: "4 sets × 6 balls",
+        passCondition: "Filmed, set before contact on 5 of 6 at each speed.",
+        cue: "Set early, play late.",
+      }),
+    ],
+    retest: "Film 6 deliveries; everything should be set by contact on 5 of 6.",
   },
   {
     metricId: "stride_length",
@@ -346,34 +643,6 @@ export const COACHING: CoachingEntry[] = [
     retest: "Decision timing on 6 new deliveries with a visible bounce.",
   },
   // Graded when filmed from the bowler's end or behind the batter.
-  {
-    metricId: "head_falling_away",
-    low: { observation: "", consequence: "", cue: "" },
-    high: {
-      observation: "Your head was on the leg side of your front foot at contact: falling away from the ball.",
-      consequence: "Falling away takes your eyes off the line of the ball and opens the face of the bat.",
-      cue: "Head to the ball, over the front foot.",
-    },
-    drills: [
-      d({
-        id: "drill_line_tape",
-        name: "Line-tape forward defence",
-        constraint: "A strip of tape on the pitch along the line of the stumps; front foot lands beside it, head stays over it.",
-        dosage: "3 sets × 8 balls, 30 s rest",
-        passCondition: "Filmed from the bowler's end, the head is over the front foot or toward the ball at contact on 7 of 8.",
-        cue: "Head to the line, then the foot.",
-      }),
-      d({
-        id: "drill_eyes_level",
-        name: "Eyes-level shadow defence",
-        constraint: "Shadow the defence facing a mirror or a partner; a cap peak must stay level through the stride.",
-        dosage: "3 sets × 10 shadows",
-        passCondition: "Partner sees no head tilt or sway on 9 of 10.",
-        cue: "Still head, level eyes.",
-      }),
-    ],
-    retest: "Film 6 deliveries from the bowler's end and compare head position to this report.",
-  },
   {
     metricId: "balance_over_feet",
     low: { observation: "", consequence: "", cue: "" },

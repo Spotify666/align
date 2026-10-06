@@ -70,11 +70,19 @@ export interface Scene {
    */
   across: ((frame: number, joint: SemanticJoint) => number) | null;
   /**
+   * Where a joint is in the picture itself, in scene units: [horizontal, up]. Side-on the
+   * horizontal is the forward axis (as `get`); along the pitch it is sideways (as `across`),
+   * never the 3D estimate. For movement timing, which any camera position sees.
+   */
+  inPicture: (frame: number, joint: SemanticJoint) => [number, number] | null;
+  /**
    * The camera zoomed or panned during the shot (broadcast footage). Positions are then
    * measured per frame against the batter's own size, feet and back ankle, so whole-body
    * travel (back-foot movement) can't be observed.
    */
   cameraMoving: boolean;
+  /** How much the batter's size in the picture changed across the clip (largest ÷ smallest; 1 = a fixed camera). */
+  zoom: number;
   /** Map a scene point back to normalised image coordinates (for overlays). */
   toImage: (p: { f: number; u: number }) => [number, number];
 }
@@ -283,6 +291,13 @@ export function buildScene(obs: CaptureObservation): Scene {
         }
       : null;
 
+  const inPicture = (frame: number, joint: SemanticJoint): [number, number] | null => {
+    const p = rawImg(frame, semanticToJoint(joint, front));
+    if (!p) return null;
+    const sp = toScene(p[0], p[1], p[2], frame);
+    return [plane === "frontal" ? sp.f * dir : sp.f, sp.u];
+  };
+
   return {
     n,
     plane,
@@ -302,7 +317,9 @@ export function buildScene(obs: CaptureObservation): Scene {
     depth,
     estYaw,
     across,
+    inPicture,
     cameraMoving,
+    zoom: finiteStature.length ? Math.max(...finiteStature) / Math.min(...finiteStature) : 1,
     toImage: ({ f, u }) => [(f / (dir * mpu) + stumpsXu) / aspect, groundY! - u / mpu],
   };
 }

@@ -4,10 +4,11 @@
 
 import { clamp, round } from "./math";
 import { DOMAIN_LABELS, INDEX_WEIGHTS_VERSION, METRICS, th } from "./registry";
-import { coachingFor } from "./coaching";
+import { coachingFor, wordingFor } from "./coaching";
+import { plainRange, plainValue } from "./plain";
 import type { DomainResult, Finding, Metric, MetricDomain, PlanItem } from "./types";
 
-const DOMAINS: MetricDomain[] = ["setup", "footwork", "head_trunk", "sequence", "bat_contact", "outcome"];
+const DOMAINS: MetricDomain[] = ["alignment", "setup", "footwork", "head_trunk", "sequence", "bat_contact", "outcome"];
 
 export function fmt(m: Pick<Metric, "value" | "decimals" | "unit">): string {
   if (m.value === null) return "—";
@@ -94,18 +95,22 @@ export function strengthsAndPriorities(metrics: Metric[]) {
       evidenceIds: [`metric_${m.id}`, ...m.evidenceIds],
     }));
 
+  // A line not held, or parts arriving out of sync, follow from a part out of line: when one
+  // is, that part is the thing to fix.
+  const partOut = usable.some((m) => ["line_head", "line_shoulder", "line_knee"].includes(m.id) && m.inRange === false);
   const priorities: Finding[] = usable
-    .filter((m) => m.inRange === false && coachingFor(m.id))
+    .filter((m) => m.inRange === false && coachingFor(m.id) && !(partOut && m.id === "line_held"))
     .map((m) => ({ m, rank: weightOf(m.id) * m.confidence * Math.min(outside(m), 3) }))
     .sort((a, b) => b.rank - a.rank)
     .slice(0, 2)
     .map(({ m }) => {
       const side = m.value! < m.range!.lo ? "low" : "high";
       const entry = coachingFor(m.id)!;
+      const w = wordingFor(entry, side, m.axis);
       return {
         metricId: m.id,
         title: m.name,
-        observation: `${entry[side].observation || `${m.name} is outside the coaching range.`} Measured ${fmt(m)} vs range ${m.range!.lo}–${m.range!.hi}.`,
+        observation: `${w.observation || `${m.name} is outside the coaching range.`} Measured ${fmt(m)} vs range ${m.range!.lo}–${m.range!.hi}.`,
         evidenceIds: [`metric_${m.id}`, ...m.evidenceIds],
       };
     });
@@ -120,13 +125,67 @@ export function buildPlan(priorities: Finding[], metrics: Metric[]): PlanItem | 
   const entry = coachingFor(top.metricId);
   if (!entry || m.value === null || !m.range) return null;
   const side = m.value < m.range.lo ? "low" : "high";
+  const w = wordingFor(entry, side, m.axis);
+  // Where to start the ladder: far outside the range, back to shadow work; just outside,
+  // straight to throw-downs. Then up a step each time a step's pass condition is met.
+  const ladder = [...entry.drills].sort((a, b) => (a.level ?? 3) - (b.level ?? 3));
+  const far = outside(m);
+  const startLevel: 1 | 2 | 3 | 4 = far >= 1 ? 1 : far >= 0.4 ? 2 : 3;
+  const from = ladder.findIndex((d) => (d.level ?? 3) >= startLevel);
+  const drills = (from >= 0 ? ladder.slice(from) : ladder).slice(0, 2);
   return {
     priority: top,
-    consequence: entry[side].consequence,
-    cue: entry[side].cue,
-    drills: entry.drills.slice(0, 2),
+    consequence: w.consequence,
+    cue: w.cue,
+    drills: drills.length ? drills : entry.drills.slice(0, 2),
     retest: entry.retest,
+    ladder,
+    startLevel: (drills[0]?.level ?? startLevel) as 1 | 2 | 3 | 4,
+    target: `${m.name}: ${plainRange(m)} (now ${plainValue(m)}).`,
   };
 }
 
 export const roundIndex = (x: number) => round(x, 0);
+
+const LINE_FIRST = ["line_head", "line_shoulder", "line_knee", "sync_spread", "line_held"];
+
+/**
+ * Every check met: the way to perfection is the same shape under pace and movement. The
+ * measure nearest the edge of its range (the line first) slips first as the ball gets
+ * quicker, so its ladder is started at throw-downs.
+ */
+export function nextLevelPlan(metrics: Metric[]): PlanItem | null {
+  const edge = (m: Metric) => {
+    const { lo, hi } = m.range!;
+    const v = m.value!;
+    const dir = METRICS.find((d) => d.id === m.id)?.direction ?? "band";
+    if (dir === "lower") return hi > 0 ? v / hi : 0;
+    if (dir === "higher") return hi > lo ? (hi - v) / (hi - lo) : 0;
+    return Math.abs(v - (lo + hi) / 2) / Math.max((hi - lo) / 2, 1e-6);
+  };
+  const usable = metrics.filter(
+    (m) => m.status !== "not_measured" && m.range && m.value !== null && m.inRange === true && coachingFor(m.id)?.drills.some((d) => (d.level ?? 3) >= 3),
+  );
+  if (!usable.length) return null;
+  const m = [...usable].sort((a, b) => edge(b) * (LINE_FIRST.includes(b.id) ? 1.25 : 1) - edge(a) * (LINE_FIRST.includes(a.id) ? 1.25 : 1))[0]!;
+  const entry = coachingFor(m.id)!;
+  const ladder = [...entry.drills].sort((a, b) => (a.level ?? 3) - (b.level ?? 3));
+  const drills = ladder.filter((d) => (d.level ?? 3) >= 3).slice(0, 2);
+  const side = m.value! < (m.range!.lo + m.range!.hi) / 2 ? "low" : "high";
+  const w = wordingFor(entry, side, m.axis);
+  return {
+    priority: {
+      metricId: m.id,
+      title: `Keep it under pace: ${m.name.toLowerCase()}`,
+      observation: `Every check is in range. Nearest the edge of its range: ${m.name.toLowerCase()} (${plainValue(m)}; range ${plainRange(m)}).`,
+      evidenceIds: [`metric_${m.id}`, ...m.evidenceIds],
+    },
+    consequence: "Against quicker or moving deliveries, the measure nearest its edge is the first to slip.",
+    cue: w.cue || drills[0]?.cue || "Same shape, more pace.",
+    drills,
+    retest: entry.retest,
+    ladder,
+    startLevel: (drills[0]?.level ?? 3) as 1 | 2 | 3 | 4,
+    target: `${m.name}: ${plainRange(m)} at match pace (now ${plainValue(m)}).`,
+  };
+}

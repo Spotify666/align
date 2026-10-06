@@ -93,7 +93,7 @@ export function assessCapture(obs: CaptureObservation): CaptureQuality {
     label: "Batter size",
     status: px === null ? "not_applicable" : px < th("capture.fail_batter_px") ? "fail" : px < th("capture.min_batter_px") ? "warn" : "pass",
     value: px === null ? `${obs.media.width}×${obs.media.height}` : `about ${Math.round(px)} px tall (${obs.media.width}×${obs.media.height} ${isPhoto ? "photo" : "video"})`,
-    requirement: `Batter at least ${th("capture.min_batter_px")} px tall`,
+    requirement: `Batter at least ${th("capture.min_batter_px")} px tall (under ${th("capture.fail_batter_px")} px the body can't be read)`,
     correction: isPhoto ? "Use a larger photo, or one taken closer, so the batter fills more of it." : "Record at 1080p, or move closer so the batter fills more of the frame.",
   });
 
@@ -116,13 +116,16 @@ export function assessCapture(obs: CaptureObservation): CaptureQuality {
       requirement: `≥ ${th("capture.min_fps_timing")} fps for timing; 120–240 fps preferred`,
       correction: "Switch the camera to slow-motion (120 or 240 fps) before recording.",
     });
+    const cut = !!obs.media.trimmed;
     checks.push({
       id: "chk_duration",
-      label: "Clip length",
+      label: cut ? "Batter in view" : "Clip length",
       status: obs.media.durationMs < th("capture.min_duration_ms") ? "fail" : "pass",
-      value: `${(obs.media.durationMs / 1000).toFixed(1)} s`,
+      value: cut ? `${(obs.media.durationMs / 1000).toFixed(1)} s, then the camera cuts or zooms away` : `${(obs.media.durationMs / 1000).toFixed(1)} s`,
       requirement: "Setup, delivery and follow-through all in the clip",
-      correction: "Start recording before the bowler's run-up ends and stop after the follow-through.",
+      correction: cut
+        ? "Use footage where the camera stays on the batter from the stance until after the shot: a phone fixed on a tripod, not a TV clip that cuts away."
+        : "Start recording before the bowler's run-up ends and stop after the follow-through.",
     });
   }
 

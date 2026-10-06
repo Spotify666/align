@@ -89,6 +89,10 @@ export interface CaptureObservation {
     fpsSource: "container" | "playback" | "fixture" | "unknown";
     durationMs: number;
     frameCount: number;
+    /** Source time (ms) of the first analysed frame, when the analysis covers part of a longer clip. */
+    sourceStartMs?: number;
+    /** The camera cut or zoomed away from the batter: only this stretch of the clip shows the stroke. */
+    trimmed?: boolean;
   };
   tier: Tier;
   athlete: {
@@ -217,7 +221,7 @@ export interface RangeRef {
   source: string;
 }
 
-export type MetricDomain = "setup" | "footwork" | "head_trunk" | "sequence" | "bat_contact" | "outcome";
+export type MetricDomain = "alignment" | "setup" | "footwork" | "head_trunk" | "sequence" | "bat_contact" | "outcome";
 
 export interface Metric {
   id: string;
@@ -238,6 +242,8 @@ export interface Metric {
   limitation?: string;
   /** Why it was not measured. */
   reason?: string;
+  /** The line metrics: read along the pitch ("forward", side-on) or across it ("sideways", from either end). */
+  axis?: "forward" | "sideways";
 }
 
 export interface DomainResult {
@@ -262,6 +268,8 @@ export interface Drill {
   dosage: string;
   passCondition: string;
   cue: string;
+  /** Step on the way to match speed: 1 shadow, 2 static or dropped ball, 3 throw-downs, 4 machine or live bowling. */
+  level?: 1 | 2 | 3 | 4;
 }
 
 export interface PlanItem {
@@ -270,6 +278,27 @@ export interface PlanItem {
   cue: string;
   drills: Drill[];
   retest: string;
+  /** The whole progression for this fault, easiest first; `startLevel` is where this result starts it. */
+  ladder?: Drill[];
+  startLevel?: 1 | 2 | 3 | 4;
+  /** The measurable target that closes the fault, in the metric's own terms. */
+  target?: string;
+}
+
+export type LinePartId = "head" | "shoulder" | "knee";
+export interface LineSummary {
+  axis: "forward" | "sideways";
+  referenceFrame: number;
+  referenceKind: "contact" | "set";
+  atReference: Record<LinePartId, number | null>;
+  bands: Record<LinePartId, [number, number]>;
+  sideUnclear: boolean;
+  held: number | null;
+  arrivals: Record<"foot" | "knee" | "shoulder" | "head", { frame: number | null; ms: number | null; still: boolean }> | null;
+  spreadMs: number | null;
+  latestMs: number | null;
+  /** Per-frame offsets from `from` to `to` (null where unseen). */
+  trace: { from: number; to: number; head: (number | null)[]; shoulder: (number | null)[]; knee: (number | null)[] };
 }
 
 export interface Limitation {
@@ -326,6 +355,12 @@ export interface AnalysisPayload {
    * Shown so the athlete still learns something, without implying a defence verdict.
    */
   observations?: Metric[];
+  /**
+   * The line (head, front shoulder, front knee over the front foot) and how it formed: read
+   * at `referenceFrame` (contact, or the set position when contact wasn't seen). Offsets are
+   * × stature from the front ankle along `axis`. For the report's line view and comparisons.
+   */
+  line?: LineSummary;
   /** Photos: how the position measures up to the front-foot defence formula (frame = the photo it was read from). */
   position_check?: {
     met: number;

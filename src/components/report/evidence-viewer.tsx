@@ -53,6 +53,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
     return contact ? contact.frame : Math.min(n - 1, Math.round(n * 0.5));
   });
   const [mode, setMode] = useState<ViewMode>(videoUrl || keyframes ? "overlay" : "overlay");
+  const [sideView, setSideView] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [slow, setSlow] = useState(true);
   const [highlight, setHighlight] = useState<string | null>(null);
@@ -532,6 +533,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
             obs={obs}
             frame={frame}
             frameAt={frameAt}
+            angle={sideView ? "side" : "auto"}
             reference={mode === "compare" && reference ? { obs: reference.obs, contactSelf: reference.contactSelf, contactRef: reference.contactRef } : null}
             className="absolute inset-0"
           />
@@ -544,6 +546,19 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
           </button>
         )}
       </div>
+
+      {mode === "3d" && (
+        <div className="flex flex-wrap items-center gap-2 px-3 pt-2.5 text-sm">
+          <button className={`chip min-h-9 ${sideView ? "border-brand/60 bg-brand-soft text-fg" : "text-fg-muted"}`} aria-pressed={sideView} onClick={() => setSideView((v) => !v)}>
+            Side view{payload.camera_view === "front_on" || payload.camera_view === "behind" ? " (estimate)" : ""}
+          </button>
+          {sideView && (payload.camera_view === "front_on" || payload.camera_view === "behind") && (
+            <span className="text-xs text-fg-subtle">
+              Filmed along the pitch: this side view comes from a single-camera depth estimate. It shows the shape, not graded distances; film side-on to measure them.
+            </span>
+          )}
+        </div>
+      )}
 
       {mode === "compare" && reference && <CompareNote payload={payload} reference={reference} />}
 
@@ -600,19 +615,30 @@ function drawPin(
     ctx.fillStyle = COL.gold;
     ctx.fillText(text, x + 5, y);
   };
-  if (metric === "head_knee_offset") {
-    const h = g("head");
-    const k = g("front_knee");
-    if (h && k) {
-      ctx.setLineDash([3, 3]);
+  if (metric === "line_head" || metric === "line_shoulder" || metric === "line_knee" || metric === "line_held" || metric === "head_knee_offset") {
+    // The line rises straight up from the front ankle; head, front shoulder and front knee
+    // should sit on it (from either end of the pitch, the head just outside it, over the ball).
+    const a = g("front_ankle");
+    const parts = [g("head"), g("front_shoulder"), g("front_knee")];
+    if (a) {
+      const top = Math.min(...parts.filter((q): q is readonly [number, number] => !!q).map((q) => q[1]), a[1]) - 16;
+      ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.moveTo(h[0], h[1]);
-      ctx.lineTo(h[0], k[1] + 20);
-      ctx.moveTo(k[0], k[1] - 20);
-      ctx.lineTo(k[0], k[1] + 20);
+      ctx.moveTo(a[0], a[1] + 8);
+      ctx.lineTo(a[0], top);
       ctx.stroke();
       ctx.setLineDash([]);
-      label(Math.max(h[0], k[0]) + 8, k[1] + 4, "head vs front knee");
+      for (const q of parts) {
+        if (!q) continue;
+        ctx.beginPath();
+        ctx.moveTo(a[0], q[1]);
+        ctx.lineTo(q[0], q[1]);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(q[0], q[1], 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      label(a[0] + 8, top + 10, "the line");
     }
   } else if (metric === "front_knee_flexion") {
     const h = g("front_hip");

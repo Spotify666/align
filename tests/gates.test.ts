@@ -162,7 +162,8 @@ describe("release gate without bat or ball: no pull or drive may be accepted", (
     const p = analyze(generate({ ...spec.options, ...bare }), opts);
     expect(p.analysis_status).toBe("valid");
     expect(p.evidence_basis).toBe("body");
-    expect(p.events.find((e) => e.type === "contact")?.method).toMatch(/hands/);
+    // Bat and ball unseen: contact is placed where the body has set (foot, knee and shoulder arrived).
+    expect(p.events.find((e) => e.type === "contact")?.method).toMatch(/set position|hands/);
     expect(p.limitations.some((l) => l.id === "lim_body_led")).toBe(true);
     expect(p.delivery.available).toBe(false);
     for (const id of ["bat_angle_contact", "bat_speed_contact", "ball_exit_speed", "decision_timing", "contact_ahead_of_knee", "bat_pad_gap"]) {

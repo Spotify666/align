@@ -12,7 +12,7 @@ import { listAnalyses } from "@/lib/store";
 import { STATUS_META } from "../report/status";
 import { TrendChart } from "./trend-chart";
 
-const KEY_METRICS = ["head_knee_offset", "stride_length", "front_knee_flexion", "head_speed_contact", "bat_angle_contact", "weight_forward"];
+const KEY_METRICS = ["line_head", "line_shoulder", "line_knee", "line_held", "sync_spread", "stride_length", "front_knee_flexion", "weight_forward"];
 
 function demoSeries(): Array<{ id: string; date: string; payload: AnalysisPayload }> {
   return baselineSeries(9).map((o, i) => {
@@ -100,9 +100,12 @@ export function ProgressPage() {
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {KEY_METRICS.map((id) => {
                   const def = METRICS.find((m) => m.id === id)!;
-                  const pts = valid
-                    .map((r) => ({ r, m: r.payload.metrics.find((x) => x.id === id) }))
-                    .filter(({ m }) => m && m.value !== null && m.status !== "not_measured")
+                  // The line is read along the pitch side-on and sideways from either end:
+                  // never mix the two on one chart. Follow the latest shot's camera position.
+                  const all = valid.map((r) => ({ r, m: r.payload.metrics.find((x) => x.id === id) }));
+                  const axis = [...all].reverse().find(({ m }) => m?.axis)?.m?.axis;
+                  const pts = all
+                    .filter(({ m }) => m && m.value !== null && m.status !== "not_measured" && (!axis || m.axis === axis))
                     .map(({ r, m }) => ({ id: r.id, date: r.date, value: m!.value!, uncertainty: m!.uncertainty }));
                   if (pts.length < 2) return null;
                   const b = baseline.established ? baseline.metrics[id] : undefined;
@@ -113,7 +116,7 @@ export function ProgressPage() {
                       unit={def.unit}
                       decimals={def.decimals}
                       points={pts}
-                      range={def.range}
+                      range={axis === "sideways" && def.rangeSideways ? def.rangeSideways : def.range}
                       baseline={b ? { mean: b.mean, sd: b.sd } : null}
                       onOpen={demo ? undefined : (rid) => router.push(`/report/${rid}`)}
                     />

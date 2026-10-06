@@ -21,7 +21,7 @@ export default function AppHome() {
   const v = valid.payload;
   // The explainer plays the textbook defence, not the sample (which has a fault to fix).
   const story = textbookStory();
-  const keyMetrics = ["head_knee_offset", "stride_length", "bat_angle_contact"].map((id) => v.metrics.find((m) => m.id === id)!);
+  const keyMetrics = ["line_head", "sync_spread", "stride_length"].map((id) => v.metrics.find((m) => m.id === id)!);
 
   return (
     <div>
