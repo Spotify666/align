@@ -3,6 +3,14 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-10-06 · Take a photo with the camera
+
+> capture a photo should also be an option, is that avl?
+
+Done: the analyse page has four options in a 2×2 grid on a phone: choose a video, choose
+photos, record a video, and **take a photo** (opens the rear camera; tip: side-on, head to
+feet, at contact). Photos taken this way go through the same position check as chosen ones.
+
 ## 2026-10-06 · Reassess everything: the FFD line, sync, comparison, drills, real testing
 
 > there are lot of gaps, just reassess everything. The front foot defence has a logic where

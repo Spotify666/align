@@ -48,7 +48,7 @@ import { MarkEvidence } from "./mark-evidence";
 import { MomentPicker } from "./moment-picker";
 import { BatterPicker } from "./batter-picker";
 import { ViewPicker } from "./view-picker";
-import { Check, Chevron, Lock, Upload, Record as RecordIcon, Target } from "../icons";
+import { Camera, Check, Chevron, Lock, Upload, Record as RecordIcon, Target } from "../icons";
 
 // One screen to add a clip; everything after that runs on its own. Each automatic
 // decision (which shot, which person, where the camera was) is shown as it is made,
@@ -944,7 +944,7 @@ export function CaptureFlow() {
                 </div>
 
                 <div
-                  className={`grid gap-3 rounded-2xl sm:grid-cols-3 ${dragging ? "outline-2 outline-dashed outline-brand outline-offset-4" : ""} ${consented ? "" : "opacity-50"}`}
+                  className={`grid grid-cols-2 gap-3 rounded-2xl lg:grid-cols-4 ${dragging ? "outline-2 outline-dashed outline-brand outline-offset-4" : ""} ${consented ? "" : "opacity-50"}`}
                   onDragOver={(e) => {
                     e.preventDefault();
                     if (consented) setDragging(true);
@@ -971,9 +971,15 @@ export function CaptureFlow() {
                   </label>
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <RecordIcon size={26} className="text-bad" />
-                    <span className="font-semibold">Record now</span>
+                    <span className="font-semibold">Record a video</span>
                     <span className="text-xs text-fg-subtle">Opens your camera</span>
                     <input type="file" disabled={!consented} accept="video/*" capture="environment" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
+                  </label>
+                  <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
+                    <Camera size={26} className="text-data" />
+                    <span className="font-semibold">Take a photo</span>
+                    <span className="text-xs text-fg-subtle">Opens your camera · side-on, head to feet, at contact</span>
+                    <input type="file" disabled={!consented} accept="image/*" capture="environment" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                 </div>
                 {!consented && <p className="text-sm text-fg-muted">Tick the box above to add a video or photos.</p>}
