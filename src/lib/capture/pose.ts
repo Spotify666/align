@@ -386,17 +386,33 @@ let cropCanvas: AnyCanvas | null = null;
 const CROP_SIDE = 512;
 
 /** Draw the ROI of `source` onto a reusable canvas sized for the pose model. */
-function crop(source: FrameSource, roi: Roi): AnyCanvas {
+function crop(source: FrameSource, roi: Roi, into?: AnyCanvas): AnyCanvas {
   const { w: W, h: H } = sizeOf(source);
   const pw = roi.w * W;
   const ph = roi.h * H;
   const scale = CROP_SIDE / Math.max(pw, ph);
-  cropCanvas ??= makeCanvas(16, 16);
-  cropCanvas.width = Math.max(16, Math.round(pw * scale));
-  cropCanvas.height = Math.max(16, Math.round(ph * scale));
-  const ctx = cropCanvas.getContext("2d") as CanvasRenderingContext2D;
-  ctx.drawImage(source, roi.x * W, roi.y * H, pw, ph, 0, 0, cropCanvas.width, cropCanvas.height);
-  return cropCanvas;
+  const c = into ?? (cropCanvas ??= makeCanvas(16, 16));
+  c.width = Math.max(16, Math.round(pw * scale));
+  c.height = Math.max(16, Math.round(ph * scale));
+  const ctx = c.getContext("2d") as CanvasRenderingContext2D;
+  ctx.drawImage(source, roi.x * W, roi.y * H, pw, ph, 0, 0, c.width, c.height);
+  return c;
+}
+
+/**
+ * Exactly what detectStill would hand the model for this frame and region (the frame
+ * itself, or the crop drawn on the page), as a bitmap a worker can take: the page does all
+ * the drawing, so a worker running the model on it gets the page's own pixels.
+ */
+export function stillInput(source: FrameSource, roi: Roi, into: AnyCanvas): Promise<ImageBitmap> {
+  const full = roi.w >= 0.98 && roi.h >= 0.98;
+  return createImageBitmap(full ? source : crop(source, roi, into));
+}
+
+/** detectStill on an input made by stillInput (for example in a worker): the same result. */
+export function detectStillOn(pose: PL, input: ImageBitmap, roi: Roi): PoseFrame {
+  const full = roi.w >= 0.98 && roi.h >= 0.98;
+  return toFrame(pose.detect(input), full ? FULL : roi, null);
 }
 
 function toFrame(res: PoseLandmarkerResult, roi: Roi, prevHip: [number, number] | null): PoseFrame {

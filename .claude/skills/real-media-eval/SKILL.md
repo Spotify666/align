@@ -48,7 +48,10 @@ measure. `diff.probe.ts` (A=, B= files) shows which frames and joints differ.
 Speed: every step logs `[align:time] <step> <ms>`; `THROTTLE=4` slows the page's CPU about
 like a phone (it does not slow workers, so judge worker gains unthrottled); `PROFILE=<file>`
 records a CPU profile; `NO_WORKERS=1` runs everything on the page (must equal the worker run
-exactly).
+exactly). Two traps when moving work to workers: a frame decoded in a worker has slightly
+different colours than on the page, and a canvas drawn on keeps a trace of the previous frame
+at its edges. Workers must only get images the page drew, and split work must replay the
+canvases' history.
 
 Overlay the tracked skeleton on the real frames to check timing by eye:
 `node scripts/eval/overlay.mjs <video> <obs.json> <out.png> 40,43,46,49 480` (obs.json from the

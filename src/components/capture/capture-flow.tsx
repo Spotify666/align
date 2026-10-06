@@ -31,7 +31,7 @@ import {
   type PoseFrame,
   type Roi,
 } from "@/lib/capture/pose";
-import { batterCandidates, boxAt, finishScan, MAX_SCAN_SEC, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
+import { batterCandidates, boxAt, MAX_SCAN_SEC, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
 import { visionPool } from "@/lib/capture/vision-pool";
 import { guessView } from "@/lib/capture/view-guess";
 import { strokeSegment } from "@/lib/capture/segments";
@@ -343,16 +343,16 @@ export function CaptureFlow() {
       const signal = abort.current.signal;
       // A returning device knows its pose path: get the tracking model ready during the scan.
       if (knownDelegate()) void loadPose().catch(() => undefined);
-      const pool = job.current.src ? visionPool() : null;
+      // Short clips scan quickly on the page; splitting them costs more than it saves.
+      const pool = job.current.src && Math.min(v.duration, MAX_SCAN_SEC) >= 8 ? visionPool() : null;
       stage("shot", "active", m.durationSec > 20 ? "Looking through the whole clip…" : "");
       timeStart("scan");
       let scanned: ScanResult | null = null;
       if (pool) {
-        // Exactly decoded frames, the clip shared between the workers (same samples as one pass).
-        const limit = Math.min(v.duration, MAX_SCAN_SEC);
-        const part = await pool.scan(f, limit, v.videoWidth / Math.max(1, v.videoHeight), scanTick, signal).catch(() => null);
+        // The clip in parts side by side, each decoded on the page, its models in a worker
+        // (the same samples as one pass on the page).
+        scanned = await pool.scan(f, Math.min(v.duration, MAX_SCAN_SEC), v.videoWidth / Math.max(1, v.videoHeight), WINDOW_SEC, scanTick, signal).catch(() => null);
         if (!alive() || signal.aborted) return;
-        if (part) scanned = finishScan(part.samples, part.motion, limit, WINDOW_SEC, scanTick);
       }
       if (!scanned) {
         timeStart("models");

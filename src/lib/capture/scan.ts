@@ -6,7 +6,7 @@
 
 import type { ObjectDetector as OD, PoseLandmarker as PL } from "@mediapipe/tasks-vision";
 import { J } from "@/engine/types";
-import { bodyBox, detectObjects, detectStill, roiAround, seek, type Box, type PoseFrame, type Roi } from "./pose";
+import { bodyBox, detectObjects, detectStill, roiAround, seek, stillInput, type Box, type PoseFrame, type Roi } from "./pose";
 import { playFrames } from "./frames";
 import type { DecodedVideo } from "./decoder";
 import { makeCanvas, type AnyCanvas } from "./canvas";
@@ -234,6 +234,9 @@ function motionMeter(aspect: number): { take: (t: number, from: CanvasImageSourc
 
 type GridEntry = { t: number; motion: boolean; posture: number };
 const DET_EVERY = 5;
+const isDetection = (g: GridEntry) => g.posture >= 0 && g.posture % DET_EVERY === 0;
+/** Detection frames drawn (not measured) before a part starts, so its canvases match one pass. */
+const WARM_DETECTIONS = 3;
 const keyOf = (t: number) => Math.round(t * 100) / 100;
 
 /**
@@ -334,6 +337,87 @@ export async function scanPart(
   );
   const motion = meter.out;
   if (lead >= 0) for (const a of [motion.t, motion.m, motion.cut] as unknown[][]) a.shift();
+  return { samples, motion };
+}
+
+/** The models of scanPart, run elsewhere (a worker) on bitmaps the page drew. */
+export interface RemoteModels {
+  /** People and bat hints in a bitmap of the detection canvas. */
+  objects(image: ImageBitmap): Promise<{ people: Box[]; bats: Box[] }>;
+  /** The scan pose on a stillInput bitmap for `roi`. */
+  still(image: ImageBitmap, roi: Roi): Promise<PoseFrame>;
+}
+
+/**
+ * scanPart with the models in a worker and every pixel drawn on the page, exactly as
+ * scanPart draws it: the same decoded frames on the decoder's own canvas, the same scaling
+ * into the detection canvas and the pose crop, straight from that canvas. Only the finished
+ * images go to the worker, so the samples are the page's. Each frame waits on the canvas
+ * (decoding held back) while its models run.
+ */
+export async function scanPartRemote(
+  src: DecodedVideo,
+  aspect: number,
+  grid: GridEntry[],
+  part: { from: number; to: number },
+  models: RemoteModels,
+  onProgress: (t: number) => void,
+  stop: () => boolean,
+  thumbOf: (from: AnyCanvas) => string,
+): Promise<ScanPart> {
+  const meter = motionMeter(aspect);
+  const detCanvas = canvas(aspect >= 1 ? 480 : Math.round(480 * aspect), aspect >= 1 ? Math.round(480 / aspect) : 480);
+  const dctx = detCanvas.getContext("2d") as CanvasRenderingContext2D;
+  const cropInto = canvas(16, 16);
+  // A canvas drawn on keeps a faint trace of the frame before at its edges, so the
+  // detection and movement canvases must have seen the same frames as in one pass: the
+  // part starts a few detection frames early, drawing (not measuring) on its way in.
+  let from = part.from;
+  for (let n = 0; n < WARM_DETECTIONS && from > 0; ) if (isDetection(grid[--from]!)) n++;
+  const idx = Array.from({ length: part.to - from }, (_, k) => from + k);
+  let warmMotion = 0;
+  const samples: ScanSample[] = [];
+  let people: Box[] = [];
+  let bats: Box[] = [];
+  let thumb = "";
+  let crop: Roi | null = null;
+  await src.read(
+    idx.map((i) => grid[i]!.t),
+    async (k, frame) => {
+      if (stop()) return false;
+      const g = grid[idx[k]!]!;
+      if (g.motion) meter.take(g.t, frame);
+      if (idx[k]! < part.from) {
+        if (g.motion) warmMotion++;
+        if (isDetection(g)) dctx.drawImage(frame, 0, 0, detCanvas.width, detCanvas.height);
+        return;
+      }
+      if (g.posture >= 0) {
+        const detected = g.posture % DET_EVERY === 0;
+        if (detected) {
+          dctx.drawImage(frame, 0, 0, detCanvas.width, detCanvas.height);
+          ({ people, bats } = await models.objects(await createImageBitmap(detCanvas)));
+          thumb = thumbOf(detCanvas);
+          const main = people.filter(fullBodyBox).sort((a, b) => b.h - a.h)[0];
+          crop = main ? roiAround(main, aspect, 0.3) : null;
+        }
+        let head: number | null = null;
+        if (crop) {
+          const p = await models.still(await stillInput(frame, crop, cropInto), crop);
+          head = headRatio(p, aspect);
+          // Follow the batter between detections.
+          const b = bodyBox(p.body);
+          if (b) crop = roiAround(b, aspect, 0.3);
+        }
+        samples.push({ t: g.t, people, bats: detected ? bats : [], head, motion: 0, cut: false, thumb });
+      }
+      onProgress(g.t);
+    },
+    stop,
+    { wait: true },
+  );
+  const motion = meter.out;
+  for (const a of [motion.t, motion.m, motion.cut] as unknown[][]) a.splice(0, warmMotion);
   return { samples, motion };
 }
 

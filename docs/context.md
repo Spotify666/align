@@ -20,17 +20,20 @@ change that answers a new ask, so the next session starts from the same page.
 
 Done:
 - **Speed, same logic**: profiled every step (`[align:time]` logs; `THROTTLE=4` in the e2e
-  harness approximates a phone). 96 of 126 s was the pose and person models on one core. Now:
-  the whole-clip scan ("finding the shot") is split across 2–3 workers (`vision.worker.ts`,
-  `vision-pool.ts`), each decoding and scanning its own part with exactly the page's code; the
-  person detection that links the batter back from the stroke runs in the workers on the
-  page's own decoded pixels (handed over frame by frame), so the boxes are exactly the page's;
-  the tracking model loads during the scan; progress redraws are throttled. Tracking, the
-  batter, camera and recording checks stay on the page. A worker decoding a frame itself turns
-  it into very slightly different colours, which moved a sync timing by one frame, so nothing
-  that feeds a measurement uses worker-decoded pixels. Checked on the real-media matrix:
-  tracked frames, verdicts and measures identical to the previous build. Workers can be
-  switched off (`localStorage align:workers = off`, `NO_WORKERS=1`).
+  harness approximates a phone). 96 of 126 s was the pose and person models on one core. Now
+  the models run in 2–3 workers (`vision.worker.ts`, `vision-pool.ts`) while the page keeps
+  every pixel operation it always had: for clips of 8 s or more the scan ("finding the shot")
+  runs in parts side by side, each decoded on the page and drawing on the page's canvases,
+  sending only the finished images to a worker; the link-back person detection gets the page's
+  decoded pixels; the tracking model loads during the scan; progress redraws are throttled.
+  Tracking and the batter, camera and recording checks stay on the page.
+  What it took to be exact (each found by comparing tracks): a frame decoded *in* a worker has
+  very slightly different colours (that moved a sync timing by one frame, and turned a TV
+  defence into a "back-foot defence"), so workers never decode; and a canvas keeps a faint
+  trace of the previous frame at its edges, so each scan part first redraws the few frames
+  before it. Result: tracked frames, verdicts and measures identical to the previous build on
+  the real-media matrix. Workers can be switched off (`localStorage align:workers = off`,
+  `NO_WORKERS=1`).
 - **3D**: the batter is a solid figure (whites, blue shirt, helmet, forearms, gloves), not
   lines; the near side lit and the far side darker so crossing limbs read in depth; the
   centre line runs from the ground up to the top of the head.
