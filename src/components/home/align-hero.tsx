@@ -1,5 +1,5 @@
 "use client";
-// The landing page's picture of what Align means: the textbook defence just after contact,
+// The landing page's picture of what Aline means: the textbook defence just after contact,
 // the ball dropping dead under the eyes, with the one line the shot is built on drawn
 // behind the batter: eyes, front knee and ball, one above the other. A still drawing (no
 // clock, no WebGL), so it costs a phone nothing to show.

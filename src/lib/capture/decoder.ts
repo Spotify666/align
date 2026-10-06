@@ -7,6 +7,7 @@
 // frames come back every time.
 
 import { createFile, DataStream, Endianness, MP4BoxBuffer, type Sample } from "mp4box";
+import { makeCanvas, type AnyCanvas } from "./canvas";
 
 export interface DecodedVideo {
   width: number;
@@ -19,7 +20,17 @@ export interface DecodedVideo {
    * canvas holds that frame, upright, at display size, until the callback returns.
    * Returning false stops early. Resolves to the targets that were not delivered.
    */
-  read(targets: number[], onFrame: (index: number, frame: HTMLCanvasElement, time: number) => boolean | void, stop?: () => boolean): Promise<number[]>;
+  read(
+    targets: number[],
+    onFrame: (index: number, frame: AnyCanvas, time: number) => boolean | void | Promise<boolean | void>,
+    stop?: () => boolean,
+    /**
+     * wait: onFrame may return a promise; each frame is painted only after the previous
+     * frame's onFrame has settled (decoding is held back meanwhile), so a slow consumer can
+     * work on the canvas across awaits. The pixels are the same either way.
+     */
+    opts?: { wait?: boolean },
+  ): Promise<number[]>;
   close(): void;
 }
 
@@ -30,9 +41,9 @@ interface Frame {
   decode: number; // index in decode order
 }
 
-/** Open a clip for exact decoding, or null when this browser or file can't (callers fall back to playback). */
+/** Open a clip for exact decoding, or null when this browser or file can't (callers fall back to playback). Works in a worker too. */
 export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
-  if (typeof VideoDecoder === "undefined" || typeof document === "undefined") return null;
+  if (typeof VideoDecoder === "undefined") return null;
   try {
     const mp4 = createFile();
     let info: Awaited<ReturnType<NonNullable<typeof mp4.onReady>>> | null = null;
@@ -96,10 +107,9 @@ export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
     const ch = track.video?.height ?? 0;
     const width = rot === 90 || rot === 270 ? ch : cw;
     const height = rot === 90 || rot === 270 ? cw : ch;
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    // A page canvas on the page (as always), an offscreen one in a worker.
+    const canvas = makeCanvas(width, height);
+    const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
 
     const syncBefore = (d: number) => {
       for (let k = d; k >= 0; k--) if (samples[k]!.is_sync) return k;
@@ -117,7 +127,8 @@ export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
       return lo;
     };
 
-    const read: DecodedVideo["read"] = async (targets, onFrame, stop) => {
+    const read: DecodedVideo["read"] = async (targets, onFrame, stop, opts) => {
+      const wait = !!opts?.wait;
       if (!targets.length) return [];
       const want = targets.map(frameAt);
       // Which targets each display frame serves.
@@ -128,18 +139,49 @@ export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
       const byDecode = [...new Set(want)].map((f) => frames[f]!.decode).sort((a, b) => a - b);
 
       let failure: unknown = null;
+      const paint = (vf: VideoFrame) => {
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        ctx.rotate((rot * Math.PI) / 180);
+        ctx.drawImage(vf, -cw / 2, -ch / 2, cw, ch);
+        ctx.restore();
+      };
+      // wait mode: frames queue here and are painted and handed over one at a time.
+      const pending: Array<{ vf: VideoFrame; f: number; idx: number[] }> = [];
+      let pumping: Promise<void> | null = null;
+      const pump = () =>
+        (pumping ??= (async () => {
+          while (pending.length) {
+            const { vf, f, idx } = pending.shift()!;
+            try {
+              if (halted || failure) continue;
+              paint(vf);
+              for (const i of idx) {
+                if (delivered.has(i) || halted) continue;
+                delivered.add(i);
+                if ((await onFrame(i, canvas, times[f]!)) === false || stop?.()) halted = true;
+              }
+            } catch (e) {
+              failure = e;
+              halted = true;
+            } finally {
+              vf.close();
+            }
+          }
+          pumping = null;
+        })());
       const decoder = new VideoDecoder({
         output: (vf) => {
+          const f = frameAt(vf.timestamp / 1e6 + 1e-7);
+          const idx = serves.get(f);
+          if (halted || !idx || idx.every((i) => delivered.has(i))) return vf.close();
+          if (wait) {
+            pending.push({ vf, f, idx });
+            void pump();
+            return;
+          }
           try {
-            if (halted) return;
-            const f = frameAt(vf.timestamp / 1e6 + 1e-7);
-            const idx = serves.get(f);
-            if (!idx || idx.every((i) => delivered.has(i))) return;
-            ctx.save();
-            ctx.translate(width / 2, height / 2);
-            ctx.rotate((rot * Math.PI) / 180);
-            ctx.drawImage(vf, -cw / 2, -ch / 2, cw, ch);
-            ctx.restore();
+            paint(vf);
             for (const i of idx) {
               if (delivered.has(i) || halted) continue;
               delivered.add(i);
@@ -151,6 +193,10 @@ export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
         },
         error: (e) => (failure = e),
       });
+      // At most two decoded frames held while the consumer works.
+      const drained = async () => {
+        while (wait && pending.length >= 2 && pumping) await pumping;
+      };
       decoder.configure(config);
       const room = () =>
         decoder.decodeQueueSize < 8
@@ -181,11 +227,13 @@ export async function openDecoded(file: Blob): Promise<DecodedVideo | null> {
         while (end + 1 < samples.length && !samples[end + 1]!.is_sync && samples[end + 1]!.cts < samples[d]!.cts) end++;
         for (; next <= end && !halted && !failure; next++) {
           const s = samples[next]!;
+          await drained();
           await room();
           decoder.decode(new EncodedVideoChunk({ type: s.is_sync ? "key" : "delta", timestamp: Math.round((s.cts / ts - shift) * 1e6), duration: Math.round((s.duration / ts) * 1e6), data: await bytes(s) }));
         }
       }
       if (!failure && decoder.state === "configured") await decoder.flush().catch((e) => (failure = e));
+      while (pumping) await pumping;
       if (decoder.state !== "closed") decoder.close();
       if (failure && !delivered.size) throw failure;
       return targets.map((_, i) => i).filter((i) => !delivered.has(i));

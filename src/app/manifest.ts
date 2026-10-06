@@ -2,14 +2,14 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Align — cricket shot analysis",
-    short_name: "Align",
+    name: "Aline — cricket shot analysis",
+    short_name: "Aline",
     description: "Front-foot defence analysis: confirm the shot, then measure it.",
     start_url: "/home",
     display: "standalone",
     orientation: "any",
-    background_color: "#0d1f19",
-    theme_color: "#0d1f19",
+    background_color: "#1e1e1e",
+    theme_color: "#1e1e1e",
     categories: ["sports", "health", "education"],
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },

@@ -261,7 +261,7 @@ export function ProfilePage() {
             </ul>
           </details>
         )}
-        <Link href="/privacy" className="text-sm underline text-fg-muted">How Align handles your data</Link>
+        <Link href="/privacy" className="text-sm underline text-fg-muted">How Aline handles your data</Link>
       </section>
     </div>
   );

@@ -10,6 +10,8 @@
 
 import type { ObjectDetector as OD, PoseLandmarker as PL, PoseLandmarkerResult } from "@mediapipe/tasks-vision";
 import { J, JOINTS, type CameraPoint, type ImgPoint } from "@/engine/types";
+import { timeAdd } from "./timing";
+import { makeCanvas, sizeOf, type AnyCanvas, type FrameSource } from "./canvas";
 
 // MediaPipe's 33-landmark indices for the joints the engine uses.
 const MP_INDEX: Record<(typeof JOINTS)[number], number> = {
@@ -306,11 +308,13 @@ export function loadPersonDetector(): Promise<OD> {
 }
 
 /** People (largest first) and bat-like objects in a frame. `source` dimensions define the normalisation. */
-export function detectObjects(det: OD, source: HTMLCanvasElement | HTMLImageElement | HTMLVideoElement | ImageBitmap): { people: Box[]; bats: Box[] } {
-  const W = "videoWidth" in source ? source.videoWidth : source.width;
-  const H = "videoHeight" in source ? source.videoHeight : source.height;
+export function detectObjects(det: OD, source: FrameSource | ImageBitmap | ImageData): { people: Box[]; bats: Box[] } {
+  const { w: W, h: H } = sizeOf(source);
   if (!W || !H) return { people: [], bats: [] };
-  const all = det.detect(source).detections.map((d) => ({
+  const t0 = performance.now();
+  const found = det.detect(source).detections;
+  timeAdd("detector", performance.now() - t0);
+  const all = found.map((d) => ({
     kind: d.categories[0]?.categoryName ?? "",
     box: {
       x: (d.boundingBox?.originX ?? 0) / W,
@@ -329,7 +333,7 @@ export function detectObjects(det: OD, source: HTMLCanvasElement | HTMLImageElem
   };
 }
 
-export function detectPeople(det: OD, source: HTMLCanvasElement | HTMLImageElement | HTMLVideoElement | ImageBitmap): Box[] {
+export function detectPeople(det: OD, source: FrameSource | ImageBitmap | ImageData): Box[] {
   return detectObjects(det, source).people;
 }
 
@@ -378,22 +382,37 @@ export function roiAround(b: Roi, frameAspect: number, margin = 0.35): Roi {
 }
 const clamp01 = (v: number, size: number) => Math.max(0, Math.min(1 - size, v));
 
-let cropCanvas: HTMLCanvasElement | null = null;
+let cropCanvas: AnyCanvas | null = null;
 const CROP_SIDE = 512;
 
 /** Draw the ROI of `source` onto a reusable canvas sized for the pose model. */
-function crop(source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement, roi: Roi): HTMLCanvasElement {
-  const W = "videoWidth" in source ? source.videoWidth : source.width;
-  const H = "videoHeight" in source ? source.videoHeight : source.height;
+function crop(source: FrameSource, roi: Roi, into?: AnyCanvas): AnyCanvas {
+  const { w: W, h: H } = sizeOf(source);
   const pw = roi.w * W;
   const ph = roi.h * H;
   const scale = CROP_SIDE / Math.max(pw, ph);
-  cropCanvas ??= document.createElement("canvas");
-  cropCanvas.width = Math.max(16, Math.round(pw * scale));
-  cropCanvas.height = Math.max(16, Math.round(ph * scale));
-  const ctx = cropCanvas.getContext("2d")!;
-  ctx.drawImage(source, roi.x * W, roi.y * H, pw, ph, 0, 0, cropCanvas.width, cropCanvas.height);
-  return cropCanvas;
+  const c = into ?? (cropCanvas ??= makeCanvas(16, 16));
+  c.width = Math.max(16, Math.round(pw * scale));
+  c.height = Math.max(16, Math.round(ph * scale));
+  const ctx = c.getContext("2d") as CanvasRenderingContext2D;
+  ctx.drawImage(source, roi.x * W, roi.y * H, pw, ph, 0, 0, c.width, c.height);
+  return c;
+}
+
+/**
+ * Exactly what detectStill would hand the model for this frame and region (the frame
+ * itself, or the crop drawn on the page), as a bitmap a worker can take: the page does all
+ * the drawing, so a worker running the model on it gets the page's own pixels.
+ */
+export function stillInput(source: FrameSource, roi: Roi, into: AnyCanvas): Promise<ImageBitmap> {
+  const full = roi.w >= 0.98 && roi.h >= 0.98;
+  return createImageBitmap(full ? source : crop(source, roi, into));
+}
+
+/** detectStill on an input made by stillInput (for example in a worker): the same result. */
+export function detectStillOn(pose: PL, input: ImageBitmap, roi: Roi): PoseFrame {
+  const full = roi.w >= 0.98 && roi.h >= 0.98;
+  return toFrame(pose.detect(input), full ? FULL : roi, null);
 }
 
 function toFrame(res: PoseLandmarkerResult, roi: Roi, prevHip: [number, number] | null): PoseFrame {
@@ -437,21 +456,29 @@ const FULL: Roi = { x: 0, y: 0, w: 1, h: 1 };
  */
 export function detectFrame(
   pose: PL,
-  source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+  source: FrameSource,
   timestampMs: number,
   prevHip: [number, number] | null,
   roi: Roi = FULL,
 ): PoseFrame {
+  const t0 = performance.now();
   const full = roi.w >= 0.98 && roi.h >= 0.98;
   const input = full ? source : crop(source, roi);
-  return toFrame(pose.detectForVideo(input, nextTimestamp(timestampMs)), full ? FULL : roi, prevHip);
+  const t1 = performance.now();
+  const res = pose.detectForVideo(input, nextTimestamp(timestampMs));
+  timeAdd("pose.crop", t1 - t0);
+  timeAdd("pose.video", performance.now() - t1);
+  return toFrame(res, full ? FULL : roi, prevHip);
 }
 
 /** Pose in one independent still (photo or sparse probe frame). */
-export function detectStill(pose: PL, source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement, roi: Roi = FULL): PoseFrame {
+export function detectStill(pose: PL, source: FrameSource, roi: Roi = FULL): PoseFrame {
+  const t0 = performance.now();
   const full = roi.w >= 0.98 && roi.h >= 0.98;
   const input = full ? source : crop(source, roi);
-  return toFrame(pose.detect(input), full ? FULL : roi, null);
+  const res = pose.detect(input);
+  timeAdd("pose.still", performance.now() - t0);
+  return toFrame(res, full ? FULL : roi, null);
 }
 
 /** Bounding box of the confidently seen joints, or null when too little of the body is seen. */

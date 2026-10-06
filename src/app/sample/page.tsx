@@ -14,7 +14,7 @@ export default function SamplesIndex() {
         <h1 className="display text-5xl">Every outcome, designed as carefully as the good one.</h1>
         <p className="text-fg-muted">
           These reports are produced by the real engine running on synthetic fixture tracks. They are labelled DEMO DATA everywhere and exist to show
-          how Align behaves — including when it refuses to score.
+          how Aline behaves — including when it refuses to score.
         </p>
       </header>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

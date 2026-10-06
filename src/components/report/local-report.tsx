@@ -104,7 +104,7 @@ export function LocalReport({ id }: { id: string }) {
               <p className="text-sm text-fg-muted">
                 {p.analysis_status === "valid"
                   ? `Your defence was confirmed from body and hand movement. Tap the ${state.obs.ball.source === "none" && state.obs.bat.source === "none" ? "ball and bat" : state.obs.ball.source === "none" ? "ball" : "bat"} on a few frames (about 30 seconds) to add bat angle, contact point and delivery measures.`
-                  : `Align couldn't see the ${state.obs.ball.source === "none" && state.obs.bat.source === "none" ? "ball and bat" : state.obs.ball.source === "none" ? "ball" : "bat"} clearly enough on its own. Tap them on a few frames (about 30 seconds) to confirm the shot.`}
+                  : `Aline couldn't see the ${state.obs.ball.source === "none" && state.obs.bat.source === "none" ? "ball and bat" : state.obs.ball.source === "none" ? "ball" : "bat"} clearly enough on its own. Tap them on a few frames (about 30 seconds) to confirm the shot.`}
               </p>
             </div>
             <Link href={`/analyse?mark=${id}`} className="btn btn-primary shrink-0">Add ball and bat</Link>

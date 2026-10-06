@@ -25,7 +25,7 @@ export default function SciencePage() {
         <p className="eyebrow">Science and validation</p>
         <h1 className="display text-5xl">How a result is produced — and what is not yet proven.</h1>
         <p className="text-fg-muted max-w-3xl">
-          Align is a measurement system with an explanation layer, not an AI that watches cricket. This page lists every rule, range and version the engine
+          Aline is a measurement system with an explanation layer, not an AI that watches cricket. This page lists every rule, range and version the engine
           uses. Nothing here is a claim of accuracy on real athletes: that validation has not been done yet.
         </p>
         <nav className="flex flex-wrap gap-2 text-sm" aria-label="On this page">

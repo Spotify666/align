@@ -178,7 +178,7 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
     for (const l of limits) text(`• ${l.text}`, 9, muted, "normal", 0);
   }
   y += 6;
-  text(`Align ${p.versions.engine} · result ${p.result_hash.slice(0, 12)}`, 7, muted);
+  text(`Aline ${p.versions.engine} · result ${p.result_hash.slice(0, 12)}`, 7, muted);
   text("Not a medical assessment. Movement indicators describe technique, not health or injury.", 8, muted);
 
   const pages = doc.getNumberOfPages();
