@@ -34,6 +34,16 @@ Done:
   before it. Result: tracked frames, verdicts and measures identical to the previous build on
   the real-media matrix. Workers can be switched off (`localStorage align:workers = off`,
   `NO_WORKERS=1`).
+- **Measured** (same machine, before → after): the 44 s net clip 44 → 33 s (with the page
+  slowed 4× like a budget phone: 124 → 69 s; the workers aren't slowed by that setting, so
+  the phone figure is optimistic); a 9 s broadcast clip 28 → 24 s. Real-media matrix (42
+  videos): every clip that decodes exactly is identical (13 of 16 tracked; the other 3 are
+  odd-sized transcodes that fall back to playing the video, which varies run to run in the
+  old build too).
+- **Open**: tracking (the full pose model on every frame of the shot, in order) is now most
+  of the time and can't be split without changing results; on a budget phone a long net clip
+  can still take over a minute. Odd-sized videos (e.g. 240×427) use the playback fallback,
+  which isn't repeatable run to run.
 - **3D**: the batter is a solid figure (whites, blue shirt, helmet, forearms, gloves), not
   lines; the near side lit and the far side darker so crossing limbs read in depth; the
   centre line runs from the ground up to the top of the head.
