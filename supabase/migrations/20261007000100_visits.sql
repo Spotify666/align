@@ -43,8 +43,8 @@ create policy visits_admin_delete on public.visits for delete to authenticated u
 
 -- Insert or update a visit. Repeated calls for the same session carry the whole visit so far
 -- (beacons can be lost), so the longer lists and the larger time win. Time spent can't grow
--- faster than the clock. New visits are limited per IP and per day, and visits older than
--- 180 days are removed.
+-- faster than the clock. New visits are limited per IP and per day. (Visits older than 180
+-- days are removed by the visitors page, under visits_admin_delete.)
 create function public.record_visit(
   p_session text,
   p_visitor text,
@@ -84,7 +84,6 @@ begin
     if (select count(*) from public.visits where started_at > now() - interval '1 day') >= 5000 then
       return;
     end if;
-    delete from public.visits where started_at < now() - interval '180 days';
   end if;
 
   insert into public.visits as v (session_id, visitor_id, active_ms, ip, country, region, city, device, os, browser, screen, lang, referrer, paths, events)
@@ -117,6 +116,3 @@ language sql stable security invoker set search_path = '' as $$
 $$;
 revoke all on function public.visit_stats() from public, anon;
 grant execute on function public.visit_stats() to authenticated;
-
--- A header probe made while building this (never used by the app).
-drop function if exists public.zz_debug_headers();

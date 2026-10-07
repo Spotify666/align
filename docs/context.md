@@ -20,7 +20,8 @@ Done:
   move; scripts can't fake these), never from automated browsers (`navigator.webdriver`,
   headless) or from browsers asking not to be tracked; the server (`/api/visit`) drops crawler,
   link-preview, monitor and script user agents, other sites' requests and bursts; the database
-  caps new visits per IP (30 an hour) and per day, and keeps 180 days. Only the live site logs.
+  caps new visits per IP (30 an hour) and per day. Visits older than 180 days are removed when
+  the owner opens the visitors page. Only the live site logs.
 - **Visitors page** (`/visitors`, linked at the bottom of every page): visitors and visits today,
   7 and 30 days with typical time; each visit's time, place, device, time spent and what they
   did (tap to see the steps and IP). Only the owner sees it (sign in with the owner's email;
@@ -30,6 +31,9 @@ Done:
   visit arrives with pages, taps, the analysis tried and time; opt-out works).
 - **Open**: anyone who reads the page's code could still post a made-up visit straight to the
   database function (there's no server secret to sign with yet); it's capped per IP and per day.
+  Supabase asks for a confirmation before statements that remove data, and that prompt doesn't
+  reach the athlete's phone, so the migration keeps none (the 180-day clean-up runs from the
+  page). A leftover header probe, `zz_debug_headers()`, has no grants and can be dropped.
 
 ## 2026-10-06 · Faster analysis, a human 3D figure, and the Aline brand
 
