@@ -34,6 +34,15 @@ Done:
   data; the athlete chose totals only. The owner-only list and `site_admins` remain unused.)
   Sign-in links currently open `localhost:3000`: Supabase Auth's Site URL needs to be the live
   site, with both live domains in its redirect URLs.
+
+  > It's for testing, I need complete table with data. Just make sure spam bots visits are
+  > eliminated
+
+  The full table (every visit: time, place, IP, device, system, browser, time spent, pages,
+  actions, source, a short browser id; tap a visit for its steps, screen and language) is on
+  the owner's private link `/visitors?k=…` (`visits_full(key)`; keys are SHA-256 hashes in
+  `visit_keys`, added by hand, never committed). The key is remembered on that device, so the
+  bottom link opens the full table there. Everyone else still sees totals only.
 - Checked: `tests/visit.test.ts` (bots vs real phones and in-app browsers, device reading,
   beacon checks) and `tests/e2e/visits.mjs` (an automated browser sends nothing; a person's
   visit arrives with pages, taps, the analysis tried and time; opt-out works).
