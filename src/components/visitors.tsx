@@ -28,6 +28,8 @@ type Totals = { visits: number; visitors: number; median_ms: number | null };
 type Stats = { day: Totals; week: Totals; month: Totals };
 
 const PAGE = 60;
+/** Visits are kept this long; older ones are removed when the owner opens the page. */
+const KEEP_DAYS = 180;
 
 const regionNames = (() => {
   try {
@@ -129,6 +131,7 @@ export function Visitors() {
         } catch {
           // Storage blocked.
         }
+        await sb.from("visits").delete().lt("started_at", new Date(Date.now() - KEEP_DAYS * 864e5).toISOString());
         const [{ data: s }] = await Promise.all([sb.rpc("visit_stats"), load(0)]);
         setStats(s as Stats);
         setState("ready");
