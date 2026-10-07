@@ -3,6 +3,34 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-10-07 · A visitor log
+
+> capture related to visitors and maintain it in db, like device, ip, place, time, os, tried
+> operations, spent time (I don't want spam bots info here, try handling that). Give access to
+> visitors page in the bottom (very minimalistic)
+
+Done:
+- **What is kept** (Supabase `visits`, one row per visit; a tab's session, a new one after 30
+  minutes away): time, IP, place (city, region, country from Vercel's headers), device (model
+  from the browser's own hints where it gives one), OS and version, browser, screen, language,
+  referring site, pages in order, what they did (pages, buttons tapped, analyses tried with file
+  type and size, the result and how long it took, failures) and time spent (visible and in use;
+  idle over 5 minutes isn't counted). Never video, photos, file names or typed text.
+- **No bots**: nothing is sent until a person does something (a real tap, key, scroll or mouse
+  move; scripts can't fake these), never from automated browsers (`navigator.webdriver`,
+  headless) or from browsers asking not to be tracked; the server (`/api/visit`) drops crawler,
+  link-preview, monitor and script user agents, other sites' requests and bursts; the database
+  caps new visits per IP (30 an hour) and per day, and keeps 180 days. Only the live site logs.
+- **Visitors page** (`/visitors`, linked at the bottom of every page): visitors and visits today,
+  7 and 30 days with typical time; each visit's time, place, device, time spent and what they
+  did (tap to see the steps and IP). Only the owner sees it (sign in with the owner's email;
+  the `site_admins` table), and the owner's own device stops being logged once they open it.
+- Checked: `tests/visit.test.ts` (bots vs real phones and in-app browsers, device reading,
+  beacon checks) and `tests/e2e/visits.mjs` (an automated browser sends nothing; a person's
+  visit arrives with pages, taps, the analysis tried and time; opt-out works).
+- **Open**: anyone who reads the page's code could still post a made-up visit straight to the
+  database function (there's no server secret to sign with yet); it's capped per IP and per day.
+
 ## 2026-10-06 · Faster analysis, a human 3D figure, and the Aline brand
 
 > the video analysis is taking a lot of time and too slow … user cannot spend 5 mins … anything

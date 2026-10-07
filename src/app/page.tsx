@@ -229,6 +229,7 @@ export default function Landing() {
               <Link href="/sample" className="hover:text-white">Sample reports</Link>
               <Link href="/science" className="hover:text-white">Science</Link>
               <Link href="/privacy" className="hover:text-white">Privacy</Link>
+              <Link href="/visitors" className="hover:text-white">Visitors</Link>
             </nav>
           </div>
           <p className="lp-muted mx-auto max-w-6xl px-4 pb-8 text-xs sm:px-6">Prototype engine, not yet validated on real athletes. Not a medical assessment.</p>

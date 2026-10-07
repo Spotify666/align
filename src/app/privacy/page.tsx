@@ -9,6 +9,11 @@ const rows: Array<[string, string, string]> = [
   ["Still frames", "Up to 8 small images that prove the result.", "On this device; in your account only if you save the report."],
   ["Report", "The verdict, measures and written report.", "On this device; in your account only if you save it."],
   ["Profile", "Batting hand, height, age band, level.", "On this device; in your account if you sign in."],
+  [
+    "Visit log",
+    "Approximate place (from your IP address), the IP address, device, OS and browser, the pages and buttons you used, analyses tried (file type and size, and the result) and time spent. Never video, photos, file names or anything you type.",
+    "Aline's database, seen only by the site's owner, deleted after 180 days. Not kept for bots, or for browsers that ask not to be tracked (Global Privacy Control or Do Not Track).",
+  ],
 ];
 
 export default function PrivacyPage() {

@@ -57,6 +57,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Capture (scan, pick batter, gate, track) | `src/components/capture/capture-flow.tsx`, `src/lib/capture/*` |
 | Parallel model work (workers; must give the page's exact results) | `src/lib/capture/vision.worker.ts`, `vision-pool.ts` |
 | Brand (mark geometry, flat and 3D logo, icons) | `src/components/brand/*`, `scripts/brand-icons.mjs` |
+| Visitor log (tracker, bot filter, owner-only page) | `src/lib/visit.ts`, `visit-shared.ts`, `src/app/api/visit`, `src/components/visitors.tsx`, Supabase `visits` |
 | Report | `src/components/report/*` (`line-panel.tsx`, `compare-panel.tsx`, `panels.tsx`) |
 | Synthetic fixtures and population | `src/engine/fixtures/*` |
 | Real-media evaluation | `scripts/eval/*` |
