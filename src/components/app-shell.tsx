@@ -131,6 +131,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <main id="main" className="flex-1 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-0">
         {children}
+        <footer className="md:hidden mt-10 border-t border-line px-4 py-4 text-xs text-fg-subtle flex gap-4">
+          <Link href="/privacy" className="hover:text-fg">Privacy</Link>
+          <Link href="/visitors" className="hover:text-fg">Visitors</Link>
+        </footer>
       </main>
 
       <footer className="hidden md:block border-t border-line">
@@ -159,7 +163,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="border-t border-line">
-          <p className="mx-auto max-w-7xl px-6 py-4 text-xs text-fg-subtle">Prototype engine v0.1 — not yet validated on real athletes. Not a medical assessment.</p>
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4 text-xs text-fg-subtle">
+            <p>Prototype engine v0.1 — not yet validated on real athletes. Not a medical assessment.</p>
+            <Link href="/visitors" className="hover:text-fg">Visitors</Link>
+          </div>
         </div>
       </footer>
 

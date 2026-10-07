@@ -53,6 +53,7 @@ import { BatterPicker } from "./batter-picker";
 import { ViewPicker } from "./view-picker";
 import { Camera, Check, Chevron, Lock, Upload, Record as RecordIcon, Target } from "../icons";
 import { timeEnd, timeFlush, timeStart } from "@/lib/capture/timing";
+import { track as logVisit } from "@/lib/visit";
 
 // One screen to add a clip; everything after that runs on its own. Each automatic
 // decision (which shot, which person, where the camera was) is shown as it is made,
@@ -130,6 +131,13 @@ function trackPlan(w: Win, m: Meta, slow: number) {
 const GATE_SAMPLES = 12;
 const MAX_AUTO_TRIES = 3;
 const VIDEO_EXT = /\.(mp4|m4v|mov|webm|mkv|3gp|3g2|avi|wmv|flv|mts|m2ts|ts)$/i;
+// How a result reads in the visit log.
+const RESULT_WORDS: Record<AnalysisPayload["analysis_status"], string> = {
+  valid: "graded",
+  invalid_for_requested_analysis: "not a front-foot defence",
+  uncertain_shot: "shot unclear",
+  capture_failed: "capture not usable",
+};
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 export function CaptureFlow() {
@@ -242,6 +250,7 @@ export function CaptureFlow() {
   const stageList = photoMode ? PHOTO_STAGES : VIDEO_STAGES;
 
   const fail = (title: string, body: string) => {
+    logVisit("failed", title);
     run.current++;
     setError({ title, body });
     setPhase("error");
@@ -267,6 +276,8 @@ export function CaptureFlow() {
   };
   // Re-render for scan progress at most ten times a second.
   const lastScanTick = useRef(0);
+  // When the person chose what to analyse (for the visit log).
+  const triedAt = useRef(0);
   const scanTick = (f: number) => {
     const now = performance.now();
     if (f < 1 && now - lastScanTick.current < 100) return;
@@ -964,6 +975,7 @@ export function CaptureFlow() {
       stage("report", "done");
       timeEnd("report");
       timeEnd("total");
+      logVisit("result", `${RESULT_WORDS[payload.analysis_status]} · ${Math.round((performance.now() - triedAt.current) / 1000)} s`);
       router.push(`/report/${id}`);
     } catch (e) {
       fail("Analysis failed", e instanceof Error ? e.message : "Something went wrong while preparing the report.");
@@ -975,6 +987,8 @@ export function CaptureFlow() {
     if (!files.length) return;
     const images = files.filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif)$/i.test(f.name));
     const vid = files.find((f) => f.type.startsWith("video/") || VIDEO_EXT.test(f.name));
+    triedAt.current = performance.now();
+    logVisit("analyse", vid ? `video, ${(vid.size / 1e6).toFixed(1)} MB` : images.length ? `${images.length} photo${images.length === 1 ? "" : "s"}` : "unsupported file");
     if (vid) return startVideo(vid);
     if (images.length) return startPhotos(images);
     fail("Unsupported file", `${files[0]!.name} isn't a video or photo this app can read. Use MP4 or MOV videos, or JPEG, PNG or WebP photos.`);
