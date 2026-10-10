@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SAMPLE_ORDER, sampleAnalysis } from "@/lib/demo";
-import { STATUS_META, statusKey } from "@/components/report/status";
+import { STATUS_META, statusKey, statusLabel } from "@/components/report/status";
 
 export const metadata: Metadata = { title: "Sample reports" };
 
@@ -24,7 +24,7 @@ export default function SamplesIndex() {
             <li key={spec.key}>
               <Link href={`/sample/${spec.key}`} className={`card block h-full p-5 border hover:border-line-strong transition-colors`}>
                 <span className={`chip ${m.ring} ${m.tone}`}>
-                  <m.Icon size={14} /> {m.label}
+                  <m.Icon size={14} /> {statusLabel(payload)}
                 </span>
                 <h2 className="mt-3 font-semibold text-lg">{spec.title}</h2>
                 <p className="mt-1 text-sm text-fg-muted">{payload.headline}</p>

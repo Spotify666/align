@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
-import type { AnalysisPayload, CaptureObservation, Metric } from "@/engine/types";
+import type { AnalysisPayload, CaptureObservation, Metric, TargetShot } from "@/engine/types";
+import { TARGET_SHOTS } from "@/engine/types";
 import type { BaselineComparison } from "@/engine/baseline";
 import { templateReport, type Report } from "@/engine/report";
 import { SHOT_DISPLAY } from "@/engine/classify";
@@ -16,6 +17,7 @@ import { downloadReportPdf } from "@/lib/pdf";
 import { Lesson } from "../lesson/lesson";
 import { LinePanel } from "./line-panel";
 import { ComparePanel } from "./compare-panel";
+import { BackFootPanel } from "./back-foot-panel";
 import { plainRange, plainReading, plainValue } from "@/engine/plain";
 
 interface Props {
@@ -33,10 +35,20 @@ interface Props {
   title?: string;
   /** The on-device analysis id, for comparing with other shots and sharing this one. */
   analysisId?: string;
+  /** Re-run the same tracks as another shot Aline analyses (offered when the shot was named as one). */
+  onAnalyseAs?: (target: TargetShot) => Promise<void>;
 }
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, title, analysisId }: Props) {
+const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
+const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
+
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, title, analysisId, onAnalyseAs }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
+  const [switching, setSwitching] = useState(false);
+  const shot = shotOf(p);
+  const shotName = SHOT_NAME[shot];
+  const observedLabel = p.observed_shot?.label;
+  const otherTarget = observedLabel && observedLabel !== shot && (TARGET_SHOTS as readonly string[]).includes(observedLabel) ? (observedLabel as TargetShot) : null;
   const [aiReport, setAiReport] = useState<Report | null>(null);
   const [aiState, setAiState] = useState<"idle" | "loading" | "unavailable" | "fallback">("idle");
   const report = useMemo(() => aiReport ?? narrative ?? templateReport(p), [aiReport, narrative, p]);
@@ -53,7 +65,11 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
   };
   // A photo whose position passes the check reads as a pass.
   const photoPass = p.position_check && ["matches", "mostly"].includes(p.position_check.verdict);
-  const meta = photoPass ? { ...STATUS_META.valid, label: "Photo check" } : STATUS_META[statusKey(p)];
+  const meta = photoPass
+    ? { ...STATUS_META.valid, label: "Photo check" }
+    : statusKey(p) === "valid" && shot !== "front_foot_defence"
+      ? { ...STATUS_META.valid, label: `Valid ${shotName}` }
+      : STATUS_META[statusKey(p)];
   const contact = p.events.find((e) => e.type === "contact");
   const t0 = obs.t[0] ?? 0;
   const seek = (frame: number, metricId?: string) => viewer.current?.seek(frame, metricId);
@@ -94,7 +110,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           <h1 id="verdict" className="display mt-4 text-[1.7rem] leading-[1.1] sm:text-4xl lg:text-5xl max-w-4xl">{p.headline}</h1>
           {notice}
           {!isValid && p.mode !== "posture_screen" && (
-            <p className="mt-3 text-sm text-fg-muted">No technique score: a score is only given to a confirmed front-foot defence.</p>
+            <p className="mt-3 text-sm text-fg-muted">No technique score: a score is only given to a confirmed {shotName}.</p>
           )}
           {p.analysis_status === "invalid_for_requested_analysis" && p.observed_shot && (
             <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -118,12 +134,31 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
                     <Target size={16} /> Review evidence at {((contact.tMs - t0) / 1000).toFixed(2)} s
                   </button>
                 )}
-                <button className="btn btn-ghost" disabled title="Not available yet">
-                  Analyse as {p.observed_shot.label === "unknown" ? "that shot" : SHOT_DISPLAY[p.observed_shot.label].toLowerCase()}
-                </button>
+                {otherTarget && onAnalyseAs ? (
+                  <button
+                    className="btn btn-primary"
+                    disabled={switching}
+                    onClick={async () => {
+                      setSwitching(true);
+                      try {
+                        await onAnalyseAs(otherTarget);
+                      } finally {
+                        setSwitching(false);
+                      }
+                    }}
+                  >
+                    {switching ? "Analysing…" : `Analyse as ${SHOT_NAME[otherTarget]}`}
+                  </button>
+                ) : (
+                  <button className="btn btn-ghost" disabled title="Not available yet">
+                    Analyse as {p.observed_shot.label === "unknown" ? "that shot" : SHOT_DISPLAY[p.observed_shot.label].toLowerCase()}
+                  </button>
+                )}
               </div>
               <p className="sm:col-span-2 text-xs text-fg-subtle">
-                Other shot types unlock only when they pass the same validation bar as the front-foot defence.
+                {otherTarget
+                  ? `Aline analyses the front-foot and the back-foot defence. The same tracks are re-checked as a ${SHOT_NAME[otherTarget]}, against that shot's own bar.`
+                  : "Other shot types unlock only when they pass the same validation bar as the front-foot and back-foot defences."}
               </p>
             </div>
           )}
@@ -134,6 +169,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
 
       <LinePanel payload={p} fps={obs.media.fps} onSeek={(f) => seek(f)} />
 
+      <BackFootPanel payload={p} fps={obs.media.fps} onSeek={(f) => seek(f)} />
+
       <Lesson payload={p} obs={obs} />
 
       <EvidenceViewer ref={viewer} obs={obs} payload={p} videoUrl={videoUrl} mediaTimes={mediaTimes} keyframes={keyframes} reference={reference} />
@@ -143,7 +180,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           <SectionHead id="plan-h" eyebrow="Coaching plan" title="One priority, step by step to match speed" />
           <PriorityPlan plan={p.plan} />
           <div className="flex flex-wrap items-center gap-3">
-            <Link href="/analyse" className="btn btn-primary">
+            <Link href={shot === "back_foot_defence" ? "/analyse?shot=back" : "/analyse"} className="btn btn-primary">
               <RecordIcon size={16} /> Record next attempt
             </Link>
             <span className="text-sm text-fg-muted">The next report shows the change against this one and your baseline.</span>
@@ -199,7 +236,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         <section aria-labelledby="posture-h" className="space-y-4">
           <SectionHead
             id="posture-h"
-            eyebrow={positionGraded(p) ? "Front-foot defence formula" : "Posture screen"}
+            eyebrow={positionGraded(p) ? `${shotName[0]!.toUpperCase()}${shotName.slice(1)} formula` : "Posture screen"}
             title={positionGraded(p) ? `Position check: ${p.position_check!.met} of ${p.position_check!.checked} met` : p.photo_set ? "What the photos show" : "What the photo shows"}
             note={
               positionGraded(p)
@@ -207,7 +244,9 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
                   ? "Checked from one photo taken at an angle: the knees, the lean and where your weight is. Stride, head and hands need a side-on photo. A video shows the whole shot."
                   : "Checked from one photo, taken to be the moment the ball meets the bat. A video shows the whole shot."
                 : p.position_check?.verdict === "not_side_on"
-                  ? "Taken from the bowler's end or behind, so the stride and lean can't be judged. Shown, not graded. A side-on photo gets checked."
+                  ? shot === "back_foot_defence"
+                    ? "Taken at an angle, so the feet and head can't be placed reliably. Shown, not graded. A side-on photo, or one from the bowler's end, gets checked."
+                    : "Taken from the bowler's end or behind, so the stride and lean can't be judged. Shown, not graded. A side-on photo gets checked."
                   : "Estimates from still images. Not graded: too little of the batter is visible to check the position."
             }
           />
@@ -262,7 +301,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             id="obs-h"
             eyebrow="Observations"
             title="What we could still see"
-            note="Body positions from the tracked frames. Not graded and no score: the shot wasn't confirmed as a front-foot defence."
+            note={`Body positions from the tracked frames. Not graded and no score: the shot wasn't confirmed as a ${shotName}.`}
           />
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {p.observations.map((m) => (
@@ -372,7 +411,7 @@ const evidenceFrame = (m: Metric) => {
 
 /** The few things the batter needs, first: what went well, the one fix, the drill, the key numbers. */
 /** A photo read side-on with enough of the batter visible: its checks are graded against the formula. */
-const positionGraded = (p: AnalysisPayload) => !!p.position_check && !["not_side_on", "not_enough", "not_on_front_foot"].includes(p.position_check.verdict);
+const positionGraded = (p: AnalysisPayload) => !!p.position_check && !["not_side_on", "not_enough", "not_on_front_foot", "not_on_back_foot"].includes(p.position_check.verdict);
 
 function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, metricId?: string) => void }) {
   const isValid = p.analysis_status === "valid";

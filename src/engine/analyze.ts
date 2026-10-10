@@ -9,6 +9,7 @@
 
 import { canonicalJson, round, sha256, smooth } from "./math";
 import {
+  BFD_METRIC_VERSION,
   CLASSIFIER_VERSION,
   ENGINE_VERSION,
   METRIC_VERSION,
@@ -28,6 +29,8 @@ import { classify, leadingAlternative, SHOT_DISPLAY, type Classification } from 
 import { ALIGNMENT_IDS, computeMetrics } from "./metrics";
 import { lineSummary, measureAlignment, type Alignment } from "./alignment";
 import { buildPlan, domainResults, nextLevelPlan, strengthsAndPriorities, techniqueIndex } from "./scoring";
+import { backFootMetrics, backFootSummary, measureBackFoot, type BackFootReading } from "./backfoot";
+import { BFD_METRICS } from "./backfoot-defs";
 import type {
   AnalysisPayload,
   AnalysisStatus,
@@ -35,8 +38,12 @@ import type {
   Limitation,
   Metric,
   ShotClass,
+  TargetShot,
   TrackingSummary,
 } from "./types";
+
+/** The shot's name in a sentence. */
+export const TARGET_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 
 export interface AnalyzeOptions {
   analysisId: string;
@@ -487,6 +494,7 @@ function keyPhoto(phases: Array<string | null>, per: Metric[][]): number {
 }
 
 export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): AnalysisPayload {
+  const target: TargetShot = obs.target ?? "front_foot_defence";
   const capture = assessCapture(obs);
   const scene = buildScene(obs);
   const tracking = trackingSummary(obs, scene);
@@ -500,14 +508,14 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     demo: obs.demo,
     label: obs.label,
     tier: obs.tier,
-    requested_shot: "front_foot_defence" as const,
+    requested_shot: target,
     capture,
     capture_confidence: round(capture.confidence, 2),
     tracking,
     handedness: obs.athlete.handedness,
     versions: {
       engine: ENGINE_VERSION,
-      metric_version: METRIC_VERSION,
+      metric_version: target === "back_foot_defence" ? BFD_METRIC_VERSION : METRIC_VERSION,
       classifier: CLASSIFIER_VERSION,
       registry_hash: REGISTRY_HASH,
       pose_model: obs.source === "fixture" ? "fixture-generator-0.1.0" : POSE_MODEL,
@@ -563,6 +571,9 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       evidence_frames: [],
     });
   }
+
+  // Photo(s) of a back-foot defence: the same, against its own position formula.
+  if (obs.media.kind === "photo" && target === "back_foot_defence") return finish(backFootPhotos(obs, base, withheld, limitations));
 
   // Photo(s): the position at one moment, checked against the front-foot defence formula.
   // No shot identity, timing, bat path or ball claims: those need a video.
@@ -636,7 +647,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       mode: "video",
       analysis_status: "uncertain_shot",
       status_reason: "no_stroke",
-      headline: `We can't confirm a front-foot defence: ${UNCERTAIN_TEXT.no_stroke}.`,
+      headline: `We can't confirm a ${TARGET_NAME[target]}: ${UNCERTAIN_TEXT.no_stroke}.`,
       observed_shot: null,
       shot_probabilities: null,
       classifier: null,
@@ -649,6 +660,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       evidence_frames: [],
     });
   }
+  if (target === "back_foot_defence") return finish(analyzeBackFoot(obs, scene, tracking, events, delivery, features, base, withheld, limitations, recapture));
   const cls = classify(features, { frontal, batSeen: tracking.bat.ok, cameraMoving: scene.cameraMoving });
   const contactEv = events.byType.contact;
   // Contact is known when the bat meeting the ball was seen (or marked); otherwise it is an
@@ -835,4 +847,414 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
     plan,
     recapture,
   });
+}
+
+
+// ---------------------------------------------------------------------------------------
+// The back-foot defence (docs/11-back-foot-defence.md). The same decision order and the same
+// strict, asymmetric gate as the front-foot defence, centred on the back-foot defence.
+
+type Base = Omit<AnalysisPayload, "result_hash" | "mode" | "analysis_status" | "status_reason" | "headline" | "observed_shot" | "shot_probabilities" | "classifier" | "delivery" | "events" | "features" | "metrics" | "limitations" | "recapture" | "evidence_frames" | "technique_index" | "strengths" | "priorities" | "drill_candidates" | "plan" | "domains">;
+type Withheld = Pick<AnalysisPayload, "technique_index" | "strengths" | "priorities" | "drill_candidates" | "plan" | "domains">;
+
+const BFD_UNCERTAIN: Record<string, string> = {
+  ...UNCERTAIN_TEXT,
+  not_back: "the batter didn't go back onto the back foot and stay tall, as a back-foot defence does, in this part of the clip",
+  bat_missing: "the bat isn't tracked, so a block can't be separated from a pull or a cut",
+};
+
+function statusOfBackFoot(cls: Classification, tracking: TrackingSummary, contactVisibilityShare: number, contactObservedShare: number): { status: AnalysisStatus; reason: string } {
+  const target = "back_foot_defence" as const;
+  const p = cls.probabilities;
+  const pT = p[target];
+  const others = Object.entries(p)
+    .filter(([k]) => k !== target && k !== "unknown")
+    .reduce((s, [, v]) => s + v, 0);
+  const bodyLed = !tracking.bat.ok || !tracking.ball.ok;
+  const rejectCoverage = bodyLed ? Math.max(cls.ffdCoverage, cls.bodyCoverage) : cls.ffdCoverage;
+  const minSeen = th("ffd.accept_body.min_contact_visibility");
+  const contactSeen = bodyLed ? contactVisibilityShare >= minSeen : contactObservedShare >= minSeen;
+  const coherent = leadingAlternative(p, target) >= th("ffd.reject.min_alternative");
+  if (pT <= th("bfd.reject.max_probability") && others >= 0.75 && coherent && rejectCoverage >= th("ffd.reject.min_evidence_coverage") && contactSeen)
+    return { status: "invalid_for_requested_analysis", reason: "different_shot" };
+  const accept =
+    tracking.body.ok &&
+    tracking.bat.ok &&
+    tracking.ball.ok &&
+    pT >= th("bfd.accept.min_probability") &&
+    cls.top === target &&
+    cls.margin >= th("bfd.accept.min_margin") &&
+    p.unknown <= th("ffd.accept.max_unknown") &&
+    cls.ffdCoverage >= th("ffd.accept.min_evidence_coverage") &&
+    contactSeen;
+  if (accept) return { status: "valid", reason: "accepted" };
+  const acceptBody =
+    tracking.body.ok &&
+    contactVisibilityShare >= minSeen &&
+    bodyLed &&
+    cls.top === target &&
+    pT >= th("bfd.accept_body.min_probability") &&
+    cls.margin >= th("bfd.accept_body.min_margin") &&
+    p.unknown <= th("ffd.accept.max_unknown") &&
+    cls.bodyCoverage >= th("bfd.accept_body.min_coverage");
+  if (acceptBody) return { status: "valid", reason: "accepted_body" };
+  if (!contactSeen && !bodyLed) return { status: "uncertain_shot", reason: "contact_hidden" };
+  if (bodyLed) {
+    if (tracking.body.ok && (contactVisibilityShare < minSeen || cls.bodyCoverage < th("bfd.accept_body.min_coverage"))) return { status: "uncertain_shot", reason: "body_hidden" };
+    if (tracking.body.ok) return { status: "uncertain_shot", reason: "body_inconclusive" };
+    return { status: "uncertain_shot", reason: tracking.ball.ok ? "bat_missing" : "ball_missing" };
+  }
+  if (cls.ffdCoverage < th("ffd.accept.min_evidence_coverage")) return { status: "uncertain_shot", reason: "insufficient_evidence" };
+  if (p.unknown > th("ffd.accept.max_unknown")) return { status: "uncertain_shot", reason: "out_of_distribution" };
+  return { status: "uncertain_shot", reason: "ambiguous" };
+}
+
+/**
+ * Went back and stayed tall. Side-on (fixed camera): the back foot travelled back toward the
+ * stumps, or the front foot came back toward it. From either end of the pitch (or a moving
+ * camera) that travel runs toward the camera: the front foot must not have strided forward.
+ * Always: the head didn't go down into the ball as in a front-foot stroke.
+ */
+function wentBack(scene: ReturnType<typeof buildScene>, features: ReturnType<typeof extractFeatures>, r: BackFootReading | null): boolean {
+  const drop = r && Number.isFinite(r.headDrop) ? r.headDrop : lowering(scene, r?.reference ?? features.refFrame).head;
+  if (Number.isFinite(drop) && drop > th("bfd.max_head_drop")) return false;
+  if (scene.plane === "sagittal" && !scene.cameraMoving && r) return r.backStep >= th("bfd.min_back_step") || r.frontBack >= th("bfd.min_front_back");
+  const stride = features.values.front_stride;
+  return stride !== undefined && stride <= th("bfd.max_front_stride");
+}
+
+/** Side-on, fixed camera: does the back foot still go back toward the stumps after this frame (by the back-step gate)? */
+function backFootGoesBackAfter(scene: ReturnType<typeof buildScene>, frame: number): boolean {
+  if (scene.plane !== "sagittal" || scene.cameraMoving) return false;
+  const x = (i: number) => scene.inPicture(i, "back_ankle")?.[0] ?? NaN;
+  const at = [frame - 1, frame, frame + 1].map(x).filter(Number.isFinite).sort((a, b) => a - b)[1] ?? NaN;
+  let least = Infinity;
+  for (let i = frame + 1; i < scene.n - 1; i++) {
+    const m = [x(i - 1), x(i), x(i + 1)].filter(Number.isFinite).sort((a, b) => a - b)[1];
+    if (m !== undefined) least = Math.min(least, m);
+  }
+  return Number.isFinite(at) && Number.isFinite(least) && (at - least) / scene.stature >= th("bfd.min_back_step");
+}
+
+function analyzeBackFoot(
+  obs: CaptureObservation,
+  scene: ReturnType<typeof buildScene>,
+  tracking: TrackingSummary,
+  events: ReturnType<typeof segmentEvents>,
+  delivery: ReturnType<typeof estimateDelivery>,
+  featuresIn: ReturnType<typeof extractFeatures>,
+  base: Base,
+  withheld: Withheld,
+  limitations: Limitation[],
+  recapture: string[],
+): Omit<AnalysisPayload, "result_hash"> {
+  const target = "back_foot_defence" as const;
+  const frontal = scene.plane === "frontal";
+  const features = featuresIn;
+  // The shot is identified at the contact the events found (from the bat and ball, or from the
+  // hands' downswing): moving it to the body's set position before identifying the shot made
+  // cuts read as back-foot defences (their head settles after the swing). Measured below at the
+  // set position, as the front-foot defence is.
+  const cls = classify(features, { frontal, batSeen: tracking.bat.ok, cameraMoving: scene.cameraMoving, target });
+  let contactEv = events.byType.contact;
+  let { status, reason } = statusOfBackFoot(cls, tracking, contactVisibility(scene, contactEv?.frame), contactObserved(scene, contactEv?.frame));
+  const contactKnown = !!contactEv && contactEv.confidence >= 0.65;
+  const reading = measureBackFoot(scene, contactEv?.frame ?? features.refFrame, obs.camera.view, obs.athlete.handedness, { contactKnown });
+  // Read from the body alone, the shot is named at a contact estimated from the hands. A
+  // back-foot shot meets the ball after the back foot has gone back: an estimate well before
+  // the back foot set reads the stroke too early (the hands still on their way to the ball),
+  // so no other shot is named on it.
+  const landed = reading?.arrivals?.back_foot.frame;
+  const early =
+    !contactKnown &&
+    !!contactEv &&
+    ((landed !== null && landed !== undefined && !!scene.dt && (landed - contactEv.frame) * scene.dt > th("bfd.max_contact_before_landing_s")) || backFootGoesBackAfter(scene, contactEv.frame));
+  if (status === "invalid_for_requested_analysis" && early) {
+    status = "uncertain_shot";
+    reason = "body_inconclusive";
+  }
+  // Without bat and ball, contact is placed where the back foot, front foot and head have set.
+  if (contactEv && reading?.referenceKind === "set" && reading.reference !== contactEv.frame) {
+    const moved = {
+      ...contactEv,
+      frame: reading.reference,
+      tMs: Math.round(scene.t[reading.reference] ?? 0),
+      method: "set position: back foot, front foot and head all set (bat and ball not seen)",
+    };
+    events.list = events.list.map((e) => (e.type === "contact" ? moved : e)).sort((a, b) => a.frame - b.frame || a.type.localeCompare(b.type));
+    events.byType.contact = moved;
+    contactEv = moved;
+  }
+  if (status === "invalid_for_requested_analysis" && scene.zoom >= th("stroke.max_zoom_for_rejection")) {
+    status = "uncertain_shot";
+    reason = "camera_zoom";
+  }
+  // A front-foot shot goes down into the ball. Read as one while the head stayed tall, the
+  // reading (often a contact found after the ball dropped) is contradicted: name nothing.
+  const frontShot = cls.top === "front_foot_defence" || cls.top === "front_foot_drive";
+  const drop = reading && Number.isFinite(reading.headDrop) ? reading.headDrop : NaN;
+  if (status === "invalid_for_requested_analysis" && frontShot && Number.isFinite(drop) && drop <= th("bfd.min_tall_for_front_shot")) {
+    status = "uncertain_shot";
+    reason = "ambiguous";
+  }
+  if (status === "valid" && !wentBack(scene, features, reading)) {
+    status = "uncertain_shot";
+    reason = "not_back";
+  }
+  const bodyLed = status === "valid" && reason === "accepted_body";
+  if (bodyLed) {
+    const unseen = [!tracking.bat.ok && "bat", !tracking.ball.ok && "ball"].filter(Boolean).join(" and ");
+    limitations.push({
+      id: "lim_body_led",
+      text: `The ${unseen} weren't seen, so the shot was confirmed from body and hand movement only. Measures that need the ${unseen} are not reported.`,
+    });
+  }
+  limitations.push({ id: "lim_bfd_ranges", text: "Back-foot defence ranges are coaching geometry: no published measurements of the shot exist yet. Provisional." });
+
+  const probs = Object.fromEntries(Object.entries(cls.probabilities).map(([k, v]) => [k, round(v, 3)])) as Record<ShotClass, number>;
+  const decisiveIds = cls.decisive.map((d) => `feat_${d.feature}`);
+  const keyEvents = (["bounce", "contact", "back_foot_commit", "front_foot_plant"] as const).map((t) => events.byType[t]?.id).filter((x): x is string => !!x);
+  const evidenceFrames = [...new Set(events.list.filter((e) => e.type !== "setup" || events.list.length < 3).map((e) => e.frame))].slice(0, 8);
+  const named =
+    cls.top !== "unknown" &&
+    cls.probabilities[cls.top] >= th("ffd.named_label.min_probability") &&
+    !(cls.top === "leave" && features.values.contact_found === undefined) &&
+    !(cls.top === "cut" && !tracking.bat.ok);
+  const observed =
+    status === "invalid_for_requested_analysis"
+      ? {
+          label: named ? cls.top : ("unknown" as ShotClass),
+          display: named ? SHOT_DISPLAY[cls.top] : (cls.family ?? "a different shot"),
+          probability: round(named ? cls.probabilities[cls.top] : 1 - cls.probabilities[target] - cls.probabilities.unknown, 2),
+          evidence_ids: [...decisiveIds, ...keyEvents],
+        }
+      : status === "valid"
+        ? { label: target as ShotClass, display: SHOT_DISPLAY[target], probability: round(cls.probabilities[target], 2), evidence_ids: [...features.list.map((f) => f.id).slice(0, 4), ...keyEvents] }
+        : null;
+  const common = {
+    ...base,
+    mode: "video" as const,
+    observed_shot: observed,
+    shot_probabilities: probs,
+    classifier: { version: CLASSIFIER_VERSION, calibrated: false as const, evidenceCoverage: round(cls.ffdCoverage, 2) },
+    delivery,
+    events: events.list,
+    features: features.list,
+    limitations,
+    evidence_frames: evidenceFrames,
+  };
+
+  if (status !== "valid") {
+    const extra: string[] = [];
+    if (reason === "camera_zoom") extra.push("Use footage from a fixed camera (a phone on a tripod) that doesn't zoom during the shot.");
+    if (reason === "not_back") extra.push("Record the whole stroke, from the stance until after the bat meets the ball, side-on so going back can be seen.");
+    if (reason === "body_hidden" || reason === "body_inconclusive")
+      extra.push("Keep the bat and the ball's path in frame, or film side-on at hip height so the hands and both feet stay visible throughout.");
+    if (reason === "ball_missing") extra.push("Keep the bounce area and the ball's path to the bat in frame.");
+    if (reason === "bat_missing") extra.push("Keep the whole bat in view, or mark the bat handle and toe on three frames.");
+    if (reason === "contact_hidden") extra.push("Keep the batter, bat and ball in view through the moment of contact.");
+    if (reason === "insufficient_evidence" || reason === "ambiguous") extra.push("Film side-on at hip height with nobody between the camera and the batter.");
+    const front = named && cls.top === "front_foot_defence";
+    const headline =
+      status === "invalid_for_requested_analysis"
+        ? `This appears to be ${named ? `a ${SHOT_DISPLAY[cls.top].toLowerCase()}` : (cls.family ?? "a different shot")}, not a back-foot defence.${front ? " Analyse it as a front-foot defence instead." : ""}`
+        : `We can't confirm a back-foot defence: ${BFD_UNCERTAIN[reason] ?? "the evidence is incomplete"}.`;
+    const observations = status === "uncertain_shot" && reading ? ungradedBackFoot(backFootMetrics(reading, scene).filter((m) => m.status !== "not_measured")) : [];
+    return {
+      ...common,
+      ...withheld,
+      analysis_status: status,
+      status_reason: reason,
+      headline,
+      metrics: [],
+      ...(observations.length ? { observations } : {}),
+      recapture: status === "uncertain_shot" ? [...extra, ...recapture] : recapture,
+    };
+  }
+
+  const metrics = reading ? backFootMetrics(reading, scene) : BFD_METRICS.filter((d) => d.only !== "photo").map((d) => bfdNotVisible(d.id, "Not measured: the back foot and head weren't seen at contact."));
+  const domains = domainResults(metrics);
+  const index = techniqueIndex(metrics, domains);
+  const { strengths, priorities } = strengthsAndPriorities(metrics);
+  const plan = buildPlan(priorities, metrics) ?? nextLevelPlan(metrics);
+  const headline = priorities[0] ? `Valid back-foot defence. To work on: ${priorities[0].title.toLowerCase()}.` : "Valid back-foot defence. Every check is in range.";
+  return {
+    ...common,
+    analysis_status: "valid",
+    status_reason: reason,
+    evidence_basis: bodyLed ? "body" : "full",
+    headline,
+    metrics,
+    ...(reading ? { back_foot: backFootSummary(reading) } : {}),
+    domains,
+    technique_index: index,
+    strengths,
+    priorities,
+    drill_candidates: plan?.drills ?? [],
+    plan,
+    recapture,
+  };
+}
+
+function ungradedBackFoot(ms: Metric[]): Metric[] {
+  return ms.map((m) => ({
+    ...m,
+    status: "estimated",
+    range: null,
+    inRange: null,
+    limitation: [m.limitation, "Not graded: the shot wasn't confirmed as a back-foot defence."].filter(Boolean).join(" "),
+  }));
+}
+
+function bfdNotVisible(id: string, why: string): Metric {
+  const def = BFD_METRICS.find((d) => d.id === id)!;
+  return {
+    id,
+    name: def.name,
+    domain: def.domain,
+    status: "not_measured",
+    value: null,
+    uncertainty: null,
+    unit: def.unit,
+    decimals: def.decimals,
+    confidence: 0,
+    phase: "Photo",
+    meaning: def.meaning,
+    relevance: def.relevance,
+    range: null,
+    inRange: null,
+    evidenceIds: [],
+    reason: why,
+  };
+}
+
+/** Measures that survive a photo taken at an angle: vertical ones (heights), which the angle doesn't shorten. */
+const BFD_ANGLED = ["bfd_head_height", "bfd_elbow"];
+
+/** One photo of a back-foot defence against its position formula. */
+function backFootFromPhoto(photo: CaptureObservation, frame: number): { metrics: Metric[]; sideOn: boolean; angled: boolean; front: boolean; reading: BackFootReading | null } {
+  const angled = photo.camera.view === "oblique";
+  const front = photo.camera.view === "front_on" || photo.camera.view === "behind";
+  const run = (o: CaptureObservation) => {
+    const scene = buildScene(o);
+    return { scene, reading: measureBackFoot(scene, 0, o.camera.view, o.athlete.handedness, { contactKnown: true }) };
+  };
+  let { scene, reading } = run(photo);
+  // The bowler is on the front foot's side (the front foot comes alongside, still nearer the bowler).
+  if (!front) {
+    const fa = scene.get(0, "front_ankle");
+    const ba = scene.get(0, "back_ankle");
+    if (fa && ba && fa.f < ba.f) ({ scene, reading } = run({ ...photo, camera: { ...photo.camera, bowlerSide: photo.camera.bowlerSide === "left" ? "right" : "left" } }));
+  }
+  const sideOn = scene.plane === "sagittal";
+  const ids = sideOn ? ["bfd_feet_gap", "bfd_head", "bfd_head_height", "bfd_elbow", "bfd_hands_eyes"] : front ? ["bfd_head", "bfd_head_height", "bfd_elbow", "bfd_hands_eyes"] : ["bfd_head_height", "bfd_elbow"];
+  const read = reading ? backFootMetrics(reading, scene, { photo: true, evidenceFrame: frame }) : [];
+  const metrics = ids.map((id) => {
+    if (angled && !BFD_ANGLED.includes(id)) return bfdNotVisible(id, "Needs a side-on photo: from this angle the distance runs toward the camera, so it can't be read.");
+    const m = read.find((x) => x.id === id);
+    if (!m || m.status === "not_measured") return bfdNotVisible(id, m?.reason ?? "Not measured: the batter isn't fully visible in this photo.");
+    const own = { ...m, phase: "Photo", limitation: [m.limitation, "One photo: the position at this moment, assumed to be contact."].filter(Boolean).join(" ") };
+    // At an angle: shown, not graded (the position check needs a side-on photo or one from either end).
+    if (!sideOn && !front) return { ...own, range: null, inRange: null, limitation: [own.limitation, "Photo at an angle: shown, not graded."].join(" ") };
+    return own;
+  });
+  return { metrics, sideOn, angled, front, reading };
+}
+
+function backFootPhotoCheck(ms: Metric[], sideOn: boolean, angled: boolean, front: boolean, r: BackFootReading | null): NonNullable<AnalysisPayload["position_check"]> extends infer T ? Omit<T & object, "frame"> : never {
+  const graded = ms.filter((m) => m.inRange !== null);
+  const met = graded.filter((m) => m.inRange).length;
+  const checked = graded.length;
+  const grade = () => (met === checked ? "matches" : met >= checked - 1 ? "mostly" : met >= checked * th("photo.min_resemblance") ? "partly" : "doesnt_match") as "matches" | "mostly" | "partly" | "doesnt_match";
+  // At an angle only heights survive: too little to judge a back-foot position on.
+  if (angled || (!sideOn && !front)) return { met, checked, verdict: "not_side_on" };
+  // Down in a stride (the front foot well out, the head low) is a front-foot position.
+  const down = r && Number.isFinite(r.headHeight) && r.headHeight < th(front ? "bfd.photo.min_head_height_front" : "bfd.photo.min_head_height");
+  const out = r && Number.isFinite(r.at.front_ankle) && r.at.front_ankle > th("bfd.photo.max_alongside");
+  if (front) {
+    if (checked < 3) return { met, checked, verdict: "not_enough" };
+    if (down) return { met, checked, verdict: "not_on_back_foot" };
+    return { met, checked, verdict: grade() };
+  }
+  if (checked < 3) return { met, checked, verdict: "not_enough" };
+  if (down && out) return { met, checked, verdict: "not_on_back_foot" };
+  return { met, checked, verdict: grade() };
+}
+
+function backFootPhotos(obs: CaptureObservation, base: Base, withheld: Withheld, limitations: Limitation[]): Omit<AnalysisPayload, "result_hash"> {
+  const frames = obs.body.length;
+  const per = Array.from({ length: frames }, (_, i) => backFootFromPhoto(single(obs, i), i));
+  const perPhoto = per.map((x) => x.metrics);
+  const phases = obs.photoPhases ?? [];
+  const key = keyPhoto(phases, perPhoto);
+  const set = frames > 1;
+  const k = per[key];
+  const metrics = k?.metrics ?? [];
+  const check = backFootPhotoCheck(metrics, k?.sideOn ?? false, k?.angled ?? false, k?.front ?? false, k?.reading ?? null);
+  const graded = check.verdict !== "not_side_on" && check.verdict !== "not_enough" && check.verdict !== "not_on_back_foot";
+  const { strengths, priorities } = graded ? strengthsAndPriorities(metrics) : { strengths: [], priorities: [] };
+  const plan = graded ? buildPlan(priorities, metrics) : null;
+  const which = set ? `photo ${key + 1} of ${frames}` : "this photo";
+  const how = check.angled ? "from an angle" : k?.front ? "from along the pitch" : "";
+  const tag = set ? ` (photo ${key + 1} of ${frames}${how ? `, ${how}` : ""})` : how ? ` (photo ${how})` : "";
+  const off = metrics.filter((m) => m.inRange === false).map((m) => m.name.toLowerCase());
+  const Which = `${which[0]!.toUpperCase()}${which.slice(1)}`;
+  const headline =
+    check.verdict === "matches"
+      ? `Back-foot defence position${tag}: all ${check.checked} checks met.`
+      : check.verdict === "mostly"
+        ? `Back-foot defence position${tag}: ${check.met} of ${check.checked} checks met. To work on: ${off[0]}.`
+        : check.verdict === "partly"
+          ? `Back-foot defence position${tag}: ${check.met} of ${check.checked} checks met. To work on: ${off.slice(0, 2).join(" and ")}.`
+          : check.verdict === "doesnt_match"
+            ? `${Which} doesn't look like a back-foot defence position: ${check.met} of ${check.checked} checks met.`
+            : check.verdict === "not_on_back_foot"
+              ? k?.front
+                ? `${Which} doesn't show a back-foot defence: the head is down low, as in a front-foot shot.`
+                : `${Which} doesn't show a back-foot defence: the front foot has strided forward and the head is down, as in a front-foot shot.`
+              : check.verdict === "not_enough"
+                ? "Not enough of the batter is visible to check the back-foot defence position."
+                : "Photo taken at an angle: the back-foot defence check needs a side-on photo. Heights shown, not graded.";
+  return {
+    ...base,
+    ...withheld,
+    strengths,
+    priorities,
+    plan,
+    drill_candidates: plan?.drills ?? [],
+    mode: "posture_screen",
+    analysis_status: "uncertain_shot",
+    status_reason: "photo_only",
+    headline,
+    position_check: { ...check, frame: key },
+    ...(k?.reading ? { back_foot: { ...backFootSummary(k.reading), referenceFrame: key } } : {}),
+    observed_shot: null,
+    shot_probabilities: null,
+    classifier: null,
+    delivery: { ...EMPTY_DELIVERY, reason: "Photos cannot show ball flight." },
+    events: [],
+    features: [],
+    metrics,
+    limitations: [
+      ...limitations,
+      { id: "lim_photo", text: "A photo checks the position at one moment, taken to be contact. It can't show going back, timing, the bat's path or the ball, so it never confirms the shot itself." },
+      { id: "lim_bfd_ranges", text: "Back-foot defence ranges are coaching geometry: no published measurements of the shot exist yet. Provisional." },
+      ...(set ? [{ id: "lim_photo_set", text: "Each photo is measured on its own; photos are not treated as one continuous movement." }] : []),
+    ],
+    recapture: [
+      ...(check.verdict === "not_side_on" || check.angled ? ["Take a side-on photo at the moment of contact to check the feet, head and hands too."] : []),
+      "Record a short video of the whole delivery to check going back, the timing and soft hands.",
+    ],
+    evidence_frames: set ? Array.from({ length: Math.min(frames, 12) }, (_, i) => i) : [0],
+    ...(set
+      ? {
+          photo_set: perPhoto.map((observations, i) => ({
+            frame: i,
+            phase: phases[i] ?? null,
+            observations,
+            ...(observations.every((m) => m.status === "not_measured") ? { note: "Batter not fully visible in this photo." } : {}),
+          })),
+        }
+      : {}),
+  };
 }

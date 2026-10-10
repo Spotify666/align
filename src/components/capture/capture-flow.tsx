@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { analyze } from "@/engine/analyze";
+import { analyze, TARGET_NAME } from "@/engine/analyze";
 import { assessCapture } from "@/engine/quality";
 import { encodeTracks, quantise } from "@/engine/tracks-codec";
-import { J, type AnalysisPayload, type CameraPoint, type CaptureObservation, type CaptureQuality, type FrameQuality, type ImgPoint, type Tier } from "@/engine/types";
+import { J, type AnalysisPayload, type CameraPoint, type CaptureObservation, type CaptureQuality, type FrameQuality, type ImgPoint, type TargetShot, type Tier } from "@/engine/types";
 import { readVideoTrack, type VideoTrackInfo } from "@/lib/capture/mp4";
 import { FrameQualitySampler } from "@/lib/capture/frame-quality";
 import {
@@ -31,7 +31,7 @@ import {
   type PoseFrame,
   type Roi,
 } from "@/lib/capture/pose";
-import { batterCandidates, boxAt, MAX_SCAN_SEC, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
+import { batterCandidates, boxAt, findWindows, MAX_SCAN_SEC, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
 import { visionPool } from "@/lib/capture/vision-pool";
 import { guessView } from "@/lib/capture/view-guess";
 import { strokeSegment } from "@/lib/capture/segments";
@@ -95,11 +95,17 @@ interface Attempt {
   times: number[];
 }
 
-/** Clearest result first: a confirmed defence, then a confirmed different shot, then the most defence-like. */
+/** Clearest result first: a confirmed defence, then a confirmed different shot, then the most like the shot asked for. */
 function rank(p: AnalysisPayload): number {
   const base = { valid: 3, invalid_for_requested_analysis: 2, uncertain_shot: 1, capture_failed: 0 }[p.analysis_status] ?? 0;
-  return base + (p.shot_probabilities?.front_foot_defence ?? 0) * 0.5;
+  return base + (p.shot_probabilities?.[p.requested_shot ?? "front_foot_defence"] ?? 0) * 0.5;
 }
+
+const SHOT_TITLE: Record<TargetShot, string> = { front_foot_defence: "Front-foot defence", back_foot_defence: "Back-foot defence" };
+const SHOT_CHOICES: Array<{ id: TargetShot; title: string; note: string }> = [
+  { id: "front_foot_defence", title: "Front-foot defence", note: "Pitched up: forward, head over the front foot" },
+  { id: "back_foot_defence", title: "Back-foot defence", note: "Short: back and across, tall, head forward" },
+];
 
 interface Win {
   start: number;
@@ -138,11 +144,26 @@ const RESULT_WORDS: Record<AnalysisPayload["analysis_status"], string> = {
   uncertain_shot: "shot unclear",
   capture_failed: "capture not usable",
 };
+const resultWords = (p: AnalysisPayload) => {
+  const shot = p.requested_shot ?? "front_foot_defence";
+  const words = p.analysis_status === "invalid_for_requested_analysis" ? `not a ${TARGET_NAME[shot]}` : RESULT_WORDS[p.analysis_status];
+  return shot === "front_foot_defence" ? words : `${SHOT_TITLE[shot].toLowerCase()}: ${words}`;
+};
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 export function CaptureFlow() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("add");
+  // The shot to analyse: the back-foot defence when opened with ?shot=back, else the front-foot
+  // defence. Follows the address when a link changes it while the page stays open.
+  const params = useSearchParams();
+  const urlShot: TargetShot = params.get("shot") === "back" ? "back_foot_defence" : "front_foot_defence";
+  const [shot, setShotState] = useState<TargetShot>(urlShot);
+  const [seenUrlShot, setSeenUrlShot] = useState<TargetShot>(urlShot);
+  if (urlShot !== seenUrlShot) {
+    setSeenUrlShot(urlShot);
+    setShotState(urlShot);
+  }
   const [profile, setProfile] = useState<LocalProfile>(() => loadProfile());
   const [tier] = useState<Tier>("quick");
   const [guardianOk, setGuardianOk] = useState(false);
@@ -205,7 +226,17 @@ export function CaptureFlow() {
     src: null as DecodedVideo | null,
     /** Batting hand read from the grip at the stance and the stroke, when clear. */
     hand: null as "right" | "left" | null,
+    /** The shot asked for, fixed when a clip or photos are chosen. */
+    target: "front_foot_defence" as TargetShot,
   });
+  const setShot = (t: TargetShot) => {
+    setShotState(t);
+    // Keep the choice in the address, so a reload or a shared link opens the same shot.
+    const u = new URL(window.location.href);
+    if (t === "back_foot_defence") u.searchParams.set("shot", "back");
+    else u.searchParams.delete("shot");
+    window.history.replaceState(window.history.state, "", u);
+  };
 
   useEffect(() => () => {
     if (url && !isSessionUrl(url)) URL.revokeObjectURL(url);
@@ -238,6 +269,8 @@ export function CaptureFlow() {
       setMarks({ ...EMPTY_MARKS, view: cap.view, bowlerSide: cap.bowlerSide });
       setView(cap.view);
       setBowlerSide(cap.bowlerSide);
+      job.current.target = cap.target ?? "front_foot_defence";
+      setShotState(cap.target ?? "front_foot_defence");
       setRemark({ id, title: cap.title, createdAt: cap.createdAt, recordedAt: cap.recordedAt });
       setPhase("mark");
     })();
@@ -289,7 +322,7 @@ export function CaptureFlow() {
     abort.current?.abort();
     run.current++;
     job.current.src?.close();
-    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null };
+    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null, target: job.current.target };
     setScan(null);
     setScanProgress(0);
     setWin(null);
@@ -372,6 +405,8 @@ export function CaptureFlow() {
         if (!alive()) return;
         scanned = await scanVideo(v, det, WINDOW_SEC, scanTick, signal, scanPose, job.current.src);
       }
+      // A back-foot defence keeps the head tall: find its strokes from movement, not from the head dropping.
+      if (job.current.target === "back_foot_defence") scanned = { ...scanned, windows: findWindows(scanned.samples, WINDOW_SEC, scanned.scannedTo, { posture: false }) };
       timeEnd("scan");
       timeFlush();
       if (!alive() || signal.aborted) return;
@@ -930,7 +965,8 @@ export function CaptureFlow() {
     timeStart("report");
     try {
       const id = remark?.id ?? crypto.randomUUID();
-      const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: tr.handedness ?? profile.handedness, heightCm: profile.heightCm });
+      const target = job.current.target;
+      const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: tr.handedness ?? profile.handedness, heightCm: profile.heightCm, target });
       const obs = quantise(raw);
       const createdAt = remark?.createdAt ?? new Date().toISOString();
       let payload = analyze(obs, { analysisId: id, createdAt });
@@ -965,17 +1001,17 @@ export function CaptureFlow() {
       const f = fileRef.current;
       const clipUrl = urlRef.current;
       const name = f?.name?.replace(/\.[^.]+$/, "");
-      const title = remark?.title ?? (tr.kind === "photo" ? (tr.body.length > 1 ? `${tr.body.length} photos` : (name ?? "Photo")) : (name ?? "Front-foot defence"));
+      const title = remark?.title ?? (tr.kind === "photo" ? (tr.body.length > 1 ? `${tr.body.length} photos` : (name ?? "Photo")) : (name ?? SHOT_TITLE[target]));
       const recordedAt = remark?.recordedAt ?? (f?.lastModified ? new Date(f.lastModified).toISOString() : createdAt);
       await saveAnalysis({ id, createdAt, recordedAt, payload, title, notes: "", tags: [], representative: false, cloud: null }, gz, keyframes);
       if (clipUrl && tr.kind === "video") {
         sessionMedia.set(id, { url: clipUrl, mediaTimes: mediaTimesRef.current });
-        sessionCapture.set(id, { tracking: tr, view: finalMarks.view === "front_on" || finalMarks.view === "behind" ? finalMarks.view : "side_on", bowlerSide: finalMarks.bowlerSide, title, createdAt, recordedAt });
+        sessionCapture.set(id, { tracking: tr, view: finalMarks.view === "front_on" || finalMarks.view === "behind" ? finalMarks.view : "side_on", bowlerSide: finalMarks.bowlerSide, title, createdAt, recordedAt, target });
       }
       stage("report", "done");
       timeEnd("report");
       timeEnd("total");
-      logVisit("result", `${RESULT_WORDS[payload.analysis_status]} · ${Math.round((performance.now() - triedAt.current) / 1000)} s`);
+      logVisit("result", `${resultWords(payload)} · ${Math.round((performance.now() - triedAt.current) / 1000)} s`);
       router.push(`/report/${id}`);
     } catch (e) {
       fail("Analysis failed", e instanceof Error ? e.message : "Something went wrong while preparing the report.");
@@ -988,6 +1024,7 @@ export function CaptureFlow() {
     const images = files.filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif)$/i.test(f.name));
     const vid = files.find((f) => f.type.startsWith("video/") || VIDEO_EXT.test(f.name));
     triedAt.current = performance.now();
+    job.current.target = shot;
     logVisit("analyse", vid ? `video, ${(vid.size / 1e6).toFixed(1)} MB` : images.length ? `${images.length} photo${images.length === 1 ? "" : "s"}` : "unsupported file");
     if (vid) return startVideo(vid);
     if (images.length) return startPhotos(images);
@@ -1027,10 +1064,34 @@ export function CaptureFlow() {
             {phase === "add" && (
               <>
                 <div>
-                  <p className="eyebrow">Front-foot defence</p>
+                  <p className="eyebrow">{SHOT_TITLE[shot]}</p>
                   <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Add your shot</h1>
                   <p className="mt-2 text-fg-muted">A video of any length — one ball, a net session or match footage — or a few photos. Aline finds the shot, the batter and the camera angle on its own.</p>
                 </div>
+
+                <fieldset>
+                  <legend className="text-sm font-semibold">Which shot?</legend>
+                  <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Shot to analyse">
+                    {SHOT_CHOICES.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={shot === c.id}
+                        onClick={() => setShot(c.id)}
+                        className={`rounded-2xl border p-3 text-left transition-colors ${shot === c.id ? "border-brand bg-brand/10" : "border-line hover:border-line-strong"}`}
+                      >
+                        <span className="flex items-center gap-2 font-semibold">
+                          <span aria-hidden className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${shot === c.id ? "border-brand" : "border-line-strong"}`}>
+                            {shot === c.id && <span className="h-2 w-2 rounded-full bg-brand" />}
+                          </span>
+                          {c.title}
+                        </span>
+                        <span className="mt-1 block text-xs text-fg-subtle">{c.note}</span>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
 
                 <div className="card p-4 space-y-3">
                   <label className="flex items-start gap-3 text-sm">

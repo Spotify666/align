@@ -9,6 +9,7 @@ import { DOMAIN_LABELS } from "@/engine/registry";
 import { fmt } from "@/engine/scoring";
 import { plainRange, plainReading, plainValue } from "@/engine/plain";
 
+const SHOT: Record<string, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const STATUS: Record<string, string> = {
   valid: "Valid front-foot defence",
   invalid_for_requested_analysis: "Different shot detected",
@@ -83,14 +84,16 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...muted);
-  doc.text(clean(`Front-foot defence report · ${new Date(p.created_at).toLocaleString()}`), W - M, y + 12, { align: "right" });
+  const shot = SHOT[p.requested_shot] ?? SHOT.front_foot_defence!;
+  const Shot = `${shot[0]!.toUpperCase()}${shot.slice(1)}`;
+  doc.text(clean(`${Shot} report · ${new Date(p.created_at).toLocaleString()}`), W - M, y + 12, { align: "right" });
   y += 30;
   if (opts.title) text(opts.title, 10, muted, "normal", 2);
 
   // Verdict first
-  text(p.mode === "posture_screen" && p.analysis_status !== "capture_failed" ? "Photo check" : (STATUS[p.analysis_status] ?? ""), 11, gold, "bold", 2);
+  text(p.mode === "posture_screen" && p.analysis_status !== "capture_failed" ? "Photo check" : p.analysis_status === "valid" ? `Valid ${shot}` : (STATUS[p.analysis_status] ?? ""), 11, gold, "bold", 2);
   text(p.headline, 17, ink, "bold", 4);
-  if (p.analysis_status !== "valid" && p.mode !== "posture_screen") text("No technique score: a score is only given to a confirmed front-foot defence.", 10, ink, "bold");
+  if (p.analysis_status !== "valid" && p.mode !== "posture_screen") text(`No technique score: a score is only given to a confirmed ${shot}.`, 10, ink, "bold");
   if (p.technique_index) text(`Technique score ${p.technique_index.value} / 100`, 10, muted);
 
   if (opts.evidenceImage) {
@@ -161,7 +164,7 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
     for (const m of shown) text(`• ${m.name}: ${fmt(m)}${m.uncertainty !== null ? ` ±${m.uncertainty.toFixed(m.decimals)}` : ""}`, 9.5, ink, "normal", 1);
     text(note, 8, muted);
   };
-  if (p.observations?.length) ungraded("What we could still see", p.observations, "Not graded and no score: the shot wasn't confirmed as a front-foot defence.");
+  if (p.observations?.length) ungraded("What we could still see", p.observations, `Not graded and no score: the shot wasn't confirmed as a ${shot}.`);
   if (p.mode === "posture_screen" && p.analysis_status !== "capture_failed") {
     if (p.photo_set) {
       heading("Photos");
@@ -172,7 +175,7 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
     }
   }
 
-  const limits = p.limitations.filter((l) => ["lim_demo", "lim_photo", "lim_photo_set", "lim_no_bat", "lim_no_ball", "lim_body_led"].includes(l.id));
+  const limits = p.limitations.filter((l) => ["lim_demo", "lim_photo", "lim_photo_set", "lim_no_bat", "lim_no_ball", "lim_body_led", "lim_bfd_ranges"].includes(l.id));
   if (limits.length) {
     heading("Good to know");
     for (const l of limits) text(`• ${l.text}`, 9, muted, "normal", 0);
@@ -189,7 +192,7 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
     doc.text(`align · page ${i} of ${pages}`, W / 2, H - 20, { align: "center" });
   }
 
-  const name = `align-front-foot-defence-${p.created_at.slice(0, 10)}-${p.analysis_status.replaceAll("_", "-")}.pdf`;
+  const name = `align-${shot.replaceAll(" ", "-")}-${p.created_at.slice(0, 10)}-${p.analysis_status.replaceAll("_", "-")}.pdf`;
   const blob = doc.output("blob");
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

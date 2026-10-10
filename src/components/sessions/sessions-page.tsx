@@ -57,7 +57,10 @@ export function SessionsPage() {
           <p className="eyebrow">Sessions</p>
           <h1 className="display text-5xl mt-2">Your shot library.</h1>
         </div>
-        <Link href="/analyse" className="btn btn-primary">Analyse front-foot defence</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/analyse" className="btn btn-primary">Front-foot defence</Link>
+          <Link href="/analyse?shot=back" className="btn btn-ghost">Back-foot defence</Link>
+        </div>
       </header>
 
       <div className="flex flex-wrap gap-2">
@@ -88,6 +91,7 @@ export function SessionsPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   <StatusPill payload={p} />
                   <Link href={`/report/${a.id}`} className="font-semibold hover:underline">{a.title}</Link>
+                  {p.requested_shot === "back_foot_defence" && <span className="chip border-data/40 text-data">Back-foot</span>}
                   <span className="num text-xs text-fg-subtle">{new Date(a.recordedAt).toLocaleString()}</span>
                   {a.cloud && <span className="chip border-ok/40 text-ok">in account</span>}
                   <span className="ml-auto text-sm text-fg-muted">

@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { decodeTracks } from "@/engine/tracks-codec";
+import { decodeTracks, encodeTracks } from "@/engine/tracks-codec";
+import { analyze } from "@/engine/analyze";
 import { buildBaseline, compareToBaseline, type BaselineComparison } from "@/engine/baseline";
-import type { AnalysisPayload, CaptureObservation } from "@/engine/types";
-import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, type StoredAnalysis } from "@/lib/store";
+import type { AnalysisPayload, CaptureObservation, TargetShot } from "@/engine/types";
+import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, saveAnalysis, type StoredAnalysis } from "@/lib/store";
 import { deleteFromCloud, loadCloudAnalysis } from "@/lib/cloud";
 import { Annotations } from "../coach/annotations";
 import { sessionCapture, sessionMedia } from "@/lib/session-media";
@@ -45,9 +46,10 @@ export function LocalReport({ id }: { id: string }) {
       }
       const obs = await decodeTracks(tracks);
       const keyframes = await getKeyframes(id, stored.payload.evidence_frames);
-      // Personal baseline from earlier valid front-foot defences on this device.
+      // Personal baseline from earlier valid analyses of the same shot on this device.
       const all = await listAnalyses();
-      const earlier = all.filter((a) => a.id !== id && a.payload.analysis_status === "valid" && a.recordedAt <= stored.recordedAt);
+      const shot = (a: StoredAnalysis) => a.payload.requested_shot ?? "front_foot_defence";
+      const earlier = all.filter((a) => a.id !== id && a.payload.analysis_status === "valid" && shot(a) === shot(stored) && a.recordedAt <= stored.recordedAt);
       const representative = earlier.filter((a) => a.representative);
       const pool = (representative.length >= 6 ? representative : earlier).slice(0, 10).map((a) => a.payload);
       const base = buildBaseline(pool, { version: 1, createdAt: new Date().toISOString() });
@@ -84,6 +86,25 @@ export function LocalReport({ id }: { id: string }) {
   // Bat and ball are hard to see automatically; while the clip is still open in this
   // session, the athlete can add them to unlock a full verdict.
   const canMark = !!media && sessionCapture.has(id) && p.mode !== "posture_screen" && (state.obs.ball.source === "none" || state.obs.bat.source === "none");
+  // The shot was named as the other defence: re-check the same tracks as that shot, saved as a new report.
+  const analyseAs = async (target: TargetShot) => {
+    const newId = crypto.randomUUID();
+    const { target: _asked, ...rest } = state.obs;
+    void _asked;
+    const obs: CaptureObservation = { ...rest, id: newId, ...(target !== "front_foot_defence" ? { target } : {}) };
+    const createdAt = new Date().toISOString();
+    const payload = analyze(obs, { analysisId: newId, createdAt });
+    const urls = await getKeyframes(id, [...new Set([...p.evidence_frames, ...payload.evidence_frames])]);
+    const keyframes: Record<number, Blob> = {};
+    await Promise.all(Object.entries(urls).map(async ([f, u]) => void (keyframes[Number(f)] = await (await fetch(u)).blob())));
+    const defaults = ["Front-foot defence", "Back-foot defence"];
+    const title = defaults.includes(state.stored.title) ? (target === "back_foot_defence" ? "Back-foot defence" : "Front-foot defence") : state.stored.title;
+    await saveAnalysis({ id: newId, createdAt, recordedAt: state.stored.recordedAt, payload, title, notes: "", tags: [], representative: false, cloud: null }, await encodeTracks(obs), keyframes);
+    if (media) sessionMedia.set(newId, media);
+    const cap = sessionCapture.get(id);
+    if (cap) sessionCapture.set(newId, { ...cap, title, createdAt, target });
+    router.push(`/report/${newId}`);
+  };
   return (
     <>
     <ReportView
@@ -96,6 +117,7 @@ export function LocalReport({ id }: { id: string }) {
       reference={state.reference}
       title={state.stored.title}
       analysisId={state.remote ? undefined : id}
+      onAnalyseAs={state.remote ? undefined : analyseAs}
       notice={
         canMark ? (
           <div className="mt-4 flex flex-col gap-3 rounded-xl border border-brand/40 bg-surface/80 p-4 sm:flex-row sm:items-center sm:justify-between">

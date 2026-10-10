@@ -47,6 +47,17 @@ const READINGS: Record<string, { ok: string; low: string; high: string }> = {
   bat_speed_contact: { ok: "Soft hands", low: "Soft hands", high: "Bat moving fast: hard hands" },
   ball_exit_speed: { ok: "Ball deadened", low: "Ball deadened", high: "Ball came off fast" },
   balance_over_feet: { ok: "Balanced over your feet", low: "Balanced over your feet", high: "Falling over" },
+  // The back-foot defence.
+  bfd_back_step: { ok: "Back and across", low: "Stuck on the crease", high: "Too deep, onto the stumps" },
+  bfd_feet_gap: { ok: "Front foot alongside", low: "Front foot alongside", high: "Front foot left out in front" },
+  bfd_head: { ok: "Head forward over the ball", low: "Head falling back", high: "Leaning toward the bowler" },
+  bfd_tall: { ok: "Standing tall", low: "Up on the toes", high: "Sinking under the ball" },
+  bfd_head_height: { ok: "Standing tall", low: "Crouched", high: "Standing tall" },
+  bfd_elbow: { ok: "Front elbow high", low: "Front elbow dropped", high: "Elbow up too high" },
+  bfd_hands_eyes: { ok: "Under the eyes", low: "Played late, beside you", high: "Hands pushed out in front" },
+  bfd_dead_bat: { ok: "Soft hands", low: "Soft hands", high: "Pushed through the ball" },
+  bfd_back_first: { ok: "Back foot first", low: "Front foot moved first", high: "Front foot left behind" },
+  bfd_set_late: { ok: "Set before the ball arrived", low: "Set before the ball arrived", high: "Still moving at contact" },
 };
 
 /** The line read from either end of the pitch: the same parts, sideways. */
@@ -54,6 +65,8 @@ const SIDEWAYS: Record<string, { ok: string; low: string; high: string }> = {
   line_head: { ok: "Head over the line of the ball", low: "Head falling away to the leg side", high: "Head reaching across to the off side" },
   line_shoulder: { ok: "Front shoulder down the line", low: "Front shoulder opening up", high: "Front shoulder diving across" },
   line_knee: { ok: "Front knee over the foot", low: "Front knee falling in", high: "Front knee pushed out" },
+  bfd_head: { ok: "Head in line, over the back foot", low: "Head falling away to the leg side", high: "Head reaching across" },
+  bfd_hands_eyes: { ok: "Under the eyes", low: "Playing across the body", high: "Reaching away from the body" },
 };
 
 /** What the value means for the defence, in a few words. */

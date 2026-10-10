@@ -5,6 +5,8 @@ import { DRILL_LIBRARY_VERSION } from "@/engine/coaching";
 import { PROTOTYPES, SHOT_DISPLAY } from "@/engine/classify";
 import { FIXTURE_SPECS } from "@/engine/fixtures";
 import { MODEL_ROUTES } from "@/engine/llm/eval";
+import { BFD_METRICS, BFD_METRIC_VERSION } from "@/engine/backfoot-defs";
+import { BFD_SOURCES } from "@/components/guide/back-foot-guide";
 
 export const metadata: Metadata = { title: "Science and validation" };
 
@@ -42,7 +44,7 @@ export default function SciencePage() {
             ["Can body, bat, ball and pitch be tracked?", "Body from on-device pose; bat and ball from tracking or your marks — every mark labelled as yours."],
             ["What delivery came down?", "Bounce position and arrival height give soft full / good / short probabilities. No ball, no claim."],
             ["What shot was attempted?", "Open-set prototype model over body, bat and ball features, with an explicit 'unknown' class."],
-            ["Is it a front-foot defence?", "Strict acceptance (body + bat + ball, high score, clear margin). Rejection may rest on fewer signals."],
+            ["Is it the defence you asked for?", "Strict acceptance (body + bat + ball, high score, clear margin), centred on the front-foot or the back-foot defence. Rejection may rest on fewer signals."],
             ["Only then: how was it executed?", "Six domains of measures with uncertainty, provisional ranges, one priority and up to two drills."],
           ].map(([t, d], i) => (
             <li key={t} className="bg-surface p-5">
@@ -54,8 +56,8 @@ export default function SciencePage() {
         </ol>
       </Section>
 
-      <Section id="ontology" eyebrow="Shot ontology" title="One graded shot, many recognised ones">
-        <p className="text-fg-muted">Only the front-foot defence is graded in this release. Other shots are recognised so they can be rejected with evidence; each unlocks only after passing the same validation bar.</p>
+      <Section id="ontology" eyebrow="Shot ontology" title="Two graded shots, many recognised ones">
+        <p className="text-fg-muted">The front-foot defence and the back-foot defence are graded in this release. Other shots are recognised so they can be rejected with evidence; each unlocks only after passing the same validation bar.</p>
         <div className="overflow-x-auto card">
           <table className="w-full text-sm">
             <thead>
@@ -107,6 +109,28 @@ export default function SciencePage() {
           centre of mass during the front foot off-drive in skilled and less-skilled cricket batsmen, Sports Biomechanics (skilled batters&apos; head and centre of mass further
           forward; less-skilled more upright at the hip). Where no measurement exists, the range is a coaching criterion and says so.
         </p>
+      </Section>
+
+      <Section id="back-foot" eyebrow={`Measures · ${BFD_METRIC_VERSION}`} title="Back-foot-defence movement indicators">
+        <p className="text-fg-muted">
+          Measured from the back foot (the base of this shot), × standing height. Side-on the distances run along the pitch; from either end, sideways. No published lab
+          measurements of the back-foot defence were found, so every range is provisional coaching geometry from the coaching sources below. See the{" "}
+          <Link className="underline" href="/guide#back-foot">guide</Link> for the shot itself.
+        </p>
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {BFD_METRICS.map((m) => (
+            <li key={m.id} className="card p-4">
+              <p className="text-xs text-fg-subtle">{DOMAIN_LABELS[m.domain]}</p>
+              <p className="font-semibold">{m.name} <span className="num text-sm text-fg-muted">({m.unit || "ratio"})</span></p>
+              <p className="mt-1 text-sm text-fg-muted">{m.meaning}</p>
+              <p className="mt-2 text-xs num text-fg-subtle">
+                phase {m.phase} · range {m.range ? `${m.range.lo}–${m.range.hi}` : "none"}
+                {m.rangeSideways ? ` (from either end ${m.rangeSideways.lo}–${m.rangeSideways.hi})` : ""} · needs {m.requires.join(", ")} · index weight {m.weight}
+                {m.only ? ` · ${m.only} only` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
       </Section>
 
       <Section id="index" eyebrow={INDEX_WEIGHTS_VERSION} title="The secondary technique index">
@@ -171,6 +195,9 @@ export default function SciencePage() {
       <Section id="refs" eyebrow="References" title="Sources">
         <ul className="space-y-2 text-sm text-fg-muted list-disc pl-5">
           <li><a className="underline" href="https://pubmed.ncbi.nlm.nih.gov/10189076/">Stretch et al., 1998 — front-foot drive and forward defence kinematics</a></li>
+          {BFD_SOURCES.map((s) => (
+            <li key={s.href}><a className="underline" href={s.href}>{s.name}</a> — the back-foot defence (coaching; its ranges are provisional)</li>
+          ))}
           <li><a className="underline" href="https://www.researchgate.net/publication/5912436_The_position_of_the_head_and_centre_of_mass_during_the_front_foot_off-drive_in_skilled_and_less-skilled_cricket_batsmen">Taliep et al., 2007 — head and centre of mass at contact, skilled vs less-skilled batters</a></li>
           <li><a className="underline" href="https://doi.org/10.1371/journal.pcbi.1011462">OpenCap — multi-phone markerless biomechanics</a></li>
           <li><a className="underline" href="https://arxiv.org/abs/1907.03698">TrackNet — tracking small, fast sports balls</a></li>

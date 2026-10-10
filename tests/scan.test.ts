@@ -52,6 +52,14 @@ describe("shot windows", () => {
     const w = findWindows(clip(12, []), 2.5, 12);
     expect(w).toHaveLength(1);
   });
+  it("finds a back-foot defence (head stays tall) from movement when asked for one", () => {
+    // A front-foot stroke at 4 s takes the head down; a back-foot defence at 9 s keeps it tall.
+    const samples = clip(12, [4, 9]).map((s) => ({ ...s, head: 0.95 - 0.12 * Math.exp(-((s.t - 4) ** 2) / 0.08) }));
+    const front = findWindows(samples, 2.5, 12);
+    expect(front.every((x) => Math.abs(x.peak - 4) < 0.3)).toBe(true);
+    const back = findWindows(samples, 2.5, 12, { posture: false });
+    for (const s of [4, 9]) expect(back.some((x) => Math.abs(x.peak - s) < 0.3)).toBe(true);
+  });
 });
 
 describe("batter candidates", () => {

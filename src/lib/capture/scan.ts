@@ -547,8 +547,16 @@ function motionPeaks(mp: { t: number[]; m: number[] }, max: number): number[] {
   return out;
 }
 
+export interface WindowOptions {
+  /**
+   * Find strokes from the head dropping (front-foot shots; the default). A back-foot
+   * defence keeps the head tall, so for it the windows come from movement peaks alone.
+   */
+  posture?: boolean;
+}
+
 /** Candidate shot windows: motion peaks with a whole batter in view, inside one camera shot. */
-export function findWindows(samples: ScanSample[], windowMedia: number, duration: number): ShotWindow[] {
+export function findWindows(samples: ScanSample[], windowMedia: number, duration: number, opts: WindowOptions = {}): ShotWindow[] {
   if (!samples.length) return [];
   if (duration <= windowMedia + 0.6) {
     const mid = samples[Math.floor(samples.length / 2)]!;
@@ -574,7 +582,7 @@ export function findWindows(samples: ScanSample[], windowMedia: number, duration
 
   // Strokes from posture: the head drops well below where it stood a moment before.
   const withHead = samples.filter((s) => typeof s.head === "number").length;
-  if (withHead >= samples.length * 0.4) {
+  if (opts.posture !== false && withHead >= samples.length * 0.4) {
     const head = samples.map((s) => (typeof s.head === "number" ? s.head : NaN));
     for (const [s0, s1] of segs) {
       const t0 = samples[s0]!.t;

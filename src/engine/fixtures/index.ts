@@ -196,28 +196,56 @@ export function pullScript(): ShotScript {
   };
 }
 
-/** Back-foot defence: back foot back toward the stumps, tall body, dead bat met at waist-to-chest height. */
-export function bfdScript(): ShotScript {
+/**
+ * Back-foot defence: back foot back toward the stumps, front foot drawn back toward it, tall
+ * body, dead bat met at waist-to-chest height. Defaults are the textbook shot; the options
+ * vary technique (metres for a 1.75 m batter): how far each foot goes back, the head forward
+ * of the hips, sinking (+) or rising (−) through the shot, hands pushed out (+), how far
+ * the hands carry on after contact, and how high the hands are at the top of the backlift
+ * compared with where they meet the ball (+ a high backlift: they come down into it; − a low
+ * one: they rise into a ball met at chest height).
+ */
+export function bfdScript(v: Partial<{ backStep: number; frontBack: number; headFwd: number; sink: number; handsFwd: number; follow: number; backlift: number; sideLean: number }> = {}): ShotScript {
+  const b = v.backStep ?? 0.2;
+  const fb = v.frontBack ?? 0.27;
+  const sink = v.sink ?? 0;
+  // The textbook shot's own numbers exactly when no option is given (population seeds depend on it).
+  const textbook = v.backStep === undefined && v.frontBack === undefined;
+  const hipF = textbook ? 0.74 : 0.95 - ((b + fb) / 2) * 0.894;
+  const frontMid = textbook ? 1.0 : 1.15 - fb * 0.556;
+  const frontEnd = textbook ? 0.88 : 1.15 - fb;
+  const backMid = textbook ? 0.62 : 0.75 - b * 0.65;
+  const backEnd = textbook ? 0.55 : 0.75 - b;
+  const follow = v.follow ?? 0;
+  // Where the ball is met: moves back with the body, out in front with the hands, lower with sinking.
+  const contactF = textbook ? 1.05 : 1.05 - (0.74 - hipF) + (v.handsFwd ?? 0);
+  const contactU = 0.9 - sink;
+  // The generator puts the hands where the bat's sweet spot meets the ball (bat nearly
+  // upright: 0.6 m above it). With options, the frames after contact keep them there (a dead
+  // bat, plus any push-through) and the backlift top sits just behind and below. The textbook
+  // shot keeps its original numbers, which the front-foot population depends on.
+  const handF = textbook ? 0.98 : contactF + 0.07;
+  const handU = textbook ? 1.1 : contactU + 0.6;
   return {
     frontAnkle: [
       [0, [1.15, 0.08, 0]],
       [0.5, [1.15, 0.08, 0]],
-      [0.7, [1.0, 0.12, 0.02]],
-      [0.8, [0.88, 0.08, 0.03]],
-      [2, [0.88, 0.08, 0.03]],
+      [0.7, [frontMid, 0.12, 0.02]],
+      [0.8, [frontEnd, 0.08, 0.03]],
+      [2, [frontEnd, 0.08, 0.03]],
     ],
     backAnkle: [
       [0, [0.75, 0.08, 0]],
       [0.46, [0.73, 0.08, 0.01]],
-      [0.6, [0.62, 0.12, 0.05]],
-      [0.7, [0.55, 0.08, 0.08]],
-      [2, [0.55, 0.08, 0.08]],
+      [0.6, [backMid, 0.12, 0.05]],
+      [0.7, [backEnd, 0.08, 0.08]],
+      [2, [backEnd, 0.08, 0.08]],
     ],
     hipC: [
       [0, [0.95, 0.88, 0.02]],
       [0.5, [0.95, 0.88, 0.02]],
-      [0.8, [0.74, 0.93, 0.05]],
-      [2, [0.74, 0.93, 0.05]],
+      [0.8, [hipF, 0.93 - sink, 0.05]],
+      [2, [hipF, 0.93 - sink, 0.05]],
     ],
     lean: [
       [0, 8],
@@ -225,10 +253,18 @@ export function bfdScript(): ShotScript {
       [0.85, 8],
       [2, 7],
     ],
-    sideLean: [
-      [0, 12],
-      [2, 10],
-    ],
+    // Variants stand up at the ball (the textbook keeps its original 10–12° toward the off side).
+    sideLean: textbook
+      ? [
+          [0, 12],
+          [2, 10],
+        ]
+      : [
+          [0, 12],
+          [0.5, 12],
+          [0.85, v.sideLean ?? 4],
+          [2, v.sideLean ?? 4],
+        ],
     shoulderYaw: [
       [0, 0],
       [0.9, 12],
@@ -241,16 +277,17 @@ export function bfdScript(): ShotScript {
     ],
     headFwd: [
       [0, 0],
-      [0.85, 0.06],
-      [2, 0.05],
+      [0.85, v.headFwd ?? 0.06],
+      [2, v.headFwd === undefined ? 0.05 : v.headFwd - 0.01],
     ],
     hands: [
       [0, setupHands],
       [0.5, setupHands],
-      [0.7, [1.0, 1.22, 0.2]],
-      [0.9, [0.98, 1.1, 0.12]],
-      [1.05, [1.0, 1.1, 0.12]],
-      [2, [1.0, 1.11, 0.12]],
+      // The backlift's top moves back with the body, so the hands come down to the ball, not forward to it.
+      [0.7, [textbook ? 1.0 : handF - 0.03, textbook ? 1.22 : handU + (v.backlift ?? -0.15), 0.2]],
+      [0.9, [handF, handU, 0.12]],
+      [1.05, [textbook ? 1.0 : handF + 0.02 + follow, handU + follow * 0.4, 0.12]],
+      [2, [textbook ? 1.0 : handF + 0.02 + follow, textbook ? 1.11 : handU + 0.01 + follow * 0.4, 0.12]],
     ],
     batDir: [
       [0, setupBat],
@@ -260,7 +297,7 @@ export function bfdScript(): ShotScript {
       [1.05, [-0.1, -0.99, 0]],
       [2, [-0.1, -0.99, 0]],
     ],
-    ball: { releaseT: 0.3, speed: 30, bounceF: 7.6, contactF: 1.05, contactU: 0.9, lateral: 0.05, exit: [1.6, -1.2, 0.2], visible: true },
+    ball: { releaseT: 0.3, speed: 30, bounceF: 7.6, contactF, contactU, lateral: 0.05, exit: [1.6, -1.2, 0.2], visible: true },
   };
 }
 

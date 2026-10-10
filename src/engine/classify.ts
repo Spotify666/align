@@ -6,7 +6,7 @@
 
 import { th } from "./registry";
 import type { FeatureId, FeatureSet } from "./features";
-import { SHOT_CLASSES, type ShotClass } from "./types";
+import { SHOT_CLASSES, type ShotClass, type TargetShot } from "./types";
 
 type Band = readonly [lo: number, hi: number, sigma: number, weight: number];
 type Prototype = Partial<Record<FeatureId, Band>>;
@@ -186,6 +186,27 @@ export const PROTOTYPES: Record<Exclude<ShotClass, "unknown">, Prototype> = {
   },
 };
 
+/**
+ * Analysing a back-foot defence, its identity bands span the generated back-foot population
+ * (src/engine/fixtures/population.ts: back step, front foot drawn back, head, sinking, hands,
+ * push-through, every camera position), as the front-foot defence's bands span its own. Three
+ * are wider than the bands used when it is only an alternative to a front-foot defence: the
+ * hands come down steeply from a high backlift (speed near contact up to 2.6 × height/s,
+ * travel after contact up to 0.31), and from either end of the pitch the 3D estimate reads a
+ * foot going back as up to 0.2 × height forward. Pulls and cuts stay apart on the bat's angle,
+ * the hands' path across the body and the ball's height. The front-foot analysis keeps the
+ * bands it was validated with.
+ */
+const BFD_TARGET_PROTOTYPES: typeof PROTOTYPES = {
+  ...PROTOTYPES,
+  back_foot_defence: {
+    ...PROTOTYPES.back_foot_defence,
+    front_stride: [-0.1, 0.22, 0.05, 1],
+    hand_speed: [0, 2.6, 0.35, 1.2],
+    hands_follow: [0, 0.32, 0.04, 1.2],
+  },
+};
+
 const FAMILIES: Array<{ label: string; members: ShotClass[] }> = [
   { label: "a front-foot vertical-bat shot (defence or drive)", members: ["front_foot_defence", "front_foot_drive"] },
   { label: "a horizontal-bat shot (pull, hook or cut)", members: ["pull", "hook", "cut"] },
@@ -193,13 +214,14 @@ const FAMILIES: Array<{ label: string; members: ShotClass[] }> = [
 ];
 
 /**
- * Probability of the leading alternative to a front-foot defence: the most likely other
- * shot, or family of related shots, whichever is larger. Mass spread over unrelated shots
- * (a drive, a sweep and a back-foot defence at once) points at none of them.
+ * Probability of the leading alternative to the shot being analysed (a front-foot defence
+ * unless said otherwise): the most likely other shot, or family of related shots, whichever
+ * is larger. Mass spread over unrelated shots (a drive, a sweep and a back-foot defence at
+ * once) points at none of them.
  */
-export function leadingAlternative(p: Record<ShotClass, number>): number {
-  const singles = SHOT_CLASSES.filter((c) => c !== "front_foot_defence" && c !== "unknown").map((c) => p[c]);
-  const families = FAMILIES.filter((f) => !f.members.includes("front_foot_defence")).map((f) => f.members.reduce((s, m) => s + p[m], 0));
+export function leadingAlternative(p: Record<ShotClass, number>, target: TargetShot = "front_foot_defence"): number {
+  const singles = SHOT_CLASSES.filter((c) => c !== target && c !== "unknown").map((c) => p[c]);
+  const families = FAMILIES.filter((f) => !f.members.includes(target)).map((f) => f.members.reduce((s, m) => s + p[m], 0));
   return Math.max(0, ...singles, ...families);
 }
 
@@ -242,14 +264,14 @@ export interface Classification {
   logLikelihood: Record<ShotClass, number>;
   top: ShotClass;
   margin: number;
-  /** Fraction of front-foot-defence discriminative weight that was observed. */
+  /** Fraction of the analysed shot's discriminative weight that was observed (named for the front-foot defence, the first shot). */
   ffdCoverage: number;
   /**
    * Without the ball (and possibly the bat): the fraction of the body, hand and bat
    * weight that this camera position can show that was actually observed.
    */
   bodyCoverage: number;
-  /** Feature ids that most separate the top class from front-foot defence. */
+  /** Feature ids that most separate the top class from the analysed shot. */
   decisive: Array<{ feature: FeatureId; penalty: number }>;
   family: string | null;
 }
@@ -274,19 +296,21 @@ function bandLogLik(x: number, band: Band, coarse: boolean, widen = 1): number {
   return -w * Math.min(0.5 * (d / s) ** 2, 4);
 }
 
-export function classify(fs: FeatureSet, opts: { frontal?: boolean; batSeen?: boolean; cameraMoving?: boolean } = {}): Classification {
+export function classify(fs: FeatureSet, opts: { frontal?: boolean; batSeen?: boolean; cameraMoving?: boolean; target?: TargetShot } = {}): Classification {
   const ll = {} as Record<ShotClass, number>;
   const ffdPenalties: Array<{ feature: FeatureId; penalty: number }> = [];
+  const target = opts.target ?? "front_foot_defence";
+  const PROTOS = target === "back_foot_defence" ? BFD_TARGET_PROTOTYPES : PROTOTYPES;
 
-  for (const cls of Object.keys(PROTOTYPES) as Array<Exclude<ShotClass, "unknown">>) {
+  for (const cls of Object.keys(PROTOS) as Array<Exclude<ShotClass, "unknown">>) {
     let sum = 0;
-    for (const [fid, band] of Object.entries(PROTOTYPES[cls]) as Array<[FeatureId, Band]>) {
+    for (const [fid, band] of Object.entries(PROTOS[cls]) as Array<[FeatureId, Band]>) {
       const x = fs.values[fid];
       if (x === undefined || (opts.frontal && FRONTAL_UNRELIABLE.includes(fid))) continue;
       const coarse = fs.coarseTiming && TIMING_FEATURES.includes(fid);
       const l = bandLogLik(x, band, coarse, opts.frontal && FRONTAL_ESTIMATED.includes(fid) ? 1.6 : 1);
       sum += l;
-      if (cls === "front_foot_defence" && l < -0.5) ffdPenalties.push({ feature: fid, penalty: -l });
+      if (cls === target && l < -0.5) ffdPenalties.push({ feature: fid, penalty: -l });
     }
     ll[cls] = sum;
   }
@@ -305,7 +329,7 @@ export function classify(fs: FeatureSet, opts: { frontal?: boolean; batSeen?: bo
   const top = ranked[0]!;
   const margin = probabilities[top] - probabilities[ranked[1]!];
 
-  const ffd = PROTOTYPES.front_foot_defence;
+  const ffd = PROTOS[target];
   let total = 0;
   let seen = 0;
   let bodyTotal = 0;
@@ -334,7 +358,7 @@ export function classify(fs: FeatureSet, opts: { frontal?: boolean; batSeen?: bo
   if (probabilities[top] < th("ffd.named_label.min_probability")) {
     for (const f of FAMILIES) {
       const p = f.members.reduce((s, m) => s + probabilities[m], 0);
-      if (p >= 0.8 && !f.members.includes("front_foot_defence")) {
+      if (p >= 0.8 && !f.members.includes(target)) {
         family = f.label;
         break;
       }

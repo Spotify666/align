@@ -3,6 +3,40 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-10-10 · The back-foot defence, on top of the locked front-foot build
+
+> Now lock this code, on top of this Add a new section for back foot defence cricket shot.
+> Scout for videos, images, references, definition, understand and then merge those changes
+
+Done:
+- **Locked**: the front-foot build is kept as branch `lock/ffd-2026-10-10` (main at 80717e4).
+  The back-foot defence runs only when asked for; every front-foot result on 124 saved real
+  tracks is byte-identical to the locked build.
+- **Definition and sources** (docs/11-back-foot-defence.md, `/guide#back-foot`): played to a
+  short ball on the stumps; back foot back and across first, front foot alongside, tall and
+  side-on, head forward over the ball, front elbow high, contact under the eyes, soft hands
+  (Sportplan, ESPNcricinfo coaching, Pitchero academy). No lab measurements of the shot exist:
+  every range is labelled provisional coaching geometry.
+- **Analyse**: a Front-foot / Back-foot choice on the Analyse screen (`/analyse?shot=back`), in
+  the menu, on Home and in Sessions. In a long clip its strokes are found from movement (the
+  head stays tall, so the front-foot head-drop finder would miss them).
+- **Identification**: its own strict gate (≥ 80%, clear margin, went back and stayed tall). A
+  front-foot defence, pull or cut is named for what it is and never scored; one tap re-checks
+  the same tracks as a front-foot defence. Photos are checked on the position (front foot
+  alongside, head, height, elbow, hands).
+- **Report**: "The base" panel (front foot, head and hands against their ranges; back step,
+  standing tall, elbow, soft hands; when back foot, front foot and head set), every measure
+  with its range and source, a priority with a four-step drill ladder for each fault, PDF.
+  Baselines, comparisons and progress charts keep the two shots apart. Samples:
+  `/sample/valid_bfd`, `/sample/front_on_bfd`, `/sample/ffd_as_bfd`.
+
+Open:
+- No real back-foot defence footage could be reached from the build environment (the
+  published back-foot clips are on Dropbox, which it can't reach). Validated on generated
+  back-foot defences (side-on and from the bowler's end) and on every real front-foot and
+  other-shot clip and photo run as a back-foot request: none accepted. Side-on and bowler's-end
+  phone clips of real back-foot defences are the next thing to test.
+
 ## 2026-10-07 · A visitor log
 
 > capture related to visitors and maintain it in db, like device, ip, place, time, os, tried

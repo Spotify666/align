@@ -6,13 +6,20 @@ import { useEffect, useMemo, useState } from "react";
 import { analyze } from "@/engine/analyze";
 import { baselineSeries } from "@/engine/fixtures";
 import { buildBaseline } from "@/engine/baseline";
-import { METRICS, th } from "@/engine/registry";
-import type { AnalysisPayload } from "@/engine/types";
+import { ALL_METRICS, th } from "@/engine/registry";
+import type { AnalysisPayload, TargetShot } from "@/engine/types";
 import { listAnalyses } from "@/lib/store";
 import { STATUS_META } from "../report/status";
 import { TrendChart } from "./trend-chart";
 
-const KEY_METRICS = ["line_head", "line_shoulder", "line_knee", "line_held", "sync_spread", "stride_length", "front_knee_flexion", "weight_forward"];
+const KEY_METRICS: Record<TargetShot, string[]> = {
+  front_foot_defence: ["line_head", "line_shoulder", "line_knee", "line_held", "sync_spread", "stride_length", "front_knee_flexion", "weight_forward"],
+  back_foot_defence: ["bfd_back_step", "bfd_feet_gap", "bfd_head", "bfd_tall", "bfd_elbow", "bfd_hands_eyes", "bfd_dead_bat", "bfd_back_first"],
+};
+const SHOTS: Array<{ id: TargetShot; label: string; plural: string }> = [
+  { id: "front_foot_defence", label: "Front-foot defence", plural: "front-foot defences" },
+  { id: "back_foot_defence", label: "Back-foot defence", plural: "back-foot defences" },
+];
 
 function demoSeries(): Array<{ id: string; date: string; payload: AnalysisPayload }> {
   return baselineSeries(9).map((o, i) => {
@@ -25,6 +32,8 @@ export function ProgressPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Array<{ id: string; date: string; payload: AnalysisPayload }> | null>(null);
   const [demo, setDemo] = useState(false);
+  const [shot, setShot] = useState<TargetShot>("front_foot_defence");
+  const shotInfo = SHOTS.find((x) => x.id === shot)!;
 
   useEffect(() => {
     listAnalyses()
@@ -32,7 +41,8 @@ export function ProgressPage() {
       .catch(() => setRows([]));
   }, []);
 
-  const data = useMemo(() => (demo ? demoSeries() : (rows ?? [])), [demo, rows]);
+  // One shot at a time: the two defences are measured differently and never share a chart.
+  const data = useMemo(() => (demo ? demoSeries() : (rows ?? [])).filter((r) => (r.payload.requested_shot ?? "front_foot_defence") === shot), [demo, rows, shot]);
   const valid = data.filter((r) => r.payload.analysis_status === "valid");
   const baseline = useMemo(() => buildBaseline(valid.slice(0, 10).map((v) => v.payload), { version: 1, createdAt: new Date().toISOString() }), [valid]);
   const counts = (["valid", "invalid_for_requested_analysis", "uncertain_shot", "capture_failed"] as const).map((s) => ({
@@ -46,8 +56,15 @@ export function ProgressPage() {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Progress · front-foot defence</p>
+          <p className="eyebrow">Progress · {shotInfo.label.toLowerCase()}</p>
           <h1 className="display text-5xl mt-2">Change you can measure.</h1>
+          <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Shot">
+            {SHOTS.map((x) => (
+              <button key={x.id} type="button" role="radio" aria-checked={shot === x.id} onClick={() => setShot(x.id)} className={`chip min-h-10 ${shot === x.id ? "border-brand text-fg" : "border-line-strong text-fg-muted"}`}>
+                {x.label}
+              </button>
+            ))}
+          </div>
         </div>
         <label className="chip border-line-strong text-fg-muted min-h-10 cursor-pointer">
           <input type="checkbox" className="accent-[var(--color-brand)]" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
@@ -58,11 +75,11 @@ export function ProgressPage() {
 
       {data.length === 0 ? (
         <div className="card p-8 text-center space-y-3">
-          <p className="display text-3xl">No front-foot defences yet</p>
+          <p className="display text-3xl">No {shotInfo.plural} yet</p>
           <p className="text-fg-muted">Record your first shot. Trends appear after two valid defences; your baseline after {th("baseline.min_deliveries")}.</p>
           <div className="flex justify-center gap-3 flex-wrap">
-            <Link href="/analyse" className="btn btn-primary">Analyse front-foot defence</Link>
-            <button className="btn btn-ghost" onClick={() => setDemo(true)}>See a demo athlete</button>
+            <Link href={shot === "back_foot_defence" ? "/analyse?shot=back" : "/analyse"} className="btn btn-primary">Analyse {shotInfo.label.toLowerCase()}</Link>
+            {shot === "front_foot_defence" && <button className="btn btn-ghost" onClick={() => setDemo(true)}>See a demo athlete</button>}
           </div>
         </div>
       ) : (
@@ -93,13 +110,13 @@ export function ProgressPage() {
           </section>
 
           {valid.length < 2 ? (
-            <p className="text-fg-muted">Trends need at least two valid front-foot defences.</p>
+            <p className="text-fg-muted">Trends need at least two valid {shotInfo.plural}.</p>
           ) : (
             <section aria-labelledby="trends" className="space-y-3">
               <h2 id="trends" className="display text-3xl">Movement indicators over time</h2>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {KEY_METRICS.map((id) => {
-                  const def = METRICS.find((m) => m.id === id)!;
+                {KEY_METRICS[shot].map((id) => {
+                  const def = ALL_METRICS.find((m) => m.id === id)!;
                   // The line is read along the pitch side-on and sideways from either end:
                   // never mix the two on one chart. Follow the latest shot's camera position.
                   const all = valid.map((r) => ({ r, m: r.payload.metrics.find((x) => x.id === id) }));

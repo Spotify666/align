@@ -2,7 +2,7 @@
 // Every user-supplied point is labelled as such; nothing is invented between marks
 // except straight-line interpolation that is declared "interpolated".
 
-import type { CameraPoint, CaptureObservation, FrameQuality, ImgPoint, PhotoPhase, Tier } from "@/engine/types";
+import type { CameraPoint, CaptureObservation, FrameQuality, ImgPoint, PhotoPhase, TargetShot, Tier } from "@/engine/types";
 import { J } from "@/engine/types";
 
 export interface Marks {
@@ -127,6 +127,8 @@ export function buildObservation(opts: {
   tier: Tier;
   handedness: "right" | "left";
   heightCm: number | null;
+  /** The shot the athlete asked to have analysed (the front-foot defence when left out). */
+  target?: TargetShot;
 }): CaptureObservation {
   const { tracking: tr, marks: m } = opts;
   const aspect = tr.width / tr.height;
@@ -143,6 +145,7 @@ export function buildObservation(opts: {
   return {
     schema: "align.observation/1",
     id: opts.id,
+    ...(opts.target && opts.target !== "front_foot_defence" ? { target: opts.target } : {}),
     source: "browser_capture",
     demo: false,
     media: {

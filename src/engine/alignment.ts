@@ -109,7 +109,7 @@ export function offSideSign(scene: Scene, view: CameraView, hand: Handedness): {
  * and trunk as the scene does: a zooming camera changes it from frame to frame, and a
  * rolling estimate lags a zoom, so offsets are measured against the frame's own size.
  */
-function frameSize(scene: Scene, frame: number): number {
+export function frameSize(scene: Scene, frame: number): number {
   const sizes: number[] = [];
   for (let i = frame - 1; i <= frame + 1; i++) {
     const d = (a: SemanticJoint, b: SemanticJoint) => {
@@ -152,7 +152,7 @@ export function inLine(o: Offsets, axis: LineAxis, skipHead = false): boolean | 
   return parts.every((p) => o[p] >= LINE_BANDS[axis][p][0] - IN_LINE_TOL && o[p] <= LINE_BANDS[axis][p][1] + IN_LINE_TOL);
 }
 
-type Signal = (i: number) => number[] | null;
+export type Signal = (i: number) => number[] | null;
 
 /**
  * When a part reaches its set position. Each part travels from where it was before the
@@ -163,7 +163,7 @@ type Signal = (i: number) => number[] | null;
  * (at least `floor`) of it and stays there. Found from the part's own movement, so an
  * error in the contact estimate doesn't move it.
  */
-function arrival(raw: Signal, start: number, contact: number, n: number, floor: number, dt: number): Arrival {
+export function arrival(raw: Signal, start: number, contact: number, n: number, floor: number, dt: number): Arrival {
   const none: Arrival = { frame: null, ms: null, onset: null, still: false };
   // Averaged over ±30 ms: at high frame rates a frame's landmark noise is as large as a
   // frame's movement.
@@ -230,7 +230,7 @@ function arrival(raw: Signal, start: number, contact: number, n: number, floor: 
  * stride toward the camera hardly moves the foot across the picture, so where it ends up
  * says less than when it stops.
  */
-function landing(raw: Signal, start: number, contact: number, n: number, dt: number): Arrival {
+export function landing(raw: Signal, start: number, contact: number, n: number, dt: number): Arrival {
   const none: Arrival = { frame: null, ms: null, onset: null, still: false };
   const r = Math.max(1, Math.round(0.03 / dt));
   const avg = (i: number) => {
