@@ -3,7 +3,7 @@
 // is withheld unless enough domains are measured.
 
 import { clamp, round } from "./math";
-import { DOMAIN_LABELS, INDEX_WEIGHTS_VERSION, METRICS, th } from "./registry";
+import { ALL_METRICS, DOMAIN_LABELS, INDEX_WEIGHTS_VERSION, th } from "./registry";
 import { coachingFor, wordingFor } from "./coaching";
 import { plainRange, plainValue } from "./plain";
 import type { DomainResult, Finding, Metric, MetricDomain, PlanItem } from "./types";
@@ -45,7 +45,7 @@ export function techniqueIndex(metrics: Metric[], domains: DomainResult[]) {
   const measuredDomains = domains.filter((d) => d.status !== "not_measured").length;
   if (measuredDomains < th("index.min_domains")) return null;
   const used = metrics.filter((m) => m.status !== "not_measured" && m.range && m.value !== null);
-  const weightOf = (id: string) => METRICS.find((d) => d.id === id)?.weight ?? 0;
+  const weightOf = (id: string) => ALL_METRICS.find((d) => d.id === id)?.weight ?? 0;
   const score = (m: Metric, value: number) => {
     // Falls to ~0.6 at half a range-width outside; published with the weights version.
     const d = outside({ ...m, value }) / 0.5;
@@ -76,7 +76,7 @@ export function techniqueIndex(metrics: Metric[], domains: DomainResult[]) {
 
 export function strengthsAndPriorities(metrics: Metric[]) {
   const usable = metrics.filter((m) => m.status !== "not_measured" && m.range && m.value !== null);
-  const weightOf = (id: string) => METRICS.find((d) => d.id === id)?.weight ?? 0;
+  const weightOf = (id: string) => ALL_METRICS.find((d) => d.id === id)?.weight ?? 0;
 
   const strengths: Finding[] = usable
     .filter((m) => m.inRange)
@@ -158,7 +158,7 @@ export function nextLevelPlan(metrics: Metric[]): PlanItem | null {
   const edge = (m: Metric) => {
     const { lo, hi } = m.range!;
     const v = m.value!;
-    const dir = METRICS.find((d) => d.id === m.id)?.direction ?? "band";
+    const dir = ALL_METRICS.find((d) => d.id === m.id)?.direction ?? "band";
     if (dir === "lower") return hi > 0 ? v / hi : 0;
     if (dir === "higher") return hi > lo ? (hi - v) / (hi - lo) : 0;
     return Math.abs(v - (lo + hi) / 2) / Math.max((hi - lo) / 2, 1e-6);

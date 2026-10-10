@@ -43,6 +43,10 @@ export type ShotClass = (typeof SHOT_CLASSES)[number];
 
 export type AnalysisStatus = "valid" | "invalid_for_requested_analysis" | "uncertain_shot" | "capture_failed";
 
+/** The shots Aline analyses. Every observation is analysed as one of them (default: the front-foot defence). */
+export const TARGET_SHOTS = ["front_foot_defence", "back_foot_defence"] as const;
+export type TargetShot = (typeof TARGET_SHOTS)[number];
+
 /** Normalised image point: x in [0,1] of width, y in [0,1] of height (y down), c = confidence. */
 export type ImgPoint = readonly [number, number, number] | null;
 /** Batter-centric 3D point in metres: forward (toward bowler), up, lateral (toward off side), confidence. */
@@ -137,6 +141,8 @@ export interface CaptureObservation {
   ball: { source: TrackSource; points: ImgPoint[] };
   /** Event marks supplied by the athlete or coach (frame indices). */
   marks: { bounceFrame: number | null; contactFrame: number | null };
+  /** The shot to analyse it as. Absent: the front-foot defence (every observation before the back-foot defence). */
+  target?: TargetShot;
 }
 
 // ----- Derived evidence -----
@@ -301,6 +307,23 @@ export interface LineSummary {
   trace: { from: number; to: number; head: (number | null)[]; shoulder: (number | null)[]; knee: (number | null)[] };
 }
 
+export type BackFootPartId = "head" | "front_shoulder" | "hands" | "front_ankle";
+export interface BackFootSummary {
+  axis: "forward" | "sideways";
+  referenceFrame: number;
+  referenceKind: "contact" | "set";
+  /** Where each part is relative to the back ankle (× stature). */
+  atReference: Record<BackFootPartId, number | null>;
+  /** How far the back foot travelled back toward the stumps (side-on only). */
+  backStep: number | null;
+  /** Head drop from the stance (× stature; + = lower). */
+  headDrop: number | null;
+  /** When the back foot, the front foot and the head set, relative to the reference (ms). */
+  arrivals: Record<"back_foot" | "front_foot" | "head", { frame: number | null; ms: number | null; still: boolean }> | null;
+  /** Per-frame offsets from `from` to `to` (null where unseen), for the report's chart. */
+  trace: { from: number; to: number; head: (number | null)[]; front_ankle: (number | null)[] };
+}
+
 export interface Limitation {
   id: string;
   text: string;
@@ -322,7 +345,7 @@ export interface AnalysisPayload {
    */
   evidence_basis?: "full" | "body";
   headline: string;
-  requested_shot: "front_foot_defence";
+  requested_shot: TargetShot;
   observed_shot: {
     label: ShotClass;
     display: string;
@@ -361,11 +384,16 @@ export interface AnalysisPayload {
    * × stature from the front ankle along `axis`. For the report's line view and comparisons.
    */
   line?: LineSummary;
-  /** Photos: how the position measures up to the front-foot defence formula (frame = the photo it was read from). */
+  /**
+   * The back-foot defence's position and how it formed (back-foot analyses only): offsets ×
+   * stature from the back ankle along `axis`, read at `referenceFrame`. For the report's view.
+   */
+  back_foot?: BackFootSummary;
+  /** Photos: how the position measures up to the shot's position formula (frame = the photo it was read from). */
   position_check?: {
     met: number;
     checked: number;
-    verdict: "matches" | "mostly" | "partly" | "doesnt_match" | "not_on_front_foot" | "not_enough" | "not_side_on";
+    verdict: "matches" | "mostly" | "partly" | "doesnt_match" | "not_on_front_foot" | "not_on_back_foot" | "not_enough" | "not_side_on";
     frame: number;
     /** Photo at an angle: only the checks that survive the angle were made. */
     angled?: boolean;

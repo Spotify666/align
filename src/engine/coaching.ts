@@ -2,8 +2,9 @@
 // entries; it may not invent drills or dosages.
 
 import type { Drill } from "./types";
+import { BFD_COACHING } from "./backfoot-coaching";
 
-export const DRILL_LIBRARY_VERSION = "drills-0.5.0";
+export const DRILL_LIBRARY_VERSION = "drills-0.6.0";
 
 type Wording = { observation: string; consequence: string; cue: string };
 
@@ -673,4 +674,5 @@ export const COACHING: CoachingEntry[] = [
   },
 ];
 
-export const coachingFor = (metricId: string) => COACHING.find((c) => c.metricId === metricId);
+/** The front-foot defence's entries first, then the back-foot defence's (ids never overlap). */
+export const coachingFor = (metricId: string) => COACHING.find((c) => c.metricId === metricId) ?? BFD_COACHING.find((c) => c.metricId === metricId);

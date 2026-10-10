@@ -34,7 +34,8 @@ page.on("console", (m) => { if (m.text().startsWith("[align:time]")) console.log
 const step = (s) => console.log(`${((Date.now() - t0) / 1000).toFixed(1)}s ${s}`);
 const shot = (name) => page.screenshot({ path: `${out}_${name}.png`, fullPage: false });
 
-await page.goto(base + "/analyse", { waitUntil: "load" });
+// SHOT=back runs the back-foot defence analysis instead.
+await page.goto(base + "/analyse" + (process.env.SHOT === "back" ? "?shot=back" : ""), { waitUntil: "load" });
 await page.getByLabel(/Analyse my movement on this device/).check();
 await shot("add");
 await page.locator(isPhoto ? "input[type=file][multiple]" : "input[type=file]").first().setInputFiles(files);

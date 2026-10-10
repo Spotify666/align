@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Aline — cricket shot analysis",
     short_name: "Aline",
-    description: "Front-foot defence analysis: confirm the shot, then measure it.",
+    description: "Front-foot and back-foot defence analysis: confirm the shot, then measure it.",
     start_url: "/home",
     display: "standalone",
     orientation: "any",

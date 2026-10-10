@@ -32,6 +32,10 @@ npm run build && npx next start -p 3123 &                 # the build under test
 CHROMIUM_PATH=/opt/pw-browsers/chromium CASES=<cases.json> \
   node scripts/eval/run.mjs http://localhost:3123 <mediaDir> <outDir> [id,id]
 ```
+`SHOT=back` runs every case as a back-foot defence request (`/analyse?shot=back`); offline,
+`TARGET=back_foot_defence` does the same in `verdicts.probe.ts`. No front-foot or other-shot case
+may ever be accepted as a back-foot defence.
+
 Each case runs `tests/e2e/capture-flow.mjs` (CPU pose delegate, answers "which one is the
 batter?" with the suggestion) and writes `<id>.log`, screenshots, the report PDF and
 `<id>.tracks.b64` (the observation, for offline engine work). `results.json` has every verdict.

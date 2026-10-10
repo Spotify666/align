@@ -1,7 +1,8 @@
 # Aline — working context
 
-Aline (formerly Align; repo and storage keys keep "align") analyses one cricket shot, the **front-foot defence (FFD)**, from a phone video or photo,
-in the browser (MediaPipe pose on device), and coaches the batter toward a perfect one.
+Aline (formerly Align; repo and storage keys keep "align") analyses the **front-foot defence (FFD)** and, built on top of the
+locked FFD build (`lock/ffd-2026-10-10`), the **back-foot defence (BFD)** (@docs/11-back-foot-defence.md), from a phone video
+or photo, in the browser (MediaPipe pose on device), and coaches the batter toward a perfect one.
 Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Supabase · Vercel.
 
 - Production: https://align-lab.vercel.app and https://alynn.vercel.app, auto-deployed from `main`.
@@ -32,6 +33,10 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 
 ## Working rules
 
+- The BFD runs only when the observation carries `target: "back_foot_defence"`; without it every
+  result must stay byte-identical to the FFD build (check with `scripts/eval/verdicts.probe.ts`
+  on saved real tracks against a worktree of `lock/ffd-2026-10-10`).
+
 - Develop on the session's `claude/...` branch; PR to `main`; merge after CI is green (merge API
   needs the full 40-character SHA); never force-push.
 - Commit messages end with the session's attribution lines; PR bodies end with the Claude Code
@@ -53,6 +58,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Measures and ranges | `src/engine/registry.ts`, `metrics.ts`, `frontal.ts` (bowler's-end view) |
 | Shot identity | `classify.ts`, `features.ts`, `events.ts` |
 | Coaching and drill ladders | `coaching.ts`, `scoring.ts` (`buildPlan`) |
+| Back-foot defence (measures, ranges, coaching, gate) | `backfoot.ts`, `backfoot-defs.ts`, `backfoot-coaching.ts`, `analyze.ts` (`analyzeBackFoot`), report `back-foot-panel.tsx`, guide `back-foot-guide.tsx` |
 | Shot signature and match % | `signature.ts`, `src/lib/compare.ts`, Supabase `shot_profiles` |
 | Capture (scan, pick batter, gate, track) | `src/components/capture/capture-flow.tsx`, `src/lib/capture/*` |
 | Parallel model work (workers; must give the page's exact results) | `src/lib/capture/vision.worker.ts`, `vision-pool.ts` |

@@ -87,7 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <User size={16} /> Profile
             </Link>
             <Link href="/analyse" className="hidden sm:inline-flex btn btn-primary !min-h-10 !py-1.5 text-sm">
-              Analyse front-foot defence
+              Analyse a defence
             </Link>
             <button
               className="lg:hidden inline-flex h-11 w-11 items-center justify-center rounded-xl border border-line-strong bg-surface"
@@ -141,12 +141,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto max-w-7xl px-6 py-10 grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-8 text-sm">
           <div className="space-y-3">
             <span className="flex items-center gap-2"><Mark size={18} /> <span className="text-xs font-semibold tracking-[0.32em]">ALINE</span></span>
-            <p className="text-fg-subtle max-w-xs">Cricket shot analysis that confirms the shot before it grades it. Starting with the front-foot defence.</p>
+            <p className="text-fg-subtle max-w-xs">Cricket shot analysis that confirms the shot before it grades it. The front-foot and the back-foot defence.</p>
             <ThemeToggle />
           </div>
           <div className="space-y-2">
             <p className="font-medium">Product</p>
             <Link href="/analyse" className="block text-fg-subtle hover:text-fg">Analyse front-foot defence</Link>
+            <Link href="/analyse?shot=back" className="block text-fg-subtle hover:text-fg">Analyse back-foot defence</Link>
             <Link href="/guide" className="block text-fg-subtle hover:text-fg">How it works</Link>
             <Link href="/sample" className="block text-fg-subtle hover:text-fg">Sample reports</Link>
           </div>

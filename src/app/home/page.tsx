@@ -5,12 +5,13 @@ import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
 import { Intro } from "@/components/landing/intro";
 import { Check, Swap, Question, CameraOff, Chevron, Record as RecordIcon, Target, Trend } from "@/components/icons";
+import { BFD_PARTS } from "@/components/guide/back-foot-guide";
 
 // The app's home (the landing page at "/" tells newcomers what Aline stands for): the next
 // shot first, then the shot explained, how to film it, and what a report can say.
 const STEPS = [
   { Icon: RecordIcon, t: "Film one shot", d: "Phone side-on at hip height, 6–8 m away, or from behind the bowler. Slow motion if you have it; long clips are fine." },
-  { Icon: Target, t: "Aline checks it", d: "It finds the shot and the batter, confirms it was a forward defence, and measures how you played it." },
+  { Icon: Target, t: "Aline checks it", d: "It finds the shot and the batter, confirms it was the defence you asked for, and measures how you played it." },
   { Icon: Trend, t: "Train one thing", d: "Read the verdict, do the drill, re-record. Your progress builds shot by shot." },
 ];
 
@@ -37,8 +38,9 @@ export default function AppHome() {
               <p className="mt-3 max-w-xl text-fg-muted">Eyes over the ball, head over the front knee, bat beside the pad: Aline shows which part was out of line and the one thing to fix.</p>
             </div>
             <div className="flex shrink-0 flex-col gap-2.5 sm:w-56">
-              <Link href="/analyse" className="btn btn-primary text-base">Analyse my defence</Link>
-              <Link href="/sample/valid_ffd" className="btn btn-ghost">See a sample report</Link>
+              <Link href="/analyse" className="btn btn-primary text-base">Front-foot defence</Link>
+              <Link href="/analyse?shot=back" className="btn btn-ghost text-base">Back-foot defence</Link>
+              <Link href="/sample/valid_ffd" className="btn btn-quiet text-sm">See a sample report</Link>
               <Link href="/" className="inline-flex items-center justify-center gap-1 pt-1 text-sm text-fg-subtle hover:text-fg">What Aline stands for <Chevron size={14} /></Link>
             </div>
           </div>
@@ -56,6 +58,32 @@ export default function AppHome() {
         </Reveal>
         <Reveal className="mt-8">
           <ShotStory story={story} />
+        </Reveal>
+      </section>
+
+      {/* The second shot */}
+      <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-14">
+        <Reveal>
+          <div className="card grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_1.1fr]">
+            <div>
+              <p className="eyebrow">New · the back-foot defence</p>
+              <h2 className="display mt-2 text-3xl sm:text-4xl">Short ball on the stumps? Back, tall, head over it.</h2>
+              <p className="mt-3 text-fg-muted">Aline now confirms and coaches the back-foot defence too: the back foot going back and across, the front foot alongside, standing tall with the head forward, soft hands.</p>
+              <div className="mt-5 flex flex-wrap gap-2.5">
+                <Link href="/analyse?shot=back" className="btn btn-primary">Analyse back-foot defence</Link>
+                <Link href="/guide#back-foot" className="btn btn-ghost">Learn the shot</Link>
+                <Link href="/sample/valid_bfd" className="btn btn-quiet text-sm">Sample report</Link>
+              </div>
+            </div>
+            <ol className="grid gap-2 text-sm sm:grid-cols-2">
+              {BFD_PARTS.slice(0, 6).map(([k, v], i) => (
+                <li key={k} className="rounded-xl border border-line p-3">
+                  <p className="font-medium"><span className="num text-fg-subtle">{i + 1}.</span> {k}</p>
+                  <p className="mt-0.5 text-fg-muted">{v}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
         </Reveal>
       </section>
 

@@ -2,6 +2,7 @@
 // Object URLs for videos picked in this browser session. Raw video is never stored;
 // after a reload the report falls back to the saved still frames.
 import type { TrackingResult } from "@/lib/capture/build-observation";
+import type { TargetShot } from "@/engine/types";
 
 export const sessionMedia = new Map<string, { url: string; mediaTimes: number[] | null }>();
 export const isSessionUrl = (url: string) => [...sessionMedia.values()].some((m) => m.url === url);
@@ -14,5 +15,6 @@ export interface SessionCapture {
   title: string;
   createdAt: string;
   recordedAt: string;
+  target?: TargetShot;
 }
 export const sessionCapture = new Map<string, SessionCapture>();

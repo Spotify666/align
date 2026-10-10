@@ -32,7 +32,7 @@ export interface Report extends ReportBody {
 
 const pct = (p: number) => `${Math.round(p * 100)}%`;
 
-const READER_LIMITS = ["lim_demo", "lim_photo", "lim_photo_set", "lim_no_bat", "lim_no_ball", "lim_body_led"];
+const READER_LIMITS = ["lim_demo", "lim_photo", "lim_photo_set", "lim_no_bat", "lim_no_ball", "lim_body_led", "lim_bfd_ranges"];
 
 export function templateReport(p: AnalysisPayload, audience: ReportBody["audience"] = "player"): Report {
   const sections: ReportBody["sections"] = [];
@@ -61,8 +61,15 @@ export function templateReport(p: AnalysisPayload, audience: ReportBody["audienc
     sections.push({
       heading: "Next",
       sentences: [
-        { text: "Front-foot-defence analysis only grades front-foot defences, so no technique measures are shown for this clip.", cites: [] },
-        { text: "If this was meant to be a forward defence, record another delivery from the same position.", cites: [] },
+        ...(p.requested_shot === "back_foot_defence"
+          ? [
+              { text: "Back-foot-defence analysis only grades back-foot defences, so no technique measures are shown for this clip.", cites: [] },
+              { text: "If this was meant to be a back-foot defence, record another delivery from the same position; if it was a front-foot defence, analyse it as one.", cites: [] },
+            ]
+          : [
+              { text: "Front-foot-defence analysis only grades front-foot defences, so no technique measures are shown for this clip.", cites: [] },
+              { text: "If this was meant to be a forward defence, record another delivery from the same position.", cites: [] },
+            ]),
       ],
     });
   }
@@ -102,7 +109,7 @@ export function templateReport(p: AnalysisPayload, audience: ReportBody["audienc
   if (p.analysis_status === "valid") {
     const shot = p.observed_shot!;
     sections[0]!.sentences.push({
-      text: `Shot confirmed as a front-foot defence (${pct(shot.probability)} prototype confidence, not yet calibrated); capture confidence ${pct(p.capture_confidence)}.`,
+      text: `Shot confirmed as a ${p.requested_shot === "back_foot_defence" ? "back-foot" : "front-foot"} defence (${pct(shot.probability)} prototype confidence, not yet calibrated); capture confidence ${pct(p.capture_confidence)}.`,
       cites: shot.evidence_ids.slice(0, 4),
     });
     if (p.delivery.available && p.delivery.lengthLabel && p.delivery.lengthLabel !== "uncertain") {
@@ -132,6 +139,21 @@ export function templateReport(p: AnalysisPayload, audience: ReportBody["audienc
           ...(sync ? [{ text: `Front foot, knee and shoulder arrived within ${Math.round(sync.value!)} ms of each other${sync.inRange === false ? ", out of sync" : ", together"}.`, cites: [`metric_${sync.id}`] }] : []),
         ],
       });
+    }
+    // The back-foot defence: went back, the position at contact, and the timing.
+    if (p.requested_shot === "back_foot_defence") {
+      const ms = p.metrics.filter((m) => m.value !== null && m.inRange !== null);
+      const out = ms.filter((m) => m.inRange === false);
+      const when = p.back_foot?.referenceKind === "set" ? "at the set position" : "at contact";
+      if (ms.length)
+        sections.push({
+          heading: "The back-foot position",
+          sentences: [
+            out.length
+              ? { text: `To fix ${when}: ${out.map((m) => `${plainReading(m).toLowerCase()} (${plainValue(m)}; aim for ${plainRange(m)})`).join("; ")}.`, cites: out.map((m) => `metric_${m.id}`) }
+              : { text: `In position ${when}: ${ms.map((m) => plainReading(m).toLowerCase()).join(", ")}.`, cites: ms.map((m) => `metric_${m.id}`) },
+          ],
+        });
     }
     if (p.strengths.length) {
       sections.push({
@@ -267,10 +289,10 @@ export function validateReport(report: ReportBody, p: AnalysisPayload): Violatio
 
   if (p.analysis_status !== "valid") {
     if (SCORE_WORDS.test(fullText)) v.push({ section: -1, sentence: -1, rule: "status_contradiction", detail: "score stated for a non-valid analysis" });
-    if (/\bvalid front-foot defence\b/i.test(fullText)) v.push({ section: -1, sentence: -1, rule: "status_contradiction", detail: "claims a valid defence" });
-    if (!/withheld|can't confirm|cannot confirm|not a front-foot defence|can't be analysed/i.test(fullText))
+    if (/\bvalid (front|back)-foot defence\b/i.test(fullText)) v.push({ section: -1, sentence: -1, rule: "status_contradiction", detail: "claims a valid defence" });
+    if (!/withheld|can't confirm|cannot confirm|not a (front|back)-foot defence|can't be analysed/i.test(fullText))
       v.push({ section: -1, sentence: -1, rule: "status_contradiction", detail: "non-valid result must say the score is withheld" });
-  } else if (/not a front-foot defence|score withheld|can't confirm/i.test(fullText)) {
+  } else if (/not a (front|back)-foot defence|score withheld|can't confirm/i.test(fullText)) {
     v.push({ section: -1, sentence: -1, rule: "status_contradiction", detail: "valid analysis described as invalid" });
   }
   return v;

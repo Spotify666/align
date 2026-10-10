@@ -60,3 +60,10 @@ front shoulder **arrive together**.
 
 Honesty rules: a value that can't be measured is "not measured" with the reason, never zero or
 guessed; estimates are labelled; every range names its source.
+
+## The back-foot defence (the second shot)
+
+Separate path (`analyzeBackFoot`, `backfoot*.ts`, docs/11), run only for `target:
+"back_foot_defence"`. Measured from the **back ankle**; its own strict gate (P ≥ 0.80, margin,
+"went back and stayed tall"); ranges are provisional coaching geometry (no lab data). Changing
+it must leave every front-foot result byte-identical.

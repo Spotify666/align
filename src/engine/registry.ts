@@ -6,8 +6,9 @@
 import { canonicalJson, sha256 } from "./math";
 import { FRONTAL_METRICS } from "./frontal";
 import { LINE_BANDS, LINE_SOURCE } from "./alignment";
+import { BFD_METRICS, BFD_METRIC_VERSION } from "./backfoot-defs";
 
-export const ENGINE_VERSION = "0.6.0";
+export const ENGINE_VERSION = "0.7.0";
 export const METRIC_VERSION = "ffd-0.6.0";
 export const CLASSIFIER_VERSION = "prototype-bands-0.5.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
@@ -67,6 +68,24 @@ export const THRESHOLDS = {
   "ffd.reject.min_evidence_coverage": { value: 0.45, unit: "fraction", rationale: "Rejection may rest on fewer modalities than acceptance." },
   "ffd.named_label.min_probability": { value: 0.55, unit: "probability", rationale: "Name the alternative shot only when it clearly leads." },
 
+  // Back-foot defence: the same strict, asymmetric gate, centred on the back-foot defence.
+  "bfd.accept.min_probability": { value: 0.8, unit: "probability", rationale: "As the front-foot defence: acceptance is strict; false acceptance is release-blocking." },
+  "bfd.accept.min_margin": { value: 0.3, unit: "probability", rationale: "The back-foot defence must clearly beat the runner-up (a pull, a front-foot defence)." },
+  "bfd.accept_body.min_probability": { value: 0.8, unit: "probability", rationale: "Bat or ball not seen: the same probability bar, plus a wider margin and near-complete body evidence." },
+  "bfd.accept_body.min_margin": { value: 0.5, unit: "probability", rationale: "Without the bat, a back-foot defence must beat a pull, a cut and a front-foot defence by a wide margin." },
+  "bfd.accept_body.min_coverage": { value: 0.85, unit: "fraction", rationale: "Nearly every body and hand signal this camera position can show must be observed." },
+  "bfd.reject.max_probability": { value: 0.12, unit: "probability", rationale: "Below this the clip is confidently not a back-foot defence." },
+  "bfd.min_back_step": { value: 0.04, unit: "× stature", rationale: "Side-on, a back-foot defence goes back: the back foot travels toward the stumps (generated back-foot defences 0.08–0.2 × height; a stance and backlift under 0.02), or the front foot comes back toward it." },
+  "bfd.min_front_back": { value: 0.05, unit: "× stature", rationale: "The front foot drawn back toward the back foot by at least this much also shows the batter went back." },
+  "bfd.max_front_stride": { value: 0.25, unit: "× stature", rationale: "From either end of the pitch the stride comes from a 3D pose estimate that can't see a foot going back: it reads generated back-foot defences 0.06–0.21 × height forward, and real front-foot defences about 0.33. Past this the front foot strode toward the bowler." },
+  "bfd.max_contact_before_landing_s": { value: 0.1, unit: "s", rationale: "Without bat and ball, contact is estimated from the hands. Every back-foot shot meets the ball after the back foot lands; an estimate more than this before the landing reads the stroke too early (generated back-foot defences with a low backlift were read as cuts that way), so no other shot is named on it." },
+  "bfd.min_tall_for_front_shot": { value: 0.06, unit: "× stature", rationale: "A front-foot shot takes the head down (real front-foot defences 0.17–0.39 × height). With the head staying within this of its stance height, a reading of a front-foot shot (contact found late, after the ball dropped) is contradicted by the body: no other shot is named." },
+  "bfd.max_head_drop": { value: 0.12, unit: "× stature", rationale: "A back-foot defence stays tall (head drop about 0–0.06 × height); front-foot defences drop the head 0.17–0.39. Past this it wasn't played off the back foot." },
+
+  "bfd.photo.max_alongside": { value: 0.25, unit: "× stature", rationale: "A back-foot photo: the front foot drawn back alongside sits within 0.22 × height of the back foot; further out, with the head down, it is a front-foot stride (real front-foot defence photos 0.30 and over)." },
+  "bfd.photo.min_head_height": { value: 0.8, unit: "× stature above the ankles", rationale: "Standing tall the head is about 0.9 × height above the ankles; real front-foot defence photos read 0.76–0.77 (side-on) with the front foot well out." },
+  "bfd.photo.min_head_height_front": { value: 0.75, unit: "× stature above the ankles", rationale: "From either end of the pitch the feet's gap can't be seen; a head this low (a real front-foot defence from the bowler's end: 0.65) is down in a front-foot shot." },
+
   // Photos
   "photo.min_forward_spread": { value: 0.25, unit: "× stature", rationale: "Feet no further apart than a stance (about 0.2–0.3 × height) mean the front foot hasn't stepped toward the ball." },
   "photo.min_resemblance": { value: 0.35, unit: "share of checks", rationale: "Below about a third of the position checks met, the photo doesn't resemble a defence (a pull or a cut at contact meets one or two)." },
@@ -107,6 +126,8 @@ export interface MetricDefinition {
   /** Where the range comes from, shown with the check. */
   basis?: string;
 }
+
+export { BFD_METRIC_VERSION };
 
 export const METRICS: MetricDefinition[] = [
   // The line: front shoulder, head and front knee over the front foot from landing to
@@ -445,6 +466,9 @@ export const METRICS: MetricDefinition[] = [
 
 export const RANGE_SOURCE = { kind: "provisional_coaching" as const, cohort: ADULT, source: PROVISIONAL };
 
+/** Every measure of every shot, for lookups by id (weights, direction). */
+export const ALL_METRICS: MetricDefinition[] = [...METRICS, ...BFD_METRICS];
+
 export const DOMAIN_LABELS: Record<MetricDefinition["domain"], string> = {
   alignment: "The line and its timing",
   setup: "Setup and perception",
@@ -467,5 +491,7 @@ export const REGISTRY_HASH = sha256(
     METRICS,
     FRONTAL_METRICS,
     INDEX_WEIGHTS_VERSION,
+    BFD_METRIC_VERSION,
+    BFD_METRICS,
   }),
 ).slice(0, 16);

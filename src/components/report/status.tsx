@@ -22,6 +22,10 @@ export const STATUS_META: Record<
 export const statusKey = (p: Pick<AnalysisPayload, "analysis_status" | "mode">) =>
   p.mode === "posture_screen" && p.analysis_status !== "capture_failed" ? "posture_screen" : p.analysis_status;
 
+/** The verdict's label, naming the shot that was confirmed. */
+export const statusLabel = (p: Pick<AnalysisPayload, "analysis_status" | "mode" | "requested_shot">) =>
+  statusKey(p) === "valid" && p.requested_shot === "back_foot_defence" ? "Valid back-foot defence" : STATUS_META[statusKey(p)].label;
+
 export function StatusPill({ payload }: { payload: Pick<AnalysisPayload, "analysis_status" | "mode"> }) {
   const m = STATUS_META[statusKey(payload)];
   return (

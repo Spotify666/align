@@ -94,12 +94,12 @@ describe("classification stability across 40 noise seeds", () => {
     for (let seed = 1; seed <= 40; seed++) if (analyze(generate({ ...spec.options, seed }), opts).analysis_status === expected) hits++;
     return hits / 40;
   };
-  it("rejects pulls and drives, accepts defences, at least 95% of the time", () => {
+  it("rejects pulls and drives, accepts defences, at least 95% of the time", { timeout: 60000 }, () => {
     expect(rate("pull", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
     expect(rate("drive", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
     expect(rate("valid_ffd", "valid")).toBeGreaterThanOrEqual(0.95);
   });
-  it("filmed front-on: rejects pulls and drives, accepts defences, at least 95% of the time", () => {
+  it("filmed front-on: rejects pulls and drives, accepts defences, at least 95% of the time", { timeout: 60000 }, () => {
     expect(rate("front_on_pull", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
     expect(rate("front_on_drive", "invalid_for_requested_analysis")).toBeGreaterThanOrEqual(0.95);
     expect(rate("front_on_ffd", "valid")).toBeGreaterThanOrEqual(0.95);

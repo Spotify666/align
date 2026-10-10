@@ -12,7 +12,7 @@ const hand = Caveat({ subsets: ["latin"], variable: "--font-hand", display: "swa
 export const metadata: Metadata = {
   title: { default: "Aline — cricket shot analysis", template: "%s · Aline" },
   description:
-    "Shot analysis for cricket, starting with the front-foot defence. Reconstruct body, bat and ball, confirm the shot before grading it, then train one measurable priority.",
+    "Shot analysis for cricket: the front-foot and the back-foot defence. Reconstruct body, bat and ball, confirm the shot before grading it, then train one measurable priority.",
   applicationName: "Aline",
   appleWebApp: { capable: true, title: "Aline", statusBarStyle: "default" },
   icons: { apple: "/apple-touch-icon.png" },
