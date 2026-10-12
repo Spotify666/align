@@ -29,7 +29,6 @@ export default function AppHome() {
       <Intro />
       {/* The app's home: straight to the next shot */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-[360px] grid-bg opacity-70" aria-hidden />
         <div className="relative mx-auto max-w-6xl px-4 pt-8 sm:px-6 sm:pt-12">
           <div className="card flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
             <div>

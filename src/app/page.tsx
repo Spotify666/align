@@ -5,33 +5,32 @@ import { AlignHero } from "@/components/home/align-hero";
 import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
 import { Intro } from "@/components/landing/intro";
-import { Ground } from "@/components/landing/pitch";
 import { SHOT_DISPLAY } from "@/engine/classify";
 import { Check, Chevron, Lock, Question, Record as RecordIcon, Swap, Target, Trend } from "@/components/icons";
 import { Logo } from "@/components/brand/logo";
-import { Logo3D } from "@/components/brand/logo-3d-lazy";
+import { BFD_PARTS } from "@/components/guide/back-foot-guide";
 
 export const metadata: Metadata = {
   title: { absolute: "Aline — eyes over the ball, everything in line" },
   description:
-    "Aline watches your forward defence on your phone and shows whether your head, hands and front foot lined up with the ball, then gives you one thing to fix.",
+    "Aline watches your front-foot or back-foot defence on your phone and shows whether your head, hands and feet lined up with the ball, then gives you one thing to fix.",
 };
 
 // The landing page: what Aline stands for, before any of the app. It has its own header and
-// footer (the app shell steps aside on "/"), opens on the brand's black with the mark in 3D,
+// footer (the app shell steps aside on "/"), opens in the two tones (black on sage-cream) with the flat mark,
 // and tells one idea in order: the line, the name, the promises, the shot, how to use it,
 // the proof.
 
 const PILLARS = [
   { Icon: Target, t: "In line", d: "It measures the alignment that makes a defence work: eyes, head, hands, front foot and ball. Not a vague form score." },
-  { Icon: Question, t: "Honest", d: "It checks you really played a forward defence before grading it, and says “not sure” instead of guessing." },
+  { Icon: Question, t: "Honest", d: "It checks you really played the defence you asked about before grading it, and says “not sure” instead of guessing." },
   { Icon: Lock, t: "Private", d: "Your video is analysed on your phone. Nothing leaves it unless you choose to save the result." },
   { Icon: Check, t: "One fix", d: "One priority and one drill for your next net session. Not twenty numbers to decode." },
 ];
 
 const STEPS = [
   { Icon: RecordIcon, t: "Film one shot", d: "Phone side-on at hip height, 6–8 m away, or from behind the bowler. Slow motion if you have it." },
-  { Icon: Target, t: "Aline checks it", d: "It finds the shot and the batter, confirms it was a forward defence, and measures the line." },
+  { Icon: Target, t: "Aline checks it", d: "It finds the shot and the batter, confirms it was the defence you chose, front foot or back, and measures it." },
   { Icon: Trend, t: "Train one thing", d: "Read the verdict, do the drill, film again. Watch the line straighten, session by session." },
 ];
 
@@ -51,9 +50,8 @@ export default function Landing() {
   return (
     <main id="main">
       <Intro always />
-      {/* 1 · The line: a full first screen on the brand's own ground */}
-      <section className="landing-dark relative overflow-hidden">
-        <Ground pitch />
+      {/* 1 · The line: a full first screen in the two tones, black on sage-cream */}
+      <section className="landing-light relative overflow-hidden">
         <header className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-4 pt-[env(safe-area-inset-top)] sm:px-6">
           <Link href="/" className="flex items-center gap-2.5" aria-label="Aline">
             <Logo size={26} name={false} />
@@ -72,22 +70,23 @@ export default function Landing() {
               <span className="lp-muted">Everything in line.</span>
             </h1>
             <p className="lp-muted mt-6 max-w-xl text-base sm:text-lg">
-              Aline watches your forward defence and shows whether your head, hands and front foot lined up with the ball. Then it gives you the one thing to
-              fix.
+              Aline watches your defence, off the front foot or the back, and shows whether your head, hands and feet lined up with the ball. Then it gives
+              you the one thing to fix.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/analyse" className="btn btn-landing w-full text-base !px-6 sm:w-auto">Analyse my defence</Link>
-              <a href="#stands-for" className="btn btn-landing-ghost w-full text-base !px-6 sm:w-auto">What Aline stands for</a>
+              <Link href="/analyse" className="btn btn-landing w-full text-base !px-6 sm:w-auto">Analyse front-foot defence</Link>
+              <Link href="/analyse?shot=back" className="btn btn-landing-ghost w-full text-base !px-6 sm:w-auto">Analyse back-foot defence</Link>
             </div>
+            <a href="#stands-for" className="lp-muted mt-4 inline-flex items-center gap-1 text-sm underline-offset-4 hover:underline">What Aline stands for <Chevron size={14} /></a>
             <ul className="lp-muted mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm">
               <li className="flex items-center gap-1.5"><Lock size={15} /> Video stays on your phone</li>
               <li className="flex items-center gap-1.5"><Check size={15} /> Confirms the shot first</li>
               <li className="flex items-center gap-1.5"><Question size={15} /> Says “not sure” honestly</li>
             </ul>
           </div>
-          {/* The mark, in 3D: drag-free, it turns on its own and leans toward the pointer. */}
-          <figure className="relative h-[clamp(220px,34svh,300px)] w-full lg:h-[460px]">
-            <Logo3D label="The Aline mark" />
+          {/* The mark, flat: a black silhouette of the shot on the sage-cream ground. */}
+          <figure className="relative grid h-[clamp(200px,32svh,290px)] w-full place-items-center lg:h-[440px]">
+            <Logo size={300} className="h-full w-auto max-w-full" title="The Aline mark" />
           </figure>
         </div>
       </section>
@@ -108,7 +107,7 @@ export default function Landing() {
             <p className="mt-4 max-w-2xl text-fg-muted">Aline is built to see that one line, and to show you which part of you stepped out of it.</p>
           </Reveal>
           <Reveal delay={0.08}>
-            <figure className="overflow-hidden rounded-[22px] shadow-[0_30px_80px_-30px_rgb(0_0_0/0.45)] ring-1 ring-line">
+            <figure className="overflow-hidden rounded-[22px] ring-1 ring-line">
               <AlignHero pose={story.poses[hero]!} ballFrom={story.poses[hero - 1]?.ball} after={0.3} />
               <figcaption className="border-t border-line bg-surface px-5 py-4 text-sm">
                 <span className="block font-semibold">The mark is the shot.</span>
@@ -155,6 +154,35 @@ export default function Landing() {
         <Reveal className="mt-10">
           <ShotStory story={story} />
         </Reveal>
+      </section>
+
+      {/* 4b · The second shot */}
+      <section id="back-foot" className="scroll-mt-6 border-y border-line bg-surface">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-[1fr_1.15fr] lg:gap-16">
+          <Reveal>
+            <p className="eyebrow">New: the back-foot defence</p>
+            <h2 className="display mt-3 text-4xl sm:text-6xl">Short ball on the stumps? Go back, stay tall.</h2>
+            <p className="mt-5 max-w-lg text-fg-muted">
+              Too short to get forward to, too straight to leave. Aline now checks the back-foot defence the same honest way: it confirms you went back
+              before it grades anything, then measures the base the shot is built on.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link href="/analyse?shot=back" className="btn btn-primary">Analyse back-foot defence</Link>
+              <Link href="/sample/valid_bfd" className="btn btn-ghost">See a sample report</Link>
+              <Link href="/guide#back-foot" className="btn btn-quiet">Learn the shot <Chevron size={16} /></Link>
+            </div>
+          </Reveal>
+          <Reveal delay={0.06}>
+            <dl className="divide-y divide-line border-y border-line">
+              {BFD_PARTS.map(([k, v]) => (
+                <div key={k} className="grid gap-1 py-3.5 sm:grid-cols-[10rem_1fr] sm:gap-6">
+                  <dt className="font-semibold">{k}</dt>
+                  <dd className="text-fg-muted">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </Reveal>
+        </div>
       </section>
 
       {/* 5 · How it works */}
@@ -211,25 +239,24 @@ export default function Landing() {
 
       {/* 7 · The ask */}
       <section className="landing-dark relative overflow-hidden">
-        <Ground />
         <div className="relative mx-auto max-w-3xl px-4 py-24 text-center sm:px-6 sm:py-28">
           <Logo size={120} className="mx-auto" />
           <h2 className="display mt-8 text-5xl sm:text-7xl">Get in line.</h2>
-          <p className="lp-muted mx-auto mt-5 max-w-xl text-lg">Film one forward defence and see exactly where your line breaks, and the one thing that fixes it.</p>
+          <p className="lp-muted mx-auto mt-5 max-w-xl text-lg">Film one defence, forward or back, and see exactly where your line breaks, and the one thing that fixes it.</p>
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/analyse" className="btn btn-landing text-base !px-6">Analyse my defence</Link>
-            <Link href="/home" className="btn btn-landing-ghost text-base !px-6">Open the app</Link>
+            <Link href="/analyse" className="btn btn-landing text-base !px-6">Analyse front-foot defence</Link>
+            <Link href="/analyse?shot=back" className="btn btn-landing-ghost text-base !px-6">Analyse back-foot defence</Link>
           </div>
         </div>
-        <footer className="relative border-t border-white/10">
+        <footer className="relative border-t border-[var(--lp-line)]">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <span className="flex items-center gap-2.5"><Logo size={20} name={false} /> <span className="text-xs font-semibold tracking-[0.32em]">ALINE</span></span>
             <nav aria-label="Footer" className="lp-muted flex flex-wrap gap-x-5 gap-y-2">
-              <Link href="/guide" className="hover:text-white">How it works</Link>
-              <Link href="/sample" className="hover:text-white">Sample reports</Link>
-              <Link href="/science" className="hover:text-white">Science</Link>
-              <Link href="/privacy" className="hover:text-white">Privacy</Link>
-              <Link href="/visitors" className="hover:text-white">Visitors</Link>
+              <Link href="/guide" className="hover:text-[var(--lp-fg)]">How it works</Link>
+              <Link href="/sample" className="hover:text-[var(--lp-fg)]">Sample reports</Link>
+              <Link href="/science" className="hover:text-[var(--lp-fg)]">Science</Link>
+              <Link href="/privacy" className="hover:text-[var(--lp-fg)]">Privacy</Link>
+              <Link href="/visitors" className="hover:text-[var(--lp-fg)]">Visitors</Link>
             </nav>
           </div>
           <p className="lp-muted mx-auto max-w-6xl px-4 pb-8 text-xs sm:px-6">Prototype engine, not yet validated on real athletes. Not a medical assessment.</p>

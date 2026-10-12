@@ -33,6 +33,12 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 
 ## Working rules
 
+- **Design**: two tones, flat — black ink on sage-cream paper (#000 on #E3EADF), inverted in
+  the dark theme; no gradients, shadows or textures; demonstration figures are solid black
+  silhouettes. Load the `frontend-design` skill before UI work and check the result in a
+  browser with the `webapp-testing` skill (phone viewport, both themes, 4× CPU slowdown for
+  performance). Never put a continuously rendering canvas (WebGL) on a page that scrolls.
+
 - The BFD runs only when the observation carries `target: "back_foot_defence"`; without it every
   result must stay byte-identical to the FFD build (check with `scripts/eval/verdicts.probe.ts`
   on saved real tracks against a worktree of `lock/ffd-2026-10-10`).

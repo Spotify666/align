@@ -12,8 +12,8 @@ const src = readFileSync(new URL("../src/components/brand/logo-geometry.ts", imp
   .replace(/: P\[\]\[\]/g, "")
   .replace(/export /g, "");
 const { MARK, LETTERS, LETTER_STROKE, VIEW } = new Function(`${src}; return { MARK, LETTERS, LETTER_STROKE, VIEW };`)();
-const BG = "#1e1e1e";
-const FG = "#fbfaf7";
+const BG = "#e3eadf"; // two tones: black mark on sage-cream
+const FG = "#000000";
 const pts = (ps) => ps.map(([x, y]) => `${x},${y}`).join(" ");
 
 /** A square icon: the mark centred at `scale` of the side, with or without the name. */
