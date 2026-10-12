@@ -45,6 +45,8 @@ const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_fo
 export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, title, analysisId, onAnalyseAs }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [switching, setSwitching] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreMounted, setMoreMounted] = useState(false);
   const shot = shotOf(p);
   const shotName = SHOT_NAME[shot];
   const observedLabel = p.observed_shot?.label;
@@ -79,8 +81,13 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
     const e = p.events.find((x) => x.id === id);
     if (e) return seek(e.frame);
     const m = /^metric_(.+)$/.exec(id)?.[1];
-    if (m) document.getElementById(`metric_${m}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    else document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const target = m ? `metric_${m}` : id;
+    const go = () => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (document.getElementById(target)) return go();
+    // It may sit in "More detail", which is drawn on first opening: open it, then go.
+    setMoreOpen(true);
+    setMoreMounted(true);
+    requestAnimationFrame(() => requestAnimationFrame(go));
   };
   const base = (id: string) => baseline?.find((b) => b.metricId === id);
   const isValid = p.analysis_status === "valid";
@@ -190,7 +197,16 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
 
       <ComparePanel payload={p} fps={obs.media.fps} analysisId={analysisId} />
 
-      <details className="group rounded-2xl border border-line bg-surface">
+      <details
+        id="more-detail"
+        className="group rounded-2xl border border-line bg-surface"
+        open={moreOpen}
+        onToggle={(e) => {
+          const open = e.currentTarget.open;
+          setMoreOpen(open);
+          if (open) setMoreMounted(true);
+        }}
+      >
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 sm:px-5">
           <span>
             <span className="font-semibold">More detail</span>
@@ -198,6 +214,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           </span>
           <span className="text-fg-subtle transition-transform group-open:rotate-90">›</span>
         </summary>
+        {/* Drawn only once opened: most visitors never open it, and it is most of the page. */}
+        {moreMounted && (
         <div className="space-y-8 border-t border-line px-4 py-6 sm:px-5">
 
       <DeliveryPanel payload={p} onSeek={seekId} />
@@ -398,6 +416,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         </div>
       </details>
         </div>
+        )}
       </details>
     </div>
   );

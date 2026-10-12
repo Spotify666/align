@@ -3,7 +3,7 @@ import type { CompareReference } from "@/components/report/evidence-viewer";
 import { analyze } from "@/engine/analyze";
 import { baselineSeries, bfdScript, ffdScript, fixture, FIXTURE_SPECS, type FixtureSpec } from "@/engine/fixtures";
 import { generate } from "@/engine/fixtures/generate";
-import { figurePose, type FigurePose, type Pt, type Story } from "@/components/lesson/pose";
+import { figureFrame, figurePose, type FigurePose, type Pt, type Story } from "@/components/lesson/pose";
 import { buildBaseline, compareToBaseline } from "@/engine/baseline";
 import { quantise } from "@/engine/tracks-codec";
 
@@ -48,7 +48,10 @@ export function sampleAnalysis(key: string) {
 /** The textbook defence (the generator's default technique), for teaching illustrations. */
 export function textbookClip() {
   const spec = FIXTURE_SPECS.find((s) => s.key === "valid_ffd")!;
-  const obs = quantise(generate({ ...spec.options, id: "fx_textbook", script: ffdScript() }));
+  // Drawn for people, not trackers: no simulated tracking noise (it reads as trembling).
+  // The weight goes onto the front foot: the back heel comes up, the foot pivoting on its toes.
+  const script = { ...ffdScript(), backHeelLift: [[0, 0], [0.62, 0], [0.86, 0.06], [2, 0.06]] as Array<[number, number]> };
+  const obs = quantise(generate({ ...spec.options, id: "fx_textbook", script, noise: 0, handNoise: 0 }));
   const payload = analyze(obs, { analysisId: "textbook", createdAt: CREATED });
   return { obs, payload };
 }
@@ -68,9 +71,10 @@ export function textbookStory(): Story {
   for (let i = marks[0]!; i <= end; i += step) frames.push(i);
   const { stumpsX, groundY } = obs.calibration;
   const stumps = stumpsX !== null && groundY !== null ? ([stumpsX, groundY, 1] as const) : null;
-  const raw = frames.map(
-    (i) => figurePose(obs.body[i]!, obs.media.width / obs.media.height, obs.athlete.handedness, [obs.bat.handle[i], obs.bat.toe[i]], { ball: obs.ball.points[i], stumps })!,
-  );
+  // One still camera for the whole clip, set on the stance: the batter moves, the picture doesn't.
+  const aspect = obs.media.width / obs.media.height;
+  const camera = figureFrame(obs.body[frames[0]!]!, aspect, obs.athlete.handedness)!;
+  const raw = frames.map((i) => figurePose(obs.body[i]!, aspect, obs.athlete.handedness, [obs.bat.handle[i], obs.bat.toe[i]], { ball: obs.ball.points[i], stumps }, camera)!);
   const dx0 = raw[0]!.ba[0];
   const r = (q: Pt): Pt => [Math.round((q[0] - dx0) * 10) / 10, Math.round(q[1] * 10) / 10];
   const poses = raw.map((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, r(v as Pt)])) as unknown as FigurePose);

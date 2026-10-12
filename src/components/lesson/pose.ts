@@ -17,16 +17,20 @@ export interface FigurePose {
 }
 
 /**
- * Redraw a pose in figure units. Front side from the batting hand; mirrored so the batter
- * faces right. Null when the legs or trunk weren't seen.
+ * Where the figure's camera sits: the picture point between the feet, the ground line, the
+ * scale (figure units per picture unit) and which way the batter faces. Taken from one
+ * frame (the stance) and kept for a whole clip, a moving batter moves on a still camera:
+ * re-framing every frame on the feet makes a planted foot skate and the body breathe.
  */
-export function figurePose(
-  body: ImgPoint[],
-  aspect: number,
-  hand: "right" | "left",
-  bat?: [ImgPoint | null | undefined, ImgPoint | null | undefined],
-  scene?: { ball?: ImgPoint | null; stumps?: ImgPoint | null },
-): FigurePose | null {
+export interface FigureFrame {
+  cx: number;
+  ground: number;
+  k: number;
+  mirror: 1 | -1;
+}
+
+/** The camera a single pose is framed on: between its feet, on its ground, scaled to its height. */
+export function figureFrame(body: ImgPoint[], aspect: number, hand: "right" | "left"): FigureFrame | null {
   const F = hand === "right" ? "left" : "right";
   const B = F === "left" ? "right" : "left";
   const raw = (name: string): Pt | null => {
@@ -35,19 +39,44 @@ export function figurePose(
   };
   const req = ["nose", `${F}_shoulder`, `${B}_shoulder`, `${F}_hip`, `${B}_hip`, `${F}_knee`, `${B}_knee`, `${F}_ankle`, `${B}_ankle`];
   if (req.some((n) => !raw(n))) return null;
-  const g = (n: string, fb?: Pt): Pt => raw(n) ?? fb!;
+  const g = (n: string): Pt => raw(n)!;
   const fa = g(`${F}_ankle`);
   const ba = g(`${B}_ankle`);
-  const mirror = fa[0] < ba[0] ? -1 : 1;
   const d = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const leg = Math.max(d(g(`${F}_hip`), g(`${F}_knee`)) + d(g(`${F}_knee`), fa), d(g(`${B}_hip`), g(`${B}_knee`)) + d(g(`${B}_knee`), ba));
   const trunk = (d(g(`${F}_hip`), g(`${F}_shoulder`)) + d(g(`${B}_hip`), g(`${B}_shoulder`))) / 2;
   const stature = (leg + trunk) / 0.779;
   if (!(stature > 0)) return null;
-  const k = 100 / stature;
   const feet = [`${F}_heel`, `${B}_heel`, `${F}_foot`, `${B}_foot`, `${F}_ankle`, `${B}_ankle`].map(raw).filter((p): p is Pt => !!p);
-  const ground = Math.max(...feet.map((p) => p[1]));
-  const cx = (fa[0] + ba[0]) / 2;
+  return { cx: (fa[0] + ba[0]) / 2, ground: Math.max(...feet.map((p) => p[1])), k: 100 / stature, mirror: fa[0] < ba[0] ? -1 : 1 };
+}
+
+
+/**
+ * Redraw a pose in figure units. Front side from the batting hand; mirrored so the batter
+ * faces right. Null when the legs or trunk weren't seen. With `frame`, the pose is drawn
+ * on that fixed camera instead of being framed on its own feet and height.
+ */
+export function figurePose(
+  body: ImgPoint[],
+  aspect: number,
+  hand: "right" | "left",
+  bat?: [ImgPoint | null | undefined, ImgPoint | null | undefined],
+  scene?: { ball?: ImgPoint | null; stumps?: ImgPoint | null },
+  frame?: FigureFrame,
+): FigurePose | null {
+  const own = figureFrame(body, aspect, hand);
+  if (!own) return null;
+  const { cx, ground, k, mirror } = frame ?? own;
+  const F = hand === "right" ? "left" : "right";
+  const B = F === "left" ? "right" : "left";
+  const raw = (name: string): Pt | null => {
+    const p = body[J[name as keyof typeof J]];
+    return p && p[2] >= 0.2 ? [p[0] * aspect, p[1]] : null;
+  };
+  const g = (n: string, fb?: Pt): Pt => raw(n) ?? fb!;
+  const fa = g(`${F}_ankle`);
+  const ba = g(`${B}_ankle`);
   const T = (p: Pt): Pt => [(p[0] - cx) * k * mirror, 100 + (p[1] - ground) * k];
   const fs = T(g(`${F}_shoulder`));
   const bs = T(g(`${B}_shoulder`));

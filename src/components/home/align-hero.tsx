@@ -1,10 +1,10 @@
 "use client";
-// The landing page's picture of what Aline means: the textbook defence just after contact,
+// The landing page's picture of what Aline means, in two tones: the textbook defence just after contact,
 // the ball dropping dead under the eyes, with the one line the shot is built on drawn
 // behind the batter: eyes, front knee and ball, one above the other. A still drawing (no
 // clock, no WebGL), so it costs a phone nothing to show.
 
-import { Ball, BatterFigure, FigureDefs, GOOD, ZONE, type FigurePose, type Pt } from "@/components/lesson/figure";
+import { Ball, BatterFigure, GOOD, ZONE, type FigurePose, type Pt } from "@/components/lesson/figure";
 import { Draw, Label, seg } from "@/components/lesson/lesson";
 
 /** `after`: seconds to wait before the notes draw on (the landing page's opening plays first). */
@@ -29,9 +29,6 @@ export function AlignHero({ pose, ballFrom, after = 0 }: { pose: FigurePose; bal
       role="img"
       aria-label="A batter playing a forward defence, the ball dropping dead at the front foot. Eyes, front knee and ball sit on one upright line."
     >
-      <FigureDefs id="hero" />
-      <ellipse cx={(pose.fa[0] + pose.ba[0]) / 2} cy={101.6} rx={Math.abs(pose.fa[0] - pose.ba[0]) / 2 + 10} ry={2} fill="var(--ill-ink)" opacity={0.08} />
-      <path d={`M${x0 + 3} 101.2 Q ${(x0 + x1) / 2} 100.4 ${x1 - 3} 101.4`} stroke="var(--ill-chalk)" strokeWidth={0.7} fill="none" opacity={0.55} />
       {/* the line, behind the batter: it shows above the helmet and down to the ground */}
       <Draw d={seg([x, top], [x, 104])} color={ZONE} w={1.6} dash="2.4 1.9" delay={after + 0.2} />
       <BatterFigure p={pose} id="hero" />

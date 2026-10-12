@@ -3,6 +3,39 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-10-12 · Faster, two-tone, natural motion, professional skills
+
+> add relevant anthropic skills to this project so the website remains industry grade and is
+> according to professional standards
+>
+> the site feels laggy and the back foot defence shot is not live yet
+>
+> all of the demonstration videos and site transition and feel should have this effect (apply
+> it carefully, check if logo can also have this one) [a flat two-tone silhouette: solid black
+> subject on pale sage-cream #E3EADF, #EDEDED only for tiny accents, no gradients, shadows or
+> texture]. The cricketer's body mechanics do not seem to have real human fluidity in the
+> motion, which feels like an incorrect demonstration: correct that.
+
+Done:
+- **Skills**: Anthropic's `frontend-design` (design quality) and `webapp-testing` (Playwright
+  checks of the running site) added to `.claude/skills/` (Apache-2.0, licence files kept).
+- **Back-foot defence not visible**: it was live, but the landing page only offered the
+  forward defence. The landing hero, a new back-foot section and the closing call now offer
+  both shots.
+- **Lag** (measured at phone speed, 4× CPU slowdown): the landing page scrolled at 12 frames a
+  second because of the live 3D logo (WebGL); now 60, and load blocking fell from 2.6 s to
+  0.4 s. Reports no longer run the engine on the phone to build their textbook references
+  (now computed at build time, guarded by a test), and "More detail" is drawn only when opened.
+- **Two tones**: black on sage-cream (#000 on #E3EADF) across the site, inverted in the dark
+  theme; flat, no shadows or gradients. Every demonstration batter is a solid black
+  silhouette (bat, ball and stumps too) with ink annotations on a thin sage halo. The opening
+  curtain is black with the sage mark; pages cross-fade (CSS only). The logo is the flat black
+  mark (it was the 3D one); app icons are black on sage-cream.
+- **Natural motion**: the explainer's batter trembled (simulated tracker noise meant for
+  testing the engine) and its back foot skated (every frame was re-centred and re-scaled on
+  the feet). Now noise-free on one still camera, with every joint's speed rising and falling
+  smoothly, and the back heel lifting as the weight goes forward.
+
 ## 2026-10-10 · The back-foot defence, on top of the locked front-foot build
 
 > Now lock this code, on top of this Add a new section for back foot defence cricket shot.

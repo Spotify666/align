@@ -12,7 +12,7 @@ import { plainReading, plainValue } from "@/engine/plain";
 import { generate } from "@/engine/fixtures/generate";
 import { FIXTURE_SPECS } from "@/engine/fixtures";
 import { ffdScript } from "@/engine/fixtures/index";
-import { alignAt, BatterFigure, FigureDefs, figurePose, GhostFigure, GOOD, mid, OFF, ZONE, type FigurePose, type GhostPart, type Pt } from "./figure";
+import { alignAt, BatterFigure, figurePose, GhostFigure, GOOD, INK, mid, OFF, PAPER, type FigurePose, type GhostPart, type Pt } from "./figure";
 
 const ORDER = ["line_head", "line_shoulder", "line_knee", "front_knee_flexion", "foot_spread", "stride_length", "trunk_inclination", "weight_forward", "hands_ahead_of_knee", "back_knee_extension"];
 
@@ -84,7 +84,7 @@ export function Lesson({ payload: p, obs }: { payload: AnalysisPayload; obs: Cap
         <p className="eyebrow">Your lesson</p>
         <h2 id="lesson-h" className="display text-[1.75rem] sm:text-4xl">What this shot teaches you</h2>
         <p className="text-sm text-fg-subtle max-w-3xl">
-          You, drawn from your {p.mode === "posture_screen" ? "photo" : "clip"}. Dashed gold: where the textbook defence puts it.
+          You, drawn from your {p.mode === "posture_screen" ? "photo" : "clip"}. Dashed outline: where the textbook defence puts it.
         </p>
       </header>
       <ol className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 xl:grid-cols-3">
@@ -110,7 +110,7 @@ function Chapter({ n, of, m, pose, ghost }: { n: number; of: number; m: Metric; 
   // Labels sit mostly on the bowler's side (right): leave more room there.
   const x0 = Math.min(...pts.map((q) => q[0])) - 16;
   const x1 = Math.max(...pts.map((q) => q[0])) + 30;
-  const y0 = Math.min(...pts.map((q) => q[1])) - 14;
+  const y0 = Math.min(...pts.map((q) => q[1])) - 22;
   const y1 = 112;
   return (
     <article className="lesson-card h-full">
@@ -122,12 +122,7 @@ function Chapter({ n, of, m, pose, ghost }: { n: number; of: number; m: Metric; 
       </div>
       <h3 className="px-4 pt-1 text-xl font-semibold tracking-tight">{plainReading(m)}</h3>
       <svg viewBox={`${x0} ${y0} ${x1 - x0} ${y1 - y0}`} className="mt-2 block w-full" role="img" aria-label={`${m.name}: ${plainValue(m)}`}>
-        <FigureDefs id={id} />
-        <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--ill-paper)" />
-        <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} filter={`url(#${id}-grain)`} />
-        {/* ground */}
-        <ellipse cx={(pose.fa[0] + pose.ba[0]) / 2} cy={101.5} rx={Math.abs(pose.fa[0] - pose.ba[0]) / 2 + 12} ry={2.2} fill="var(--ill-ink)" opacity={0.08} />
-        <motion.path d={`M${x0 + 4} 101.2 Q ${(x0 + x1) / 2} 100.4 ${x1 - 4} 101.4`} stroke="var(--ill-chalk)" strokeWidth={0.7} fill="none" opacity={0.55} />
+        <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill={PAPER} />
         <BatterFigure p={pose} id={id} />
         {g && <GhostFigure p={g} parts={GHOST[m.id] ?? []} />}
         <Annotation m={m} p={pose} />
@@ -151,21 +146,20 @@ const rangeText = (m: Metric) => {
 
 /* ---------- annotations: what each check is about, drawn on ---------- */
 
+/** A line that draws itself on: ink over a thin paper halo, so it reads across the silhouette too. */
 export function Draw({ d, color, w = 1.4, delay = 0.35, dash }: { d: string; color: string; w?: number; delay?: number; dash?: string }) {
   const still = useReducedMotion();
+  const anim = {
+    initial: still ? false : { pathLength: 0, opacity: 0 },
+    whileInView: { pathLength: 1, opacity: 1 },
+    viewport: { once: true, amount: 0.5 },
+    transition: { duration: 0.9, delay, ease: "easeInOut" },
+  } as const;
   return (
-    <motion.path
-      d={d}
-      fill="none"
-      stroke={color}
-      strokeWidth={w}
-      strokeLinecap="round"
-      strokeDasharray={dash}
-      initial={still ? false : { pathLength: 0, opacity: 0 }}
-      whileInView={{ pathLength: 1, opacity: 1 }}
-      viewport={{ once: true, amount: 0.5 }}
-      transition={{ duration: 0.9, delay, ease: "easeInOut" }}
-    />
+    <g fill="none" strokeLinecap="round">
+      <motion.path d={d} stroke={PAPER} strokeWidth={w + 1.6} {...anim} />
+      <motion.path d={d} stroke={color} strokeWidth={w} strokeDasharray={dash} {...anim} />
+    </g>
   );
 }
 
@@ -199,9 +193,12 @@ export function Zone({ x0, x1, y0, y1, delay = 0.2 }: { x0: number; x1: number; 
       width={Math.abs(x1 - x0)}
       height={y1 - y0}
       rx={1.5}
-      fill={ZONE}
+      fill="none"
+      stroke={INK}
+      strokeWidth={0.6}
+      strokeDasharray="1.4 1.2"
       initial={still ? false : { opacity: 0 }}
-      whileInView={{ opacity: 0.22 }}
+      whileInView={{ opacity: 1 }}
       viewport={{ once: true, amount: 0.5 }}
       transition={{ duration: 0.6, delay }}
     />
@@ -253,7 +250,7 @@ function Annotation({ m, p }: { m: Metric; p: FigurePose }) {
           {r && <Zone x0={p.fa[0] + r.lo * 100} x1={p.fa[0] + r.hi * 100} y0={part[1] - 5} y1={part[1] + 5} />}
           <Draw d={seg([p.fa[0], top], [p.fa[0], 103])} color="var(--ill-chalk)" w={1.1} dash="2.2 1.8" delay={0.3} />
           <Draw d={seg([p.fa[0], part[1]], [part[0], part[1]])} color={color} w={1.7} delay={0.8} />
-          <motion.circle cx={part[0]} cy={part[1]} r={2.2} fill={color} initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.7 }} />
+          <motion.circle cx={part[0]} cy={part[1]} r={2.2} fill={color} stroke={PAPER} strokeWidth={0.8} initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.7 }} />
           <Label at={[p.fa[0], top - 2]} text="the line" delay={0.6} />
           <Label at={[part[0] + (off >= 0 ? 4 : -4), part[1] - 7]} text={Math.abs(off) < 0.01 ? `${word} on it` : `${word} ${off > 0 ? "ahead" : "behind"}`} color={color} anchor={off >= 0 ? "start" : "end"} />
         </g>
@@ -295,7 +292,7 @@ function Annotation({ m, p }: { m: Metric; p: FigurePose }) {
           {r && <Zone x0={p.ba[0] + span * r.lo} x1={p.ba[0] + span * r.hi} y0={y - 2.5} y1={y + 2.5} />}
           <Draw d={seg([p.ba[0], y], [p.fa[0], y])} color="var(--ill-chalk)" w={1} delay={0.3} />
           <Draw d={seg([at, com[1]], [at, y])} color={color} w={1.3} dash="2 1.6" delay={0.6} />
-          <motion.circle cx={at} cy={com[1]} r={2.4} fill={color} initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.5 }} />
+          <motion.circle cx={at} cy={com[1]} r={2.4} fill={color} stroke={PAPER} strokeWidth={0.8} initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.5 }} />
           {/* Feet close together in the picture: set the two labels either side of the middle. */}
           {Math.abs(span) < 34 ? (
             <>

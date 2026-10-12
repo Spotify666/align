@@ -82,6 +82,8 @@ export interface ShotScript {
   hands: Key<V3>;
   batDir: Key<V3>;
   backKneeDrop?: Key<number>;
+  /** Back heel lifting off the ground as the weight goes forward (metres), the foot pivoting on its toes. Demonstrations only. */
+  backHeelLift?: Key<number>;
   ball: BallScript;
 }
 
@@ -247,7 +249,10 @@ export function generate(opts: GenerateOptions): CaptureObservation {
 
   for (const t of times) {
     const fa = interpV(s.frontAnkle, t);
-    const ba = interpV(s.backAnkle, t);
+    const lift = s.backHeelLift ? interp(s.backHeelLift, t) : 0;
+    // Pivoting on the toes: the ankle rises most of the heel's lift and comes forward a little.
+    const ba0 = interpV(s.backAnkle, t);
+    const ba: V3 = lift ? [ba0[0] + lift * 0.3, ba0[1] + lift * 0.75, ba0[2]] : ba0;
     const hip = interpV(s.hipC, t);
     const lean = (interp(s.lean, t) * Math.PI) / 180;
     const side = (interp(s.sideLean, t) * Math.PI) / 180;
@@ -294,9 +299,9 @@ export function generate(opts: GenerateOptions): CaptureObservation {
       left_ankle: fa,
       right_ankle: ba,
       left_heel: heel(fa),
-      right_heel: heel(ba),
+      right_heel: lift ? [ba[0] - 0.05, ba[1] - 0.05 + lift * 0.25, ba[2]] : heel(ba),
       left_foot: foot(fa, [0.9, 0, 0.4]),
-      right_foot: foot(ba, [0.2, 0, 0.98]),
+      right_foot: lift ? [ba[0] + 0.03, 0.02, ba[2] + 0.147] : foot(ba, [0.2, 0, 0.98]),
     };
 
     const occluded = (j: Joint) =>
