@@ -21,6 +21,8 @@ change that answers a new ask, so the next session starts from the same page.
 >
 > when left hand has to be backside why is the right hand front / visual does not convey the
 > actual human representation
+>
+> I guess you are messing it up, understand real life videos and then work on it
 
 Done:
 - **Four connected stages, both shots** ("Learn the shot" on the landing page, Home and the
@@ -32,13 +34,26 @@ Done:
   one line, bat angle (in degrees), contact under the eyes, back leg long; for the back foot:
   back foot back and across, head still, front foot alongside, stand tall, front elbow high,
   straight bat. A dot under the feet shows where the weight is (centre of mass) throughout.
-- **Biomechanically checked**: each demonstration is a real clip run through Aline's own
-  engine and passes every check of its shot (valid forward defence; valid back-foot defence).
-  The bat stays up as the front foot lands and comes down late and slowly to meet the ball
+- **Shaped on real defences**: 323 defences by international batters (KU CricShot 3D pose
+  estimates, filmed from the bowler's end, so heights and the off/leg-side axis are
+  reliable; split by footwork into 49 front-foot and 83 back-foot defences). What they show,
+  and the demos now do: a short pick-up (the hands rise only to just above the hip, the bat
+  up behind them; the old demo lifted them to the chest); at front-foot contact the head
+  about a fifth of the batter's height lower than in the stance (the old demo stayed too
+  upright), the hands at hip height, the top hand a hand's width above the bottom one, the
+  front elbow up toward the bowler (just below the shoulder) and the back elbow tucked by the
+  hip; at back-foot contact the hands at belt height (the old demo had them at the
+  shoulders). In every phase the bottom-hand arm is nearer an off-side viewer than the
+  top-hand arm (85–96% of the clips). Analysis scripts are in the session scratchpad, not
+  the repo (third-party data).
+- **Biomechanically checked**: each demonstration is a clip run through Aline's own engine
+  and passes every check of its shot (valid forward defence; valid back-foot defence). The
+  bat stays up as the front foot lands and comes down late and slowly to meet the ball
   beside the pad (about 0.19 s from foot down to contact).
 - **Two hands**: the top hand and the bottom hand are separate gloves with a gap of handle
   between them, each with its own arm. Seen from the off side, the bottom-hand arm reaches
-  across the chest in front; the top-hand arm sits behind it (this was the wrong way round).
+  across the chest in front; the top-hand arm sits behind it (this was the wrong way round;
+  confirmed on the real defences above).
   The set-up stage labels which is which (top hand left, bottom hand right for a right-hander),
   and the coaching says the top hand guides the bat while the bottom hand stays loose.
 - **Right- or left-handed**: a switch on every demonstration mirrors the batter (labels still

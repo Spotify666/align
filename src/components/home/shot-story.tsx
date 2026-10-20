@@ -40,19 +40,19 @@ const SCENES: Record<StoryShot, Scene[]> = {
     {
       k: "Pick up",
       t: "Bat up straight, head leads.",
-      d: "As the ball is bowled, the bat lifts straight back toward the stumps. The head and front shoulder start toward the line of the ball; the feet have not moved yet.",
-      copy: ["Bat lifts straight back", "Head moves first, eyes level", "Weight still even"],
+      d: "As the ball is bowled, the bat lifts straight back toward the stumps. Keep the pick-up short: the hands stay low, by the back hip, the bat up behind them. The head and front shoulder start toward the line of the ball; the feet have not moved yet.",
+      copy: ["Short pick-up, hands by the hip", "Head moves first, eyes level", "Weight still even"],
     },
     {
       k: "Stride",
       t: "Step to the pitch of the ball.",
-      d: "The front foot follows the head and lands where the ball will bounce. The front knee bends as the weight comes onto it, and the bat starts down from the top, slowly.",
+      d: "The front foot follows the head and lands where the ball will bounce. The front knee bends as the weight comes onto it; the bat waits at the top and comes down late.",
       copy: ["Front foot to the ball", "Front knee bends", "Weight moves forward"],
     },
     {
       k: "Contact",
       t: "Meet it under your eyes.",
-      d: "Head, front knee and front toe in one line. The bat comes down beside the pad, angled down with the handle ahead. The top hand guides it; the bottom hand stays loose, so the ball drops dead. Hold it.",
+      d: "Head low over the ball: head, front knee and front toe in one line. The bat comes down beside the pad, angled down with the handle ahead, the front elbow up toward the bowler. The top hand guides it; the bottom hand stays loose, so the ball drops dead. Hold it.",
       copy: ["Head over the front knee", "Bat angled down beside the pad", "Back leg long, heel up"],
     },
   ],
@@ -61,8 +61,8 @@ const SCENES: Record<StoryShot, Scene[]> = {
     {
       k: "Back and across",
       t: "Back foot first: back and across.",
-      d: "To a short ball, the back foot moves first, back toward the stumps and across into the line of the ball. The bat picks up; the head stays still and forward.",
-      copy: ["Back foot back and across", "Head still, eyes level", "Bat picks up"],
+      d: "To a short ball, the back foot moves first, back toward the stumps and across into the line of the ball. A short pick-up, the hands by the hip; the head stays still and forward.",
+      copy: ["Back foot back and across", "Head still, eyes level", "Short pick-up"],
     },
     {
       k: "Alongside",
@@ -73,7 +73,7 @@ const SCENES: Record<StoryShot, Scene[]> = {
     {
       k: "Contact",
       t: "Meet it under your eyes.",
-      d: "Front elbow high, the bat straight and angled down, the top hand in control and the bottom hand loose. Meet the ball under your eyes, close to the body, then hold.",
+      d: "Front elbow high, the bat straight and angled down, the hands about belt height, the top hand in control and the bottom hand loose. Meet the ball under your eyes, close to the body, then hold.",
       copy: ["Front elbow high", "Bat straight, angled down", "Soft hands, no push"],
     },
   ],

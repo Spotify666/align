@@ -117,6 +117,13 @@ export interface ShotScript {
   backKneeDrop?: Key<number>;
   /** Back heel lifting off the ground as the weight goes forward (metres), the foot pivoting on its toes. Demonstrations only. */
   backHeelLift?: Key<number>;
+  /**
+   * Which way each elbow bends (a direction it is pulled toward; metres, as positions), for
+   * the top-hand (front) and bottom-hand (back) arm. Demonstrations only; otherwise both bend
+   * down and out.
+   */
+  frontElbowPole?: Key<V3>;
+  backElbowPole?: Key<V3>;
   /** "pchip": shape-preserving interpolation between keys (demonstrations); otherwise Catmull–Rom. */
   smooth?: "pchip";
   ball: BallScript;
@@ -322,8 +329,10 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     const bd = unit(interpV(batDir, t, sm));
     const fWrist = hd;
     const bWrist = add(hd, mul(bd, 0.09));
-    const fElbow = ik(fSh, fWrist, seg.upperArm, seg.forearm, [0.2, -1, 0.6]);
-    const bElbow = ik(bSh, bWrist, seg.upperArm, seg.forearm, [-0.3, -1, 0.5]);
+    const fPole: V3 = s.frontElbowPole ? interpV(s.frontElbowPole, t, sm) : [0.2, -1, 0.6];
+    const bPole: V3 = s.backElbowPole ? interpV(s.backElbowPole, t, sm) : [-0.3, -1, 0.5];
+    const fElbow = ik(fSh, fWrist, seg.upperArm, seg.forearm, fPole);
+    const bElbow = ik(bSh, bWrist, seg.upperArm, seg.forearm, bPole);
 
     const heel = (a: V3): V3 => [a[0] - 0.05, Math.max(0.02, a[1] - 0.05), a[2]];
     const foot = (a: V3, dir: V3): V3 => [a[0] + dir[0] * 0.15, Math.max(0.02, a[1] - 0.06), a[2] + dir[2] * 0.15];
