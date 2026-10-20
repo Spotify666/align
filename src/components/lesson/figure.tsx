@@ -1,7 +1,8 @@
 "use client";
 // A batter drawn from a pose, as a flat two-tone silhouette: helmet, padded legs, gloves and
-// bat in solid ink on sage-cream paper, no shading, no detail inside the shape, only its
-// outline. Limbs taper the way a body does (a thigh is wider at the hip than at the knee)
+// bat in solid ink on sage-cream paper, no shading, no detail inside the shape. Like a sports
+// pictogram, thin paper cut-lines set the near leg, the arms, the gloves and the bat off
+// the body behind them, so a learner can read every limb. Limbs taper the way a body does (a thigh is wider at the hip than at the knee)
 // and keep their length, so the silhouette moves like a person. Every lesson illustration
 // starts here. Poses are in figure units (see ./pose).
 
@@ -73,35 +74,56 @@ function limb(a: Pt, b: Pt, profile: Array<[number, number]>): string {
 const capsule = (a: Pt, b: Pt, wa: number, wb: number) => limb(a, b, [[0, wa], [1, wb]]);
 const polygon = (pts: Pt[]) => `M${pts.map(f).join(" L")} Z`;
 
+/** Width of the paper cut-line that sets a nearer part off the body behind it. */
+const RIM = 1.9;
+
 /**
  * Parts drawn as one shape: each filled with ink and edged with a thin ink line, so two
- * overlapping segments (a thigh and a shin at the knee) close into one silhouette.
+ * overlapping segments (a thigh and a shin at the knee) close into one silhouette. With
+ * `rim`, the shape is first cut out of whatever lies behind it by a thin paper line, as in a
+ * sports pictogram: the near leg, the arms, the gloves and the bat stay readable against
+ * the body, still in two tones. (Within one piece the fills cover the cut, so a leg's own
+ * knee shows no seam.)
  */
-function Piece({ parts }: { parts: string[] }) {
+function Piece({ parts, rim = false }: { parts: string[]; rim?: boolean }) {
   return (
-    <g fill={INK} stroke={INK} strokeWidth={0.6} strokeLinejoin="round">
-      {parts.map((d, i) => (
-        <path key={i} d={d} />
-      ))}
+    <g strokeLinejoin="round">
+      {rim && (
+        <g fill={PAPER} stroke={PAPER} strokeWidth={RIM}>
+          {parts.map((d, i) => (
+            <path key={i} d={d} />
+          ))}
+        </g>
+      )}
+      <g fill={INK} stroke={INK} strokeWidth={0.6}>
+        {parts.map((d, i) => (
+          <path key={i} d={d} />
+        ))}
+      </g>
     </g>
   );
 }
 
-/** Glove length along the handle, in figure units (about 8 cm). */
-const GLOVE_LEN = 4.6;
+/** A gloved fist along the handle, in figure units (about 10 cm), and across it (8 cm). */
+const GLOVE_LEN = 5.6;
+const GLOVE_W = 4.6;
+/** The handle showing between the two hands (about 4 cm): two hands, not one fist. */
+const GRIP_GAP = 2.4;
+/** From the point between the hands to each glove's centre. */
+const GRIP_HALF = (GLOVE_LEN + GRIP_GAP) / 2;
 
 /**
- * Where the hands hold the bat: the top hand (front side) at the top of the handle, the
- * bottom hand just below it, touching, both centred on the handle (the way a batter grips
- * it), around the point between the tracked wrists. Null when the hands are apart (a hand
- * off the bat): then they are drawn where they were seen.
+ * Where the hands hold the bat: the top hand (front side) near the top of the handle, the
+ * bottom hand below it with a sliver of handle between them, both centred on the handle (the
+ * way a batter grips it), around the point between the tracked wrists. Null when the hands
+ * are apart (a hand off the bat): then they are drawn where they were seen.
  */
 export function grip(p: FigurePose): { top: Pt; bottom: Pt; u: Pt } | null {
   if (Math.hypot(p.fw[0] - p.bw[0], p.fw[1] - p.bw[1]) > 14) return null;
   const [hands, toe] = batLine(p);
   const L = Math.hypot(toe[0] - hands[0], toe[1] - hands[1]) || 1;
   const u: Pt = [(toe[0] - hands[0]) / L, (toe[1] - hands[1]) / L];
-  const h = GLOVE_LEN / 2;
+  const h = GRIP_HALF;
   return { top: [hands[0] - u[0] * h, hands[1] - u[1] * h], bottom: [hands[0] + u[0] * h, hands[1] + u[1] * h], u };
 }
 
@@ -112,15 +134,18 @@ export function BatShape({ p }: { p: FigurePose }) {
   const ux = (batB[0] - hands[0]) / L0;
   const uy = (batB[1] - hands[1]) / L0;
   // From the top of the handle, just above the top hand, to the toe.
-  const top = GLOVE_LEN + 0.6;
+  const top = GRIP_HALF + GLOVE_LEN / 2 + 0.8;
   const batA: Pt = [hands[0] - ux * top, hands[1] - uy * top];
   const at = (d: number, side: number, w: number): Pt => [batA[0] + ux * (d + top) - uy * side * w, batA[1] + uy * (d + top) + ux * side * w];
   // Handle, then shoulders of the blade, a toe a touch wider: a cricket bat, not a plank.
   const blade = polygon([at(12, 1, 1.6), at(14.5, 1, 2.9), at(47, 1, 3.1), at(48, 0.6, 3.1), at(48, -0.6, 3.1), at(47, -1, 3.1), at(14.5, -1, 2.9), at(12, -1, 1.6)]);
+  const handle = `M${f(batA)} L${f(at(13, 0, 0))}`;
   return (
-    <g>
-      <path d={`M${f(batA)} L${f(at(13, 0, 0))}`} stroke={INK} strokeWidth={2.4} strokeLinecap="round" />
-      <path d={blade} fill={INK} stroke={INK} strokeWidth={0.6} strokeLinejoin="round" />
+    <g strokeLinejoin="round" strokeLinecap="round">
+      <path d={handle} stroke={PAPER} strokeWidth={2.4 + RIM} />
+      <path d={blade} fill={PAPER} stroke={PAPER} strokeWidth={RIM} />
+      <path d={handle} stroke={INK} strokeWidth={2.4} />
+      <path d={blade} fill={INK} stroke={INK} strokeWidth={0.6} />
     </g>
   );
 }
@@ -277,16 +302,16 @@ export function BatterFigure({ p: seen }: { p: FigurePose; id?: string }) {
   const [be, bw] = reach(p.bs, p.be, p.bw, hold?.bottom);
   const arm = (side: "f" | "b") => {
     const [s0, e, w] = side === "f" ? [p.fs, fe, fw] : [p.bs, be, bw];
-    const sleeveEnd = lerp(s0, e, 0.45);
-    // The back arm starts just inside the torso, so its rounded end never shows past the back.
-    const s = side === "b" ? lerp(s0, e, 0.22) : s0;
+    const s = s0;
+    const sleeveEnd = lerp(s, e, 0.45);
     return [limb(s, e, [[0, 6.6], [0.2, 6.8], [0.52, 6], [0.8, 4.8], [1, 4.2]]), limb(e, w, [[0, 4.2], [0.25, 5], [1, 3.3]]), limb(s, sleeveEnd, [[0, 7.6], [0.55, 7.4], [1, 6.9]])];
   };
   const [batA, batB] = batLine(p);
   const bl = Math.hypot(batB[0] - batA[0], batB[1] - batA[1]) || 1;
   const ux = (batB[0] - batA[0]) / bl;
   const uy = (batB[1] - batA[1]) / bl;
-  const glove = (w: Pt) => capsule([w[0] - ux * (GLOVE_LEN / 2 - 0.3), w[1] - uy * (GLOVE_LEN / 2 - 0.3)], [w[0] + ux * (GLOVE_LEN / 2 - 0.3), w[1] + uy * (GLOVE_LEN / 2 - 0.3)], 4.8, 4.4);
+  const core = (GLOVE_LEN - GLOVE_W) / 2;
+  const glove = (w: Pt) => capsule([w[0] - ux * core, w[1] - uy * core], [w[0] + ux * core, w[1] + uy * core], GLOVE_W + 0.2, GLOVE_W - 0.2);
 
   const H = p.head;
   // The helmet's outline: the neck guard, the shell, the grille in front of the face, the peak.
@@ -299,12 +324,19 @@ export function BatterFigure({ p: seen }: { p: FigurePose; id?: string }) {
   ];
   return (
     <g strokeLinejoin="round" strokeLinecap="round">
+      {/* far side first, then each nearer part cut out of what lies behind it. Seen from the
+          off side the arms are in front of the chest and the legs: the top-hand arm (the
+          front arm) behind, the bottom-hand arm, which reaches across the chest to the
+          handle, nearest. The two gloves go on last, a gap between them on the handle, so
+          each hand and the arm that moves it can be followed. */}
       <Piece parts={leg("b")} />
-      <Piece parts={arm("b")} />
-      <Piece parts={[capsule(chest.neck, neckTop, 6.2, 5), capsule(p.bh, p.fh, 9.2, 9.2), chest.outline, ...helmet]} />
-      <Piece parts={leg("f")} />
+      <Piece rim parts={[capsule(chest.neck, neckTop, 6.2, 5), capsule(p.bh, p.fh, 9.2, 9.2), chest.outline, ...helmet]} />
+      <Piece rim parts={leg("f")} />
+      <Piece rim parts={arm("f")} />
       <BatShape p={p} />
-      <Piece parts={[glove(bw), ...arm("f"), glove(fw)]} />
+      <Piece rim parts={arm("b")} />
+      <Piece rim parts={[glove(fw)]} />
+      <Piece rim parts={[glove(bw)]} />
     </g>
   );
 }

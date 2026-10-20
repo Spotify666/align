@@ -2,6 +2,7 @@
 import type { CompareReference } from "@/components/report/evidence-viewer";
 import { analyze } from "@/engine/analyze";
 import { baselineSeries, bfdScript, ffdScript, fixture, FIXTURE_SPECS, type FixtureSpec } from "@/engine/fixtures";
+import { bfdDemoScript, ffdDemoScript } from "@/engine/fixtures/demo-scripts";
 import { generate } from "@/engine/fixtures/generate";
 import { figureFrame, figurePose, type FigurePose, type Pt, type Story } from "@/components/lesson/pose";
 import { buildBaseline, compareToBaseline } from "@/engine/baseline";
@@ -45,30 +46,46 @@ export function sampleAnalysis(key: string) {
   return { spec, obs, payload };
 }
 
-/** The textbook defence (the generator's default technique), for teaching illustrations. */
-export function textbookClip() {
+export type DemoShot = "front" | "back";
+
+/**
+ * The textbook defence the explainers demonstrate (src/engine/fixtures/demo-scripts.ts),
+ * analysed by the engine like any clip: it meets every check of its shot. Drawn for people,
+ * not trackers, so it carries no simulated tracking noise (that reads as trembling).
+ */
+export function demoClip(shot: DemoShot) {
   const spec = FIXTURE_SPECS.find((s) => s.key === "valid_ffd")!;
-  // Drawn for people, not trackers: no simulated tracking noise (it reads as trembling).
-  // The weight goes onto the front foot: the back heel comes up, the foot pivoting on its toes.
-  const script = { ...ffdScript(), backHeelLift: [[0, 0], [0.62, 0], [0.86, 0.06], [2, 0.06]] as Array<[number, number]> };
-  const obs = quantise(generate({ ...spec.options, id: "fx_textbook", script, noise: 0, handNoise: 0 }));
-  const payload = analyze(obs, { analysisId: "textbook", createdAt: CREATED });
+  const script = shot === "front" ? ffdDemoScript() : bfdDemoScript();
+  const raw = generate({ ...spec.options, id: `fx_demo_${shot}`, script, noise: 0, handNoise: 0 });
+  const obs = quantise(shot === "back" ? { ...raw, target: "back_foot_defence" } : raw);
+  const payload = analyze(obs, { analysisId: `demo_${shot}`, createdAt: CREATED });
   return { obs, payload };
 }
 
+/** The forward defence's demonstration clip (the landing page's picture uses its contact). */
+export const textbookClip = () => demoClip("front");
+
 /**
- * The textbook defence as the home explainer plays it: the batter at 60 frames a second
- * from the stance to just after contact, back foot planted, rounded for the page.
+ * A defence as its explainer plays it: the batter at 60 frames a second from the stance to
+ * just after contact, on one still camera, rounded for the page. The four moments are the
+ * stages the engine finds in the clip: set up; the pick-up (forward) or the back foot set
+ * (back); the front foot landing (forward) or alongside (back); contact.
  */
-export function textbookStory(): Story {
-  const { obs, payload } = textbookClip();
+export function demoStory(shot: DemoShot): Story {
+  const { obs, payload } = demoClip(shot);
   const fps = obs.media.fps ?? 120;
   const at = (t: string, d: number) => payload.events.find((e) => e.type === t)?.frame ?? d;
-  const marks = [at("setup", 0), at("backswing_top", 85), at("front_foot_plant", 100), at("contact", 105)];
+  const contact = at("contact", Math.round((shot === "front" ? 0.99 : 0.94) * fps));
+  const arrivals = payload.back_foot?.arrivals;
+  const start = Math.round(0.3 * fps);
+  const marks =
+    shot === "front"
+      ? [start, at("backswing_top", Math.round(0.66 * fps)), at("front_foot_plant", Math.round(0.8 * fps)), contact]
+      : [start, arrivals?.back_foot.frame ?? Math.round(0.66 * fps), arrivals?.front_foot.frame ?? Math.round(0.8 * fps), contact];
   const step = Math.max(1, Math.round(fps / 60));
-  const end = Math.min(obs.body.length - 1, marks[3]! + Math.round(0.4 * fps));
+  const end = Math.min(obs.body.length - 1, contact + Math.round(0.4 * fps));
   const frames: number[] = [];
-  for (let i = marks[0]!; i <= end; i += step) frames.push(i);
+  for (let i = start; i <= end; i += step) frames.push(i);
   const { stumpsX, groundY } = obs.calibration;
   const stumps = stumpsX !== null && groundY !== null ? ([stumpsX, groundY, 1] as const) : null;
   // One still camera for the whole clip, set on the stance: the batter moves, the picture doesn't.
@@ -81,6 +98,9 @@ export function textbookStory(): Story {
   const index = (f: number) => frames.reduce((best, x, i) => (Math.abs(x - f) < Math.abs(frames[best]! - f) ? i : best), 0);
   return { poses, fps: fps / step, moments: marks.map(index) as Story["moments"] };
 }
+
+/** The forward defence's explainer (the landing and home pages). */
+export const textbookStory = () => demoStory("front");
 
 let cachedBaseline: ReturnType<typeof buildBaseline> | null = null;
 let cachedSeries: ReturnType<typeof baselineSeries> | null = null;

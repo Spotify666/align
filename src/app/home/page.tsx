@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { sampleAnalysis, textbookStory } from "@/lib/demo";
+import { demoStory, sampleAnalysis, textbookStory } from "@/lib/demo";
 import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
 import { Intro } from "@/components/landing/intro";
 import { Check, Swap, Question, CameraOff, Chevron, Record as RecordIcon, Target, Trend } from "@/components/icons";
-import { BFD_PARTS } from "@/components/guide/back-foot-guide";
 
 // The app's home (the landing page at "/" tells newcomers what Aline stands for): the next
 // shot first, then the shot explained, how to film it, and what a report can say.
@@ -22,6 +21,7 @@ export default function AppHome() {
   const v = valid.payload;
   // The explainer plays the textbook defence, not the sample (which has a fault to fix).
   const story = textbookStory();
+  const backStory = demoStory("back");
   const keyMetrics = ["line_head", "sync_spread", "stride_length"].map((id) => v.metrics.find((m) => m.id === id)!);
 
   return (
@@ -63,26 +63,17 @@ export default function AppHome() {
       {/* The second shot */}
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-14">
         <Reveal>
-          <div className="card grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_1.1fr]">
-            <div>
-              <p className="eyebrow">New · the back-foot defence</p>
-              <h2 className="display mt-2 text-3xl sm:text-4xl">Short ball on the stumps? Back, tall, head over it.</h2>
-              <p className="mt-3 text-fg-muted">Aline now confirms and coaches the back-foot defence too: the back foot going back and across, the front foot alongside, standing tall with the head forward, soft hands.</p>
-              <div className="mt-5 flex flex-wrap gap-2.5">
-                <Link href="/analyse?shot=back" className="btn btn-primary">Analyse back-foot defence</Link>
-                <Link href="/guide#back-foot" className="btn btn-ghost">Learn the shot</Link>
-                <Link href="/sample/valid_bfd" className="btn btn-quiet text-sm">Sample report</Link>
-              </div>
+          <p className="eyebrow">Learn the shot · back foot</p>
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="display text-3xl sm:text-5xl max-w-2xl">The back-foot defence in four moves.</h2>
+            <div className="flex flex-wrap gap-2.5">
+              <Link href="/analyse?shot=back" className="btn btn-primary">Analyse back-foot defence</Link>
+              <Link href="/sample/valid_bfd" className="btn btn-ghost">Sample report</Link>
             </div>
-            <ol className="grid gap-2 text-sm sm:grid-cols-2">
-              {BFD_PARTS.slice(0, 6).map(([k, v], i) => (
-                <li key={k} className="rounded-xl border border-line p-3">
-                  <p className="font-medium"><span className="num text-fg-subtle">{i + 1}.</span> {k}</p>
-                  <p className="mt-0.5 text-fg-muted">{v}</p>
-                </li>
-              ))}
-            </ol>
           </div>
+        </Reveal>
+        <Reveal className="mt-8">
+          <ShotStory story={backStory} shot="back" />
         </Reveal>
       </section>
 

@@ -5,6 +5,7 @@ import { MarkHint } from "@/components/guide/mark-illustrations";
 import { Reveal } from "@/components/common/reveal";
 import { Check, Cross } from "@/components/icons";
 import { BackFootGuide } from "@/components/guide/back-foot-guide";
+import { demoStory } from "@/lib/demo";
 
 export const metadata: Metadata = { title: "How to analyse your defence" };
 
@@ -146,7 +147,7 @@ export default function GuidePage() {
 
       </div>
 
-      <BackFootGuide />
+      <BackFootGuide story={demoStory("back")} />
 
       <section className="mt-6 border-t border-line pt-10">
         <h2 className="text-2xl font-semibold tracking-tight">Common questions</h2>

@@ -19,8 +19,41 @@ const unit = (a: V3): V3 => {
   return [a[0] / n, a[1] / n, a[2] / n];
 };
 
-/** Non-uniform Catmull–Rom (cubic Hermite with finite-difference tangents). */
-function interp(keys: Key<number>, t: number): number {
+/**
+ * Shape-preserving cubic (PCHIP, Fritsch–Butland): eases into and out of every key and never
+ * overshoots it, so a held position stays held and a movement starts and stops the way a
+ * person's does. Demonstration scripts use it (`smooth: "pchip"`).
+ */
+function pchip(keys: Key<number>, t: number): number {
+  if (t <= keys[0]![0]) return keys[0]![1];
+  const last = keys[keys.length - 1]!;
+  if (t >= last[0]) return last[1];
+  let i = 0;
+  while (keys[i + 1]![0] < t) i++;
+  const h = (k: number) => keys[k + 1]![0] - keys[k]![0];
+  const d = (k: number) => (keys[k + 1]![1] - keys[k]![1]) / h(k);
+  // Tangent at key k: zero at the ends and at turning points, else a weighted harmonic mean.
+  const m = (k: number) => {
+    if (k <= 0 || k >= keys.length - 1) return 0;
+    const d0 = d(k - 1);
+    const d1 = d(k);
+    if (d0 * d1 <= 0) return 0;
+    const w1 = 2 * h(k) + h(k - 1);
+    const w2 = h(k) + 2 * h(k - 1);
+    return (w1 + w2) / (w1 / d0 + w2 / d1);
+  };
+  const [t0, p0] = keys[i]!;
+  const p1 = keys[i + 1]![1];
+  const hh = h(i);
+  const s = (t - t0) / hh;
+  const s2 = s * s;
+  const s3 = s2 * s;
+  return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * hh * m(i) + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * hh * m(i + 1);
+}
+
+/** Non-uniform Catmull–Rom (cubic Hermite with finite-difference tangents); PCHIP when `smooth`. */
+function interp(keys: Key<number>, t: number, smooth = false): number {
+  if (smooth) return pchip(keys, t);
   if (t <= keys[0]![0]) return keys[0]![1];
   const last = keys[keys.length - 1]!;
   if (t >= last[0]) return last[1];
@@ -43,8 +76,8 @@ function interp(keys: Key<number>, t: number): number {
   return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * m0 + (-2 * s3 + 3 * s2) * p1 + (s3 - s2) * m1;
 }
 
-function interpV(keys: Key<V3>, t: number): V3 {
-  return [0, 1, 2].map((k) => interp(keys.map(([tt, v]) => [tt, v[k]!] as [number, number]), t)) as unknown as V3;
+function interpV(keys: Key<V3>, t: number, smooth = false): V3 {
+  return [0, 1, 2].map((k) => interp(keys.map(([tt, v]) => [tt, v[k]!] as [number, number]), t, smooth)) as unknown as V3;
 }
 
 /** Two-bone IK: joint position between root and end, bending toward `pole`. */
@@ -84,6 +117,8 @@ export interface ShotScript {
   backKneeDrop?: Key<number>;
   /** Back heel lifting off the ground as the weight goes forward (metres), the foot pivoting on its toes. Demonstrations only. */
   backHeelLift?: Key<number>;
+  /** "pchip": shape-preserving interpolation between keys (demonstrations); otherwise Catmull–Rom. */
+  smooth?: "pchip";
   ball: BallScript;
 }
 
@@ -221,10 +256,19 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     if (best < 0) return [...keys, [contactT, value ? value(keys[keys.length - 1]![1]) : keys[keys.length - 1]![1]] as [number, T]].sort((a, b) => a[0] - b[0]);
     return keys.map(([t, v], k) => (k === best ? [contactT, value ? value(v) : v] : [t, v]));
   };
+  const sm = s.smooth === "pchip";
   const batDir = retime(s.batDir);
-  const dirAtContact = unit(interpV(batDir, contactT));
+  const dirAtContact = unit(interpV(batDir, contactT, sm));
   const handsAtContact = sub(contactP, mul(dirAtContact, BAT_LEN * SWEET));
-  const hands = retime(s.hands, () => handsAtContact);
+  const retimed = retime(s.hands, () => handsAtContact);
+  // Demonstrations: keys after contact keep their offset from the contact key (the hands give
+  // a little and hold), wherever the bat actually met the ball.
+  const ci = retimed.findIndex(([t]) => t === contactT);
+  const was = ci >= 0 ? s.hands[ci]?.[1] : undefined;
+  const hands: Key<V3> =
+    sm && was && ci < s.hands.length
+      ? retimed.map(([t, v], k) => (k > ci ? [t, add(v, sub(handsAtContact, was))] : [t, v]))
+      : retimed;
 
   const seg = { thigh: 0.245 * H, shank: 0.246 * H, trunk: 0.288 * H, upperArm: 0.186 * H, forearm: 0.146 * H, shoulderW: 0.23 * H, hipW: 0.17 * H };
 
@@ -248,16 +292,16 @@ export function generate(opts: GenerateOptions): CaptureObservation {
   };
 
   for (const t of times) {
-    const fa = interpV(s.frontAnkle, t);
-    const lift = s.backHeelLift ? interp(s.backHeelLift, t) : 0;
+    const fa = interpV(s.frontAnkle, t, sm);
+    const lift = s.backHeelLift ? interp(s.backHeelLift, t, sm) : 0;
     // Pivoting on the toes: the ankle rises most of the heel's lift and comes forward a little.
-    const ba0 = interpV(s.backAnkle, t);
+    const ba0 = interpV(s.backAnkle, t, sm);
     const ba: V3 = lift ? [ba0[0] + lift * 0.3, ba0[1] + lift * 0.75, ba0[2]] : ba0;
-    const hip = interpV(s.hipC, t);
-    const lean = (interp(s.lean, t) * Math.PI) / 180;
-    const side = (interp(s.sideLean, t) * Math.PI) / 180;
-    const yaw = (interp(s.shoulderYaw, t) * Math.PI) / 180;
-    const hyaw = (interp(s.hipYaw, t) * Math.PI) / 180;
+    const hip = interpV(s.hipC, t, sm);
+    const lean = (interp(s.lean, t, sm) * Math.PI) / 180;
+    const side = (interp(s.sideLean, t, sm) * Math.PI) / 180;
+    const yaw = (interp(s.shoulderYaw, t, sm) * Math.PI) / 180;
+    const hyaw = (interp(s.hipYaw, t, sm) * Math.PI) / 180;
     const trunkDir = unit([Math.sin(lean), Math.cos(lean) * Math.cos(side), Math.sin(side)]);
     const shC = add(hip, mul(trunkDir, seg.trunk));
     const shAxis: V3 = [Math.cos(yaw), 0, -Math.sin(yaw)];
@@ -266,16 +310,16 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     const bSh = sub(shC, mul(shAxis, seg.shoulderW / 2));
     const fHip = add(hip, mul(hipAxis, seg.hipW / 2));
     const bHip = sub(hip, mul(hipAxis, seg.hipW / 2));
-    const headC = add(add(shC, mul(trunkDir, 0.17 * H)), [interp(s.headFwd, t), 0, 0]);
+    const headC = add(add(shC, mul(trunkDir, 0.17 * H)), [interp(s.headFwd, t, sm), 0, 0]);
     const nose = add(headC, [0.09, -0.02, 0.02]);
 
-    const kneeDrop = s.backKneeDrop ? interp(s.backKneeDrop, t) : 0;
+    const kneeDrop = s.backKneeDrop ? interp(s.backKneeDrop, t, sm) : 0;
     const fKnee = ik(fHip, fa, seg.thigh, seg.shank, [1, 0, -0.1]);
     let bKnee = ik(bHip, ba, seg.thigh, seg.shank, [1, 0, 0.3]);
     if (kneeDrop) bKnee = [bKnee[0] + kneeDrop * 0.4, Math.max(0.05, bKnee[1] - kneeDrop), bKnee[2]];
 
-    const hd = interpV(hands, t);
-    const bd = unit(interpV(batDir, t));
+    const hd = interpV(hands, t, sm);
+    const bd = unit(interpV(batDir, t, sm));
     const fWrist = hd;
     const bWrist = add(hd, mul(bd, 0.09));
     const fElbow = ik(fSh, fWrist, seg.upperArm, seg.forearm, [0.2, -1, 0.6]);
