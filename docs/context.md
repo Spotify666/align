@@ -3,6 +3,63 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-10-20 · Teach both defences: four connected stages, two hands, either hand
+
+> Restructure the visual demo video to accurately demonstrate the human body dynamics of a
+> cricket forward defensive shot. The current silhouette looks visually appealing but does not
+> clearly teach the learner how to perform the movement. Replace it with anatomically
+> realistic, coordinated body poses that clearly show the front-foot stride, knee bend, forward
+> weight transfer, stable head position, hand coordination, bat angle, and point of contact.
+> Show all four stages as a connected sequence of movement, ensuring each pose transitions
+> naturally into the next. Preserve the existing clean visual style, but prioritise
+> biomechanical accuracy and instructional clarity so a beginner can understand and imitate
+> the correct technique just by observing the visual. also for backfoot defence
+>
+> the main disconnect is the left hand and right hand movement where there should be some gap
+> to clearly demonstrate that but it is missing and also give user an option for left hand
+> batsman, right hand batsman
+>
+> when left hand has to be backside why is the right hand front / visual does not convey the
+> actual human representation
+>
+> I guess you are messing it up, understand real life videos and then work on it
+
+Done:
+- **Four connected stages, both shots** ("Learn the shot" on the landing page, Home and the
+  Guide): forward defence = set up, pick up, stride, contact; back-foot defence = set up, back
+  and across, alongside, contact. One batter moves continuously through all four (slowed
+  down, held at each stage, any stage replayable from the strip of stage poses). Each stage
+  draws on what to copy: eyes level, knees soft, the grip; bat up straight back, head leads;
+  head and shoulder lead, front knee bend (in degrees), foot to the ball; head, knee and toe in
+  one line, bat angle (in degrees), contact under the eyes, back leg long; for the back foot:
+  back foot back and across, head still, front foot alongside, stand tall, front elbow high,
+  straight bat. A dot under the feet shows where the weight is (centre of mass) throughout.
+- **Shaped on real defences**: 323 defences by international batters (KU CricShot 3D pose
+  estimates, filmed from the bowler's end, so heights and the off/leg-side axis are
+  reliable; split by footwork into 49 front-foot and 83 back-foot defences). What they show,
+  and the demos now do: a short pick-up (the hands rise only to just above the hip, the bat
+  up behind them; the old demo lifted them to the chest); at front-foot contact the head
+  about a fifth of the batter's height lower than in the stance (the old demo stayed too
+  upright), the hands at hip height, the top hand a hand's width above the bottom one, the
+  front elbow up toward the bowler (just below the shoulder) and the back elbow tucked by the
+  hip; at back-foot contact the hands at belt height (the old demo had them at the
+  shoulders). In every phase the bottom-hand arm is nearer an off-side viewer than the
+  top-hand arm (85–96% of the clips). Analysis scripts are in the session scratchpad, not
+  the repo (third-party data).
+- **Biomechanically checked**: each demonstration is a clip run through Aline's own engine
+  and passes every check of its shot (valid forward defence; valid back-foot defence). The
+  bat stays up as the front foot lands and comes down late and slowly to meet the ball
+  beside the pad (about 0.19 s from foot down to contact).
+- **Two hands**: the top hand and the bottom hand are separate gloves with a gap of handle
+  between them, each with its own arm. Seen from the off side, the bottom-hand arm reaches
+  across the chest in front; the top-hand arm sits behind it (this was the wrong way round;
+  confirmed on the real defences above).
+  The set-up stage labels which is which (top hand left, bottom hand right for a right-hander),
+  and the coaching says the top hand guides the bat while the bottom hand stays loose.
+- **Right- or left-handed**: a switch on every demonstration mirrors the batter (labels still
+  read normally); the choice is shared by every demonstration and remembered on the device,
+  starting from the hand in the profile.
+
 ## 2026-10-12 · Faster, two-tone, natural motion, professional skills
 
 > add relevant anthropic skills to this project so the website remains industry grade and is

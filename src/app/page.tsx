@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { sampleAnalysis, textbookStory } from "@/lib/demo";
+import { demoStory, sampleAnalysis, textbookStory } from "@/lib/demo";
 import { AlignHero } from "@/components/home/align-hero";
 import { ShotStory } from "@/components/home/shot-story";
 import { Reveal } from "@/components/common/reveal";
@@ -8,7 +8,6 @@ import { Intro } from "@/components/landing/intro";
 import { SHOT_DISPLAY } from "@/engine/classify";
 import { Check, Chevron, Lock, Question, Record as RecordIcon, Swap, Target, Trend } from "@/components/icons";
 import { Logo } from "@/components/brand/logo";
-import { BFD_PARTS } from "@/components/guide/back-foot-guide";
 
 export const metadata: Metadata = {
   title: { absolute: "Aline — eyes over the ball, everything in line" },
@@ -36,6 +35,7 @@ const STEPS = [
 
 export default function Landing() {
   const story = textbookStory();
+  const backStory = demoStory("back");
   // The hero holds the moment just after contact when the ball, dropping dead, is most
   // nearly under the eyes.
   const c = story.moments[3];
@@ -158,7 +158,7 @@ export default function Landing() {
 
       {/* 4b · The second shot */}
       <section id="back-foot" className="scroll-mt-6 border-y border-line bg-surface">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-[1fr_1.15fr] lg:gap-16">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
           <Reveal>
             <p className="eyebrow">New: the back-foot defence</p>
             <h2 className="display mt-3 text-4xl sm:text-6xl">Short ball on the stumps? Go back, stay tall.</h2>
@@ -172,15 +172,8 @@ export default function Landing() {
               <Link href="/guide#back-foot" className="btn btn-quiet">Learn the shot <Chevron size={16} /></Link>
             </div>
           </Reveal>
-          <Reveal delay={0.06}>
-            <dl className="divide-y divide-line border-y border-line">
-              {BFD_PARTS.map(([k, v]) => (
-                <div key={k} className="grid gap-1 py-3.5 sm:grid-cols-[10rem_1fr] sm:gap-6">
-                  <dt className="font-semibold">{k}</dt>
-                  <dd className="text-fg-muted">{v}</dd>
-                </div>
-              ))}
-            </dl>
+          <Reveal className="mt-10">
+            <ShotStory story={backStory} shot="back" />
           </Reveal>
         </div>
       </section>

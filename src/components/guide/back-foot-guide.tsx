@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ShotStory } from "@/components/home/shot-story";
+import type { Story } from "@/components/lesson/pose";
 import { BFD_BANDS } from "@/engine/backfoot-defs";
 
 // The back-foot defence (docs/11-back-foot-defence.md): what the shot is, with the coaching
@@ -24,7 +26,7 @@ export const BFD_PARTS: Array<[string, string]> = [
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const band = ([lo, hi]: readonly [number, number]) => `${pct(lo)} to ${pct(hi)}`;
 
-export function BackFootGuide() {
+export function BackFootGuide({ story }: { story?: Story }) {
   const rows: Array<[string, string, string]> = [
     ["Back foot back", "How far it travelled toward the stumps (side-on only)", band(BFD_BANDS.backStep)],
     ["Front foot alongside", "Gap between the ankles at contact (side-on only)", `up to ${pct(BFD_BANDS.feetGap[1])}`],
@@ -50,6 +52,8 @@ export function BackFootGuide() {
           <Link href="/sample/valid_bfd" className="btn btn-ghost">See a sample report</Link>
         </div>
       </div>
+
+      {story && <ShotStory story={story} shot="back" />}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card p-5">
