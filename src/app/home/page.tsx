@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { demoStory, sampleAnalysis, textbookStory } from "@/lib/demo";
-import { ShotStory } from "@/components/home/shot-story";
+import { sampleAnalysis } from "@/lib/demo";
+import { ShotVideo } from "@/components/home/shot-video";
 import { Reveal } from "@/components/common/reveal";
 import { Intro } from "@/components/landing/intro";
 import { Check, Swap, Question, CameraOff, Chevron, Record as RecordIcon, Target, Trend } from "@/components/icons";
@@ -19,9 +19,6 @@ export const metadata: Metadata = { title: "Home" };
 export default function AppHome() {
   const valid = sampleAnalysis("valid_ffd")!;
   const v = valid.payload;
-  // The explainer plays the textbook defence, not the sample (which has a fault to fix).
-  const story = textbookStory();
-  const backStory = demoStory("back");
   const keyMetrics = ["line_head", "sync_spread", "stride_length"].map((id) => v.metrics.find((m) => m.id === id)!);
 
   return (
@@ -52,11 +49,11 @@ export default function AppHome() {
           <p className="eyebrow">Learn the shot</p>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
             <h2 className="display text-3xl sm:text-5xl max-w-2xl">The forward defence in four moves.</h2>
-            <p className="max-w-sm text-sm text-fg-muted">Every report teaches the same way: your own shot, drawn, with the one idea that matters most.</p>
+            <p className="max-w-sm text-sm text-fg-muted">Watch a coach play it, then film yours: Aline checks it against the same four moves.</p>
           </div>
         </Reveal>
         <Reveal className="mt-8">
-          <ShotStory story={story} />
+          <ShotVideo shot="front" />
         </Reveal>
       </section>
 
@@ -73,7 +70,7 @@ export default function AppHome() {
           </div>
         </Reveal>
         <Reveal className="mt-8">
-          <ShotStory story={backStory} shot="back" />
+          <ShotVideo shot="back" />
         </Reveal>
       </section>
 
