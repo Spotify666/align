@@ -30,6 +30,10 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
    smaller models or looser rules; prove it by comparing tracks before and after.
 6. **Ship it**: merge after green CI, verify production, then tell the athlete once that it is
    live. Don't make them ask. Keep messages short (they read on an Android phone).
+7. **Left-handers are not mirrored right-handers.** Batting side is not hand dominance (most
+   left-handed batters bat with their stronger hand on top); never flip a demonstration for a
+   left-hander. Name the batter's own sides and the role of each hand instead
+   (docs/context.md, 2026-10-21).
 
 ## Working rules
 
