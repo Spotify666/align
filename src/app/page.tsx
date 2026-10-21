@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { demoStory, sampleAnalysis, textbookStory } from "@/lib/demo";
-import { AlignHero } from "@/components/home/align-hero";
-import { ShotStory } from "@/components/home/shot-story";
+import { sampleAnalysis } from "@/lib/demo";
+import { ShotVideo } from "@/components/home/shot-video";
 import { Reveal } from "@/components/common/reveal";
 import { Intro } from "@/components/landing/intro";
 import { SHOT_DISPLAY } from "@/engine/classify";
@@ -34,15 +33,6 @@ const STEPS = [
 ];
 
 export default function Landing() {
-  const story = textbookStory();
-  const backStory = demoStory("back");
-  // The hero holds the moment just after contact when the ball, dropping dead, is most
-  // nearly under the eyes.
-  const c = story.moments[3];
-  const gap = (i: number) => Math.abs(story.poses[i]!.ball![0] - story.poses[i]!.head[0]);
-  const hero = Array.from({ length: 10 }, (_, k) => c + k)
-    .filter((i) => story.poses[i]?.ball)
-    .reduce((best, i) => (gap(i) < gap(best) ? i : best), c);
   const pull = sampleAnalysis("pull")!;
   const pullShot = pull.payload.observed_shot!;
   const pullEvidence = pull.payload.features.filter((f) => pullShot.evidence_ids.includes(f.id)).map((f) => f.reading);
@@ -108,7 +98,9 @@ export default function Landing() {
           </Reveal>
           <Reveal delay={0.08}>
             <figure className="overflow-hidden rounded-[22px] ring-1 ring-line">
-              <AlignHero pose={story.poses[hero]!} ballFrom={story.poses[hero - 1]?.ball} after={0.3} />
+              <div className="grid aspect-[4/3] place-items-center bg-surface p-8">
+                <Logo size={260} className="h-full w-auto max-w-full" title="The Aline mark" />
+              </div>
               <figcaption className="border-t border-line bg-surface px-5 py-4 text-sm">
                 <span className="block font-semibold">The mark is the shot.</span>
                 <span className="mt-1 block text-fg-muted">A long stride, the front leg straight down the line, the bat in line with it. Everything Aline measures comes back to it.</span>
@@ -148,11 +140,11 @@ export default function Landing() {
           <p className="eyebrow">See the shot</p>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
             <h2 className="display max-w-2xl text-4xl sm:text-6xl">The forward defence in four moves.</h2>
-            <p className="max-w-sm text-sm text-fg-muted">This is how every report teaches: your own shot, drawn, with the one idea that matters most.</p>
+            <p className="max-w-sm text-sm text-fg-muted">Watch a coach play it, then film yours: Aline checks it against the same four moves.</p>
           </div>
         </Reveal>
         <Reveal className="mt-10">
-          <ShotStory story={story} />
+          <ShotVideo shot="front" />
         </Reveal>
       </section>
 
@@ -173,7 +165,7 @@ export default function Landing() {
             </div>
           </Reveal>
           <Reveal className="mt-10">
-            <ShotStory story={backStory} shot="back" />
+            <ShotVideo shot="back" />
           </Reveal>
         </div>
       </section>

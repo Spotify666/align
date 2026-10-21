@@ -3,6 +3,27 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-10-21 · A real video instead of the drawn demonstration
+
+> You are not able to build proper illustration just replace it with nice video which
+> properly showcases the defence
+
+Done:
+- **Videos, not drawings**: "Learn the shot" (landing page, Home, the Guide's back-foot
+  section) now shows a coach demonstrating each defence on video: Sikana's free "How to Play
+  Cricket" lessons, "How to Play a Front Foot Defence" and "How to Play a Back Foot Defence"
+  (YouTube, embedded, credited, with a "Watch on YouTube" link). Beside each video, the four
+  moves to watch for (set up, pick up or back and across, stride or alongside, contact).
+- **Private and light**: nothing is loaded from YouTube until play is tapped, then in its
+  no-cookie mode; the picture before that is the video's own frame in grey under a flat play
+  button. No third-party video is committed to the repo.
+- **Either hand**: the right-/left-handed switch stays; left-handed mirrors the video.
+- The drawn batter is gone from the public pages (the landing page's "The name" shows the
+  Aline mark instead). Reports still draw the batter's own shot from their clip.
+- To use other videos, change the YouTube ids in `SHOT_VIDEOS`
+  (`src/components/home/shot-video.tsx`). The videos could not be previewed from the build
+  environment (YouTube is blocked there); they were chosen by title and source.
+
 ## 2026-10-20 · Teach both defences: four connected stages, two hands, either hand
 
 > Restructure the visual demo video to accurately demonstrate the human body dynamics of a
