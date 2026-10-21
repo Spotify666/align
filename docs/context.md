@@ -3,6 +3,31 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-10-21 · Left-handers are not mirrored right-handers
+
+> Damn / You literally mirrored the left hand, the logic isn't that way / Study the science and
+> then apply / It's not at all right
+
+What the science says (applied now):
+- Batting side is not hand dominance. A left-handed batter stands with the right shoulder and
+  foot toward the bowler and the right hand on top, but is often right-hand dominant: at the
+  2003 World Cup, 25 of 41 left-handed batters bowled right-handed.
+- The top hand guides the bat; the bottom hand supports it. Professionals were about 7 times
+  more likely than inexperienced batters to bat with the stronger hand on top (the "reversed"
+  stance), whichever side they bat (Mann, Runswick & Allen, Sports Medicine 2016: 43
+  professional, 93 inexperienced batters; an observed link, not proof).
+- So a mirrored right-hander is not a real left-hander (it swaps hand dominance and turns the
+  bowler's arm round too).
+
+Done:
+- The videos are never flipped. "You bat: Right-handed / Left-handed" names your own sides in
+  every step (which shoulder and foot lead, which hand is on top); "Your stronger hand: Right /
+  Left" says whether your stronger hand is on top or at the bottom and what to do about it
+  ("let it guide" or "keep it loose"), with the source.
+- Open: a real left-handed demonstration video for each defence. YouTube is blocked in the
+  build environment, so none could be watched and verified; allowing youtube.com and
+  i.ytimg.com in the environment's network settings would let the next session do it.
+
 ## 2026-10-21 · A real video instead of the drawn demonstration
 
 > You are not able to build proper illustration just replace it with nice video which
@@ -17,7 +42,8 @@ Done:
 - **Private and light**: nothing is loaded from YouTube until play is tapped, then in its
   no-cookie mode; the picture before that is the video's own frame in grey under a flat play
   button. No third-party video is committed to the repo.
-- **Either hand**: the right-/left-handed switch stays; left-handed mirrors the video.
+- **Either hand**: the right-/left-handed switch stays; left-handed mirrors the video
+  (replaced the same day: see "Left-handers are not mirrored right-handers").
 - The drawn batter is gone from the public pages (the landing page's "The name" shows the
   Aline mark instead). Reports still draw the batter's own shot from their clip.
 - To use other videos, change the YouTube ids in `SHOT_VIDEOS`
