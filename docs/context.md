@@ -3,6 +3,24 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · Two angles: exactly one side and one front, detected by Aline
+
+> When multiple videos, you should restrict the user to upload only 2: side angle and front
+> angle. And if the angle is not detected then the video should not be considered.
+
+Done:
+- Only **two clips per ball**: one side-on, one front-on (from the bowler's end). Behind, angled or
+  unknown camera positions don't take part (`angleFamily`); a report filmed from those doesn't
+  offer the other angle, and a ball that already has both angles takes no third clip ("This ball
+  already has both angles").
+- The second clip must be **the missing angle, read by Aline itself**: the camera position comes
+  from the pose with confidence (`guessView`), and the manual "Change" is hidden for it. Clearly
+  the wrong angle: stopped before tracking ("Not the front angle: this video is filmed from the
+  side, so it isn't used"); not detected with confidence, or the wrong angle after tracking: not
+  saved and not used ("Camera angle not detected").
+- Checked in the real browser pipeline on the athlete's clips: side + front paired; side + side
+  refused in 6 s; front + front refused; a third clip not offered once paired.
+
 ## 2026-11-08 · Add the other angle (optional)
 
 > Can we provide an option for the user to upload both views? … Add other angle, but this is like
@@ -10,8 +28,9 @@ change that answers a new ask, so the next session starts from the same page.
 > more refined output.
 
 Done (additive: the single-clip flow and its report are unchanged):
-- **On a video report**, under the summary: "Add the front angle of this ball" (or the side
-  angle), with "Optional: a second camera gives a more exact result". It opens the usual Add
+- **On a video report** filmed side-on or from the front, under the summary: "Add the front
+  angle of this ball" (or the side angle), with "Optional: a second camera gives a more exact
+  result". It opens the usual Add
   screen with a note naming the first clip; the second clip goes through the usual steps and is
   saved as its own report too.
 - **The two are linked** (`otherAngle` on each saved analysis) and shown together at
