@@ -4,7 +4,7 @@
 
 import type { MetricDefinition } from "./registry";
 
-export const BFD_METRIC_VERSION = "bfd-0.1.0";
+export const BFD_METRIC_VERSION = "bfd-0.2.0";
 
 export const BFD_SOURCE =
   "Coaching geometry for the back-foot defence (back and across, front foot alongside, head forward over the back foot, tall, high front elbow, contact under the eyes, soft hands; Sportplan, ESPNcricinfo and Pitchero coaching pages). Provisional: not yet fitted to measured players.";

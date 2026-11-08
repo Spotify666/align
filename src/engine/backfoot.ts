@@ -98,7 +98,13 @@ function vertical(scene: Scene, frame: number): { elbow: number; headHeight: num
  * The back-foot defence at one frame (a photo, or a video's contact) and, for video, how it
  * formed. Null when the back ankle and the head aren't seen there.
  */
-export function measureBackFoot(scene: Scene, contact: number, view: CameraView, hand: Handedness, opts: { contactKnown?: boolean } = {}): BackFootReading | null {
+export function measureBackFoot(
+  scene: Scene,
+  contact: number,
+  view: CameraView,
+  hand: Handedness,
+  opts: { contactKnown?: boolean; /** Read at `contact` as given (already the set position): never move it. */ fixedReference?: boolean } = {},
+): BackFootReading | null {
   const axis: BackFootAxis = scene.plane === "frontal" ? "sideways" : "forward";
   if (axis === "sideways" && !scene.across) return null;
   const { sign, unclear } = axis === "sideways" ? offSideSign(scene, view, hand) : { sign: 1 as const, unclear: false };
@@ -147,7 +153,7 @@ export function measureBackFoot(scene: Scene, contact: number, view: CameraView,
   const setFrames = arrivals ? [arrivals.back_foot, arrivals.front_foot, arrivals.head].map((a) => a.frame).filter((x): x is number => x !== null) : [];
   const known = opts.contactKnown ?? true;
   const setPoint = setFrames.length >= 2 ? Math.max(...setFrames) : null;
-  const ref = !known && setPoint !== null ? setPoint : contact;
+  const ref = !known && setPoint !== null && !opts.fixedReference ? setPoint : contact;
   const at = ref === contact ? atContact : read(ref);
   const v = ref === contact ? v0 : vertical(scene, ref);
   if (arrivals) for (const a of Object.values(arrivals)) if (a.frame !== null) a.ms = Math.round((a.frame - ref) * dt * 1000);

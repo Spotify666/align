@@ -51,3 +51,39 @@ export function gripHandedness(bodies: ImgPoint[][], aspect: number, minFrames =
   if (agreement < 0.75) return null;
   return { handedness: left > right ? "right" : "left", frames: n, agreement };
 }
+
+/**
+ * Batting hand from where the feet stand, filmed side-on: in the stance the front foot is the
+ * one nearer the bowler (a right-hander's left). Robust where the grip isn't: a stance with the
+ * bat raised behind puts the bottom hand above the top hand. `bowlerSide` is the picture edge
+ * the bowler is on. Null unless the feet are clearly apart along the pitch in most frames and
+ * agree.
+ */
+export function feetHandedness(bodies: ImgPoint[][], aspect: number, bowlerSide: "left" | "right", minFrames = 3): GripRead | null {
+  let left = 0;
+  let right = 0;
+  for (const b of bodies) {
+    const g = (j: number) => {
+      const p = b?.[j];
+      return p && p[2] >= 0.5 ? p : null;
+    };
+    const la = g(J.left_ankle);
+    const ra = g(J.right_ankle);
+    const ls = g(J.left_shoulder);
+    const lh = g(J.left_hip);
+    if (!la || !ra || !ls || !lh) continue;
+    const trunk = Math.hypot((ls[0] - lh[0]) * aspect, ls[1] - lh[1]);
+    if (trunk < 1e-3) continue;
+    const toward = (bowlerSide === "right" ? 1 : -1) * (la[0] - ra[0]) * aspect;
+    // Feet at least a fifth of a trunk apart along the picture (a stance: about two thirds).
+    if (Math.abs(toward) < 0.2 * trunk) continue;
+    if (toward > 0) left++;
+    else right++;
+  }
+  const n = left + right;
+  if (n < minFrames) return null;
+  const agreement = Math.max(left, right) / n;
+  if (agreement < 0.8) return null;
+  // The left foot nearer the bowler: a right-hander.
+  return { handedness: left > right ? "right" : "left", frames: n, agreement };
+}

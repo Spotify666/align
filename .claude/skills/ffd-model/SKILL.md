@@ -64,6 +64,10 @@ guessed; estimates are labelled; every range names its source.
 ## The back-foot defence (the second shot)
 
 Separate path (`analyzeBackFoot`, `backfoot*.ts`, docs/11), run only for `target:
-"back_foot_defence"`. Measured from the **back ankle**; its own strict gate (P ≥ 0.80, margin,
-"went back and stayed tall"); ranges are provisional coaching geometry (no lab data). Changing
-it must leave every front-foot result byte-identical.
+"back_foot_defence"`. Measured from the **back ankle**; identified by its definition checked on
+the body from any camera position (`backfoot-formula.ts`): no stride, went back, stayed tall, a
+defensive bat (hands stop at the ball, stay in front and below the shoulders, shoulders side-on),
+read at the set position when bat and ball aren't seen. Ranges are provisional coaching geometry
+(no lab data). Changing it must leave every front-foot result byte-identical, except the guard:
+a clip meeting the whole back-foot definition is never passed as a front-foot defence
+(`looks_back_foot`, or named a back-foot defence when the FFD model names nothing).

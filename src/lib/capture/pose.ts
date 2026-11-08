@@ -307,8 +307,48 @@ export function loadPersonDetector(): Promise<OD> {
   return detector;
 }
 
+// The picture inside black bars (an upright phone video saved into a wide frame, or a wide one
+// into a tall frame), in normalised coordinates of the full frame; null when the picture fills
+// it. People are looked for in the picture itself, so a batter in a narrow upright picture isn't
+// shrunk by the empty bars around it to below what the detector can find.
+let pictureArea: Roi | null = null;
+let areaCanvas: AnyCanvas | null = null;
+export function setPictureArea(a: Roi | null) {
+  pictureArea = a;
+}
+export function getPictureArea(): Roi | null {
+  return pictureArea;
+}
+
+/** The picture area in pixels of a W×H frame (whole pixels, so the page and the workers cut the same). */
+export function areaPixels(a: Roi, W: number, H: number) {
+  const x = Math.max(0, Math.round(a.x * W));
+  const y = Math.max(0, Math.round(a.y * H));
+  return { x, y, w: Math.min(W - x, Math.round(a.w * W)), h: Math.min(H - y, Math.round(a.h * H)) };
+}
+/** A box found in the picture area, in normalised coordinates of the whole W×H frame. */
+export function fromArea(b: Box, r: { x: number; y: number; w: number; h: number }, W: number, H: number): Box {
+  return { x: (r.x + b.x * r.w) / W, y: (r.y + b.y * r.h) / H, w: (b.w * r.w) / W, h: (b.h * r.h) / H, score: b.score };
+}
+
 /** People (largest first) and bat-like objects in a frame. `source` dimensions define the normalisation. */
 export function detectObjects(det: OD, source: FrameSource | ImageBitmap | ImageData): { people: Box[]; bats: Box[] } {
+  const a = pictureArea;
+  if (a && !(typeof ImageData !== "undefined" && source instanceof ImageData)) {
+    const { w: W, h: H } = sizeOf(source);
+    if (!W || !H) return { people: [], bats: [] };
+    // The area at its own pixels, uncut and unscaled: the same pixels a worker is sent.
+    const r = areaPixels(a, W, H);
+    if (!areaCanvas || areaCanvas.width !== r.w || areaCanvas.height !== r.h) areaCanvas = makeCanvas(r.w, r.h);
+    const ctx = areaCanvas.getContext("2d") as CanvasRenderingContext2D;
+    ctx.drawImage(source as CanvasImageSource, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+    const inner = detectObjectsIn(det, areaCanvas);
+    return { people: inner.people.map((b) => fromArea(b, r, W, H)), bats: inner.bats.map((b) => fromArea(b, r, W, H)) };
+  }
+  return detectObjectsIn(det, source);
+}
+
+function detectObjectsIn(det: OD, source: FrameSource | ImageBitmap | ImageData): { people: Box[]; bats: Box[] } {
   const { w: W, h: H } = sizeOf(source);
   if (!W || !H) return { people: [], bats: [] };
   const t0 = performance.now();

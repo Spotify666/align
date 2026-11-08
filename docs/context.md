@@ -3,6 +3,67 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · The back-foot defence by its formula, from any video
+
+> Is the report correct? [a back-foot defence from the bowler's end, analysed as a front-foot
+> defence: "without the bat or ball in view, the body movement alone fits more than one shot"]
+>
+> This is backfoot defence right? Why this analysis [analysed as a back-foot defence: "This
+> appears to be a front-foot defence"]
+>
+> This is also backfoot defence in side angle. Why is this not detected
+>
+> Make sure the fix is not specific to this video. Logic of backfoot defence should be
+> applicable on any kind of video applied based on the formula. You can refer to text material
+> definitions, videos from internet for additional reference to apply on human biomechanics
+
+What was wrong:
+- The back-foot defence was recognised by closeness to a prototype built from generated
+  batters; no real back-foot defence ever passed (the athlete's front-on clip was called a
+  front-foot defence, the side-on one "fits more than one shot").
+- Contact (bat and ball not seen) was placed where the head dipped in the back-and-across
+  trigger, 0.4 s before the bat met the ball, so the head read "low over the front leg".
+- The side-on clip was read as a left-hander from one frame of a raised-bat stance, swapping the
+  front and back feet in every measure.
+- An upright clip saved into a wide frame (black bars) left the batter too small to follow; a
+  panning phone read as the feet travelling.
+- Analysed as a front-foot defence, a real back-foot defence could pass as a valid front-foot
+  defence (the bars-free copy of the athlete's clip did; 72 of 172 real back-foot defences seen
+  from the bowler's end in the 3D set did).
+- Reports said "without the bat or ball in view" when they were in view: Aline doesn't look for
+  them unless they're tapped.
+
+Done (engine 0.8.0, bfd-0.2.0):
+- **The formula**: no stride, went back, stayed tall, a defensive bat; each read from what the
+  camera sees (side-on, bowler's end, behind, angled, still or panning), with limits set on real
+  movement (1,281 international shots in 3D, from every camera position) and the athlete's
+  clips; every limit's evidence is in the registry. The report lists the four parts, each met,
+  not met or not seen, in words. docs/11 has the detail.
+- **Contact** at the set position (where the feet come to rest after the stroke), not the head
+  dip; the stance is the last upright rest before the stroke.
+- **Front-foot guard**: a clip meeting the whole back-foot definition is never passed as a
+  front-foot defence: "this looks like a back-foot defence", with a button to analyse it as one.
+- **Capture**: the picture inside black bars; the camera's own movement read from the background
+  and taken out; the batting hand side-on from the feet (never from one or two frames).
+- **Wording**: "Aline didn't find the bat and ball on its own" instead of "not in view".
+- Checked: all eight versions of the athlete's clips (bars at 1080 and 480, cropped 1080 and 720,
+  mirrored, side-on 30 and 15 fps, side-on mirrored) valid back-foot defences, and offered as
+  back-foot defences when analysed as front-foot ones (live build: none recognised; one passed as
+  a front-foot defence). 50 broadcast clips of 10 other shots (CricketShotQualityAI): none accepted
+  as a back-foot defence (44 declined for camera cuts and zooms, 6 not confirmed). The 3D set and
+  the generated population: see docs/11.
+
+Open:
+- Without the bat and ball, a back-foot flick or punch can look like a block in the body's
+  positions; the hands stopping at the ball is what tells them apart, and that needs real video
+  timing. It held on the real clips here, but more real back-foot flicks and punches (side-on)
+  are the next thing to test. Tapping the ball and bat settles it.
+- From the bowler's end, back-foot defences that turn the shoulders open (as many international
+  batters do) are not confirmed without the bat and ball (36° limit, to keep flicks out).
+- Front-foot analysis (found in this check, live before this change and unchanged by it): a
+  zoomed broadcast late cut from the bowler's end (CricketShotQualityAI `late_cut/video5`) is
+  passed as a valid front-foot defence. Needs its own fix and real-media check.
+
 ## 2026-10-21 · Left-handers are not mirrored right-handers
 
 > Damn / You literally mirrored the left hand, the logic isn't that way / Study the science and
