@@ -85,6 +85,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Capture (scan, pick batter, gate, track) | `src/components/capture/capture-flow.tsx`, `src/lib/capture/*` |
 | Parallel model work (workers; must give the page's exact results) | `src/lib/capture/vision.worker.ts`, `vision-pool.ts` |
 | Brand (mark geometry, flat and 3D logo, icons) | `src/components/brand/*`, `scripts/brand-icons.mjs` |
+| Fresh pages after a release (build id, reload when a new one is live, held while busy) | `src/lib/fresh.ts` (`VersionWatch`, `holdUpdates`), `src/app/api/version`, `next.config.ts` |
 | Visitor log (tracker, bot filter, public totals page) | `src/lib/visit.ts`, `visit-shared.ts`, `src/app/api/visit`, `src/components/visitors.tsx`, Supabase `visits`, `visits_overview()` |
 | Report | `src/components/report/*` (`report-view.tsx`: summary, then "Details"; `line-panel.tsx`, `compare-panel.tsx`, `panels.tsx`); plain summary `src/engine/summary.ts` |
 | Two angles of the same ball (optional, `/angles`) | `src/engine/angles.ts`, `src/components/report/angles-report.tsx`; two videos chosen at once or capture `?angle=<id>`; same ball from the sound `src/engine/same-ball.ts`, `src/lib/capture/audio.ts`; `tests/e2e/two-videos.mjs`, `two-angles.mjs` |

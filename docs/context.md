@@ -3,6 +3,35 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · Pages refresh themselves after a release; a processing screen with depth
+
+> These changes should auto refresh the pages. Sometimes old stale sessions show no changes
+> until opened in incognito or some new browser. Don't want that to happen. It should reflect
+> with a refresh. And the visual illustration shown while working on the report (processing
+> indicator on top right) does not seem appealing: add some depth and effect. Status update in
+> every step should also feel transitive, because the last step after completion feels like
+> there is a delay in generation.
+
+Done (no engine change):
+- **Fresh pages** (`src/lib/fresh.ts`, `src/app/api/version`): every build carries its id; an
+  open page (also the installed app) asks the server for the live id when it comes back to the
+  screen or gets focus and every 2 minutes, and reloads itself once when a new release
+  is live. Never in the middle of an analysis or while a report still holds this session's video
+  (it waits for the next page change instead).
+- **The loader has depth** (`cricket-loader.tsx`): the pitch runs away towards the bowler, the
+  far stumps are tiny, the ball comes down the pitch growing, lands on its own shadow, meets the
+  bat (which gives: soft hands) with a small jolt and drops dead. Still flat ink on paper; moved
+  off the main thread, so it stays smooth while tracking; a still picture with reduced motion.
+- **Each step shows its change**: a tick pops in when a step finishes, a bar grows beside the
+  step now running, notes slide in. The last step says what it is doing ("Checking each part of
+  the shot", "Saving it on this device", for two videos "Checking it's the same ball, from the
+  sound"), and when it is done the heading says "Opening your report…".
+- **No wait at the end**: the report page is fetched while the body is being tracked, so it opens
+  the moment the report is saved (46 ms after the last step on a desktop browser, 0.7 s at 4×
+  CPU slowdown; before, it waited for the network). The report shows from the saved result at
+  once and fills in the comparisons with earlier sessions (under Details) after; while it is
+  read from the device, an outline of the report shows instead of "Loading report…".
+
 ## 2026-11-08 · Choose two videos at once: sorted into side and front, checked as the same ball
 
 > Is it live? Unable to segregation on multiple videos upload and limiting to 2: side angle and

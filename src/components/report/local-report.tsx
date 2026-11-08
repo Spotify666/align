@@ -16,6 +16,7 @@ import { ReportView } from "./report-view";
 import type { CompareReference } from "./evidence-viewer";
 import { CloudSave } from "../cloud/cloud-save";
 import { Trash } from "../icons";
+import { holdUpdates } from "@/lib/fresh";
 
 type State =
   | { kind: "loading" }
@@ -36,19 +37,28 @@ export function LocalReport({ id }: { id: string }) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "loading" });
 
+  // A report still holding this session's video (playback, marking) isn't reloaded under the batter.
+  useEffect(() => (sessionMedia.has(id) ? holdUpdates() : undefined), [id]);
+
   useEffect(() => {
     let alive = true;
     (async () => {
-      const stored = await getAnalysis(id);
-      const tracks = await getTracks(id);
+      const [stored, tracks] = await Promise.all([getAnalysis(id), getTracks(id)]);
       if (!stored || !tracks) {
         const cloud = await loadCloudAnalysis(id).catch(() => null);
         if (!cloud) return alive && setState({ kind: "missing" });
         const stub: StoredAnalysis = { id, createdAt: cloud.payload.created_at, recordedAt: cloud.recordedAt, payload: cloud.payload, title: cloud.title, notes: "", tags: [], representative: false, cloud: { syncedAt: cloud.recordedAt } };
         return alive && setState({ kind: "ready", stored: stub, obs: cloud.obs, keyframes: cloud.keyframes, baseline: [], reference: null, remote: true });
       }
-      const obs = await decodeTracks(tracks);
-      const keyframes = await getKeyframes(id, stored.payload.evidence_frames);
+      const otherId = stored.otherAngle;
+      const [obs, keyframes, other] = await Promise.all([
+        decodeTracks(tracks),
+        getKeyframes(id, stored.payload.evidence_frames),
+        otherId ? getAnalysis(otherId).then((o) => (o ? otherId : null)) : null,
+      ]);
+      if (!alive) return;
+      // The report shows now; the comparisons with earlier analyses (only under Details) follow.
+      setState({ kind: "ready", stored, obs, keyframes, baseline: [], reference: null, other });
       // Personal baseline from earlier valid analyses of the same shot on this device.
       const all = await listAnalyses();
       const shot = (a: StoredAnalysis) => a.payload.requested_shot ?? "front_foot_defence";
@@ -67,15 +77,14 @@ export function LocalReport({ id }: { id: string }) {
         const t = await getTracks(prev.id);
         if (t) reference = { obs: await decodeTracks(t), payload: prev.payload, label: prev.title, recordedAt: prev.recordedAt, contactSelf: c1, contactRef: c2 };
       }
-      const other = stored.otherAngle && (await getAnalysis(stored.otherAngle)) ? stored.otherAngle : null;
-      if (alive) setState({ kind: "ready", stored, obs, keyframes, baseline, reference, other });
+      if (alive) setState((s) => (s.kind === "ready" && s.stored.id === id ? { ...s, baseline, reference } : s));
     })().catch(() => alive && setState({ kind: "missing" }));
     return () => {
       alive = false;
     };
   }, [id]);
 
-  if (state.kind === "loading") return <p className="mx-auto max-w-7xl px-4 py-16 text-fg-muted">Loading report…</p>;
+  if (state.kind === "loading") return <ReportSkeleton />;
   if (state.kind === "missing")
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 space-y-4">
@@ -175,5 +184,35 @@ export function LocalReport({ id }: { id: string }) {
       </div>
     )}
     </>
+  );
+}
+
+/** The report's first card in outline while it is read from this device (a moment), so the page doesn't jump. */
+function ReportSkeleton() {
+  const bar = "rounded bg-line";
+  return (
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10 space-y-8" aria-busy="true">
+      <span className="sr-only">Loading report…</span>
+      <div aria-hidden className="flex items-center gap-3">
+        <span className={`${bar} h-4 w-16`} />
+        <span className={`${bar} ml-auto h-9 w-28`} />
+      </div>
+      <div aria-hidden className="card animate-pulse space-y-5 px-5 py-5 sm:px-7 sm:py-7">
+        <div className="flex items-center justify-between gap-3">
+          <span className={`${bar} h-6 w-24`} />
+          <span className={`${bar} h-6 w-28`} />
+        </div>
+        <span className={`${bar} block h-9 w-4/5`} />
+        <div className="space-y-3">
+          <span className={`${bar} block h-4 w-full`} />
+          <span className={`${bar} block h-4 w-11/12`} />
+          <span className={`${bar} block h-4 w-3/4`} />
+        </div>
+        <div className="flex gap-3">
+          <span className={`${bar} h-11 w-36`} />
+          <span className={`${bar} h-11 w-28`} />
+        </div>
+      </div>
+    </div>
   );
 }
