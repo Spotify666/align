@@ -37,7 +37,9 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 8. **Simple first.** A report opens with at most five plain sentences a child could follow
    (`src/engine/summary.ts`) and the camera angle on the right; everything else (measures,
    illustrations, drills) only behind the "Details" switch. Opening pages: a headline, the
-   actions, a few steps; no long copy (docs/context.md, 2026-11-08).
+   actions, a few steps; no long copy. Wording follows the batter's age (`readingLevel`: under
+   13 no numbers; adults the number and target); never milliseconds or minus signs on report
+   screens (docs/context.md, 2026-11-08).
 
 ## Working rules
 

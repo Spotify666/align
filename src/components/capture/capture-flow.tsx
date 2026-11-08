@@ -1147,6 +1147,29 @@ export function CaptureFlow() {
                   </div>
                 </fieldset>
 
+                <label className="flex items-center justify-between gap-4">
+                  <span>
+                    <span className="block text-sm font-semibold">Your age</span>
+                    <span className="block text-xs text-fg-subtle">So the feedback uses words that suit you</span>
+                  </span>
+                  <select
+                    className="field !w-auto shrink-0"
+                    value={profile.ageBand ?? ""}
+                    onChange={(e) => {
+                      const p = { ...profile, ageBand: (e.target.value || null) as typeof profile.ageBand };
+                      setProfile(p);
+                      saveProfile(p);
+                    }}
+                  >
+                    <option value="">Prefer not to say</option>
+                    <option value="u13">Under 13</option>
+                    <option value="13_15">13–15</option>
+                    <option value="16_18">16–18</option>
+                    <option value="adult">Adult</option>
+                    <option value="masters">Masters</option>
+                  </select>
+                </label>
+
                 <div className="card p-4 space-y-3">
                   <label className="flex items-start gap-3 text-sm">
                     <input

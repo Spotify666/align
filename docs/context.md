@@ -3,6 +3,29 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · Feedback worded for the batter's age
+
+> What's the logic of this [Fix next: "Foot, knee and shoulder out of sync … You: 234 ms; aim
+> for 0–150 ms"] … But how can a player understand the time thing? It's too technical for
+> children. … Add age as an input: age ranges in a drop-down, and give responses accordingly
+> so it's better understood.
+
+Done:
+- **Age on the Add-your-shot screen** ("Your age": Under 13, 13–15, 16–18, Adult, Masters, or
+  prefer not to say), saved to the profile (the same field the Profile page and the guardian
+  consent use).
+- **Worded by age** (`src/engine/summary.ts`, `readingLevel`): under 13, words only (no numbers in
+  the summary or the checks, "Doing well" in plain words); 13–18 or not given, the same summary
+  with friendly numbers in the details; adults and masters, the number and its target next to
+  the fix in the summary too. "Every measure" stays technical, for coaches.
+- **No milliseconds or minus signs on the report's screens**: times in seconds ("0.23 s",
+  "under 0.15 s", "0.23 s early"), distances with their direction ("6% of your height behind;
+  aim for 3% behind to 16% ahead").
+- **Foot, knee and shoulder together** names the part that came last, in words: "Your front
+  shoulder came late: lean it over the ball as your foot lands" (or the knee taking the weight
+  late, or the foot landing late).
+- Engine results unchanged (wording only; front-foot payloads byte-identical).
+
 ## 2026-11-08 · The same shot from the side and the front: the front elbow
 
 > These are basically same video from front and side angles. Why is the report different?

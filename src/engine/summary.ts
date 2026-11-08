@@ -4,6 +4,7 @@
 // Wording only: no thresholds live here; every judgement comes from the payload.
 
 import { SHOT_DISPLAY } from "./classify";
+import { plainRange, plainValue } from "./plain";
 import type { AnalysisPayload, CameraView, Metric, TargetShot } from "./types";
 
 export type SummaryKind = "good" | "fix" | "tip" | "info";
@@ -103,6 +104,88 @@ export function simpleFix(m: Pick<Metric, "id" | "axis" | "value" | "range" | "i
   return null;
 }
 
+/**
+ * How the feedback is worded, from the batter's age: under 13 the plainest words and no
+ * numbers; 13–18 (or age not given) plain words, with friendly numbers in the details; adults
+ * the number and its target next to the fix as well.
+ */
+export type ReadingLevel = "simple" | "plain" | "detailed";
+export function readingLevel(ageBand: string | null | undefined): ReadingLevel {
+  if (ageBand === "u13") return "simple";
+  if (ageBand === "adult" || ageBand === "masters") return "detailed";
+  return "plain";
+}
+
+type Valued = Pick<Metric, "id" | "unit" | "decimals" | "value" | "range" | "inRange"> & { axis?: Metric["axis"] };
+const seconds = (ms: number) => `${Number((Math.abs(ms) / 1000).toFixed(2))} s`;
+const isTime = (m: Pick<Metric, "unit">) => m.unit === "ms";
+/** A time that can fall either side of the moment (− early, + late). */
+const signedTime = (m: Valued) => isTime(m) && !!m.range && m.range.lo < 0;
+const when = (ms: number) => (Math.round(ms / 10) === 0 ? "on time" : `${seconds(ms)} ${ms < 0 ? "early" : "late"}`);
+
+/** Signed distances (× height) in words: which way, not a minus sign. */
+const DIRECTION: Record<string, [string, string]> = { bfd_elbow: ["below the shoulder", "above the shoulder"], hands_ahead_of_knee: ["behind", "ahead"], contact_ahead_of_knee: ["behind", "ahead"] };
+function direction(m: Valued): [string, string] | null {
+  if (m.unit !== "× stature") return null;
+  if (DIRECTION[m.id]) return DIRECTION[m.id]!;
+  if (m.axis === "forward") return ["behind", "ahead"];
+  if (m.axis === "sideways") return ["to the leg side", "to the off side"];
+  return null;
+}
+const pct = (v: number) => `${Math.round(Math.abs(v) * 100)}%`;
+const side = (m: Valued, v: number) => (v < 0 ? direction(m)![0] : direction(m)![1]);
+
+/** A value in everyday units: seconds, not milliseconds; distances with their direction. */
+export function friendlyValue(m: Valued): string {
+  if (m.value === null) return "—";
+  if (signedTime(m) || (isTime(m) && m.value < 0)) return when(m.value);
+  if (isTime(m)) return seconds(m.value);
+  if (direction(m)) return Math.round(m.value * 100) === 0 ? "level" : `${pct(m.value)} of your height ${side(m, m.value)}`;
+  if (m.unit === "× stature/s") return `${Math.round(m.value * 100)}% of your height a second`;
+  return plainValue(m);
+}
+
+/** The target in everyday units ("under 0.15 s"; "3% behind to 16% ahead"). */
+export function friendlyRange(m: Valued): string {
+  if (!m.range) return "";
+  const { lo, hi } = m.range;
+  if (signedTime(m)) return `${when(lo)} to ${when(hi)}`;
+  if (isTime(m)) return lo <= 0 ? `under ${seconds(hi)}` : `${seconds(lo).replace(" s", "")}–${seconds(hi)}`;
+  if (direction(m)) {
+    const one = (v: number) => (Math.round(v * 100) === 0 ? "level" : `${pct(v)} ${side(m, v)}`);
+    if (lo > 0 || hi < 0) return `${pct(Math.min(Math.abs(lo), Math.abs(hi)) * Math.sign(hi || lo))}–${pct(Math.max(Math.abs(lo), Math.abs(hi)))} ${side(m, hi)}`;
+    return `${one(lo)} to ${one(hi)}`;
+  }
+  if (m.unit === "× stature/s") return `under ${Math.round(hi * 100)}% of your height a second`;
+  return plainRange(m);
+}
+
+/**
+ * For "together" in time: which part came late, in words, and what to do about it. Front foot,
+ * front knee (taking the weight) and front shoulder should land together.
+ */
+function lateFix(p: AnalysisPayload, m: Pick<Metric, "id" | "inRange" | "value" | "range">): string | null {
+  if (m.id !== "sync_spread" || m.inRange !== false || !m.range || m.value === null || m.value <= m.range.hi) return null;
+  const a = p.line?.arrivals;
+  if (!a) return null;
+  const parts = (["foot", "knee", "shoulder"] as const).filter((k) => a[k].ms !== null);
+  if (parts.length < 2) return null;
+  const last = parts.reduce((x, y) => (a[y].ms! > a[x].ms! ? y : x));
+  return {
+    shoulder: "Your front shoulder came late: lean it over the ball as your foot lands.",
+    knee: "Your front knee took your weight late: bend it as your foot lands.",
+    foot: "Your front foot landed late: step and lean at the same time.",
+  }[last];
+}
+
+/** The one thing to fix, worded for the reader: with its number and target for adults. */
+export function fixSentence(p: AnalysisPayload, m: Metric, level: ReadingLevel = "plain"): string | null {
+  const base = lateFix(p, m) ?? simpleFix(m);
+  if (!base) return null;
+  if (level !== "detailed" || m.value === null || !m.range) return base;
+  return `${base.replace(/\.$/, "")} (you: ${friendlyValue(m)}; aim for ${friendlyRange(m)}).`;
+}
+
 /** Why no answer was given, simply. */
 const REASON: Record<string, string> = {
   no_stroke: "Aline didn't see a shot being played.",
@@ -176,7 +259,8 @@ const cap = (lines: SummaryLine[]) => {
  * the one thing to fix, what to remember or do next). Every sentence is plain words, no numbers
  * beyond counting, no units.
  */
-export function plainSummary(p: AnalysisPayload, opts: { mediaKind?: "video" | "photo"; otherShot?: TargetShot | null } = {}): PlainSummary {
+export function plainSummary(p: AnalysisPayload, opts: { mediaKind?: "video" | "photo"; otherShot?: TargetShot | null; level?: ReadingLevel } = {}): PlainSummary {
+  const level = opts.level ?? "plain";
   const shot: TargetShot = p.requested_shot ?? "front_foot_defence";
   const name = SHOT_NAME[shot];
   const kind = opts.mediaKind ?? (p.mode === "posture_screen" ? "photo" : "video");
@@ -200,7 +284,7 @@ export function plainSummary(p: AnalysisPayload, opts: { mediaKind?: "video" | "
     const [verdict, tone] = c ? verdicts[c.verdict] : [`Aline couldn't check this ${media}.`, "warn" as const];
     const ms = p.metrics.filter((m) => m.value !== null && m.status !== "not_measured");
     const goods = graded ? ms.filter((m) => m.inRange === true).map(simpleGood).filter((t): t is string => !!t) : [];
-    const fixes = graded ? ms.map(simpleFix).filter((t): t is string => !!t) : [];
+    const fixes = graded ? ms.map((m) => fixSentence(p, m, level)).filter((t): t is string => !!t) : [];
     const lines: SummaryLine[] = [];
     if (graded && c.checked > 0) lines.push({ kind: "info", text: `${c.met} of ${c.checked} checks are right.` });
     if (goods[0]) lines.push({ kind: "good", text: goods[0] });
@@ -264,7 +348,7 @@ export function plainSummary(p: AnalysisPayload, opts: { mediaKind?: "video" | "
   const fixes: string[] = [];
   for (const f of p.priorities) {
     const m = metricOf(p, f.metricId);
-    const t = m ? simpleFix(m) : null;
+    const t = m ? fixSentence(p, m, level) : null;
     if (t && !fixes.includes(t)) fixes.push(t);
   }
   // With nothing listed as a strength, the measures inside their range speak for it.

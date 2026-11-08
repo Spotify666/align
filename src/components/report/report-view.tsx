@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { AnalysisPayload, CaptureObservation, Metric, TargetShot } from "@/engine/types";
 import { TARGET_SHOTS } from "@/engine/types";
 import type { BaselineComparison } from "@/engine/baseline";
@@ -18,8 +18,9 @@ import { Lesson } from "../lesson/lesson";
 import { LinePanel } from "./line-panel";
 import { ComparePanel } from "./compare-panel";
 import { BackFootPanel } from "./back-foot-panel";
-import { plainRange, plainReading, plainValue } from "@/engine/plain";
-import { plainSummary, type SummaryKind } from "@/engine/summary";
+import { plainReading } from "@/engine/plain";
+import { fixSentence, friendlyRange, friendlyValue, plainSummary, readingLevel, simpleGood, type ReadingLevel, type SummaryKind } from "@/engine/summary";
+import { loadProfile } from "@/lib/store";
 
 interface Props {
   payload: AnalysisPayload;
@@ -42,6 +43,8 @@ interface Props {
   onAnalyseAs?: (target: TargetShot) => Promise<void>;
 }
 
+const noSubscribe = () => () => {};
+
 const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
 
@@ -52,6 +55,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
   const [moreMounted, setMoreMounted] = useState(false);
   // Everything beyond the summary is drawn only when the batter turns "Details" on.
   const [details, setDetails] = useState(false);
+  // Worded for the batter's age (profile); pages rendered ahead of time start from "plain".
+  const level = useSyncExternalStore(noSubscribe, () => readingLevel(loadProfile().ageBand), () => "plain" as ReadingLevel);
   const shot = shotOf(p);
   const shotName = SHOT_NAME[shot];
   const observedLabel = p.observed_shot?.label;
@@ -60,7 +65,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
   const looksBack = shot === "front_foot_defence" && p.status_reason === "looks_back_foot";
   // The other defence the same tracks can be checked as, when Aline named or saw it.
   const switchTo: TargetShot | null = looksBack ? "back_foot_defence" : p.analysis_status === "invalid_for_requested_analysis" ? otherTarget : null;
-  const sum = useMemo(() => plainSummary(p, { mediaKind: obs.media.kind, otherShot: onAnalyseAs ? switchTo : null }), [p, obs.media.kind, onAnalyseAs, switchTo]);
+  const sum = useMemo(() => plainSummary(p, { mediaKind: obs.media.kind, otherShot: onAnalyseAs ? switchTo : null, level }), [p, obs.media.kind, onAnalyseAs, switchTo, level]);
   const recordHref = shot === "back_foot_defence" ? "/analyse?shot=back" : "/analyse";
   const [aiReport, setAiReport] = useState<Report | null>(null);
   const [aiState, setAiState] = useState<"idle" | "loading" | "unavailable" | "fallback">("idle");
@@ -220,7 +225,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           )}
       </section>
 
-      <KeyChecks p={p} onSeek={seek} />
+      <KeyChecks p={p} onSeek={seek} level={level} />
 
       <LinePanel payload={p} fps={obs.media.fps} onSeek={(f) => seek(f)} />
 
@@ -482,7 +487,9 @@ const evidenceFrame = (m: Metric) => {
 /** A photo read side-on with enough of the batter visible: its checks are graded against the formula. */
 const positionGraded = (p: AnalysisPayload) => !!p.position_check && !["not_side_on", "not_enough", "not_on_front_foot", "not_on_back_foot"].includes(p.position_check.verdict);
 
-function KeyChecks({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, metricId?: string) => void }) {
+function KeyChecks({ p, onSeek, level }: { p: AnalysisPayload; onSeek: (frame: number, metricId?: string) => void; level: ReadingLevel }) {
+  // Under 13: words only; older: friendly numbers (seconds, share of height) beside them.
+  const numbers = level !== "simple";
   const isValid = p.analysis_status === "valid";
   const graded = isValid || positionGraded(p);
   const shown = (isValid || p.mode === "posture_screen" ? p.metrics : (p.observations ?? [])).filter((m) => m.status !== "not_measured" && m.value !== null);
@@ -506,13 +513,19 @@ function KeyChecks({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, 
             tone="ok"
             label="Doing well"
             title={strongM ? plainReading(strongM) : isValid ? "A sound defensive shape" : "Keep working on the shape"}
-            text={strongM ? strongM.relevance : isValid ? "Every check is inside its range." : "None of the checks is inside its range yet."}
+            text={strongM ? (numbers ? strongM.relevance : (simpleGood(strongM) ?? strongM.relevance)) : isValid ? "Every check is inside its range." : "None of the checks is inside its range yet."}
           />
           <SummaryCard
             tone={priorityM ? "bad" : "brand"}
             label={priorityM ? "Fix next" : "Next level"}
             title={priorityM ? plainReading(priorityM) : (p.plan?.priority.title ?? "Nothing urgent")}
-            text={priorityM ? `${coachText(priority!.observation)} You: ${plainValue(priorityM)}; aim for ${plainRange(priorityM)}.` : p.plan ? `Every check is met. ${p.plan.consequence}` : "Every check is met. Keep the same shape."}
+            text={
+              priorityM
+                ? `${fixSentence(p, priorityM, "plain") ?? coachText(priority!.observation)}${numbers ? ` You: ${friendlyValue(priorityM)}; aim for ${friendlyRange(priorityM)}.` : ""}`
+                : p.plan
+                  ? `Every check is met. ${p.plan.consequence}`
+                  : "Every check is met. Keep the same shape."
+            }
           />
           <SummaryCard tone="brand" label="Drill" title={drill?.name ?? "Keep practising the same shape"} text={drill ? `${drill.dosage}. Cue: “${p.plan?.cue ?? drill.cue}”` : "Record again to compare."} />
         </div>
@@ -550,10 +563,10 @@ function KeyChecks({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, 
                       <span className="font-medium">{graded ? plainReading(m) : m.name}</span>
                       <span className="block text-xs text-fg-subtle">
                         {graded && m.name !== plainReading(m) ? m.name : ""}
-                        {m.inRange === false && m.range ? `${graded && m.name !== plainReading(m) ? " · " : ""}aim for ${plainRange(m)}` : ""}
+                        {numbers && m.inRange === false && m.range ? `${graded && m.name !== plainReading(m) ? " · " : ""}aim for ${friendlyRange(m)}` : ""}
                       </span>
                     </span>
-                    <span className="num shrink-0 text-sm">{plainValue(m)}</span>
+                    {numbers && <span className="num shrink-0 text-sm">{friendlyValue(m)}</span>}
                     <span className="sr-only">{m.inRange === true ? "within range" : m.inRange === false ? "outside range" : "not graded"}</span>
                   </button>
                 </li>
