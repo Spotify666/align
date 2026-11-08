@@ -125,6 +125,9 @@ front-foot defence; it reads "this looks like a back-foot defence" and offers th
   defences; analysed as front-foot defences, all eight offered as back-foot defences (the live
   build: none recognised, five called front-foot defences, one passed as a valid front-foot
   defence).
+- **Broadcast clips of other shots** (CricketShotQualityAI, 50 clips of cover, straight, lofted
+  drives, flicks, pulls, hooks, cuts, sweeps and defences): none accepted as a back-foot defence
+  (44 declined for camera cuts and zooms, 6 not confirmed).
 - **Generated population** (`tests/backfoot.test.ts`): no front-foot defence, drive, half drive,
   pull or cut accepted; no back-foot defence called another shot.
 

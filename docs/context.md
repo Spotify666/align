@@ -49,7 +49,9 @@ Done (engine 0.8.0, bfd-0.2.0):
 - Checked: all eight versions of the athlete's clips (bars at 1080 and 480, cropped 1080 and 720,
   mirrored, side-on 30 and 15 fps, side-on mirrored) valid back-foot defences, and offered as
   back-foot defences when analysed as front-foot ones (live build: none recognised; one passed as
-  a front-foot defence). The 3D set and the generated population: see docs/11.
+  a front-foot defence). 50 broadcast clips of 10 other shots (CricketShotQualityAI): none accepted
+  as a back-foot defence (44 declined for camera cuts and zooms, 6 not confirmed). The 3D set and
+  the generated population: see docs/11.
 
 Open:
 - Without the bat and ball, a back-foot flick or punch can look like a block in the body's
@@ -58,6 +60,9 @@ Open:
   are the next thing to test. Tapping the ball and bat settles it.
 - From the bowler's end, back-foot defences that turn the shoulders open (as many international
   batters do) are not confirmed without the bat and ball (36° limit, to keep flicks out).
+- Front-foot analysis (found in this check, live before this change and unchanged by it): a
+  zoomed broadcast late cut from the bowler's end (CricketShotQualityAI `late_cut/video5`) is
+  passed as a valid front-foot defence. Needs its own fix and real-media check.
 
 ## 2026-10-21 · Left-handers are not mirrored right-handers
 
