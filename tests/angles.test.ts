@@ -19,7 +19,9 @@ describe("two angles of the same ball", () => {
   it("each angle on its own is unchanged, and knows which family it is", () => {
     expect(angleFamily(bfd("side_on"))).toBe("side");
     expect(angleFamily(bfd("front_on"))).toBe("end");
-    expect(angleFamily(bfd("behind"))).toBe("end");
+    // Only side-on and front-on take part: behind is neither.
+    expect(angleFamily(bfd("behind"))).toBeNull();
+    expect(combineAngles(bfd("side_on"), bfd("behind")).status).toBe("same_angle");
   });
 
   it("confirmed from both: each check from the angle that sees it, at most five sentences", () => {

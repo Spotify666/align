@@ -15,13 +15,20 @@ import type { AnalysisPayload, Metric, TargetShot } from "./types";
 
 export type AngleFamily = "side" | "end";
 
-/** Side-on (or angled) clips see along the pitch; front-on and behind see across it. */
+/**
+ * The two angles are exactly a side-on clip and a front-on one (from the bowler's end): side-on
+ * sees along the pitch, front-on across it. Behind, angled or unknown camera positions don't
+ * take part.
+ */
 export function angleFamily(p: Pick<AnalysisPayload, "camera_view" | "mode">): AngleFamily | null {
   if (p.mode === "posture_screen") return null;
-  if (p.camera_view === "side_on" || p.camera_view === "oblique") return "side";
-  if (p.camera_view === "front_on" || p.camera_view === "behind") return "end";
+  if (p.camera_view === "side_on") return "side";
+  if (p.camera_view === "front_on") return "end";
   return null;
 }
+
+/** The camera position the other clip must be filmed from. */
+export const otherAngleView = (f: AngleFamily) => (f === "side" ? "front_on" : "side_on");
 
 export interface AngleMeasure {
   key: string;
@@ -103,7 +110,7 @@ export function combineAngles(a: AnalysisPayload, b: AnalysisPayload, level: Rea
     ]);
   }
   if (!fa || !fb || fa === fb) {
-    const where = fa === "side" && fb === "side" ? "both from the side" : fa === "end" && fb === "end" ? "both from the front or behind" : "not clear";
+    const where = fa === "side" && fb === "side" ? "both from the side" : fa === "end" && fb === "end" ? "both from the front" : "not one side and one front";
     return none("same_angle", "These two clips can't be combined.", [
       { kind: "info", text: `The camera angles are ${where}.` },
       { kind: "tip", text: "Use one clip filmed from the side and one from the front, of the same ball." },

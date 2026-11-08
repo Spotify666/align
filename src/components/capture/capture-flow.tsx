@@ -51,7 +51,7 @@ import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
 import { feetHandedness, gripHandedness } from "@/lib/capture/grip";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
 import { getAnalysis, loadProfile, saveAnalysis, saveProfile, updateAnalysis, type LocalProfile } from "@/lib/store";
-import { angleFamily, type AngleFamily } from "@/engine/angles";
+import { angleFamily, otherAngleView, type AngleFamily } from "@/engine/angles";
 import { isSessionUrl, sessionCapture, sessionMedia } from "@/lib/session-media";
 import { CaptureChecklist } from "../report/panels";
 import { CameraPlacementDiagram, LiveFramingCheck } from "./setup-guide";
@@ -245,6 +245,8 @@ export function CaptureFlow() {
     view: "side_on" as ViewChoice,
     bowlerSide: "right" as "left" | "right",
     viewChosen: false,
+    /** The camera position was read from the pose with confidence (not guessed, not chosen). */
+    viewConfident: false,
     shotChosen: false,
     slow: 1,
     tried: [] as number[],
@@ -282,13 +284,16 @@ export function CaptureFlow() {
   // goes through the usual steps, then the two are linked and shown together.
   const [pair, setPair] = useState<{ id: string; title: string; family: AngleFamily } | null>(null);
   const pairRef = useRef<typeof pair>(null);
+  // Only two angles per ball: one already linked to another clip takes no third.
+  const [paired, setPaired] = useState<{ a: string; b: string } | null>(null);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("angle");
     if (!id) return;
     getAnalysis(id)
-      .then((a) => {
+      .then(async (a) => {
         const family = a ? angleFamily(a.payload) : null;
         if (!a || !family) return;
+        if (a.otherAngle && (await getAnalysis(a.otherAngle))) return setPaired({ a: id, b: a.otherAngle });
         const next = { id, title: a.title, family };
         pairRef.current = next;
         setPair(next);
@@ -328,6 +333,11 @@ export function CaptureFlow() {
   const realFps = meta?.containerFps ? meta.containerFps * slow : null;
   const stageList = photoMode ? PHOTO_STAGES : VIDEO_STAGES;
 
+  /** The second angle filmed from the wrong place: not used, and what to choose instead. */
+  const wrongAngle = (want: "front_on" | "side_on", got: string): [string, string] => [
+    want === "front_on" ? "Not the front angle" : "Not the side angle",
+    `This video is filmed ${got === "side_on" ? "from the side" : got === "front_on" ? "from the front" : got === "behind" ? "from behind" : "at an angle"}, so it isn't used. Choose a video of the same ball filmed from the ${want === "front_on" ? "front (the bowler's end)" : "side"}.`,
+  ];
   const fail = (title: string, body: string) => {
     logVisit("failed", title);
     run.current++;
@@ -368,7 +378,7 @@ export function CaptureFlow() {
     abort.current?.abort();
     run.current++;
     job.current.src?.close();
-    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null, target: job.current.target };
+    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, viewConfident: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null, target: job.current.target };
     setScan(null);
     setScanProgress(0);
     setWin(null);
@@ -535,7 +545,11 @@ export function CaptureFlow() {
       const choice: ViewChoice = g && (g.view === "front_on" || g.view === "behind") ? g.view : "side_on";
       setGuess(g ? choice : null);
       j.view = choice;
+      j.viewConfident = !!g?.confident;
       setView(choice);
+      // The second angle of a ball: clearly the wrong camera position, so stop before tracking.
+      const want = pairRef.current ? otherAngleView(pairRef.current.family) : null;
+      if (want && g?.confident && choice !== want) return fail(...wrongAngle(want, choice));
       if (g) {
         j.bowlerSide = g.bowlerSide;
         setBowlerSide(g.bowlerSide);
@@ -908,10 +922,11 @@ export function CaptureFlow() {
         const choice: ViewChoice = g.view === "front_on" || g.view === "behind" ? g.view : "side_on";
         if (choice !== j.view) {
           j.view = choice;
+          j.viewConfident = g.confident;
           setView(choice);
           setGuess(choice);
           stage("camera", "done", `${VIEW_TEXT[choice][0]!.toUpperCase()}${VIEW_TEXT[choice].slice(1)}`);
-        }
+        } else j.viewConfident = j.viewConfident || g.confident;
         j.bowlerSide = g.bowlerSide;
         setBowlerSide(g.bowlerSide);
       }
@@ -1070,6 +1085,14 @@ export function CaptureFlow() {
         setMediaTimes(attempt.times);
         setTracking(attempt.tr);
       }
+      // The second angle of a ball is used only when Aline itself read its camera position, and
+      // it is the missing one (front-on for a side-on first clip, side-on for a front-on one).
+      const want = pairRef.current && !remark && tr.kind === "video" ? otherAngleView(pairRef.current.family) : null;
+      if (want) {
+        const seenView = finalMarks.view;
+        if (j.viewChosen || !j.viewConfident) return fail("Camera angle not detected", `Aline couldn't tell the camera angle of this video, so it isn't used. Choose a video of the same ball filmed straight from the ${want === "front_on" ? "front (the bowler's end)" : "side"}, with your whole body in view.`);
+        if (seenView !== want) return fail(...wrongAngle(want, seenView));
+      }
       const gz = await encodeTracks(attempt.obs);
       const keyframes = photoKeyframes ?? (tr.kind === "video" ? await grabKeyframes(video.current!, mediaTimesRef.current, payload.evidence_frames) : {});
       const f = fileRef.current;
@@ -1150,9 +1173,15 @@ export function CaptureFlow() {
                   <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Add your shot</h1>
                   <p className="mt-2 text-fg-muted">A video or a few photos. Film from the side if you can.</p>
                 </div>
+                {paired && (
+                  <p className="rounded-xl border border-line-strong px-4 py-3 text-sm">
+                    <span className="font-semibold">This ball already has both angles.</span>{" "}
+                    <Link href={`/angles?a=${paired.a}&b=${paired.b}`} className="underline underline-offset-4">See both angles together</Link>
+                  </p>
+                )}
                 {pair && (
                   <p className="rounded-xl border border-line-strong px-4 py-3 text-sm">
-                    <span className="font-semibold">Other angle for “{pair.title}”.</span> Choose a video of the same ball, filmed from the {pair.family === "side" ? "front" : "side"}.
+                    <span className="font-semibold">Other angle for “{pair.title}”.</span> Choose a video of the same ball, filmed from the {pair.family === "side" ? "front (the bowler's end)" : "side"}. Aline checks the angle itself.
                   </p>
                 )}
 
@@ -1317,7 +1346,7 @@ export function CaptureFlow() {
                           ? () => openChange("shot")
                           : k === "batter" && cands.length > 1
                             ? () => openChange("batter")
-                            : k === "camera"
+                            : k === "camera" && !pair
                               ? () => openChange("view")
                               : null
                         : null;
@@ -1484,7 +1513,7 @@ export function CaptureFlow() {
                 <p className="whitespace-pre-line text-fg-muted">{error.body}</p>
                 <div className="flex flex-wrap gap-3">
                   <button className="btn btn-primary" onClick={() => { resetClip(); setPhase("add"); }}>Try another file</button>
-                  <Link className="btn btn-ghost" href="/guide">Recording tips</Link>
+                  {pair ? <Link className="btn btn-ghost" href={`/report/${pair.id}`}>Back to the report</Link> : <Link className="btn btn-ghost" href="/guide">Recording tips</Link>}
                 </div>
               </>
             )}

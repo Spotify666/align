@@ -1,7 +1,8 @@
 // End-to-end check of the optional second angle in Chromium: analyse one clip, tap "Add the …
 // angle of this ball" on its report, analyse the other clip, and land on the combined view.
 //   node tests/e2e/two-angles.mjs <baseUrl> <first-clip> <second-clip> <outPrefix>
-// SHOT=back analyses both as back-foot defences; COLOR=dark uses the dark theme.
+// SHOT=back analyses both as back-foot defences; COLOR=dark uses the dark theme. A second clip
+// from the wrong angle (or one whose angle isn't detected) is refused: the script prints it and stops.
 import { chromium } from "@playwright/test";
 const [, , base, first, second, out] = process.argv;
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] });
@@ -22,6 +23,12 @@ async function analyse(file, until) {
   while (Date.now() < deadline && !until.test(page.url())) {
     const h1 = await page.locator("h1").first().innerText().catch(() => "");
     if (/Which one is the batter/.test(h1)) await page.getByRole("button", { name: /Analyse this person|Follow this person/ }).click().catch(() => {});
+    if (/Not the (front|side) angle|Camera angle not detected/.test(h1)) {
+      step(`refused: ${h1} | ${(await page.locator("main").innerText()).replace(/\s+/g, " ").slice(0, 300)}`);
+      await shot("refused");
+      await browser.close();
+      process.exit(0);
+    }
     if (/can't analyse|can’t analyse|Analysis failed|No batter|Can.t read/i.test(h1)) throw new Error(`stopped: ${h1}`);
     await page.waitForTimeout(500);
   }
@@ -53,4 +60,9 @@ await page.locator("#report-details").screenshot({ path: `${out}_combined_detail
 await page.goto(firstUrl, { waitUntil: "load" });
 await page.locator("#verdict").waitFor();
 step(`first report now offers: ${await page.getByRole("link", { name: /See both angles together/ }).count()}`);
+// Only two angles per ball: asking for a third shows that both are already there.
+const firstId = firstUrl.split("/report/")[1];
+await page.goto(`${base}/analyse?angle=${firstId}`, { waitUntil: "load" });
+await page.waitForTimeout(800);
+step(`third clip offered: ${await page.getByText(/Other angle for/).count()} · already both: ${await page.getByText(/This ball already has both angles/).count()}`);
 await browser.close();
