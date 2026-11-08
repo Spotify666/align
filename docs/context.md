@@ -3,6 +3,56 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · Why the side-on clip still failed; a five-line report, a cricket loader, a minimal opening
+
+> In this video the batsman is going backward to play the defence shot, why is this not
+> considered as that shot [the side-on clip on the live site, on their phone: "no movement back
+> toward the stumps was seen"]
+>
+> After the analysis just show the output as summary in max 5 statements as feedback for the
+> user. Only if toggles on in detail button (then show him full content and the illustrations
+> to correct, else hide it). Keep it simple. Even 5y old should be able to understand.
+>
+> At the time of processing, show something like the settings loading on Zoho, with a cricket
+> bat hitting the ball, beside the steps (don't change the current layout, add it beside).
+>
+> Even on the opening page make sure details are very minimal, just the text and action points.
+> Keep it professional, understandable and accessible to all age groups who play cricket as a
+> real career.
+>
+> Add a label on the right in the summary and its expansion (side angle or forward angle), so
+> the user has clarity.
+
+What was wrong: on the phone, the clip's tracks showed a small adjustment of the feet in the
+stance at about 1 s. Aline took the first rest after any movement as the shot, so it measured
+the "stroke" before the batter had gone back, and found no movement back. In the test browser
+the same clip passed because there the adjustment happened to read a little smaller: the
+choice was fragile, not the definition.
+
+Done (engine 0.8.1):
+- **Which movement is the stroke**: every rest held 0.3 s or more is a candidate set position;
+  the stroke is the one with the most footwork from the stance before it. A shuffle or bat tap
+  in the stance never wins over the real step back (docs/11).
+- **Report**: opens with the answer and at most four more plain sentences (what was good, the one
+  fix, what to remember or do next), with the camera angle on the right ("Side angle", "Front
+  angle", "Back angle"). Everything else, measures, illustrations, video, drills, sits behind a
+  "Details" switch, off by default, and is drawn only when it's turned on; the details repeat the
+  angle with a sentence on where the camera was. `src/engine/summary.ts`.
+- **Processing**: a bat blocking a ball, on a loop, beside the heading of the steps (flat black
+  on sage-cream; still with reduced motion). The steps are unchanged.
+- **Opening page**: the headline, "Check your defence on your phone", the two actions, three
+  steps. App home: the two actions and the coach's video of each defence. The start screen's
+  long notes are cut to a line each; buttons say "Check front-foot defence" / "Check back-foot
+  defence".
+- Checked in the real browser pipeline on the athlete's clips: as a back-foot defence, all 8
+  versions valid (bars at 1080 and 480, cropped 1080 and 720, mirrored, side-on 30 and 15 fps,
+  side-on mirrored) and the side-on clip's 5 variants (bitrates, 720p, zoomed) valid on both the
+  CPU and the GPU pose model (the live build: 1 of the 5 on the GPU, 4 on the CPU). As a
+  front-foot defence, all 8 offered as back-foot defences. Front-foot verdicts on 64 saved real
+  tracks: identical to the locked build except the back-foot guard and the earlier wording
+  change; no broadcast clip accepted as a back-foot defence. At 4× CPU slowdown the report shows in about 0.6 s and
+  "Details" opens in 0.35 s.
+
 ## 2026-11-08 · The back-foot defence by its formula, from any video
 
 > Is the report correct? [a back-foot defence from the bowler's end, analysed as a front-foot

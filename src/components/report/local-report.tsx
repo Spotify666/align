@@ -118,19 +118,14 @@ export function LocalReport({ id }: { id: string }) {
       title={state.stored.title}
       analysisId={state.remote ? undefined : id}
       onAnalyseAs={state.remote ? undefined : analyseAs}
+      markHref={canMark ? `/analyse?mark=${id}` : null}
       notice={
         canMark ? (
-          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-brand/40 bg-surface/80 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-semibold">{p.analysis_status === "valid" ? "Add the ball and bat measures" : "Want the full verdict?"}</p>
-              <p className="text-sm text-fg-muted">
-                {p.analysis_status === "valid"
-                  ? `Your defence was confirmed from body and hand movement. Tap the ${state.obs.ball.source === "none" && state.obs.bat.source === "none" ? "ball and bat" : state.obs.ball.source === "none" ? "ball" : "bat"} on a few frames (about 30 seconds) to add bat angle, contact point and delivery measures.`
-                  : `Aline couldn't see the ${state.obs.ball.source === "none" && state.obs.bat.source === "none" ? "ball and bat" : state.obs.ball.source === "none" ? "ball" : "bat"} clearly enough on its own. Tap them on a few frames (about 30 seconds) to confirm the shot.`}
-              </p>
-            </div>
-            <Link href={`/analyse?mark=${id}`} className="btn btn-primary shrink-0">Add ball and bat</Link>
-          </div>
+          <p className="mt-3 text-sm text-fg-muted">
+            {p.analysis_status === "valid"
+              ? `Confirmed from your body and hands. Tap the ${state.obs.ball.source === "none" && state.obs.bat.source === "none" ? "ball and bat" : state.obs.ball.source === "none" ? "ball" : "bat"} on a few frames (about 30 seconds) to add the bat and contact measures.`
+              : `Aline couldn't see the ${state.obs.ball.source === "none" && state.obs.bat.source === "none" ? "ball and bat" : state.obs.ball.source === "none" ? "ball" : "bat"} clearly enough on its own. Tap them on a few frames (about 30 seconds) to confirm the shot.`}
+          </p>
         ) : null
       }
       actions={

@@ -146,8 +146,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="space-y-2">
             <p className="font-medium">Product</p>
-            <Link href="/analyse" className="block text-fg-subtle hover:text-fg">Analyse front-foot defence</Link>
-            <Link href="/analyse?shot=back" className="block text-fg-subtle hover:text-fg">Analyse back-foot defence</Link>
+            <Link href="/analyse" className="block text-fg-subtle hover:text-fg">Check front-foot defence</Link>
+            <Link href="/analyse?shot=back" className="block text-fg-subtle hover:text-fg">Check back-foot defence</Link>
             <Link href="/guide" className="block text-fg-subtle hover:text-fg">How it works</Link>
             <Link href="/sample" className="block text-fg-subtle hover:text-fg">Sample reports</Link>
           </div>

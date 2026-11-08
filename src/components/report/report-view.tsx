@@ -12,13 +12,14 @@ import { type CompareReference, EvidenceViewer, type EvidenceViewerHandle } from
 import { MetricCard } from "./metric-card";
 import { CaptureChecklist, DomainGrid, Limitations, PriorityPlan, ShotProbabilityPanel, Versions } from "./panels";
 import { ConfidenceChip, DemoBadge, STATUS_META, statusKey } from "./status";
-import { Check, Cross, Download, Question, Record as RecordIcon, Target } from "../icons";
+import { Camera, Check, Cross, Download, Info, Question, Record as RecordIcon, Target } from "../icons";
 import { downloadReportPdf } from "@/lib/pdf";
 import { Lesson } from "../lesson/lesson";
 import { LinePanel } from "./line-panel";
 import { ComparePanel } from "./compare-panel";
 import { BackFootPanel } from "./back-foot-panel";
 import { plainRange, plainReading, plainValue } from "@/engine/plain";
+import { plainSummary, type SummaryKind } from "@/engine/summary";
 
 interface Props {
   payload: AnalysisPayload;
@@ -30,8 +31,10 @@ interface Props {
   reference?: CompareReference | null;
   narrative?: Report;
   actions?: React.ReactNode;
-  /** Shown under the verdict (e.g. an offer to add bat and ball marks). */
+  /** Shown in the details, under the full verdict. */
   notice?: React.ReactNode;
+  /** Where the batter marks the ball and bat on this clip (offered while it is still open). */
+  markHref?: string | null;
   title?: string;
   /** The on-device analysis id, for comparing with other shots and sharing this one. */
   analysisId?: string;
@@ -42,17 +45,23 @@ interface Props {
 const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, title, analysisId, onAnalyseAs }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, title, analysisId, onAnalyseAs }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [switching, setSwitching] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreMounted, setMoreMounted] = useState(false);
+  // Everything beyond the summary is drawn only when the batter turns "Details" on.
+  const [details, setDetails] = useState(false);
   const shot = shotOf(p);
   const shotName = SHOT_NAME[shot];
   const observedLabel = p.observed_shot?.label;
   const otherTarget = observedLabel && observedLabel !== shot && (TARGET_SHOTS as readonly string[]).includes(observedLabel) ? (observedLabel as TargetShot) : null;
   // A front-foot analysis that saw the back-foot defence's whole definition offers that shot.
   const looksBack = shot === "front_foot_defence" && p.status_reason === "looks_back_foot";
+  // The other defence the same tracks can be checked as, when Aline named or saw it.
+  const switchTo: TargetShot | null = looksBack ? "back_foot_defence" : p.analysis_status === "invalid_for_requested_analysis" ? otherTarget : null;
+  const sum = useMemo(() => plainSummary(p, { mediaKind: obs.media.kind, otherShot: onAnalyseAs ? switchTo : null }), [p, obs.media.kind, onAnalyseAs, switchTo]);
+  const recordHref = shot === "back_foot_defence" ? "/analyse?shot=back" : "/analyse";
   const [aiReport, setAiReport] = useState<Report | null>(null);
   const [aiState, setAiState] = useState<"idle" | "loading" | "unavailable" | "fallback">("idle");
   const report = useMemo(() => aiReport ?? narrative ?? templateReport(p), [aiReport, narrative, p]);
@@ -76,7 +85,12 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       : STATUS_META[statusKey(p)];
   const contact = p.events.find((e) => e.type === "contact");
   const t0 = obs.t[0] ?? 0;
-  const seek = (frame: number, metricId?: string) => viewer.current?.seek(frame, metricId);
+  const seek = (frame: number, metricId?: string) => {
+    if (viewer.current) return viewer.current.seek(frame, metricId);
+    // The viewer lives in the details: turn them on, then go.
+    setDetails(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => viewer.current?.seek(frame, metricId)));
+  };
   const seekId = (id: string) => {
     const f = /^frame_(\d+)$/.exec(id)?.[1];
     if (f) return seek(Number(f));
@@ -107,40 +121,73 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         </span>
       </div>
 
-      {/* Validity first: what happened, and whether a score is allowed. */}
+      {/* The answer first, in at most five plain sentences; everything else behind "Details". */}
       <section aria-labelledby="verdict" className={`card overflow-hidden border ${meta.ring}`}>
-        <div className={`${meta.bg} px-5 py-5 sm:px-7 sm:py-7`}>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`chip ${meta.ring} ${meta.tone} text-sm`}>
-              <meta.Icon size={16} /> {meta.label}
+        <div className="px-5 py-5 sm:px-7 sm:py-7">
+          <div className="flex items-start justify-between gap-3">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className={`chip ${meta.ring} ${meta.tone} text-sm`}>
+                <meta.Icon size={16} /> {meta.short}
+              </span>
+              {p.handedness === "left" && <span className="chip border-line-strong text-fg-muted">Left-handed</span>}
             </span>
-            {p.handedness === "left" && <span className="chip border-line-strong text-fg-muted">Left-handed batter</span>}
+            <AngleChip label={sum.angle.short} />
           </div>
-          <h1 id="verdict" className="display mt-4 text-[1.7rem] leading-[1.1] sm:text-4xl lg:text-5xl max-w-4xl">{p.headline}</h1>
-          {notice}
-          {!isValid && p.mode !== "posture_screen" && (
-            <p className="mt-3 text-sm text-fg-muted">No technique score: a score is only given to a confirmed {shotName}.</p>
+          <h1 id="verdict" className="display mt-4 text-[1.9rem] leading-[1.08] sm:text-5xl max-w-3xl">{sum.verdict}</h1>
+          {sum.lines.length > 0 && (
+            <ul className="mt-5 space-y-3 max-w-2xl" aria-label="Summary">
+              {sum.lines.map((l) => (
+                <li key={l.text} className="flex items-start gap-3 text-[1.05rem] leading-snug">
+                  <LineIcon kind={l.kind} />
+                  <span>{l.text}</span>
+                </li>
+              ))}
+            </ul>
           )}
-          {p.back_foot_checks && <DefinitionChecks checks={p.back_foot_checks} />}
-          {looksBack && onAnalyseAs && (
-            <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+            {switchTo && onAnalyseAs && (
               <button
                 className="btn btn-primary"
                 disabled={switching}
                 onClick={async () => {
                   setSwitching(true);
                   try {
-                    await onAnalyseAs("back_foot_defence");
+                    await onAnalyseAs(switchTo);
                   } finally {
                     setSwitching(false);
                   }
                 }}
               >
-                {switching ? "Analysing…" : "Analyse as back-foot defence"}
+                {switching ? "Checking…" : `Check as ${SHOT_NAME[switchTo]}`}
               </button>
-              <span className="text-xs text-fg-subtle">The same tracks, checked against the back-foot defence&rsquo;s own definition.</span>
-            </div>
+            )}
+            {markHref && (
+              <Link href={markHref} className={`btn ${switchTo && onAnalyseAs ? "btn-ghost" : "btn-primary"}`}>Add ball and bat</Link>
+            )}
+            {!(switchTo && onAnalyseAs) && !markHref && (
+              <Link href={recordHref} className="btn btn-primary"><RecordIcon size={16} /> Record again</Link>
+            )}
+            <DetailsSwitch on={details} onChange={setDetails} />
+          </div>
+        </div>
+      </section>
+
+      {details && (
+      <div id="report-details" className="space-y-8">
+      <section aria-labelledby="why-h" className="card p-5 sm:p-7">
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-sm text-fg-subtle">{meta.label}</p>
+          <p className="max-w-[16rem] text-right text-sm">
+            <span className="inline-flex items-center gap-1.5 font-semibold"><Camera size={15} aria-hidden /> {sum.angle.short}</span>
+            <span className="block text-fg-muted">{sum.angle.long}</span>
+          </p>
+        </div>
+        <h2 id="why-h" className="display mt-3 text-2xl sm:text-3xl max-w-4xl">{p.headline}</h2>
+          {notice}
+          {!isValid && p.mode !== "posture_screen" && (
+            <p className="mt-3 text-sm text-fg-muted">No technique score: a score is only given to a confirmed {shotName}.</p>
           )}
+          {p.back_foot_checks && <DefinitionChecks checks={p.back_foot_checks} />}
           {p.analysis_status === "invalid_for_requested_analysis" && p.observed_shot && (
             <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <div>
@@ -157,44 +204,23 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
                   .
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {contact && (
+              {contact && (
+                <div className="flex flex-wrap gap-2">
                   <button className="btn btn-ghost" onClick={() => seek(contact.frame)}>
                     <Target size={16} /> Review evidence at {((contact.tMs - t0) / 1000).toFixed(2)} s
                   </button>
-                )}
-                {otherTarget && onAnalyseAs ? (
-                  <button
-                    className="btn btn-primary"
-                    disabled={switching}
-                    onClick={async () => {
-                      setSwitching(true);
-                      try {
-                        await onAnalyseAs(otherTarget);
-                      } finally {
-                        setSwitching(false);
-                      }
-                    }}
-                  >
-                    {switching ? "Analysing…" : `Analyse as ${SHOT_NAME[otherTarget]}`}
-                  </button>
-                ) : (
-                  <button className="btn btn-ghost" disabled title="Not available yet">
-                    Analyse as {p.observed_shot.label === "unknown" ? "that shot" : SHOT_DISPLAY[p.observed_shot.label].toLowerCase()}
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
               <p className="sm:col-span-2 text-xs text-fg-subtle">
                 {otherTarget
-                  ? `Aline analyses the front-foot and the back-foot defence. The same tracks are re-checked as a ${SHOT_NAME[otherTarget]}, against that shot's own bar.`
+                  ? `Aline analyses the front-foot and the back-foot defence. The same tracks can be re-checked as a ${SHOT_NAME[otherTarget]}, against that shot's own bar.`
                   : "Other shot types unlock only when they pass the same validation bar as the front-foot and back-foot defences."}
               </p>
             </div>
           )}
-        </div>
       </section>
 
-      <Summary p={p} onSeek={seek} />
+      <KeyChecks p={p} onSeek={seek} />
 
       <LinePanel payload={p} fps={obs.media.fps} onSeek={(f) => seek(f)} />
 
@@ -231,8 +257,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       >
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 sm:px-5">
           <span>
-            <span className="font-semibold">More detail</span>
-            <span className="ml-2 text-sm text-fg-subtle">each measure, why it matters, drills</span>
+            <span className="font-semibold">Every measure</span>
+            <span className="ml-2 text-sm text-fg-subtle">why it matters, ranges, drills</span>
           </span>
           <span className="text-fg-subtle transition-transform group-open:rotate-90">›</span>
         </summary>
@@ -440,6 +466,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         </div>
         )}
       </details>
+      </div>
+      )}
     </div>
   );
 }
@@ -454,7 +482,7 @@ const evidenceFrame = (m: Metric) => {
 /** A photo read side-on with enough of the batter visible: its checks are graded against the formula. */
 const positionGraded = (p: AnalysisPayload) => !!p.position_check && !["not_side_on", "not_enough", "not_on_front_foot", "not_on_back_foot"].includes(p.position_check.verdict);
 
-function Summary({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, metricId?: string) => void }) {
+function KeyChecks({ p, onSeek }: { p: AnalysisPayload; onSeek: (frame: number, metricId?: string) => void }) {
   const isValid = p.analysis_status === "valid";
   const graded = isValid || positionGraded(p);
   const shown = (isValid || p.mode === "posture_screen" ? p.metrics : (p.observations ?? [])).filter((m) => m.status !== "not_measured" && m.value !== null);
@@ -554,6 +582,45 @@ function SummaryCard({ tone, label, title, text }: { tone: "ok" | "bad" | "brand
       <p className="mt-1.5 font-semibold leading-snug">{title}</p>
       <p className="mt-1 text-sm text-fg-muted">{text.replaceAll("× stature", "× your height")}</p>
     </div>
+  );
+}
+
+/** Where the camera was, on the right of the summary. */
+function AngleChip({ label }: { label: string }) {
+  return (
+    <span className="chip shrink-0 border-fg text-sm text-fg" title="Where the camera was">
+      <Camera size={15} aria-hidden /> {label}
+    </span>
+  );
+}
+
+function LineIcon({ kind }: { kind: SummaryKind }) {
+  const label = { good: "Good", fix: "Fix", tip: "Tip", info: "Note" }[kind];
+  const box = "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full";
+  return (
+    <span className={`${box} ${kind === "good" ? "bg-ok/15 text-ok" : kind === "fix" ? "bg-bad/15 text-bad" : "bg-tint text-fg"}`}>
+      {kind === "good" ? <Check size={15} aria-hidden /> : kind === "fix" ? <span aria-hidden className="text-sm font-bold">!</span> : kind === "tip" ? <Target size={15} aria-hidden /> : <Info size={15} aria-hidden />}
+      <span className="sr-only">{label}:</span>
+    </span>
+  );
+}
+
+/** The switch that shows everything else: measures, illustrations, drills. Off by default. */
+function DetailsSwitch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-controls="report-details"
+      onClick={() => onChange(!on)}
+      className="ml-auto inline-flex min-h-11 items-center gap-3 rounded-full pl-3 pr-1 text-[0.95rem] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
+    >
+      Details
+      <span aria-hidden className={`relative inline-block h-7 w-12 rounded-full border-2 border-fg transition-colors ${on ? "bg-fg" : "bg-transparent"}`}>
+        <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full transition-transform ${on ? "translate-x-5 bg-bg" : "translate-x-0 bg-fg"}`} />
+      </span>
+    </button>
   );
 }
 

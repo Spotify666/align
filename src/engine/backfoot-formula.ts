@@ -157,38 +157,94 @@ export function backFootFormula(
   });
   const sm = (i: number) => med([v[i - 1]!, v[i]!, v[i + 1]!]);
 
-  // The stroke's main movement (the fastest the body moves, outside the clip's first and last
-  // tenth of a second and in its first three quarters: the app centres its window on the
-  // stroke, and a batter walking off after it can move faster) and where the body comes to rest
-  // after it: the set position.
+  // The clip as rests (the feet still for 0.1 s) and the movements between them. The stroke is
+  // the movement with the most footwork, measured from an upright stance to the rest it ends in
+  // (the set position): the feet's gap along the pitch, the rear foot's own travel (the camera's
+  // movement taken out), the hips over the rear foot, the feet stepping away from a camera at
+  // either end, and the head's height. Not the fastest movement: a stance shuffle, a tap or lift
+  // of the bat, or a recovery can be faster, and one phone's pose readings differ from another's.
   const move = th("bfd.formula.moving_speed");
   const edge = Math.max(h + 1, Math.round(0.1 / dt));
   let peak = -1;
-  for (let i = edge; i < Math.min(n - h, Math.round(n * 0.75)); i++) if (fin(sm(i)) && (peak < 0 || sm(i) > sm(peak))) peak = i;
+  for (let i = edge; i < n - h; i++) if (fin(sm(i)) && (peak < 0 || sm(i) > sm(peak))) peak = i;
   const still = peak >= 0 ? Math.max(move, th("bfd.formula.rest_share") * sm(peak)) : move;
   const hold = Math.max(2, Math.round(0.1 / dt));
   const restAt = (i: number) => {
     const w = range(i, Math.min(n - 1 - h, i + hold)).map(sm).filter(fin);
     return w.length > 0 && w.every((x) => x < still);
   };
-  let set = n - 1 - h;
-  if (peak >= 0)
-    for (let i = peak; i < n - h; i++)
-      if (restAt(i)) {
-        set = i;
-        break;
-      }
-  // The stance the shot was played from: the last rest before the main movement (a batter
-  // settles, shuffles or taps the bat before the ball comes; the shot starts from there), else
-  // the clip's first frames. A stance is upright: within a few hundredths of the tallest the
-  // batter stands in the clip (85th percentile of the head's height), so a held stride or a
-  // dipping trigger is never taken for one.
+  // A stance is upright: within a few hundredths of the tallest the batter stands in the clip
+  // (85th percentile of the head's height), so a held stride or a dipping trigger is never taken
+  // for one.
   const headUpAt = (i: number) => pic(i, "head")?.[1] ?? NaN;
   const heights = range(0, n - 1).map(headUpAt).filter(fin).sort((a, b) => a - b);
   const tallest = heights.length ? heights[Math.min(heights.length - 1, Math.floor(heights.length * 0.85))]! : NaN;
   const upright = (i: number) => med(range(i, Math.min(n - 1, i + hold)).map(headUpAt)) >= tallest - th("bfd.formula.max_stance_dip");
+  const rests: Array<[number, number]> = [];
+  for (let i = 0; i < n - h; i++) {
+    if (!restAt(i)) continue;
+    const last = rests[rests.length - 1];
+    if (last && last[1] >= i - 1) last[1] = i;
+    else rests.push([i, i]);
+  }
+  const shapeAt = (frames: number[]) => {
+    const steadyAt = (i: number, j: SemanticJoint) => (scene.steady ? scene.steady(i, j) : null);
+    return {
+      gap: med(frames.map((i) => {
+        const f = feet(i);
+        return f ? f.fore - f.rear : NaN;
+      })),
+      hips: med(frames.map((i) => hipsAlong(i) - (feet(i)?.rear ?? NaN))),
+      head: med(frames.map(headUpAt)),
+      rear: frontal
+        ? NaN
+        : med(frames.map((i) => {
+            const a = steadyAt(i, "front_ankle");
+            const b = steadyAt(i, "back_ankle");
+            return a && b ? Math.min(a[0], b[0]) / size(scene, i) : NaN;
+          })),
+      feetUp: frontal
+        ? med(frames.map((i) => {
+            const a = steadyAt(i, "front_ankle");
+            const b = steadyAt(i, "back_ankle");
+            return a && b ? (a[1] + b[1]) / 2 / size(scene, i) : NaN;
+          }))
+        : NaN,
+    };
+  };
   let stanceEnd = Math.max(2, Math.round(0.15 / dt));
-  if (peak >= 0)
+  let set = n - 1 - h;
+  let best = -Infinity;
+  // A defence holds its finished position: the set is a rest that lasts (a pause mid-step, the
+  // back foot down before the front foot comes in, is brief). Held rests first; any rest only
+  // when none is held that long (a clip that ends soon after the stroke).
+  const heldLong = (r: [number, number]) => (r[1] - r[0] + hold + 1) * dt >= th("bfd.formula.min_set_hold_s") || r[1] >= n - 2 - h - hold;
+  const candidates = rests.filter((r) => r[0] >= edge + hold);
+  const pool = candidates.some(heldLong) ? candidates.filter(heldLong) : candidates;
+  for (const [b0, b1] of pool) {
+    // The stance: the last upright rest that ends before this movement, else the clip's opening.
+    let sEnd = -1;
+    for (const [r0, r1] of rests) if (r1 + hold < b0 && upright(Math.max(r0, r1 - hold))) sEnd = Math.min(r1 + hold, b0 - 1);
+    if (sEnd < 0) sEnd = Math.min(stanceEnd, b0 - 1);
+    const A = shapeAt(range(Math.max(0, sEnd - hold), sEnd));
+    const B = shapeAt(range(b0, Math.min(n - 1, b1 + hold, b0 + hold)));
+    const parts = [Math.abs(B.gap - A.gap), Math.abs(B.hips - A.hips), Math.abs(B.rear - A.rear), Math.abs(B.feetUp - A.feetUp), 0.5 * Math.abs(B.head - A.head)].filter(fin);
+    const footwork = parts.reduce((x, y) => x + y, 0);
+    if (parts.length && footwork > best) {
+      best = footwork;
+      set = b0;
+      stanceEnd = sEnd;
+    }
+  }
+  // Contact seen (bat and ball): the stance is the last upright rest before it.
+  if (seenContact !== null) {
+    let sEnd = -1;
+    for (const [r0, r1] of rests) if (r1 + hold < seenContact && upright(Math.max(r0, r1 - hold))) sEnd = Math.min(r1 + hold, seenContact - 1);
+    if (sEnd > 0) stanceEnd = sEnd;
+  }
+  // No rest after a movement (the clip ends mid-stroke): the set is the clip's end, the stance
+  // its last upright rest before the fastest movement.
+  if (!Number.isFinite(best) && peak >= 0)
     for (let i = peak - hold; i >= edge; i--)
       if (restAt(i) && upright(i)) {
         stanceEnd = i + hold;
@@ -255,7 +311,7 @@ export function backFootFormula(
   // sweep across the body (from either end: the picture's horizontal against the hips;
   // side-on: the pose estimate's depth, which is across the body there); and how far the
   // shoulder line turns (the pose estimate, any camera: angles don't depend on where it stood).
-  const after = range(reference, Math.min(n - 1, reference + Math.round(0.4 / dt)));
+  const after = range(reference, Math.min(n - 1, reference + Math.round(th("bfd.formula.after_window_s") / dt)));
   const around = [...range(stanceEnd + 1, reference), ...after.slice(1)];
   const handsHigh = maxOver((i) => (hands(i)?.[1] ?? NaN) - shouldersUp(i), after);
   const E = scene.estimate;
@@ -338,7 +394,7 @@ export function backFootFormula(
   const followAll = range(Math.max(0, reference - Math.round(0.1 / dt)), Math.min(n - 1, reference + Math.round(0.2 / dt))).map(travel).filter((x) => fin(x) && x > -Infinity);
   const follow = followAll.length ? Math.min(...followAll) : NaN;
 
-  const signals: Record<string, number> = { gap0, gapRef, gapMax, lead0, leadRef, leadMax, backStep, closed, hipsBack, hipDropMax, hipDrop, headDrop, handsHigh, handsSweep, turn: turnDeg, follow, feetAway, set, peak, stanceEnd };
+  const signals: Record<string, number> = { gap0, gapRef, gapMax, lead0, leadRef, leadMax, backStep, closed, hipsBack, hipDropMax, hipDrop, headDrop, handsHigh, handsSweep, turn: turnDeg, follow, feetAway, set, peak, stanceEnd, footwork: best };
 
   // 1. No stride: the feet close together when set, and never held apart in a stride with the
   // body down into it (a front-foot stroke held, then a recovery that brings the feet back and

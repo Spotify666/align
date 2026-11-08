@@ -1,5 +1,6 @@
 "use client";
 
+import { CricketLoader } from "./cricket-loader";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -57,7 +58,7 @@ import { MarkEvidence } from "./mark-evidence";
 import { MomentPicker } from "./moment-picker";
 import { BatterPicker } from "./batter-picker";
 import { ViewPicker } from "./view-picker";
-import { Camera, Check, Chevron, Lock, Upload, Record as RecordIcon, Target } from "../icons";
+import { Camera, Check, Chevron, Upload, Record as RecordIcon, Target } from "../icons";
 import { timeEnd, timeFlush, timeStart } from "@/lib/capture/timing";
 import { track as logVisit } from "@/lib/visit";
 
@@ -109,8 +110,8 @@ function rank(p: AnalysisPayload): number {
 
 const SHOT_TITLE: Record<TargetShot, string> = { front_foot_defence: "Front-foot defence", back_foot_defence: "Back-foot defence" };
 const SHOT_CHOICES: Array<{ id: TargetShot; title: string; note: string }> = [
-  { id: "front_foot_defence", title: "Front-foot defence", note: "Pitched up: forward, head over the front foot" },
-  { id: "back_foot_defence", title: "Back-foot defence", note: "Short: back and across, tall, head forward" },
+  { id: "front_foot_defence", title: "Front-foot defence", note: "Full ball: step forward" },
+  { id: "back_foot_defence", title: "Back-foot defence", note: "Short ball: step back" },
 ];
 
 interface Win {
@@ -1119,7 +1120,7 @@ export function CaptureFlow() {
                 <div>
                   <p className="eyebrow">{SHOT_TITLE[shot]}</p>
                   <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Add your shot</h1>
-                  <p className="mt-2 text-fg-muted">A video of any length — one ball, a net session or match footage — or a few photos. Aline finds the shot, the batter and the camera angle on its own.</p>
+                  <p className="mt-2 text-fg-muted">A video or a few photos. Film from the side if you can.</p>
                 </div>
 
                 <fieldset>
@@ -1159,7 +1160,7 @@ export function CaptureFlow() {
                       }}
                     />
                     <span>
-                      Analyse my movement on this device. <span className="text-fg-muted">The video never leaves your phone; only movement tracks and the report are kept.</span>{" "}
+                      Analyse my movement on this device. <span className="text-fg-muted">The video stays on your phone.</span>{" "}
                       <Link href="/privacy" className="underline">Privacy</Link>
                     </span>
                   </label>
@@ -1188,13 +1189,13 @@ export function CaptureFlow() {
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Upload size={26} className="text-brand" />
                     <span className="font-semibold">Choose a video</span>
-                    <span className="text-xs text-fg-subtle">MP4, MOV or WebM · slow-motion is best</span>
+                    <span className="text-xs text-fg-subtle">Slow motion is best</span>
                     <input type="file" disabled={!consented} accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.3gp" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Target size={26} className="text-data" />
                     <span className="font-semibold">Choose photos</span>
-                    <span className="text-xs text-fg-subtle">1–12 photos · position check</span>
+                    <span className="text-xs text-fg-subtle">Up to 12</span>
                     <input type="file" disabled={!consented} accept="image/*,.heic,.heif" multiple className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
@@ -1206,7 +1207,7 @@ export function CaptureFlow() {
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Camera size={26} className="text-data" />
                     <span className="font-semibold">Take a photo</span>
-                    <span className="text-xs text-fg-subtle">Opens your camera · side-on, head to feet, at contact</span>
+                    <span className="text-xs text-fg-subtle">Opens your camera</span>
                     <input type="file" disabled={!consented} accept="image/*" capture="environment" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                 </div>
@@ -1214,17 +1215,17 @@ export function CaptureFlow() {
 
                 <details className="card p-4 group">
                   <summary className="flex cursor-pointer list-none items-center justify-between font-semibold">
-                    How to film it for the best result
+                    How to film
                     <Chevron size={18} className="transition-transform group-open:rotate-90" />
                   </summary>
                   <div className="mt-4 space-y-4">
                     <CameraPlacementDiagram />
                     <ul className="grid gap-2 text-sm">
                       {[
-                        "Slow-motion mode (120 or 240 fps) if your phone has it",
-                        "Phone fixed on a tripod or wedged still",
-                        "Square-on to the batter at hip height, 6–8 m away — or from behind the bowler",
-                        "Batter head to feet, the whole bat and the bounce zone in frame",
+                        "From the side, level with your hips, 6–8 m away",
+                        "Phone kept still",
+                        "Whole body and bat in the picture",
+                        "Slow motion if your phone has it",
                       ].map((t) => (
                         <li key={t} className="flex gap-2"><Check size={16} className="text-brand mt-0.5 shrink-0" /> {t}</li>
                       ))}
@@ -1237,26 +1238,19 @@ export function CaptureFlow() {
                   <span>
                     Batting {profile.handedness}-handed{profile.heightCm ? `, ${profile.heightCm} cm` : ""} · <Link href="/profile" className="underline">change</Link>
                   </span>
-                  <Link href="/sample/session3d" className="underline">Two-phone 3D session (preview)</Link>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-fg-muted">Other shots, after validation</p>
-                  <ul className="mt-2 flex flex-wrap gap-1.5">
-                    {["Drives", "Pull and hook", "Cut", "Sweep", "Back-foot defence"].map((s) => (
-                      <li key={s} className="chip border-line text-fg-subtle"><Lock size={12} /> {s}</li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-sm text-fg-subtle">Upload them anyway: they are recognised, and the defence score is withheld.</p>
                 </div>
               </>
             )}
 
             {phase === "working" && (
               <>
-                <div>
-                  <p className="eyebrow">Analysing{file ? ` · ${file.name}` : ""}</p>
-                  <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">{stages.report === "active" ? "Building your report…" : "Working on it…"}</h1>
-                  <p className="mt-2 text-fg-muted">Everything runs on this device. Keep this screen open.</p>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="eyebrow">Analysing{file ? ` · ${file.name}` : ""}</p>
+                    <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">{stages.report === "active" ? "Building your report…" : "Working on it…"}</h1>
+                    <p className="mt-2 text-fg-muted">Everything runs on this device. Keep this screen open.</p>
+                  </div>
+                  <CricketLoader />
                 </div>
                 <ol className="card divide-y divide-line" aria-label="Analysis progress">
                   {stageList.map(([k, label]) => {

@@ -34,6 +34,10 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
    left-handed batters bat with their stronger hand on top); never flip a demonstration for a
    left-hander. Name the batter's own sides and the role of each hand instead
    (docs/context.md, 2026-10-21).
+8. **Simple first.** A report opens with at most five plain sentences a child could follow
+   (`src/engine/summary.ts`) and the camera angle on the right; everything else (measures,
+   illustrations, drills) only behind the "Details" switch. Opening pages: a headline, the
+   actions, a few steps; no long copy (docs/context.md, 2026-11-08).
 
 ## Working rules
 
@@ -80,7 +84,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Parallel model work (workers; must give the page's exact results) | `src/lib/capture/vision.worker.ts`, `vision-pool.ts` |
 | Brand (mark geometry, flat and 3D logo, icons) | `src/components/brand/*`, `scripts/brand-icons.mjs` |
 | Visitor log (tracker, bot filter, public totals page) | `src/lib/visit.ts`, `visit-shared.ts`, `src/app/api/visit`, `src/components/visitors.tsx`, Supabase `visits`, `visits_overview()` |
-| Report | `src/components/report/*` (`line-panel.tsx`, `compare-panel.tsx`, `panels.tsx`) |
+| Report | `src/components/report/*` (`report-view.tsx`: summary, then "Details"; `line-panel.tsx`, `compare-panel.tsx`, `panels.tsx`); plain summary `src/engine/summary.ts` |
 | Synthetic fixtures and population | `src/engine/fixtures/*` |
 | Real-media evaluation | `scripts/eval/*` |
 | Product docs | `docs/00…10-*.md` |

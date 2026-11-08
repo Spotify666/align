@@ -1,252 +1,76 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { sampleAnalysis } from "@/lib/demo";
-import { ShotVideo } from "@/components/home/shot-video";
-import { Reveal } from "@/components/common/reveal";
 import { Intro } from "@/components/landing/intro";
-import { SHOT_DISPLAY } from "@/engine/classify";
-import { Check, Chevron, Lock, Question, Record as RecordIcon, Swap, Target, Trend } from "@/components/icons";
+import { Chevron } from "@/components/icons";
 import { Logo } from "@/components/brand/logo";
 
 export const metadata: Metadata = {
   title: { absolute: "Aline — eyes over the ball, everything in line" },
-  description:
-    "Aline watches your front-foot or back-foot defence on your phone and shows whether your head, hands and feet lined up with the ball, then gives you one thing to fix.",
+  description: "Film your front-foot or back-foot defence on your phone. Aline checks it and tells you, in a few simple lines, what was good and what to fix.",
 };
 
-// The landing page: what Aline stands for, before any of the app. It has its own header and
-// footer (the app shell steps aside on "/"), opens in the two tones (black on sage-cream) with the flat mark,
-// and tells one idea in order: the line, the name, the promises, the shot, how to use it,
-// the proof.
+// The landing page: the idea in one line, the two things you can do, and how, in three
+// steps. Nothing else (the guide, the science and sample reports are one tap away in the
+// footer). It has its own header and footer (the app shell steps aside on "/") and opens
+// in the two tones, black on sage-cream, with the flat mark.
 
-const PILLARS = [
-  { Icon: Target, t: "In line", d: "It measures the alignment that makes a defence work: eyes, head, hands, front foot and ball. Not a vague form score." },
-  { Icon: Question, t: "Honest", d: "It checks you really played the defence you asked about before grading it, and says “not sure” instead of guessing." },
-  { Icon: Lock, t: "Private", d: "Your video is analysed on your phone. Nothing leaves it unless you choose to save the result." },
-  { Icon: Check, t: "One fix", d: "One priority and one drill for your next net session. Not twenty numbers to decode." },
-];
-
-const STEPS = [
-  { Icon: RecordIcon, t: "Film one shot", d: "Phone side-on at hip height, 6–8 m away, or from behind the bowler. Slow motion if you have it." },
-  { Icon: Target, t: "Aline checks it", d: "It finds the shot and the batter, confirms it was the defence you chose, front foot or back, and measures it." },
-  { Icon: Trend, t: "Train one thing", d: "Read the verdict, do the drill, film again. Watch the line straighten, session by session." },
-];
+const STEPS = ["Film one shot from the side.", "Add it here.", "Read your feedback. Practise. Film again."];
 
 export default function Landing() {
-  const pull = sampleAnalysis("pull")!;
-  const pullShot = pull.payload.observed_shot!;
-  const pullEvidence = pull.payload.features.filter((f) => pullShot.evidence_ids.includes(f.id)).map((f) => f.reading);
-
   return (
-    <main id="main">
+    <main id="main" className="landing-light flex min-h-svh flex-col">
       <Intro always />
-      {/* 1 · The line: a full first screen in the two tones, black on sage-cream */}
-      <section className="landing-light relative overflow-hidden">
-        <header className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-4 pt-[env(safe-area-inset-top)] sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5" aria-label="Aline">
-            <Logo size={26} name={false} />
-            <span className="text-sm font-semibold tracking-[0.32em]">ALINE</span>
-          </Link>
-          <Link href="/home" className="btn btn-landing-ghost !min-h-10 !px-4 !py-1.5 text-sm">
-            Open the app <Chevron size={16} />
-          </Link>
-        </header>
-        <div className="intro-after relative mx-auto grid min-h-[calc(100svh-4rem)] max-w-6xl items-center gap-6 px-4 pb-14 pt-2 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:pb-20">
-          <div className="order-last lg:order-none">
-            <p className="lp-muted text-xs font-semibold uppercase tracking-[0.2em]">Cricket technique, checked on your phone</p>
-            <h1 className="display mt-5 text-[2.3rem] leading-[1.02] min-[400px]:text-[2.5rem] sm:text-7xl lg:text-[5.2rem]">
-              Eyes over the ball.
-              <br />
-              <span className="lp-muted">Everything in line.</span>
-            </h1>
-            <p className="lp-muted mt-6 max-w-xl text-base sm:text-lg">
-              Aline watches your defence, off the front foot or the back, and shows whether your head, hands and feet lined up with the ball. Then it gives
-              you the one thing to fix.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/analyse" className="btn btn-landing w-full text-base !px-6 sm:w-auto">Analyse front-foot defence</Link>
-              <Link href="/analyse?shot=back" className="btn btn-landing-ghost w-full text-base !px-6 sm:w-auto">Analyse back-foot defence</Link>
-            </div>
-            <a href="#stands-for" className="lp-muted mt-4 inline-flex items-center gap-1 text-sm underline-offset-4 hover:underline">What Aline stands for <Chevron size={14} /></a>
-            <ul className="lp-muted mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-              <li className="flex items-center gap-1.5"><Lock size={15} /> Video stays on your phone</li>
-              <li className="flex items-center gap-1.5"><Check size={15} /> Confirms the shot first</li>
-              <li className="flex items-center gap-1.5"><Question size={15} /> Says “not sure” honestly</li>
-            </ul>
+      <header className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 pt-[env(safe-area-inset-top)] sm:px-6">
+        <Link href="/" className="flex items-center gap-2.5" aria-label="Aline">
+          <Logo size={26} name={false} />
+          <span className="text-sm font-semibold tracking-[0.32em]">ALINE</span>
+        </Link>
+        <Link href="/home" className="btn btn-landing-ghost !min-h-10 !px-4 !py-1.5 text-sm">
+          Open the app <Chevron size={16} />
+        </Link>
+      </header>
+
+      <section className="flex flex-1">
+        <div className="intro-after mx-auto grid w-full max-w-6xl items-center gap-8 px-4 pb-12 pt-2 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
+        <div className="order-last lg:order-none">
+          <h1 className="display text-[2.4rem] leading-[1.02] min-[400px]:text-[2.7rem] sm:text-7xl lg:text-[5.2rem]">
+            Eyes over the ball.
+            <br />
+            <span className="lp-muted">Everything in line.</span>
+          </h1>
+          <p className="lp-muted mt-5 max-w-md text-lg">Check your defence on your phone.</p>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <Link href="/analyse" className="btn btn-landing w-full text-base !px-6 sm:w-auto">Check front-foot defence</Link>
+            <Link href="/analyse?shot=back" className="btn btn-landing-ghost w-full text-base !px-6 sm:w-auto">Check back-foot defence</Link>
           </div>
-          {/* The mark, flat: a black silhouette of the shot on the sage-cream ground. */}
-          <figure className="relative grid h-[clamp(200px,32svh,290px)] w-full place-items-center lg:h-[440px]">
-            <Logo size={300} className="h-full w-auto max-w-full" title="The Aline mark" />
-          </figure>
-        </div>
-      </section>
-
-      {/* 2 · The name */}
-      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.3fr_1fr]">
-          <Reveal>
-            <p className="eyebrow">The name</p>
-            <p className="display mt-4 text-5xl sm:text-7xl">
-              a·line <span className="align-middle text-xl font-normal tracking-normal text-fg-subtle sm:text-2xl">/əˈlaɪn/, said like align</span>
-            </p>
-            <p className="mt-3 text-xl text-fg-muted sm:text-2xl">a line: head, front knee and front foot, one above the other.</p>
-            <p className="mt-8 max-w-2xl text-lg">
-              The forward defence is exactly that. <strong>Eyes over the ball. Head over the front knee. Bat beside the pad.</strong> When they line up, the ball
-              drops dead at your feet. When they don’t, it finds the edge.
-            </p>
-            <p className="mt-4 max-w-2xl text-fg-muted">Aline is built to see that one line, and to show you which part of you stepped out of it.</p>
-          </Reveal>
-          <Reveal delay={0.08}>
-            <figure className="overflow-hidden rounded-[22px] ring-1 ring-line">
-              <div className="grid aspect-[4/3] place-items-center bg-surface p-8">
-                <Logo size={260} className="h-full w-auto max-w-full" title="The Aline mark" />
-              </div>
-              <figcaption className="border-t border-line bg-surface px-5 py-4 text-sm">
-                <span className="block font-semibold">The mark is the shot.</span>
-                <span className="mt-1 block text-fg-muted">A long stride, the front leg straight down the line, the bat in line with it. Everything Aline measures comes back to it.</span>
-              </figcaption>
-            </figure>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* 3 · What it stands for */}
-      <section id="stands-for" className="scroll-mt-6 border-y border-line bg-surface">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
-          <Reveal>
-            <p className="eyebrow">What Aline stands for</p>
-            <h2 className="display mt-3 max-w-3xl text-4xl sm:text-6xl">Feedback you can trust, and train with.</h2>
-          </Reveal>
-          <ol className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-            {PILLARS.map(({ Icon, t, d }, i) => (
-              <Reveal key={t} delay={i * 0.05}>
-                <li className="border-t-2 border-brand pt-5">
-                  <div className="flex items-center justify-between">
-                    <span className="num text-sm text-fg-subtle">0{i + 1}</span>
-                    <span className="text-brand"><Icon size={22} /></span>
-                  </div>
-                  <h3 className="mt-4 text-2xl font-semibold tracking-tight">{t}</h3>
-                  <p className="mt-2 text-fg-muted">{d}</p>
-                </li>
-              </Reveal>
+          <ol className="mt-9 grid gap-3 border-t border-[var(--lp-line)] pt-6 sm:max-w-md" aria-label="How it works">
+            {STEPS.map((t, i) => (
+              <li key={t} className="flex items-baseline gap-3 text-base">
+                <span className="num flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-full border border-[var(--lp-fg)] text-sm font-semibold">{i + 1}</span>
+                {t}
+              </li>
             ))}
           </ol>
         </div>
-      </section>
-
-      {/* 4 · The shot itself */}
-      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
-        <Reveal>
-          <p className="eyebrow">See the shot</p>
-          <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-            <h2 className="display max-w-2xl text-4xl sm:text-6xl">The forward defence in four moves.</h2>
-            <p className="max-w-sm text-sm text-fg-muted">Watch a coach play it, then film yours: Aline checks it against the same four moves.</p>
-          </div>
-        </Reveal>
-        <Reveal className="mt-10">
-          <ShotVideo shot="front" />
-        </Reveal>
-      </section>
-
-      {/* 4b · The second shot */}
-      <section id="back-foot" className="scroll-mt-6 border-y border-line bg-surface">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
-          <Reveal>
-            <p className="eyebrow">New: the back-foot defence</p>
-            <h2 className="display mt-3 text-4xl sm:text-6xl">Short ball on the stumps? Go back, stay tall.</h2>
-            <p className="mt-5 max-w-lg text-fg-muted">
-              Too short to get forward to, too straight to leave. Aline now checks the back-foot defence the same honest way: it confirms you went back
-              before it grades anything, then measures the base the shot is built on.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link href="/analyse?shot=back" className="btn btn-primary">Analyse back-foot defence</Link>
-              <Link href="/sample/valid_bfd" className="btn btn-ghost">See a sample report</Link>
-              <Link href="/guide#back-foot" className="btn btn-quiet">Learn the shot <Chevron size={16} /></Link>
-            </div>
-          </Reveal>
-          <Reveal className="mt-10">
-            <ShotVideo shot="back" />
-          </Reveal>
+        {/* The mark, flat: a black silhouette of the shot on the sage-cream ground. */}
+        <figure className="grid h-[clamp(170px,28svh,260px)] w-full place-items-center lg:h-[420px]">
+          <Logo size={300} className="h-full w-auto max-w-full" title="The Aline mark" />
+        </figure>
         </div>
       </section>
 
-      {/* 5 · How it works */}
-      <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6 sm:pb-24">
-        <Reveal>
-          <p className="eyebrow">How it works</p>
-          <h2 className="display mt-3 max-w-2xl text-4xl sm:text-6xl">Film it. Aline checks it. You train it.</h2>
-        </Reveal>
-        <ol className="mt-12 grid gap-4 lg:grid-cols-3">
-          {STEPS.map(({ Icon, t, d }, i) => (
-            <Reveal key={t} delay={i * 0.06}>
-              <li className="card h-full p-6">
-                <div className="flex items-center justify-between">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft text-brand"><Icon size={22} /></span>
-                  <span className="display text-4xl text-line-strong">{i + 1}</span>
-                </div>
-                <h3 className="mt-5 text-xl font-semibold tracking-tight">{t}</h3>
-                <p className="mt-2 text-fg-muted">{d}</p>
-              </li>
-            </Reveal>
-          ))}
-        </ol>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Link href="/sample/valid_ffd" className="btn btn-ghost">See a sample report</Link>
-          <Link href="/guide" className="btn btn-quiet">How to film your shot <Chevron size={16} /></Link>
+      <footer className="border-t border-[var(--lp-line)]">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <nav aria-label="Footer" className="lp-muted flex flex-wrap gap-x-5 gap-y-2">
+            <Link href="/guide" className="hover:text-[var(--lp-fg)]">How to film</Link>
+            <Link href="/sample" className="hover:text-[var(--lp-fg)]">Sample reports</Link>
+            <Link href="/science" className="hover:text-[var(--lp-fg)]">Science</Link>
+            <Link href="/privacy" className="hover:text-[var(--lp-fg)]">Privacy</Link>
+            <Link href="/visitors" className="hover:text-[var(--lp-fg)]">Visitors</Link>
+          </nav>
+          <p className="lp-muted text-xs">Your video stays on your phone. Not a medical assessment.</p>
         </div>
-      </section>
-
-      {/* 6 · The proof */}
-      <section className="band">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:items-center">
-          <Reveal>
-            <p className="eyebrow !text-band-muted">The test that matters most</p>
-            <h2 className="display mt-3 text-4xl sm:text-5xl">A pull shot never gets a defence score.</h2>
-            <p className="mt-4 max-w-lg text-band-muted">
-              Most tools grade whatever you upload. Aline first works out what was played. Send it a pull as a forward defence and it says so, with the
-              evidence, instead of a misleading number.
-            </p>
-          </Reveal>
-          <Reveal delay={0.08}>
-            <Link href="/sample/pull" className="card card-hover block p-6">
-              <span className="chip w-fit !bg-transparent border-[#f2675c]/50 text-[#f2675c]"><Swap size={14} /> Different shot detected</span>
-              <p className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">Not a front-foot defence</p>
-              <p className="mt-2">
-                Most likely: <strong>{SHOT_DISPLAY[pullShot.label]}</strong>
-              </p>
-              <p className="mt-3 inline-block rounded-lg bg-white/10 px-2.5 py-1 text-sm font-medium">Technique score withheld</p>
-              <p className="mt-3 text-sm text-band-muted">Evidence: {pullEvidence.join("; ")}.</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-band-fg underline underline-offset-4">Open the sample <Chevron size={16} /></span>
-            </Link>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* 7 · The ask */}
-      <section className="landing-dark relative overflow-hidden">
-        <div className="relative mx-auto max-w-3xl px-4 py-24 text-center sm:px-6 sm:py-28">
-          <Logo size={120} className="mx-auto" />
-          <h2 className="display mt-8 text-5xl sm:text-7xl">Get in line.</h2>
-          <p className="lp-muted mx-auto mt-5 max-w-xl text-lg">Film one defence, forward or back, and see exactly where your line breaks, and the one thing that fixes it.</p>
-          <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/analyse" className="btn btn-landing text-base !px-6">Analyse front-foot defence</Link>
-            <Link href="/analyse?shot=back" className="btn btn-landing-ghost text-base !px-6">Analyse back-foot defence</Link>
-          </div>
-        </div>
-        <footer className="relative border-t border-[var(--lp-line)]">
-          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <span className="flex items-center gap-2.5"><Logo size={20} name={false} /> <span className="text-xs font-semibold tracking-[0.32em]">ALINE</span></span>
-            <nav aria-label="Footer" className="lp-muted flex flex-wrap gap-x-5 gap-y-2">
-              <Link href="/guide" className="hover:text-[var(--lp-fg)]">How it works</Link>
-              <Link href="/sample" className="hover:text-[var(--lp-fg)]">Sample reports</Link>
-              <Link href="/science" className="hover:text-[var(--lp-fg)]">Science</Link>
-              <Link href="/privacy" className="hover:text-[var(--lp-fg)]">Privacy</Link>
-              <Link href="/visitors" className="hover:text-[var(--lp-fg)]">Visitors</Link>
-            </nav>
-          </div>
-          <p className="lp-muted mx-auto max-w-6xl px-4 pb-8 text-xs sm:px-6">Prototype engine, not yet validated on real athletes. Not a medical assessment.</p>
-        </footer>
-      </section>
+      </footer>
     </main>
   );
 }

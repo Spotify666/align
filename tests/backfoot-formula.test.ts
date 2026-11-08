@@ -57,6 +57,23 @@ describe("the back-foot defence's definition", () => {
     expect(backFootFormula(buildScene(rec), null)!.match).toBe(false);
   });
 
+  it("a quick shuffle or bat tap in the stance is not taken for the stroke", () => {
+    const o = clip(textbook(), { durationS: 2.4 });
+    const base = backFootFormula(buildScene(o), null)!;
+    // A fast little step and back early in the stance (both feet, 0.1 s out, 0.1 s back, then still).
+    const n = o.body.length;
+    const from = Math.round(n * 0.08);
+    const body = o.body.map((fr, i) => {
+      const k = i - from;
+      if (k < 0 || k > 12) return fr;
+      const dx = 0.02 * Math.sin((Math.PI * k) / 12);
+      return fr.map((p, j) => (p && (j === J.left_ankle || j === J.right_ankle || j === J.left_heel || j === J.right_heel || j === J.left_foot || j === J.right_foot) ? ([p[0] + dx, p[1], p[2]] as const) : p));
+    });
+    const f = backFootFormula(buildScene({ ...o, body }), null)!;
+    expect(f.match).toBe(true);
+    expect(Math.abs(f.reference - base.reference)).toBeLessThanOrEqual(3);
+  });
+
   it("left and right ankles swapped by the pose model on some frames change nothing", () => {
     const o = clip(textbook());
     const swapped = o.body.map((fr, i) => {

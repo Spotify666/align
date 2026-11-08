@@ -8,7 +8,7 @@ import { FRONTAL_METRICS } from "./frontal";
 import { LINE_BANDS, LINE_SOURCE } from "./alignment";
 import { BFD_METRICS, BFD_METRIC_VERSION } from "./backfoot-defs";
 
-export const ENGINE_VERSION = "0.8.0";
+export const ENGINE_VERSION = "0.8.1";
 export const METRIC_VERSION = "ffd-0.6.0";
 export const CLASSIFIER_VERSION = "prototype-bands-0.5.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
@@ -88,6 +88,8 @@ export const THRESHOLDS = {
   // The back-foot defence by its definition (backfoot-formula.ts), from any camera position.
   "bfd.formula.moving_speed": { value: 0.3, unit: "× stature/s", rationale: "The body (feet, hips' centre, head) moving slower than this is at rest, as the front-foot landing reads a foot at rest (0.33 × height/s)." },
   "bfd.formula.rest_share": { value: 0.2, unit: "fraction of the stroke's peak speed", rationale: "The set position: the body slowed below a fifth of its fastest for 0.1 s (and below the resting speed). A defence holds it; the ball is met there." },
+  "bfd.formula.after_window_s": { value: 0.6, unit: "s", rationale: "The hands and shoulders are watched this long after the set position: a defence holds its shape (the athlete's clips hold 0.9–1.4 s), while a pull, flick or punch swings on through it." },
+  "bfd.formula.min_set_hold_s": { value: 0.3, unit: "s", rationale: "The set position is held: a defence keeps its finished shape after the ball (the athlete's clips hold 0.9–1.4 s). A pause mid-step (back foot down, front foot not yet in) lasts about 0.1–0.2 s and is not the set. A rest running to the clip's end counts as held." },
   "bfd.formula.max_gap": { value: 0.25, unit: "× stature", rationale: "Side-on, the feet's gap along the pitch when set. Back-foot defences end with the front foot alongside (athlete's side-on clip 0.12); front-foot defences end a stride apart (3D estimates seen side-on: 5th percentile 0.33). Calibrated on real movement: 86 back-foot and 99 front-foot defences, 247 pulls, 357 drives and 351 flicks by international batters (KU CricShot 3D pose estimates, seen from the bowler's end and from virtual cameras round the batter), and the athlete's own back-foot defences (bowler's end and side-on phone video)." },
   "bfd.formula.max_gap_end": { value: 0.15, unit: "× stature", rationale: "From either end of the pitch the gap comes from the pose estimate's depth, which reads it shorter: back-foot defences median 0.09 (athlete's clips 0.08–0.09), front-foot defences 5th percentile 0.18. Calibrated on real movement: 86 back-foot and 99 front-foot defences, 247 pulls, 357 drives and 351 flicks by international batters (KU CricShot 3D pose estimates, seen from the bowler's end and from virtual cameras round the batter), and the athlete's own back-foot defences (bowler's end and side-on phone video)." },
   "bfd.formula.max_stance_dip": { value: 0.06, unit: "× stature", rationale: "The stance the shot is measured from is upright: the head within this of the tallest the batter stands in the clip. A held front-foot stride (head down 0.12 and more) or a trigger that dips the head (the athlete's front-on clip: 0.12) is never taken for it." },
