@@ -3,6 +3,34 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · Choose two videos at once: sorted into side and front, checked as the same ball
+
+> Is it live? Unable to segregation on multiple videos upload and limiting to 2: side angle and
+> forward angle. And they should also mean they have uploaded the same video in 2 angles. All
+> these have to be in place.
+
+Done (engine 0.8.3):
+- **"Choose a video" takes one video, or two of one ball** (more: "Too many videos"). Aline
+  sorts them itself: the first's camera angle is detected (side-on or front-on, never chosen by
+  hand, else "Camera angle not detected"), and the second must be the other one ("Not the front
+  angle" otherwise). The screen says "Video 1 of 2", "Video 2 of 2".
+- **The same ball, checked from the sound** (`src/engine/same-ball.ts`, `src/lib/capture/audio.ts`):
+  two phones filming one ball hear the same things (bat on ball, bounce, voices), so their
+  soundtracks line up at the offset the two shots give. Both must match there (correlation ≥ 0.4)
+  and stand out from every other offset (≥ 3.5 robust SD), else "Not the same ball"; no readable
+  sound: "Can't check it's the same ball". Never assumed. Thresholds in the registry with their
+  evidence: 1,000 random different soundtracks, none accepted; one soundtrack through a
+  simulated second phone, 99% accepted.
+- The report's "Add the front/side angle of this ball" runs the same checks; it is offered while
+  the first video is still open (its sound is needed).
+- **The athlete's two clips**: their sounds don't line up with the shot (correlation 0.12 at the
+  offset their shots give; the bat-on-ball sound in the front clip has nothing at that moment in
+  the side clip), so Aline says "Not the same ball": they look like two different deliveries.
+- Checked in the real browser pipeline: the athlete's side + front refused (not the same ball);
+  a side + front pair sharing one ball's sound (the front video given the side's soundtrack,
+  shifted to the shot and with its own noise) combined in either order; side + side refused;
+  three videos refused; one video unchanged.
+
 ## 2026-11-08 · Two angles: exactly one side and one front, detected by Aline
 
 > When multiple videos, you should restrict the user to upload only 2: side angle and front

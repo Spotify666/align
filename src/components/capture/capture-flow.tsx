@@ -50,8 +50,11 @@ import type { AnyCanvas } from "@/lib/capture/canvas";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
 import { feetHandedness, gripHandedness } from "@/lib/capture/grip";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
-import { getAnalysis, loadProfile, saveAnalysis, saveProfile, updateAnalysis, type LocalProfile } from "@/lib/store";
+import { getAnalysis, getTracks, loadProfile, saveAnalysis, saveProfile, updateAnalysis, type LocalProfile } from "@/lib/store";
 import { angleFamily, otherAngleView, type AngleFamily } from "@/engine/angles";
+import { sameBall, shotTime } from "@/engine/same-ball";
+import { soundEnvelope } from "@/lib/capture/audio";
+import { decodeTracks } from "@/engine/tracks-codec";
 import { isSessionUrl, sessionCapture, sessionMedia } from "@/lib/session-media";
 import { CaptureChecklist } from "../report/panels";
 import { CameraPlacementDiagram, LiveFramingCheck } from "./setup-guide";
@@ -286,6 +289,11 @@ export function CaptureFlow() {
   const pairRef = useRef<typeof pair>(null);
   // Only two angles per ball: one already linked to another clip takes no third.
   const [paired, setPaired] = useState<{ a: string; b: string } | null>(null);
+  // Two videos chosen together (side + front of one ball): the second waits while the first runs.
+  const twoRef = useRef<{ second: File | null } | null>(null);
+  // The first angle, for the same-ball check: its file (or session video) and when its shot was.
+  const firstRef = useRef<{ id: string; media: Blob | null; shot: number | null } | null>(null);
+  const [twoStep, setTwoStep] = useState<1 | 2 | null>(null);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("angle");
     if (!id) return;
@@ -294,6 +302,12 @@ export function CaptureFlow() {
         const family = a ? angleFamily(a.payload) : null;
         if (!a || !family) return;
         if (a.otherAngle && (await getAnalysis(a.otherAngle))) return setPaired({ a: id, b: a.otherAngle });
+        // Its sound is needed to check the other video is the same ball: only while it is still open.
+        const media = sessionMedia.get(id);
+        if (!media) return;
+        const tracks = await getTracks(id);
+        const obs = tracks ? await decodeTracks(tracks) : null;
+        firstRef.current = { id, media: await fetch(media.url).then((r) => r.blob()).catch(() => null), shot: obs ? shotTime(a.payload, obs) : null };
         const next = { id, title: a.title, family };
         pairRef.current = next;
         setPair(next);
@@ -1085,6 +1099,10 @@ export function CaptureFlow() {
         setMediaTimes(attempt.times);
         setTracking(attempt.tr);
       }
+      // Two videos chosen together: the first must be side-on or front-on, read by Aline itself.
+      const firstOfTwo = !!twoRef.current?.second && !pairRef.current && !remark && tr.kind === "video";
+      if (firstOfTwo && (j.viewChosen || !j.viewConfident || (finalMarks.view !== "side_on" && finalMarks.view !== "front_on")))
+        return fail("Camera angle not detected", `Aline couldn't tell whether ${fileRef.current?.name ?? "the first video"} is filmed from the side or the front, so the two videos aren't used. Choose two videos of the same ball: one filmed from the side, one from the front (the bowler's end), each with the whole body in view.`);
       // The second angle of a ball is used only when Aline itself read its camera position, and
       // it is the missing one (front-on for a side-on first clip, side-on for a front-on one).
       const want = pairRef.current && !remark && tr.kind === "video" ? otherAngleView(pairRef.current.family) : null;
@@ -1092,6 +1110,15 @@ export function CaptureFlow() {
         const seenView = finalMarks.view;
         if (j.viewChosen || !j.viewConfident) return fail("Camera angle not detected", `Aline couldn't tell the camera angle of this video, so it isn't used. Choose a video of the same ball filmed straight from the ${want === "front_on" ? "front (the bowler's end)" : "side"}, with your whole body in view.`);
         if (seenView !== want) return fail(...wrongAngle(want, seenView));
+        // The same ball: both phones heard the same sounds, lined up with the shot.
+        const first = firstRef.current;
+        const [ea, eb] = await Promise.all([soundEnvelope(first?.media), soundEnvelope(fileRef.current)]);
+        const shotB = shotTime(payload, attempt.obs);
+        const same = first?.shot != null && shotB != null ? sameBall(ea, eb, first.shot, shotB) : { verdict: "no_sound" as const };
+        if (same.verdict === "no_sound")
+          return fail("Can't check it's the same ball", "Aline checks that two videos show the same ball from their sound, and one of them has none it can read. Use the original videos, with sound, of one ball filmed by two phones at the same time.");
+        if (same.verdict !== "same")
+          return fail("Not the same ball", "These two videos don't sound like the same ball: their sounds don't line up with the moment of the shot. Film one ball with two phones at the same time, one from the side and one from the front (the bowler's end).");
       }
       const gz = await encodeTracks(attempt.obs);
       const keyframes = photoKeyframes ?? (tr.kind === "video" ? await grabKeyframes(video.current!, mediaTimesRef.current, payload.evidence_frames) : {});
@@ -1109,6 +1136,19 @@ export function CaptureFlow() {
       timeEnd("report");
       timeEnd("total");
       logVisit("result", `${resultWords(payload)} · ${Math.round((performance.now() - triedAt.current) / 1000)} s`);
+      // The first of two videos: now the second, as the missing angle of the same ball.
+      if (firstOfTwo && twoRef.current?.second) {
+        const family = finalMarks.view === "side_on" ? "side" : "end";
+        const next = { id, title, family } as const;
+        pairRef.current = next;
+        setPair(next);
+        firstRef.current = { id, media: fileRef.current, shot: shotTime(payload, attempt.obs) };
+        const second = twoRef.current.second;
+        twoRef.current = { second: null };
+        setTwoStep(2);
+        void startVideo(second);
+        return;
+      }
       // The other angle of a ball already analysed: link the two and show them together.
       const pairWith = pairRef.current;
       if (pairWith && !remark && tr.kind === "video" && pairWith.id !== id) {
@@ -1127,7 +1167,13 @@ export function CaptureFlow() {
     const files = Array.from(list ?? []);
     if (!files.length) return;
     const images = files.filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif)$/i.test(f.name));
-    const vid = files.find((f) => f.type.startsWith("video/") || VIDEO_EXT.test(f.name));
+    const videos = files.filter((f) => f.type.startsWith("video/") || VIDEO_EXT.test(f.name));
+    const vid = videos[0];
+    // One video, or two of the same ball (side + front). Never more.
+    if (videos.length > 2 || (videos.length === 2 && pairRef.current))
+      return fail("Too many videos", pairRef.current ? "Choose one video here: the other angle of the same ball." : "Choose one video, or two videos of the same ball: one filmed from the side and one from the front (the bowler's end).");
+    twoRef.current = videos.length === 2 ? { second: videos[1]! } : null;
+    setTwoStep(videos.length === 2 ? 1 : null);
     triedAt.current = performance.now();
     job.current.target = shot;
     logVisit("analyse", vid ? `video, ${(vid.size / 1e6).toFixed(1)} MB` : images.length ? `${images.length} photo${images.length === 1 ? "" : "s"}` : "unsupported file");
@@ -1274,8 +1320,8 @@ export function CaptureFlow() {
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Upload size={26} className="text-brand" />
                     <span className="font-semibold">Choose a video</span>
-                    <span className="text-xs text-fg-subtle">Slow motion is best</span>
-                    <input type="file" disabled={!consented} accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.3gp" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
+                    <span className="text-xs text-fg-subtle">Or two of one ball: side + front</span>
+                    <input type="file" multiple={!pair} disabled={!consented} accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.3gp" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Target size={26} className="text-data" />
@@ -1331,7 +1377,7 @@ export function CaptureFlow() {
               <>
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="eyebrow">Analysing{file ? ` · ${file.name}` : ""}</p>
+                    <p className="eyebrow">{twoStep ? `Video ${twoStep} of 2` : "Analysing"}{file ? ` · ${file.name}` : ""}</p>
                     <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">{stages.report === "active" ? "Building your report…" : "Working on it…"}</h1>
                     <p className="mt-2 text-fg-muted">Everything runs on this device. Keep this screen open.</p>
                   </div>

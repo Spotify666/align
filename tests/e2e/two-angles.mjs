@@ -23,7 +23,7 @@ async function analyse(file, until) {
   while (Date.now() < deadline && !until.test(page.url())) {
     const h1 = await page.locator("h1").first().innerText().catch(() => "");
     if (/Which one is the batter/.test(h1)) await page.getByRole("button", { name: /Analyse this person|Follow this person/ }).click().catch(() => {});
-    if (/Not the (front|side) angle|Camera angle not detected/.test(h1)) {
+    if (/Not the (front|side) angle|Camera angle not detected|same ball/.test(h1)) {
       step(`refused: ${h1} | ${(await page.locator("main").innerText()).replace(/\s+/g, " ").slice(0, 300)}`);
       await shot("refused");
       await browser.close();

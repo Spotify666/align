@@ -111,12 +111,15 @@ export function LocalReport({ id }: { id: string }) {
   };
   // Optional: the same ball from the other angle (a refined, combined result).
   const family = angleFamily(p);
+  // Adding it needs this video's sound (to check the other is the same ball): while it is still open.
   const angleLink =
     state.remote || !family || state.obs.media.kind !== "video"
       ? null
       : state.other
         ? { href: `/angles?a=${id}&b=${state.other}`, label: "See both angles together" }
-        : { href: `/analyse?angle=${id}${p.requested_shot === "back_foot_defence" ? "&shot=back" : ""}`, label: family === "side" ? "Add the front angle of this ball" : "Add the side angle of this ball" };
+        : media
+          ? { href: `/analyse?angle=${id}${p.requested_shot === "back_foot_defence" ? "&shot=back" : ""}`, label: family === "side" ? "Add the front angle of this ball" : "Add the side angle of this ball" }
+          : null;
   return (
     <>
     <ReportView
