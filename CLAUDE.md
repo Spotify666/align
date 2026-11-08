@@ -87,7 +87,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Brand (mark geometry, flat and 3D logo, icons) | `src/components/brand/*`, `scripts/brand-icons.mjs` |
 | Visitor log (tracker, bot filter, public totals page) | `src/lib/visit.ts`, `visit-shared.ts`, `src/app/api/visit`, `src/components/visitors.tsx`, Supabase `visits`, `visits_overview()` |
 | Report | `src/components/report/*` (`report-view.tsx`: summary, then "Details"; `line-panel.tsx`, `compare-panel.tsx`, `panels.tsx`); plain summary `src/engine/summary.ts` |
-| Two angles of the same ball (optional, `/angles`) | `src/engine/angles.ts`, `src/components/report/angles-report.tsx`; capture `?angle=<id>`; `tests/e2e/two-angles.mjs` |
+| Two angles of the same ball (optional, `/angles`) | `src/engine/angles.ts`, `src/components/report/angles-report.tsx`; two videos chosen at once or capture `?angle=<id>`; same ball from the sound `src/engine/same-ball.ts`, `src/lib/capture/audio.ts`; `tests/e2e/two-videos.mjs`, `two-angles.mjs` |
 | Synthetic fixtures and population | `src/engine/fixtures/*` |
 | Real-media evaluation | `scripts/eval/*` |
 | Product docs | `docs/00…10-*.md` |
