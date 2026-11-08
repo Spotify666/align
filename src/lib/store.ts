@@ -16,6 +16,8 @@ export interface StoredAnalysis {
   cloud: { syncedAt: string } | null;
   /** Shared for comparison as a shot profile (numbers only): its id in the account. */
   sharedProfileId?: string | null;
+  /** The same ball filmed from the other angle (side / front), when the batter added it. */
+  otherAngle?: string | null;
 }
 
 const DB = "align";
@@ -54,7 +56,7 @@ export async function saveAnalysis(a: StoredAnalysis, tracks: Uint8Array, keyfra
   });
 }
 
-export async function updateAnalysis(id: string, patch: Partial<Pick<StoredAnalysis, "title" | "notes" | "tags" | "representative" | "cloud" | "sharedProfileId">>) {
+export async function updateAnalysis(id: string, patch: Partial<Pick<StoredAnalysis, "title" | "notes" | "tags" | "representative" | "cloud" | "sharedProfileId" | "otherAngle">>) {
   const cur = await getAnalysis(id);
   if (!cur) return;
   await tx(["analyses"], "readwrite", (t) => {

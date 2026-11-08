@@ -50,7 +50,8 @@ import type { AnyCanvas } from "@/lib/capture/canvas";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
 import { feetHandedness, gripHandedness } from "@/lib/capture/grip";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
-import { loadProfile, saveAnalysis, saveProfile, type LocalProfile } from "@/lib/store";
+import { getAnalysis, loadProfile, saveAnalysis, saveProfile, updateAnalysis, type LocalProfile } from "@/lib/store";
+import { angleFamily, type AngleFamily } from "@/engine/angles";
 import { isSessionUrl, sessionCapture, sessionMedia } from "@/lib/session-media";
 import { CaptureChecklist } from "../report/panels";
 import { CameraPlacementDiagram, LiveFramingCheck } from "./setup-guide";
@@ -275,6 +276,25 @@ export function CaptureFlow() {
   useEffect(() => {
     warmUp();
     visionPool()?.warm();
+  }, []);
+
+  // Opened from a report to add the same ball from the other angle (optional, extra): the clip
+  // goes through the usual steps, then the two are linked and shown together.
+  const [pair, setPair] = useState<{ id: string; title: string; family: AngleFamily } | null>(null);
+  const pairRef = useRef<typeof pair>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("angle");
+    if (!id) return;
+    getAnalysis(id)
+      .then((a) => {
+        const family = a ? angleFamily(a.payload) : null;
+        if (!a || !family) return;
+        const next = { id, title: a.title, family };
+        pairRef.current = next;
+        setPair(next);
+        setShot(a.payload.requested_shot ?? "front_foot_defence");
+      })
+      .catch(() => undefined);
   }, []);
 
   // Opened from a report to add bat and ball marks (same browser session only).
@@ -1066,6 +1086,14 @@ export function CaptureFlow() {
       timeEnd("report");
       timeEnd("total");
       logVisit("result", `${resultWords(payload)} · ${Math.round((performance.now() - triedAt.current) / 1000)} s`);
+      // The other angle of a ball already analysed: link the two and show them together.
+      const pairWith = pairRef.current;
+      if (pairWith && !remark && tr.kind === "video" && pairWith.id !== id) {
+        await updateAnalysis(pairWith.id, { otherAngle: id });
+        await updateAnalysis(id, { otherAngle: pairWith.id });
+        router.push(`/angles?a=${pairWith.id}&b=${id}`);
+        return;
+      }
       router.push(`/report/${id}`);
     } catch (e) {
       fail("Analysis failed", e instanceof Error ? e.message : "Something went wrong while preparing the report.");
@@ -1122,6 +1150,11 @@ export function CaptureFlow() {
                   <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Add your shot</h1>
                   <p className="mt-2 text-fg-muted">A video or a few photos. Film from the side if you can.</p>
                 </div>
+                {pair && (
+                  <p className="rounded-xl border border-line-strong px-4 py-3 text-sm">
+                    <span className="font-semibold">Other angle for “{pair.title}”.</span> Choose a video of the same ball, filmed from the {pair.family === "side" ? "front" : "side"}.
+                  </p>
+                )}
 
                 <fieldset>
                   <legend className="text-sm font-semibold">Which shot?</legend>

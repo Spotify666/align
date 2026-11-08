@@ -36,6 +36,8 @@ interface Props {
   notice?: React.ReactNode;
   /** Where the batter marks the ball and bat on this clip (offered while it is still open). */
   markHref?: string | null;
+  /** Optional: add the same ball from the other angle, or see both together once added. */
+  angleLink?: { href: string; label: string } | null;
   title?: string;
   /** The on-device analysis id, for comparing with other shots and sharing this one. */
   analysisId?: string;
@@ -48,7 +50,7 @@ const noSubscribe = () => () => {};
 const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, title, analysisId, onAnalyseAs }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, title, analysisId, onAnalyseAs }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [switching, setSwitching] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -176,6 +178,15 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           </div>
         </div>
       </section>
+
+      {angleLink && (
+        <p className="-mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <Link href={angleLink.href} className="inline-flex min-h-11 items-center gap-2 font-semibold underline underline-offset-4">
+            <Camera size={16} aria-hidden /> {angleLink.label}
+          </Link>
+          <span className="text-fg-subtle">Optional: a second camera gives a more exact result.</span>
+        </p>
+      )}
 
       {details && (
       <div id="report-details" className="space-y-8">
@@ -599,7 +610,7 @@ function SummaryCard({ tone, label, title, text }: { tone: "ok" | "bad" | "brand
 }
 
 /** Where the camera was, on the right of the summary. */
-function AngleChip({ label }: { label: string }) {
+export function AngleChip({ label }: { label: string }) {
   return (
     <span className="chip shrink-0 border-fg text-sm text-fg" title="Where the camera was">
       <Camera size={15} aria-hidden /> {label}
@@ -607,7 +618,7 @@ function AngleChip({ label }: { label: string }) {
   );
 }
 
-function LineIcon({ kind }: { kind: SummaryKind }) {
+export function LineIcon({ kind }: { kind: SummaryKind }) {
   const label = { good: "Good", fix: "Fix", tip: "Tip", info: "Note" }[kind];
   const box = "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full";
   return (
@@ -619,7 +630,7 @@ function LineIcon({ kind }: { kind: SummaryKind }) {
 }
 
 /** The switch that shows everything else: measures, illustrations, drills. Off by default. */
-function DetailsSwitch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+export function DetailsSwitch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       type="button"
