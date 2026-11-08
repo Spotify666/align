@@ -8,7 +8,7 @@ import { FIXTURE_SPECS } from "@/engine/fixtures";
 import { bfdScript, ffdScript, pullScript } from "@/engine/fixtures/index";
 import { backFootPopulation } from "@/engine/fixtures/population";
 import { BFD_METRICS } from "@/engine/backfoot-defs";
-import type { CaptureObservation } from "@/engine/types";
+import { J, type CaptureObservation, type ImgPoint } from "@/engine/types";
 
 const opts = { analysisId: "bfd", createdAt: "2026-10-10T00:00:00.000Z" };
 /** The textbook back-foot defence with the hands where the bat meets the ball. */
@@ -114,6 +114,31 @@ describe("back-foot defence measures", () => {
     const p = analyze(ffd as CaptureObservation, opts);
     expect(p.requested_shot).toBe("front_foot_defence");
     expect(p.analysis_status).not.toBe("valid");
+  });
+});
+
+describe("the front elbow is graded only where it is clearly seen", () => {
+  const elbowOf = (o: CaptureObservation) => analyze(o, opts).metrics.find((m) => m.id === "bfd_elbow")!;
+  it("a clearly seen front elbow is graded", () => {
+    const m = elbowOf(clip(textbook()));
+    expect(m.status).not.toBe("not_measured");
+    expect(m.value).not.toBeNull();
+  });
+  it("an elbow the pose model guesses (unsure of it, put at the hands) is not seen, never graded", () => {
+    const o = clip(textbook());
+    // From the stroke on, the front (left) elbow hidden behind the head: the model puts it at the
+    // wrist with low confidence, as it did on the athlete's side-on clip.
+    const from = Math.round(o.body.length * 0.4);
+    const body = o.body.map((fr, i) => {
+      if (i < from) return fr;
+      const w = fr[J.left_wrist];
+      const out: ImgPoint[] = [...fr];
+      if (w) out[J.left_elbow] = [w[0] + 0.004, w[1] + 0.004, 0.72];
+      return out;
+    });
+    const m = elbowOf({ ...o, body });
+    expect(m.status).toBe("not_measured");
+    expect(m.value).toBeNull();
   });
 });
 

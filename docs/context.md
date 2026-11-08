@@ -3,6 +3,32 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · The same shot from the side and the front: the front elbow
+
+> These are basically same video from front and side angles. Why is the report different?
+> Front elbow high point is common, but why is the indication green in one of them?
+> [side-on report: "Your front elbow was high" (green); bowler's-end report: "Don't lift your
+> elbow so high" (red)]
+
+What was wrong:
+- Side-on, the front arm goes up past the head. The pose model, unsure of the elbow there, put
+  it at the bat handle, so the elbow read level with the shoulder (in range, green) while it was
+  well above it. Every version of the side-on clip did this.
+- From the bowler's end the elbow was read at the moment the feet came to rest, while the arm
+  was still rising: the same clip read anywhere from 0.03 (green) to 0.13 (red) across its copies.
+
+Done (engine 0.8.2): the elbow is read over the held position, and only from frames where it is
+clearly seen (the model sure of it and the forearm not collapsed onto the hands); otherwise the
+report says it wasn't seen clearly from this angle instead of guessing (docs/11).
+- The athlete's elbow: 0.12–0.14 × height above the shoulder from the bowler's end, in all 7
+  versions (red: "Don't lift your elbow so high"); side-on, all 13 versions now "not seen
+  clearly", never a false green. Every other measure and every verdict unchanged.
+- The red is right: on 112 international back-foot defences (3D, every camera position) the
+  front elbow sits 4–13% of height below the shoulder and never more than 4% above. "High" in
+  the coaching sense means level with the shoulder, not above the head.
+- Cost: 6 of the 112 correctly placed elbows go ungraded (side-on and angled); none read wrong.
+  Front-foot results identical.
+
 ## 2026-11-08 · Why the side-on clip still failed; a five-line report, a cricket loader, a minimal opening
 
 > In this video the batsman is going backward to play the defence shot, why is this not

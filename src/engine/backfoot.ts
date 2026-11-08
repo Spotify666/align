@@ -7,6 +7,7 @@
 
 import { arrival, frameSize, landing, offSideSign, type Arrival, type Signal } from "./alignment";
 import { BFD_BANDS, BFD_FRONT_FORMULA, BFD_METRICS, BFD_POSITION_FORMULA, BFD_SOURCE } from "./backfoot-defs";
+import { th } from "./registry";
 import type { Scene, SemanticJoint } from "./scene";
 import type { BackFootPartId, BackFootSummary, CameraView, Handedness, Metric, RangeRef } from "./types";
 
@@ -20,8 +21,10 @@ export interface BackFootReading {
   referenceKind: "contact" | "set";
   /** Offsets from the back ankle at the reference (× stature). */
   at: Record<BackFootPartId, number>;
-  /** Front elbow height minus front shoulder height (× stature; − = below). */
+  /** Front elbow height minus front shoulder height (× stature; − = below). NaN when not clearly seen. */
   elbow: number;
+  /** The front elbow was tracked but not clearly seen where it is read (hidden or misplaced). */
+  elbowUnclear: boolean;
   /** Head above the lower ankle (× stature). */
   headHeight: number;
   /** Head drop from the stance (× stature; + = lower). Video only. */
@@ -79,19 +82,66 @@ function offsetsAt(scene: Scene, frame: number, axis: BackFootAxis, sign: number
 
 const near3 = (scene: Scene, f: number) => [f - 1, f, f + 1].filter((i) => i >= 0 && i < scene.n);
 
-function vertical(scene: Scene, frame: number): { elbow: number; headHeight: number } {
-  const els: number[] = [];
-  const hhs: number[] = [];
-  for (const i of near3(scene, frame)) {
-    const S = sizeAt(scene, i);
+/** The front forearm's picture length (scene units) at a frame, or NaN. */
+const forearm = (scene: Scene, i: number) => {
+  const e = scene.inPicture(i, "front_elbow");
+  const w = scene.inPicture(i, "front_wrist");
+  return e && w ? Math.hypot(e[0] - w[0], e[1] - w[1]) / sizeAt(scene, i) : NaN;
+};
+
+/** The forearm's length where the elbow is clearly seen (90th percentile over the clip), or NaN. */
+function clearForearm(scene: Scene): number {
+  const minConf = th("bfd.elbow.min_confidence");
+  const ls: number[] = [];
+  for (let i = 0; i < scene.n; i++) if (scene.seen(i, "front_elbow") >= minConf) ls.push(forearm(scene, i));
+  const v = ls.filter(Number.isFinite).sort((a, b) => a - b);
+  return v.length ? v[Math.floor(0.9 * (v.length - 1))]! : NaN;
+}
+
+/**
+ * The front elbow's height against the front shoulder over `frames`, from the frames where it
+ * is clearly seen: the pose model sure of it, and the forearm not collapsed onto the hands (a
+ * guessed elbow, hidden behind the head or the bat, is put at the handle). Not clearly seen in
+ * enough of them: NaN, and `unclear`.
+ */
+function elbowOver(scene: Scene, frames: number[]): { elbow: number; unclear: boolean } {
+  const minConf = th("bfd.elbow.min_confidence");
+  const own = clearForearm(scene);
+  const vals: number[] = [];
+  let tracked = 0;
+  for (const i of frames) {
     const e = scene.inPicture(i, "front_elbow");
     const s = scene.inPicture(i, "front_shoulder");
-    if (e && s) els.push((e[1] - s[1]) / S);
+    if (!e || !s) continue;
+    tracked++;
+    const share = forearm(scene, i) / own;
+    if (scene.seen(i, "front_elbow") < minConf || !(share >= th("bfd.elbow.min_forearm_share"))) continue;
+    vals.push((e[1] - s[1]) / sizeAt(scene, i));
+  }
+  if (!tracked) return { elbow: NaN, unclear: false };
+  if (vals.length < Math.max(1, th("bfd.elbow.min_clear_share") * tracked)) return { elbow: NaN, unclear: true };
+  return { elbow: median(vals), unclear: false };
+}
+
+/** The frames a held set position is read over: from the set, as long as a set is held. */
+const heldFrames = (scene: Scene, frame: number) => {
+  const k = scene.dt ? Math.max(2, Math.round(th("bfd.formula.min_set_hold_s") / scene.dt)) : 2;
+  return Array.from({ length: k + 1 }, (_, j) => frame + j).filter((i) => i < scene.n);
+};
+
+function vertical(scene: Scene, frame: number, held = false): { elbow: number; elbowUnclear: boolean; headHeight: number } {
+  const hhs: number[] = [];
+  // The arms are still settling as the feet come to rest: without a seen contact, the elbow is
+  // read over the held position (the athlete's front-on clip: 0.03 at the moment the feet
+  // stopped, 0.13 a tenth of a second later and for the rest of the hold).
+  const el = elbowOver(scene, held ? heldFrames(scene, frame) : near3(scene, frame));
+  for (const i of near3(scene, frame)) {
+    const S = sizeAt(scene, i);
     const h = scene.inPicture(i, "head");
     const ankles = [scene.inPicture(i, "front_ankle"), scene.inPicture(i, "back_ankle")].filter((p): p is [number, number] => !!p);
     if (h && ankles.length) hhs.push((h[1] - Math.min(...ankles.map((p) => p[1]))) / S);
   }
-  return { elbow: median(els), headHeight: median(hhs) };
+  return { elbow: el.elbow, elbowUnclear: el.unclear, headHeight: median(hhs) };
 }
 
 /**
@@ -114,7 +164,7 @@ export function measureBackFoot(
   };
   const atContact = read(contact);
   if (!Number.isFinite(atContact.head)) return null;
-  const v0 = vertical(scene, contact);
+  const v0 = vertical(scene, contact, opts.contactKnown === false);
   const empty: BackFootReading = {
     axis,
     sideUnclear: unclear,
@@ -122,6 +172,7 @@ export function measureBackFoot(
     referenceKind: "contact",
     at: atContact,
     elbow: v0.elbow,
+    elbowUnclear: v0.elbowUnclear,
     headHeight: v0.headHeight,
     headDrop: NaN,
     backStep: NaN,
@@ -155,7 +206,7 @@ export function measureBackFoot(
   const setPoint = setFrames.length >= 2 ? Math.max(...setFrames) : null;
   const ref = !known && setPoint !== null && !opts.fixedReference ? setPoint : contact;
   const at = ref === contact ? atContact : read(ref);
-  const v = ref === contact ? v0 : vertical(scene, ref);
+  const v = ref === contact ? v0 : vertical(scene, ref, !known);
   if (arrivals) for (const a of Object.values(arrivals)) if (a.frame !== null) a.ms = Math.round((a.frame - ref) * dt * 1000);
 
   // Standing tall: the head's height at the reference against the tallest it stood before
@@ -203,6 +254,7 @@ export function measureBackFoot(
     referenceKind: ref === contact ? "contact" : "set",
     at,
     elbow: v.elbow,
+    elbowUnclear: v.elbowUnclear,
     headHeight: v.headHeight,
     headDrop,
     backStep,
@@ -313,6 +365,10 @@ export function backFootMetrics(r: BackFootReading, scene: Scene, opts: BackFoot
         value = r.headHeight;
         break;
       case "bfd_elbow":
+        if (r.elbowUnclear) {
+          out.push(notMeasured("The front elbow wasn't seen clearly here (hidden behind the head or the bat), so its height isn't graded from this angle. Filmed from the bowler's end it usually is."));
+          continue;
+        }
         value = r.elbow;
         unc = 0.025;
         break;
