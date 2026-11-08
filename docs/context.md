@@ -3,6 +3,24 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · Two videos at most, said up front; a third can't be chosen
+
+> Why is there no disclaimer of max 2 video uploads (only works for the same video shot in side
+> angle and front angle)? Also the user should not be able to choose the 3rd video at all. I am
+> still able to choose; only after that I see 3 videos are not acceptable. Why waste the user's
+> time instead of clearly communicating it?
+
+Done (no engine change):
+- **No video picker takes more than one video.** "Choose a video" takes 1 video (it says so);
+  two videos only through "Two angles of one ball", whose Side and Front slots take exactly one
+  each. So a third video can't be picked at all (a phone picker can't be told "at most 2", so
+  none of them offers several). Photos still take up to 12.
+- **The limit is said before anything is chosen**: "2 videos max: the same ball, filmed from the
+  side and the front at the same time" on the option itself, and "2 videos only: the same ball,
+  filmed at the same time, one from the side and one from the front" when it opens.
+- On a computer, two videos dropped together go into the two slots (seen before they start);
+  three or more are refused at once, with the same rule.
+
 ## 2026-11-08 · A smooth opening; two videos chosen one by one, both shown
 
 > Slatted door effect also feels buggy, it's not smooth. Make sure it's a premium feel at the

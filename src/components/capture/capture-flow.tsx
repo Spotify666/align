@@ -1194,7 +1194,7 @@ export function CaptureFlow() {
     const vid = videos[0];
     // One video, or two of the same ball (side + front). Never more.
     if (videos.length > 2 || (videos.length === 2 && pairRef.current))
-      return fail("Too many videos", pairRef.current ? "Choose one video here: the other angle of the same ball." : "Choose one video, or two videos of the same ball: one filmed from the side and one from the front (the bowler's end).");
+      return fail("Too many videos", pairRef.current ? "Choose one video here: the other angle of the same ball." : "Aline takes 1 video, or at most 2 of the same ball: one filmed from the side and one from the front (the bowler's end), at the same time.");
     twoRef.current = videos.length === 2 ? { second: videos[1]! } : null;
     setTwoStep(videos.length === 2 ? 1 : null);
     setTwoFiles(videos.length === 2 ? [videos[0]!, videos[1]!] : null);
@@ -1337,15 +1337,24 @@ export function CaptureFlow() {
                   onDrop={(e) => {
                     e.preventDefault();
                     setDragging(false);
-                    if (consented) onFiles(e.dataTransfer.files);
+                    if (!consented) return;
+                    // Two videos dropped together go into the two angle slots, to be seen before they start.
+                    const dropped = Array.from(e.dataTransfer.files);
+                    const vids = dropped.filter((f) => f.type.startsWith("video/") || VIDEO_EXT.test(f.name));
+                    if (vids.length === 2 && !pair && !paired) {
+                      setSlots({ side: vids[0]!, front: vids[1]! });
+                      setTwoOpen(true);
+                      return;
+                    }
+                    onFiles(dropped);
                   }}
                   aria-disabled={!consented}
                 >
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Upload size={26} className="text-brand" />
                     <span className="font-semibold">Choose a video</span>
-                    <span className="text-xs text-fg-subtle">One shot</span>
-                    <input type="file" multiple={!pair} disabled={!consented} accept={VIDEO_ACCEPT} className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
+                    <span className="text-xs text-fg-subtle">1 video</span>
+                    <input type="file" disabled={!consented} accept={VIDEO_ACCEPT} className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Target size={26} className="text-data" />
@@ -1382,7 +1391,7 @@ export function CaptureFlow() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold">Two angles of one ball</span>
-                        <span className="block text-sm text-fg-muted">A side video and a front video, filmed at the same time</span>
+                        <span className="block text-sm text-fg-muted">2 videos max: the same ball, filmed from the side and the front at the same time</span>
                       </span>
                       <Chevron size={18} className="shrink-0 text-fg-muted" />
                     </button>
