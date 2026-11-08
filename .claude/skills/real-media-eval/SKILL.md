@@ -40,8 +40,11 @@ CHROMIUM_PATH=/opt/pw-browsers/chromium CASES=<cases.json> \
   node scripts/eval/run.mjs http://localhost:3123 <mediaDir> <outDir> [id,id]
 ```
 `SHOT=back` runs every case as a back-foot defence request (`/analyse?shot=back`); offline,
-`TARGET=back_foot_defence` does the same in `verdicts.probe.ts`. No front-foot or other-shot case
-may ever be accepted as a back-foot defence.
+`TARGET=back_foot_defence` does the same in `verdicts.probe.ts`, and `TARGET=none` analyses every
+track as a front-foot defence (tracks exported with `SHOT=back` carry the back-foot target: drop
+it before comparing the front-foot path with the locked build). No front-foot or other-shot case
+may ever be accepted as a back-foot defence. `results.json` also records each report's summary
+(the verdict and its plain lines), the first thing the athlete reads.
 
 Each case runs `tests/e2e/capture-flow.mjs` (CPU pose delegate, answers "which one is the
 batter?" with the suggestion) and writes `<id>.log`, screenshots, the report PDF and
