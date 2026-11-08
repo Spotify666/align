@@ -2,7 +2,8 @@
 // Aline sorts them by the camera angle it detects, checks they are the same ball from their
 // sound, and shows them together; anything else is refused with the reason.
 //   node tests/e2e/two-videos.mjs <baseUrl> <video,video[,video]> <outPrefix>
-// SHOT=back analyses them as back-foot defences.
+// SHOT=back analyses them as back-foot defences. SLOTS=1 chooses them through "Two angles of one
+// ball" (a side slot and a front slot, one at a time) instead of both at once.
 import { chromium } from "@playwright/test";
 const [, , base, list, out] = process.argv;
 const files = list.split(",");
@@ -15,14 +16,30 @@ const step = (s) => console.log(`${((Date.now() - t0) / 1000).toFixed(1)}s ${s}`
 
 await page.goto(`${base}/analyse${process.env.SHOT === "back" ? "?shot=back" : ""}`, { waitUntil: "load" });
 await page.getByLabel(/Analyse my movement on this device/).check();
-await page.locator("input[type=file][multiple]").first().setInputFiles(files);
+if (process.env.SLOTS) {
+  await page.getByRole("button", { name: /Two angles of one ball/ }).click();
+  await page.getByLabel("Choose the side video").setInputFiles(files[0]);
+  step(`after one: ${await page.locator("[aria-live=polite]").innerText()}`);
+  await page.getByLabel("Choose the front video").setInputFiles(files[1]);
+  await page.waitForTimeout(800);
+  step(`after two: ${await page.locator("[aria-live=polite]").innerText()}`);
+  await page.locator("#two-h").locator("xpath=ancestor::section").screenshot({ path: `${out}_slots.png` });
+  await page.getByRole("button", { name: "Check both videos" }).click();
+} else await page.locator("input[type=file][multiple]").first().setInputFiles(files);
 let seen = "";
+let stripShots = 0;
 const deadline = Date.now() + 900000;
 while (Date.now() < deadline) {
   if (/\/angles\?|\/report\//.test(page.url())) break;
   const h1 = await page.locator("h1").first().innerText().catch(() => "");
   const eyebrow = await page.locator(".eyebrow").first().innerText().catch(() => "");
-  if (eyebrow !== seen && /Video \d of 2/.test(eyebrow)) step((seen = eyebrow));
+  if (eyebrow !== seen && /Video \d of 2/i.test(eyebrow)) {
+    step((seen = eyebrow));
+    const strip = page.getByRole("list", { name: "Your two videos" });
+    step(`  strip: ${(await strip.innerText().catch(() => "none")).replace(/\s+/g, " ")}`);
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${out}_strip${++stripShots}.png` });
+  }
   if (/Which one is the batter/.test(h1)) await page.getByRole("button", { name: /Analyse this person|Follow this person/ }).click().catch(() => {});
   if (/Not the|same ball|Too many|not detected|can't analyse|can’t analyse|Analysis failed/i.test(h1)) {
     step(`refused: ${h1} | ${(await page.locator("main").innerText()).replace(/\s+/g, " ").slice(0, 260)}`);
