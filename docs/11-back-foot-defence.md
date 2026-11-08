@@ -52,6 +52,26 @@ Photos (one moment, taken to be contact) are checked on the position: front foot
 alongside, head forward, standing tall (head height for one photo), front elbow, contact
 under the eyes.
 
+**The front elbow** (engine 0.8.2) is read only where it is clearly seen, and over the held
+position when contact isn't seen:
+- *Over the hold*: the arms are still settling as the feet come to rest. On the athlete's
+  bowler's-end clip the elbow read 0.03 at the moment the feet stopped and 0.13 a tenth of a
+  second later for the rest of the hold, so its five copies read anywhere from 0.03 (in range)
+  to 0.13 (out). It is now the median over the 0.3 s from the set (`bfd.formula.min_set_hold_s`);
+  with a seen contact, the frames round contact.
+- *Clearly seen*: a frame counts only when the pose model is sure of the elbow
+  (`bfd.elbow.min_confidence` 0.85) and the forearm keeps at least 0.3 of its clear length in
+  the clip (`bfd.elbow.min_forearm_share`); at least half the frames must count
+  (`bfd.elbow.min_clear_share`), else "not seen clearly from this angle". On the athlete's
+  side-on clip the front arm goes up past the head; the model, unsure of it (0.65–0.85), put
+  the elbow at the bat handle, reading it level with the shoulder (in range) while from the
+  bowler's end the same movement reads 0.13 above it. All 13 versions of that clip now leave it
+  ungraded; all 7 bowler's-end versions read 0.12–0.14 (above the range).
+- *The range*: on 112 international back-foot defences (KU CricShot 3D through virtual cameras,
+  `scripts/eval/elbow.probe.ts`) the front elbow sits 0.04–0.13 below the shoulder (10th–90th
+  percentile) and never above +0.04, which supports the −0.14–0.04 band. The rule leaves 6 of
+  the 112 ungraded (side-on and angled) and reads none wrong.
+
 ## In the app
 
 - **Analyse**: a Front-foot / Back-foot choice on the "Add your shot" screen (`/analyse?shot=back`

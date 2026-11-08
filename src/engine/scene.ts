@@ -75,6 +75,8 @@ export interface Scene {
    * never the 3D estimate. For movement timing, which any camera position sees.
    */
   inPicture: (frame: number, joint: SemanticJoint) => [number, number] | null;
+  /** The pose model's own confidence that it sees the joint at a frame (0 when not tracked). */
+  seen: (frame: number, joint: SemanticJoint) => number;
   /**
    * The monocular 3D pose estimate (camera axes, metres, hip-centred) for any camera position,
    * or null when the clip has none. Read only by the back-foot defence's identity checks
@@ -348,6 +350,7 @@ export function buildScene(obs: CaptureObservation): Scene {
       : null,
     across,
     inPicture,
+    seen: (frame: number, joint: SemanticJoint) => obs.body[frame]?.[J[semanticToJoint(joint, front)]]?.[2] ?? 0,
     steady,
     cameraMoving,
     zoom: finiteStature.length ? Math.max(...finiteStature) / Math.min(...finiteStature) : 1,
