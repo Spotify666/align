@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { analyze } from "@/engine/analyze";
 import { FIXTURE_SPECS, fixture } from "@/engine/fixtures";
 import { backFootPopulation, population } from "@/engine/fixtures/population";
-import { angleLabel, plainSummary, simpleFix, simpleGood } from "@/engine/summary";
+import { angleLabel, fixSentence, friendlyRange, friendlyValue, plainSummary, readingLevel, simpleFix, simpleGood } from "@/engine/summary";
 import type { AnalysisPayload, Metric } from "@/engine/types";
 
 const opts = { analysisId: "s", createdAt: "2026-11-08T00:00:00.000Z" };
@@ -65,6 +65,31 @@ describe("the plain summary", () => {
     expect(s.lines.at(-1)?.text).toMatch(/Check as back-foot defence/);
     // Without the button (a shared report), it doesn't point to one.
     expect(plainSummary(p).lines.some((l) => /Tap/.test(l.text))).toBe(false);
+  });
+
+  it("is worded for the batter's age: no numbers under 13, the number and target for adults", () => {
+    expect(readingLevel("u13")).toBe("simple");
+    expect(readingLevel("16_18")).toBe("plain");
+    expect(readingLevel(null)).toBe("plain");
+    expect(readingLevel("masters")).toBe("detailed");
+    for (const spec of FIXTURE_SPECS) {
+      const p = analyze(fixture(spec.key), opts);
+      const kid = plainSummary(p, { level: "simple" });
+      for (const t of [kid.verdict, ...kid.lines.map((l) => l.text)]) expect(t).not.toMatch(/\d+(\.\d+)? ?(s|ms|%)\b/);
+      const adult = plainSummary(p, { level: "detailed" });
+      const fix = adult.lines.find((l) => l.kind === "fix");
+      if (fix) expect(fix.text).toMatch(/aim for/);
+    }
+  });
+
+  it("names the part that came late, in words, and shows time in seconds, never milliseconds", () => {
+    const p = analyze(fixture("valid_ffd"), opts);
+    const sync = { ...p.metrics.find((m) => m.id === "sync_spread")!, value: 234, inRange: false, range: { lo: 0, hi: 150 } as Metric["range"] };
+    const late = { ...p, line: { ...p.line!, arrivals: { foot: { frame: 1, ms: -234, still: false }, knee: { frame: 2, ms: -150, still: false }, shoulder: { frame: 8, ms: 0, still: false }, head: { frame: 8, ms: 0, still: false } } } };
+    expect(fixSentence(late, sync, "simple")).toBe("Your front shoulder came late: lean it over the ball as your foot lands.");
+    expect(fixSentence(late, sync, "detailed")).toBe("Your front shoulder came late: lean it over the ball as your foot lands (you: 0.23 s; aim for under 0.15 s).");
+    expect(friendlyValue(sync)).toBe("0.23 s");
+    expect(friendlyRange(sync)).toBe("under 0.15 s");
   });
 
   it("says what to do for a measure out of its range, in its direction", () => {
