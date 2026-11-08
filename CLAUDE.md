@@ -45,7 +45,13 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 
 - The BFD runs only when the observation carries `target: "back_foot_defence"`; without it every
   result must stay byte-identical to the FFD build (check with `scripts/eval/verdicts.probe.ts`
-  on saved real tracks against a worktree of `lock/ffd-2026-10-10`).
+  on saved real tracks against a worktree of `lock/ffd-2026-10-10`), with one deliberate
+  exception: a clip that shows the back-foot defence's whole definition (`backfoot-formula.ts`) is
+  never passed as a front-foot defence; it reads "looks like a back-foot defence" (or is named one
+  when the FFD model names no shot) and offers that analysis (docs/11, 2026-11-08).
+- The BFD is identified by its definition checked on the body from any camera position
+  (`backfoot-formula.ts`), never tuned to one clip: check every change on real movement from every
+  view (`scripts/eval/ku3d.probe.ts`, `formula.probe.ts`) and on the athlete's real clips.
 
 - Develop on the session's `claude/...` branch; PR to `main`; merge after CI is green (merge API
   needs the full 40-character SHA); never force-push.

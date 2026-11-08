@@ -372,9 +372,12 @@ export function generate(opts: GenerateOptions): CaptureObservation {
       frame3d.push([w[0], w[1], w[2], c]);
       // Monocular estimate in camera axes (x right, y down, z away), hip-centred:
       // depth is compressed and noisier than the image-plane axes, as with real models.
+      // Side-on (a right-hander filmed from the off side): camera right is toward the bowler and
+      // the off side is nearer the camera.
       const r = sub(w, hipMid);
       const sx = behind ? 1 : -1; // camera right is the off side from behind, the leg side from the bowler's end
-      frameCam.push([sx * r[2] + gaussian(RW) * 0.015, -r[1] + gaussian(RW) * 0.015, sx * r[0] * 0.88 + gaussian(RW) * 0.035, c]);
+      if (frontOn) frameCam.push([sx * r[2] + gaussian(RW) * 0.015, -r[1] + gaussian(RW) * 0.015, sx * r[0] * 0.88 + gaussian(RW) * 0.035, c]);
+      else frameCam.push([r[0] + gaussian(RW) * 0.015, -r[1] + gaussian(RW) * 0.015, -r[2] * 0.88 + gaussian(RW) * 0.035, c]);
     }
     body.push(frame);
     body3d.push(frame3d);
@@ -460,7 +463,8 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     },
     tier: opts.tier ?? "quick",
     athlete: { handedness: opts.handedness, heightCm: Math.round(H * 100) },
-    camera: { view: behind ? "behind" : frontOn ? "front_on" : "side_on", bowlerSide },
+    // A phone on a tripod: the camera doesn't move.
+    camera: { view: behind ? "behind" : frontOn ? "front_on" : "side_on", bowlerSide, shift: outBody.map(() => [0, 0] as const) },
     calibration: frontOn
       ? { source: "none", metresPerUnit: null, stumpsX: null, groundY: null }
       : { source: "fixture", metresPerUnit: FIXTURE_CALIBRATION.metresPerUnit, stumpsX, groundY: FIXTURE_CALIBRATION.groundY },
@@ -469,7 +473,8 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     body: outBody,
     body3d: opts.include3d ? out3d : undefined,
     vizDepth: outDepth,
-    ...(frontOn ? { poseWorld: outCam } : {}),
+    // Every view carries the pose estimate, as the capture records it.
+    poseWorld: outCam,
     bat: { source: opts.withBat === false ? "none" : (opts.batSource ?? "fixture"), handle: outHandle, toe: outToe },
     ball: { source: opts.withBall === false || !s.ball.visible ? "none" : "fixture", points: outBall },
     marks: {

@@ -25,6 +25,13 @@ Kept outside the repo (scratchpad or `/home/user/ext`). Sources used so far — 
 Headless Chromium can't decode H.264: transcode to VP9 in MP4
 (`ffmpeg -i in.mp4 -c:v libvpx-vp9 -b:v 1500k -deadline realtime -cpu-used 8 -an out.mp4`).
 
+- Real movement from every camera position: KU CricShot 3D (`ku_cric_shot_3d.zip`, 1,281 shots:
+  defence, drive, pull, flick) through `scripts/eval/ku3d.probe.ts` (`KU_DIR=…`), seen from the
+  bowler's end, side-on both sides, behind and at 45°; `formula.probe.ts` prints the back-foot
+  definition's signals per class and view. No real timing (20 poses per shot): position checks only.
+- The athlete's back-foot defences (2026-11-08): bowler's end with black bars, side-on hand-held;
+  test every version (bars, cropped, 720p, 15 fps, mirrored) in both shot modes.
+
 ## Run
 
 ```bash

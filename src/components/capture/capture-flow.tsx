@@ -26,6 +26,10 @@ import {
   warmUp,
   roiAround,
   seek,
+  setPictureArea,
+  getPictureArea,
+  areaPixels,
+  fromArea,
   EMPTY,
   type Box,
   type PoseFrame,
@@ -37,11 +41,13 @@ import { guessView } from "@/lib/capture/view-guess";
 import { strokeSegment } from "@/lib/capture/segments";
 import { linkBack } from "@/lib/capture/link";
 import { LumaTrack } from "@/lib/capture/picture-cuts";
+import { CameraMotion } from "@/lib/capture/camera-motion";
+import { findPictureArea } from "@/lib/capture/bars";
 import { playFrames } from "@/lib/capture/frames";
 import { openDecoded, type DecodedVideo } from "@/lib/capture/decoder";
 import type { AnyCanvas } from "@/lib/capture/canvas";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
-import { gripHandedness } from "@/lib/capture/grip";
+import { feetHandedness, gripHandedness } from "@/lib/capture/grip";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
 import { loadProfile, saveAnalysis, saveProfile, type LocalProfile } from "@/lib/store";
 import { isSessionUrl, sessionCapture, sessionMedia } from "@/lib/session-media";
@@ -150,6 +156,25 @@ const resultWords = (p: AnalysisPayload) => {
   return shot === "front_foot_defence" ? words : `${SHOT_TITLE[shot].toLowerCase()}: ${words}`;
 };
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+/** The picture area inside black bars, from four small frames spread over the clip. */
+async function pictureAreaOf(v: HTMLVideoElement): Promise<Roi | null> {
+  const a = v.videoWidth / Math.max(1, v.videoHeight);
+  const w = 160;
+  const h = Math.max(16, Math.round(w / a));
+  const c = Object.assign(document.createElement("canvas"), { width: w, height: h });
+  const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  const frames: Float32Array[] = [];
+  for (const f of [0.2, 0.4, 0.6, 0.8]) {
+    await seek(v, v.duration * f);
+    ctx.drawImage(v, 0, 0, w, h);
+    const px = ctx.getImageData(0, 0, w, h).data;
+    const g = new Float32Array(w * h);
+    for (let k = 0; k < g.length; k++) g[k] = (0.299 * px[k * 4]! + 0.587 * px[k * 4 + 1]! + 0.114 * px[k * 4 + 2]!) / 255;
+    frames.push(g);
+  }
+  return findPictureArea(frames, w, h);
+}
 
 export function CaptureFlow() {
   const router = useRouter();
@@ -379,7 +404,17 @@ export function CaptureFlow() {
     job.current.meta = m;
     setMeta(m);
     timeEnd("read");
-    stage("read", "done", `${m.width}×${m.height} · ${fps ? `${Math.round(fps)} fps` : "frame rate unknown"} · ${m.durationSec.toFixed(1)} s`);
+    // Black bars round the picture (an upright video saved into a wide frame): people are then
+    // looked for inside the picture itself (pose.ts), or a batter in a narrow picture is too
+    // small for the person detector.
+    const area = await pictureAreaOf(v).catch(() => null);
+    setPictureArea(area);
+    if (!alive()) return;
+    stage(
+      "read",
+      "done",
+      `${m.width}×${m.height} · ${fps ? `${Math.round(fps)} fps` : "frame rate unknown"} · ${m.durationSec.toFixed(1)} s${area ? " · picture inside black bars" : ""}`,
+    );
 
     stage("shot", "active", "Getting the on-device analyser ready (first time only)…");
     try {
@@ -388,7 +423,8 @@ export function CaptureFlow() {
       // A returning device knows its pose path: get the tracking model ready during the scan.
       if (knownDelegate()) void loadPose().catch(() => undefined);
       // Short clips scan quickly on the page; splitting them costs more than it saves.
-      const pool = job.current.src && Math.min(v.duration, MAX_SCAN_SEC) >= 8 ? visionPool() : null;
+      // (The workers find people on whole frames: with bars, the scan stays on the page.)
+      const pool = job.current.src && !area && Math.min(v.duration, MAX_SCAN_SEC) >= 8 ? visionPool() : null;
       stage("shot", "active", m.durationSec > 20 ? "Looking through the whole clip…" : "");
       timeStart("scan");
       let scanned: ScanResult | null = null;
@@ -692,8 +728,12 @@ export function CaptureFlow() {
                 pre.slice(s0, s0 + chunk),
                 (k, frame) => {
                   const ctx = frame.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
-                  const img = ctx.getImageData(0, 0, frame.width, frame.height);
-                  jobs.push(pool.people(img).then((p) => void (people[s0 + k] = p), () => void redo.push(s0 + k)));
+                  // With black bars, the picture area only (as the page looks), boxes mapped back.
+                  const ar = getPictureArea();
+                  const r = ar ? areaPixels(ar, frame.width, frame.height) : { x: 0, y: 0, w: frame.width, h: frame.height };
+                  const img = ctx.getImageData(r.x, r.y, r.w, r.h);
+                  const back = (bs: Box[]) => (ar ? bs.map((b) => fromArea(b, r, frame.width, frame.height)) : bs);
+                  jobs.push(pool.people(img).then((p) => void (people[s0 + k] = back(p)), () => void redo.push(s0 + k)));
                   return alive();
                 },
                 () => !alive(),
@@ -730,6 +770,7 @@ export function CaptureFlow() {
         firstLinked = reached.length ? reached[0]! : key;
       }
       const luma = new LumaTrack(a);
+      const motion = new CameraMotion(a);
       const at = (i: number, src: HTMLVideoElement | AnyCanvas) => {
         const mt = times[i]!;
         luma.take(i, src);
@@ -756,6 +797,7 @@ export function CaptureFlow() {
             follower.see(p);
           }
         }
+        motion.take(i, src, bodyBox(p.body));
         if (bodyBox(p.body)) seen++;
         prevHip = p.hip;
         out.body[i] = p.body;
@@ -770,6 +812,7 @@ export function CaptureFlow() {
       const reset = () => {
         [out.body, out.depth, out.quality, out.t, world.length, seen, done, ran, prevHip] = [[], [], [], [], 0, 0, 0, 0, seedHip()];
         luma.reset();
+        motion.reset();
         follower.roi = startRoi();
       };
       const pass = async () => {
@@ -809,6 +852,10 @@ export function CaptureFlow() {
       // Keep only the camera shot that holds the stroke (broadcast cuts, replays).
       const [s0, s1] = strokeSegment(out.body, a, key, Math.round(1.0 * out.fps), undefined, luma.cuts());
       let note = "";
+      // The camera's movement over the kept stretch, from its first frame.
+      const shifts = motion.shifts().slice(s0, s1);
+      const origin = shifts.find((v) => v) ?? null;
+      out.cameraShift = origin ? shifts.map((v) => (v ? [v[0] - origin[0], v[1] - origin[1]] : null)) : undefined;
       if (s0 > 0 || s1 < out.body.length) {
         const t0 = out.t[s0] ?? 0;
         out.t = out.t.slice(s0, s1).map((t) => Math.round((t - t0) * 100) / 100);
@@ -824,8 +871,11 @@ export function CaptureFlow() {
         out.trimmed = true;
       }
       // Camera position and batting hand from every tracked frame of the batter, not the two
-      // probes read before tracking: the head says where the camera is; the grip at the
-      // stance (bat held down), else the side nearer the camera, says which hand.
+      // probes read before tracking: the head says where the camera is; side-on, the front foot
+      // in the stance (the one nearer the bowler) says which hand; else the grip at the stance
+      // (bat held down) or the side nearer the camera; else the profile. A hand read from one or
+      // two frames is never trusted over the profile: a stance with the bat raised behind puts
+      // the bottom hand on top.
       const setup = out.body.slice(0, Math.max(3, Math.round(out.body.length * 0.2)));
       const grip = gripHandedness(setup, a, 3)?.handedness ?? null;
       // Read before the stroke, while the batter watches the bowler: at contact the head
@@ -844,7 +894,9 @@ export function CaptureFlow() {
         j.bowlerSide = g.bowlerSide;
         setBowlerSide(g.bowlerSide);
       }
-      out.handedness = grip ?? g?.handedness ?? j.hand ?? undefined;
+      const sideOn = j.view !== "front_on" && j.view !== "behind";
+      const feetHand = sideOn ? (feetHandedness(setup, a, j.bowlerSide, 3)?.handedness ?? null) : null;
+      out.handedness = feetHand ?? (sideOn ? null : g?.handedness) ?? grip ?? undefined;
       out.sourceStartMs = (times[0] ?? 0) * 1000;
       mediaTimesRef.current = times;
       setMediaTimes(times);
@@ -931,6 +983,7 @@ export function CaptureFlow() {
   }
 
   async function analysePhotos(photos: PhotoLoad, v: ViewChoice | "oblique", side: "left" | "right", hand: "right" | "left") {
+    setPictureArea(null); // photos: the whole picture
     const use = photos.items.filter((i) => i.frame);
     const sampler = new FrameQualitySampler(photos.width / photos.height);
     const keyframes: Record<number, Blob> = {};

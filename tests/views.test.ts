@@ -38,7 +38,10 @@ describe("front-on capture", () => {
     for (let k = 0; k < 3; k++) expect(Math.abs(a[k]! - b[k]!)).toBeLessThan(0.001);
   });
   it("still decodes side-on tracks that carry no 3D estimate", () => {
-    const back = decodeRaw(encodeRaw(fixture("valid_ffd")));
+    // Tracks saved before the estimate was kept for every view have none.
+    const { poseWorld: _w, ...old } = fixture("valid_ffd");
+    void _w;
+    const back = decodeRaw(encodeRaw(old));
     expect(back.poseWorld).toBeUndefined();
   });
 });

@@ -11,6 +11,11 @@ skill (`.claude/skills/real-media-eval/SKILL.md`).
 - `tracks.probe.ts` — offline: re-analyses exported tracks with the current engine
   (`PROBE_DIR=… npx vitest run --config scripts/eval/vitest.config.ts`).
 - `overlay.mjs` — draws the tracked skeleton on the real frames to check timing by eye.
+- `ku3d.ts`, `ku3d.probe.ts` — real batting movement (KU CricShot 3D poses, `KU_DIR`) seen from any
+  camera position (bowler's end, side-on either side, behind, 45°) through the whole engine, as
+  front-foot and back-foot requests: every verdict per shot class and view (`KU_OUT` writes them).
+- `formula.probe.ts` — the back-foot definition's signals (`backfoot-formula.ts`) on the KU shots
+  and on exported tracks (`TRACKS=…`), with their spread per class and view: how each limit was set.
 
 Truth labels: `ffd` (a front-foot defence video), `other` (another shot), `none` (no stroke),
 `ffd_pos` / `ffd_pos_front` (a defence position photo, side-on / from the bowler's end),

@@ -49,6 +49,8 @@ export interface TrackingResult {
   sourceStartMs?: number;
   /** A camera cut or a lost batter cut the tracked stretch short. */
   trimmed?: boolean;
+  /** How the camera moved since the first tracked frame, from the background (camera-motion.ts). */
+  cameraShift?: Array<[number, number] | null>;
 }
 
 const lerp2 = (a: [number, number], b: [number, number], s: number): [number, number] => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s];
@@ -161,7 +163,7 @@ export function buildObservation(opts: {
     },
     tier: opts.tier,
     athlete: { handedness: opts.handedness, heightCm: opts.heightCm },
-    camera: { view: m.view, bowlerSide: m.bowlerSide },
+    camera: { view: m.view, bowlerSide: m.bowlerSide, ...(tr.cameraShift ? { shift: tr.cameraShift.map((v) => (v ? [Math.round(v[0] * 1e5) / 1e5, Math.round(v[1] * 1e5) / 1e5] : null)) } : {}) },
     calibration: {
       source: metresPerUnit ? "user_marked" : "none",
       metresPerUnit,

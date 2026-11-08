@@ -12,7 +12,7 @@ import { type CompareReference, EvidenceViewer, type EvidenceViewerHandle } from
 import { MetricCard } from "./metric-card";
 import { CaptureChecklist, DomainGrid, Limitations, PriorityPlan, ShotProbabilityPanel, Versions } from "./panels";
 import { ConfidenceChip, DemoBadge, STATUS_META, statusKey } from "./status";
-import { Download, Record as RecordIcon, Target } from "../icons";
+import { Check, Cross, Download, Question, Record as RecordIcon, Target } from "../icons";
 import { downloadReportPdf } from "@/lib/pdf";
 import { Lesson } from "../lesson/lesson";
 import { LinePanel } from "./line-panel";
@@ -51,6 +51,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
   const shotName = SHOT_NAME[shot];
   const observedLabel = p.observed_shot?.label;
   const otherTarget = observedLabel && observedLabel !== shot && (TARGET_SHOTS as readonly string[]).includes(observedLabel) ? (observedLabel as TargetShot) : null;
+  // A front-foot analysis that saw the back-foot defence's whole definition offers that shot.
+  const looksBack = shot === "front_foot_defence" && p.status_reason === "looks_back_foot";
   const [aiReport, setAiReport] = useState<Report | null>(null);
   const [aiState, setAiState] = useState<"idle" | "loading" | "unavailable" | "fallback">("idle");
   const report = useMemo(() => aiReport ?? narrative ?? templateReport(p), [aiReport, narrative, p]);
@@ -118,6 +120,26 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           {notice}
           {!isValid && p.mode !== "posture_screen" && (
             <p className="mt-3 text-sm text-fg-muted">No technique score: a score is only given to a confirmed {shotName}.</p>
+          )}
+          {p.back_foot_checks && <DefinitionChecks checks={p.back_foot_checks} />}
+          {looksBack && onAnalyseAs && (
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                className="btn btn-primary"
+                disabled={switching}
+                onClick={async () => {
+                  setSwitching(true);
+                  try {
+                    await onAnalyseAs("back_foot_defence");
+                  } finally {
+                    setSwitching(false);
+                  }
+                }}
+              >
+                {switching ? "Analysing…" : "Analyse as back-foot defence"}
+              </button>
+              <span className="text-xs text-fg-subtle">The same tracks, checked against the back-foot defence&rsquo;s own definition.</span>
+            </div>
           )}
           {p.analysis_status === "invalid_for_requested_analysis" && p.observed_shot && (
             <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -614,5 +636,35 @@ function DeliveryPanel({ payload: p, onSeek }: { payload: AnalysisPayload; onSee
         </>
       )}
     </section>
+  );
+}
+
+/** The back-foot defence's definition, checked on the batter: each part met, not met, or not seen. */
+function DefinitionChecks({ checks }: { checks: NonNullable<AnalysisPayload["back_foot_checks"]> }) {
+  const title: Record<(typeof checks)[number]["id"], string> = {
+    no_stride: "No stride forward",
+    went_back: "Went back",
+    stayed_tall: "Stayed tall",
+    dead_bat: "Defensive bat",
+  };
+  return (
+    <div className="mt-5">
+      <p className="text-sm text-fg-muted">The back-foot defence, part by part, as Aline saw it:</p>
+      <ul className="mt-2 divide-y divide-line border-y border-line">
+        {checks.map((c) => {
+          const Icon = c.pass === true ? Check : c.pass === false ? Cross : Question;
+          return (
+            <li key={c.id} className="flex items-start gap-3 py-2.5">
+              <Icon size={18} aria-hidden className="mt-0.5 shrink-0" />
+              <span>
+                <span className="font-medium">{title[c.id]}</span>
+                <span className="sr-only">{c.pass === true ? ": met" : c.pass === false ? ": not met" : ": not seen"}</span>
+                <span className="block text-sm text-fg-muted">{c.reading}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

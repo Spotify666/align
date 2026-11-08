@@ -107,6 +107,12 @@ export interface CaptureObservation {
     view: CameraView;
     /** Which image edge the bowler is on, so "forward" is semantic, not a screen direction. */
     bowlerSide: "left" | "right";
+    /**
+     * How the camera moved since the first frame, per frame (normalised image units; + = the
+     * picture moved right / down), measured on the background; null where it couldn't be read.
+     * Absent on observations made before it was measured: the camera's movement is then unknown.
+     */
+    shift?: Array<readonly [number, number] | null>;
   };
   calibration: {
     source: "fixture" | "user_marked" | "none";
@@ -389,6 +395,11 @@ export interface AnalysisPayload {
    * stature from the back ankle along `axis`, read at `referenceFrame`. For the report's view.
    */
   back_foot?: BackFootSummary;
+  /**
+   * The back-foot defence's definition checked on the body (back-foot analyses of a video):
+   * no stride, went back, stayed tall, a defensive bat. pass null = not seen from this camera.
+   */
+  back_foot_checks?: Array<{ id: "no_stride" | "went_back" | "stayed_tall" | "dead_bat"; pass: boolean | null; value: number | null; limit: string; reading: string }>;
   /** Photos: how the position measures up to the shot's position formula (frame = the photo it was read from). */
   position_check?: {
     met: number;

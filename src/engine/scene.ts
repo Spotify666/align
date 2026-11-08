@@ -76,6 +76,18 @@ export interface Scene {
    */
   inPicture: (frame: number, joint: SemanticJoint) => [number, number] | null;
   /**
+   * The monocular 3D pose estimate (camera axes, metres, hip-centred) for any camera position,
+   * or null when the clip has none. Read only by the back-foot defence's identity checks
+   * (backfoot-formula.ts): turns of the shoulders and hands across the body.
+   */
+  estimate: ((frame: number, joint: SemanticJoint) => CameraPoint) | null;
+  /**
+   * Where a joint is in the picture with the camera's own movement taken out (the camera's
+   * shift measured on the background, obs.camera.shift): as inPicture, but fixed to the ground
+   * when the phone pans. Null when the camera's movement wasn't measured, or it zoomed.
+   */
+  steady: ((frame: number, joint: SemanticJoint) => [number, number] | null) | null;
+  /**
    * The camera zoomed or panned during the shot (broadcast footage). Positions are then
    * measured per frame against the batter's own size, feet and back ankle, so whole-body
    * travel (back-foot movement) can't be observed.
@@ -298,6 +310,18 @@ export function buildScene(obs: CaptureObservation): Scene {
     return [plane === "frontal" ? sp.f * dir : sp.f, sp.u];
   };
 
+  const shift = obs.camera.shift;
+  const steady =
+    shift && shift.length === n && !cameraMoving
+      ? (frame: number, joint: SemanticJoint): [number, number] | null => {
+          const d = shift[frame];
+          const p = rawImg(frame, semanticToJoint(joint, front));
+          if (!d || !p) return null;
+          const sp = toScene(p[0] - d[0] * aspect, p[1] - d[1], p[2], frame);
+          return [plane === "frontal" ? sp.f * dir : sp.f, sp.u];
+        }
+      : null;
+
   return {
     n,
     plane,
@@ -316,8 +340,15 @@ export function buildScene(obs: CaptureObservation): Scene {
     ball: track(obs.ball.points),
     depth,
     estYaw,
+    estimate: obs.poseWorld
+      ? (frame: number, joint: SemanticJoint): CameraPoint => {
+          const p = obs.poseWorld?.[frame]?.[J[semanticToJoint(joint, front)]] ?? null;
+          return p && p[3] >= minConf * 0.6 ? p : null;
+        }
+      : null,
     across,
     inPicture,
+    steady,
     cameraMoving,
     zoom: finiteStature.length ? Math.max(...finiteStature) / Math.min(...finiteStature) : 1,
     toImage: ({ f, u }) => [(f / (dir * mpu) + stumpsXu) / aspect, groundY! - u / mpu],
