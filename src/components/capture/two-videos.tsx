@@ -2,9 +2,10 @@
 
 // Two angles of one ball, chosen one slot at a time: a side video and a front video, each shown
 // (its picture, name and length, with a tick) as soon as it is chosen, so the batter sees both
-// were taken before anything starts. Phones' pickers make choosing two files at once easy to
-// miss (on many, a tap takes one file and closes), so each angle has its own button; choosing
-// two in one slot fills both. Aline still reads each video's angle itself and puts them right.
+// were taken before anything starts. Two videos at most, and said before anything is chosen:
+// each slot's picker takes exactly one video, so a third can't even be picked (no picker that
+// takes several at once, which phones also make easy to miss). Aline still reads each video's
+// angle itself and puts them right.
 
 import { useEffect, useState } from "react";
 import { Check, Upload } from "../icons";
@@ -131,7 +132,6 @@ function SlotCard({ slot, file, disabled, onPick }: { slot: Slot; file: File | n
       )}
       <input
         type="file"
-        multiple
         disabled={disabled}
         accept={VIDEO_ACCEPT}
         className="sr-only"
@@ -148,11 +148,8 @@ function SlotCard({ slot, file, disabled, onPick }: { slot: Slot; file: File | n
 /** The two slots and the button that starts both. */
 export function TwoVideoPicker({ slots, onChange, onStart, onClose, disabled }: { slots: TwoSlots; onChange: (s: TwoSlots) => void; onStart: (files: [File, File]) => void; onClose: () => void; disabled: boolean }) {
   const pick = (slot: Slot) => (files: File[]) => {
-    const videos = files.filter((f) => f.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(f.name));
-    if (!videos.length) return;
-    const other: Slot = slot === "side" ? "front" : "side";
-    // Two chosen at once fill both slots.
-    onChange(videos.length >= 2 ? { [slot]: videos[0]!, [other]: videos[1]! } as TwoSlots : { ...slots, [slot]: videos[0]! });
+    const video = files.find((f) => f.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(f.name));
+    if (video) onChange({ ...slots, [slot]: video });
   };
   const both = slots.side && slots.front;
   const missing = !slots.side && !slots.front ? null : !slots.side ? "side" : !slots.front ? "front" : null;
@@ -161,7 +158,7 @@ export function TwoVideoPicker({ slots, onChange, onStart, onClose, disabled }: 
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 id="two-h" className="text-lg font-semibold">Two angles of one ball</h2>
-          <p className="mt-1 text-sm text-fg-muted">One ball, filmed by two phones at the same time.</p>
+          <p className="mt-1 text-sm text-fg-muted">2 videos only: the same ball, filmed at the same time, one from the side and one from the front.</p>
         </div>
         <button type="button" onClick={onClose} className="shrink-0 text-sm font-medium text-fg-muted hover:text-fg hover:underline">
           Close
