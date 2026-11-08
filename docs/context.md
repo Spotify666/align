@@ -3,6 +3,31 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · A smooth opening; two videos chosen one by one, both shown
+
+> Slatted door effect also feels buggy, it's not smooth. Make sure it's a premium feel at the
+> time of rendering. Also selection of 2 videos is not showing clearly for the user: it shows
+> 1 video selected but only chooses one and confuses the user whether he selected that video
+> or not.
+
+Done (no engine change):
+- **The opening** (`landing/intro.tsx`, `globals.css`): it was not the curtain itself but two
+  faults around it. The page's fade-in ran under the curtain, so the screen showed the page,
+  then grey, then black. Now the curtain is black from the first frame. A perspective on the
+  whole curtain left each turned slat as a thin black sliver until it vanished at once. Now each
+  slat turns on its own axis to exactly edge-on and fades in its last moment. The sweep gathers
+  pace across the screen. Still transform and opacity only, on the compositor.
+- **Two angles of one ball** (`capture/two-videos.tsx`): its own option on the Add screen, with a
+  slot for the side video and one for the front video. Each slot is chosen on its own, so it
+  doesn't depend on the phone's picker taking two files (on many phones a tap takes one and
+  closes). Each chosen video shows straight away with a still, its name, length and a tick;
+  "1 of 2 chosen. Now the front video." then "2 of 2 videos chosen", and "Check both videos"
+  starts. Choosing two at once in one slot fills both. Aline still reads each video's angle
+  itself, so a video in the wrong slot is put right.
+- **While they run**, both videos show side by side: "Checking now", "Next", then "Done · side
+  angle". The same shows when two are chosen at once with "Choose a video". The stills are made
+  once and the video is released, so no extra video decoder stays open during the analysis.
+
 ## 2026-11-08 · Pages refresh themselves after a release; a processing screen with depth
 
 > These changes should auto refresh the pages. Sometimes old stale sessions show no changes

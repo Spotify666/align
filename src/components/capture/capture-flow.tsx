@@ -1,6 +1,7 @@
 "use client";
 
 import { CricketLoader } from "./cricket-loader";
+import { TwoVideoPicker, TwoVideoStrip, VIDEO_ACCEPT, type TwoSlots } from "./two-videos";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -308,6 +309,10 @@ export function CaptureFlow() {
   // The first angle, for the same-ball check: its file (or session video) and when its shot was.
   const firstRef = useRef<{ id: string; media: Blob | null; shot: number | null } | null>(null);
   const [twoStep, setTwoStep] = useState<1 | 2 | null>(null);
+  // Both videos, shown together while they run; and the side/front slots on the Add screen.
+  const [twoFiles, setTwoFiles] = useState<[File, File] | null>(null);
+  const [twoOpen, setTwoOpen] = useState(false);
+  const [slots, setSlots] = useState<TwoSlots>({ side: null, front: null });
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("angle");
     if (!id) return;
@@ -1192,6 +1197,7 @@ export function CaptureFlow() {
       return fail("Too many videos", pairRef.current ? "Choose one video here: the other angle of the same ball." : "Choose one video, or two videos of the same ball: one filmed from the side and one from the front (the bowler's end).");
     twoRef.current = videos.length === 2 ? { second: videos[1]! } : null;
     setTwoStep(videos.length === 2 ? 1 : null);
+    setTwoFiles(videos.length === 2 ? [videos[0]!, videos[1]!] : null);
     triedAt.current = performance.now();
     job.current.target = shot;
     logVisit("analyse", vid ? `video, ${(vid.size / 1e6).toFixed(1)} MB` : images.length ? `${images.length} photo${images.length === 1 ? "" : "s"}` : "unsupported file");
@@ -1338,8 +1344,8 @@ export function CaptureFlow() {
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Upload size={26} className="text-brand" />
                     <span className="font-semibold">Choose a video</span>
-                    <span className="text-xs text-fg-subtle">Or two of one ball: side + front</span>
-                    <input type="file" multiple={!pair} disabled={!consented} accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.3gp" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
+                    <span className="text-xs text-fg-subtle">One shot</span>
+                    <input type="file" multiple={!pair} disabled={!consented} accept={VIDEO_ACCEPT} className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Target size={26} className="text-data" />
@@ -1360,6 +1366,27 @@ export function CaptureFlow() {
                     <input type="file" disabled={!consented} accept="image/*" capture="environment" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                 </div>
+                {!pair && !paired &&
+                  (twoOpen ? (
+                    <TwoVideoPicker slots={slots} onChange={setSlots} onStart={(f) => onFiles(f)} onClose={() => setTwoOpen(false)} disabled={!consented} />
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!consented}
+                      onClick={() => setTwoOpen(true)}
+                      className={`card card-hover flex w-full items-center gap-3 p-4 text-left ${consented ? "" : "pointer-events-none opacity-50"}`}
+                    >
+                      <span className="flex shrink-0 gap-1" aria-hidden>
+                        <Upload size={22} className="text-brand" />
+                        <Upload size={22} className="text-brand" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold">Two angles of one ball</span>
+                        <span className="block text-sm text-fg-muted">A side video and a front video, filmed at the same time</span>
+                      </span>
+                      <Chevron size={18} className="shrink-0 text-fg-muted" />
+                    </button>
+                  ))}
                 {!consented && <p className="text-sm text-fg-muted">Tick the box above to add a video or photos.</p>}
 
                 <details className="card p-4 group">
@@ -1401,6 +1428,7 @@ export function CaptureFlow() {
                   </div>
                   <CricketLoader />
                 </div>
+                {twoStep && twoFiles && <TwoVideoStrip run={{ files: twoFiles, step: twoStep, firstAngle: twoStep === 2 ? (pair?.family ?? null) : null }} />}
                 <ol className="card divide-y divide-line" aria-label="Analysis progress">
                   {stageList.map(([k, label]) => {
                     const st = stages[k] ?? "waiting";
