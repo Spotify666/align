@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { decodeTracks, encodeTracks } from "@/engine/tracks-codec";
 import { analyze } from "@/engine/analyze";
+import { angleFamily } from "@/engine/angles";
 import { buildBaseline, compareToBaseline, type BaselineComparison } from "@/engine/baseline";
 import type { AnalysisPayload, CaptureObservation, TargetShot } from "@/engine/types";
 import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, saveAnalysis, type StoredAnalysis } from "@/lib/store";
@@ -27,6 +28,8 @@ type State =
       baseline: BaselineComparison[];
       reference: CompareReference | null;
       remote?: boolean;
+      /** The same ball from the other angle, when added and still on this device. */
+      other?: string | null;
     };
 
 export function LocalReport({ id }: { id: string }) {
@@ -64,7 +67,8 @@ export function LocalReport({ id }: { id: string }) {
         const t = await getTracks(prev.id);
         if (t) reference = { obs: await decodeTracks(t), payload: prev.payload, label: prev.title, recordedAt: prev.recordedAt, contactSelf: c1, contactRef: c2 };
       }
-      if (alive) setState({ kind: "ready", stored, obs, keyframes, baseline, reference });
+      const other = stored.otherAngle && (await getAnalysis(stored.otherAngle)) ? stored.otherAngle : null;
+      if (alive) setState({ kind: "ready", stored, obs, keyframes, baseline, reference, other });
     })().catch(() => alive && setState({ kind: "missing" }));
     return () => {
       alive = false;
@@ -105,9 +109,18 @@ export function LocalReport({ id }: { id: string }) {
     if (cap) sessionCapture.set(newId, { ...cap, title, createdAt, target });
     router.push(`/report/${newId}`);
   };
+  // Optional: the same ball from the other angle (a refined, combined result).
+  const family = angleFamily(p);
+  const angleLink =
+    state.remote || !family || state.obs.media.kind !== "video"
+      ? null
+      : state.other
+        ? { href: `/angles?a=${id}&b=${state.other}`, label: "See both angles together" }
+        : { href: `/analyse?angle=${id}${p.requested_shot === "back_foot_defence" ? "&shot=back" : ""}`, label: family === "side" ? "Add the front angle of this ball" : "Add the side angle of this ball" };
   return (
     <>
     <ReportView
+      angleLink={angleLink}
       payload={p}
       obs={state.obs}
       videoUrl={media?.url ?? null}

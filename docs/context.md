@@ -3,6 +3,34 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-08 · Add the other angle (optional)
+
+> Can we provide an option for the user to upload both views? … Add other angle, but this is like
+> an additional feature. Don't mess it up with the current flows. It's just like we are giving a
+> more refined output.
+
+Done (additive: the single-clip flow and its report are unchanged):
+- **On a video report**, under the summary: "Add the front angle of this ball" (or the side
+  angle), with "Optional: a second camera gives a more exact result". It opens the usual Add
+  screen with a note naming the first clip; the second clip goes through the usual steps and is
+  saved as its own report too.
+- **The two are linked** (`otherAngle` on each saved analysis) and shown together at
+  `/angles?a=…&b=…`; the first report's link becomes "See both angles together".
+- **Combined result** (`src/engine/angles.ts`): the shot is confirmed when an angle confirms it
+  and the other doesn't contradict it; one angle confirming and the other naming a different
+  shot gives no answer ("The two angles disagree"); two clips from the same side, or checked as
+  different shots, aren't combined. Each check is read from the angle that sees it (going back and
+  the feet from the side, the sideways line and the elbow from the front); where both read it,
+  both must agree or it isn't marked. One summary of at most five sentences, labelled "Side +
+  front angle", worded for the batter's age; Details list each check with what each angle read.
+- Checked in the real browser pipeline on the athlete's two clips, both orders (side first,
+  front first), both themes: a back-foot defence, going back and the feet from the side, the
+  elbow from the front, standing tall and soft hands agreed by both. No thresholds; engine
+  results unchanged.
+
+Open: whether the two clips show the same ball isn't checked (the athlete is asked for the same
+ball; two different balls that disagree on the shot get no answer).
+
 ## 2026-11-08 · Feedback worded for the batter's age
 
 > What's the logic of this [Fix next: "Foot, knee and shoulder out of sync … You: 234 ms; aim
