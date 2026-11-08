@@ -47,7 +47,7 @@ export function BackFootGuide() {
           The aim is to block it safely. Pick “Back-foot defence” on the Analyse screen; everything else works the same way as the front-foot defence.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/analyse?shot=back" className="btn btn-primary">Analyse back-foot defence</Link>
+          <Link href="/analyse?shot=back" className="btn btn-primary">Check back-foot defence</Link>
           <Link href="/sample/valid_bfd" className="btn btn-ghost">See a sample report</Link>
         </div>
       </div>

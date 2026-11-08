@@ -86,6 +86,10 @@ if (process.env.PROFILE) {
   (await import("node:fs")).writeFileSync(process.env.PROFILE, JSON.stringify(profile));
 }
 step("report: " + (await page.locator("#verdict").innerText()));
+step("summary: " + (await page.getByRole("list", { name: "Summary" }).innerText().catch(() => "")).replace(/\s+/g, " "));
+await shot("summary");
+// Everything else sits behind the "Details" switch.
+await page.getByRole("switch", { name: "Details" }).click();
 step(`sections: observations=${await page.getByText("What we could still see").count()} posture=${await page.getByText(/What the photos? shows?/).count()} addBallBat=${await page.getByRole("link", { name: "Add ball and bat" }).count()}`);
 await page.waitForTimeout(1500);
 await shot("report");

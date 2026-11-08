@@ -2,7 +2,8 @@
 // analysis as one canonical line per case (verdict, measures, line, plan, photo check), without
 // the version and hash fields that change with every release. Run on two builds and diff:
 //   PROBE_DIR=<dirs> OUT=<file> npx vitest run --config scripts/eval/vitest.config.ts verdicts
-// TARGET=back_foot_defence analyses every case as a back-foot defence instead.
+// TARGET=back_foot_defence analyses every case as a back-foot defence instead; TARGET=none as a
+// front-foot defence (the target the tracks were exported with is dropped).
 import { it } from "vitest";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { decodeTracks } from "@/engine/tracks-codec";
@@ -17,7 +18,10 @@ it("verdicts of exported tracks", async () => {
     for (const f of readdirSync(dir).filter((x) => x.endsWith(".tracks.b64")).sort()) {
       const id = `${dir.split("/").pop()}/${f.replace(".tracks.b64", "")}`;
       const obs = await decodeTracks(Uint8Array.from(Buffer.from(readFileSync(`${dir}/${f}`, "utf8"), "base64")));
-      const input = process.env.TARGET ? { ...obs, target: process.env.TARGET } : obs;
+      // TARGET=none: every case as a front-foot defence, whatever it was exported as.
+      const { target: _t, ...plain } = obs as typeof obs & { target?: string };
+      void _t;
+      const input = process.env.TARGET === "none" ? plain : process.env.TARGET ? { ...obs, target: process.env.TARGET } : obs;
       const p = analyze(input as typeof obs, { analysisId: id, createdAt: "2026-01-01T00:00:00.000Z" });
       const metrics = p.metrics.map((m) => [m.id, m.status, m.value, m.inRange, m.range ? [m.range.lo, m.range.hi] : null]);
       const obsv = (p.observations ?? []).map((m) => [m.id, m.value]);

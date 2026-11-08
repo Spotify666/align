@@ -114,8 +114,8 @@ export default function GuidePage() {
             <li><strong>Re-record.</strong> <span className="text-fg-muted">Your next report compares against this one and your baseline.</span></li>
           </ol>
           <div className="flex flex-wrap gap-3 pt-2">
-            <Link href="/analyse" className="btn btn-primary">Analyse front-foot defence</Link>
-            <Link href="/analyse?shot=back" className="btn btn-ghost">Analyse back-foot defence</Link>
+            <Link href="/analyse" className="btn btn-primary">Check front-foot defence</Link>
+            <Link href="/analyse?shot=back" className="btn btn-ghost">Check back-foot defence</Link>
             <Link href="/sample" className="btn btn-ghost">All sample reports</Link>
           </div>
         </Stage>

@@ -89,6 +89,15 @@ How it is read:
 - **The set position** (when bat and ball aren't seen) is where the feet come to rest after the
   main movement: a defence holds it and meets the ball there. Found from footwork speed (the feet
   matched frame to frame, so a pose model swapping the ankles reads as no movement).
+- **Which movement is the stroke** (engine 0.8.1): the clip is cut into rests and movements; every
+  rest held at least 0.3 s (`bfd.formula.min_set_hold_s`, or still held when the clip ends) is a
+  candidate set position, and the stroke is the one with the most footwork from the last upright
+  stance before it (feet gap, hips, back foot along the pitch, feet in the picture from the ends;
+  head counted at half). A shuffle or a bat tap in the stance moves the feet a little and briefly,
+  so it never wins over the real step back. Movement is compared over the 0.6 s after the set
+  (`bfd.formula.after_window_s`). On the athlete's phone the side-on clip's stance adjustment at
+  about 1 s had been taken for the stroke (the first rest after any movement), so "no movement
+  back" was reported; the same clip in the test browser happened to pass.
 - **Feet by position, not by label**: the foremost and rearmost foot along the pitch, so a wrong
   batting hand or swapped ankles change nothing.
 - **Shoulder turn** from the pose estimate (an angle, so independent of where the camera stood),

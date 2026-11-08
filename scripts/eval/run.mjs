@@ -31,7 +31,8 @@ const run = (c) =>
         writeFileSync(`${out}/${c.id}.log`, stdout + (stderr ? "\nSTDERR " + stderr : "") + (err ? "\nERR " + err.message : ""));
         const stopped = /STOPPED: (.*)/.exec(stdout)?.[1];
         const verdict = /report: (.*)/.exec(stdout)?.[1] ?? (stopped ? "STOPPED " + stopped : "NO RESULT");
-        resolve({ ...c, verdict: verdict.replace(/\s+/g, " ").slice(0, 220), secs: Math.round((Date.now() - t0) / 1000) });
+        const summary = /summary: (.*)/.exec(stdout)?.[1] ?? "";
+        resolve({ ...c, verdict: verdict.replace(/\s+/g, " ").slice(0, 220), summary: summary.replace(/\s+/g, " ").slice(0, 400), secs: Math.round((Date.now() - t0) / 1000) });
       },
     );
   });
@@ -39,6 +40,6 @@ const results = [];
 for (const c of cases) {
   const r = await run(c);
   results.push(r);
-  console.log(`${r.id} [${r.truth}] ${r.secs}s :: ${r.verdict}`);
+  console.log(`${r.id} [${r.truth}] ${r.secs}s :: ${r.verdict}${r.summary ? ` | ${r.summary}` : ""}`);
   writeFileSync(`${out}/results.json`, JSON.stringify(results, null, 1));
 }
