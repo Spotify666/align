@@ -27,6 +27,8 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "Aline", statusBarStyle: "default" },
   icons: { apple: "/apple-touch-icon.png" },
   formatDetection: { telephone: false },
+  // Which build this page is (the version watch compares it with the live one).
+  other: { "aline-build": process.env.NEXT_PUBLIC_BUILD_ID ?? "" },
 };
 
 export const viewport: Viewport = {

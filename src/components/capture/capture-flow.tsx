@@ -54,6 +54,7 @@ import { getAnalysis, getTracks, loadProfile, saveAnalysis, saveProfile, updateA
 import { angleFamily, otherAngleView, type AngleFamily } from "@/engine/angles";
 import { sameBall, shotTime } from "@/engine/same-ball";
 import { soundEnvelope } from "@/lib/capture/audio";
+import { holdUpdates } from "@/lib/fresh";
 import { decodeTracks } from "@/engine/tracks-codec";
 import { isSessionUrl, sessionCapture, sessionMedia } from "@/lib/session-media";
 import { CaptureChecklist } from "../report/panels";
@@ -183,6 +184,16 @@ async function pictureAreaOf(v: HTMLVideoElement): Promise<Roi | null> {
 
 export function CaptureFlow() {
   const router = useRouter();
+  // The new report's id, chosen when tracking starts so its page is fetched while the body is
+  // tracked; it then opens the moment the report is saved, with no wait on the network.
+  const nextReport = useRef<string | null>(null);
+  const reportId = () => {
+    if (!nextReport.current) {
+      nextReport.current = crypto.randomUUID();
+      router.prefetch(`/report/${nextReport.current}`, { kind: "full" } as unknown as Parameters<typeof router.prefetch>[1]);
+    }
+    return nextReport.current;
+  };
   const [phase, setPhase] = useState<Phase>("add");
   // The shot to analyse: the back-foot defence when opened with ?shot=back, else the front-foot
   // defence. Follows the address when a link changes it while the page stays open.
@@ -282,6 +293,9 @@ export function CaptureFlow() {
     warmUp();
     visionPool()?.warm();
   }, []);
+
+  // A new build waits while an analysis is under way (src/lib/fresh.ts).
+  useEffect(() => (phase === "add" || phase === "error" ? undefined : holdUpdates()), [phase]);
 
   // Opened from a report to add the same ball from the other angle (optional, extra): the clip
   // goes through the usual steps, then the two are linked and shown together.
@@ -390,6 +404,7 @@ export function CaptureFlow() {
 
   function resetClip() {
     abort.current?.abort();
+    nextReport.current = null;
     run.current++;
     job.current.src?.close();
     job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, viewConfident: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null, target: job.current.target };
@@ -697,6 +712,7 @@ export function CaptureFlow() {
     const m = j.meta;
     if (!m || !w) return;
     stage("track", "active");
+    if (!remark) reportId();
     try {
       // The faster pose path on this device, decided once (on a frame of this shot) and then
       // kept, so the same clip always gives the same result here.
@@ -1064,10 +1080,10 @@ export function CaptureFlow() {
   // ---------- Analyse, store locally, open the report ----------
   async function finish(finalMarks: Marks, tr: TrackingResult | null = tracking, photoKeyframes?: Record<number, Blob>) {
     if (!tr) return;
-    stage("report", "active");
+    stage("report", "active", "Checking each part of the shot");
     timeStart("report");
     try {
-      const id = remark?.id ?? crypto.randomUUID();
+      const id = remark?.id ?? reportId();
       const target = job.current.target;
       const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: tr.handedness ?? profile.handedness, heightCm: profile.heightCm, target });
       const obs = quantise(raw);
@@ -1111,6 +1127,7 @@ export function CaptureFlow() {
         if (j.viewChosen || !j.viewConfident) return fail("Camera angle not detected", `Aline couldn't tell the camera angle of this video, so it isn't used. Choose a video of the same ball filmed straight from the ${want === "front_on" ? "front (the bowler's end)" : "side"}, with your whole body in view.`);
         if (seenView !== want) return fail(...wrongAngle(want, seenView));
         // The same ball: both phones heard the same sounds, lined up with the shot.
+        stage("report", "active", "Checking it's the same ball, from the sound");
         const first = firstRef.current;
         const [ea, eb] = await Promise.all([soundEnvelope(first?.media), soundEnvelope(fileRef.current)]);
         const shotB = shotTime(payload, attempt.obs);
@@ -1120,6 +1137,7 @@ export function CaptureFlow() {
         if (same.verdict !== "same")
           return fail("Not the same ball", "These two videos don't sound like the same ball: their sounds don't line up with the moment of the shot. Film one ball with two phones at the same time, one from the side and one from the front (the bowler's end).");
       }
+      stage("report", "active", "Saving it on this device");
       const gz = await encodeTracks(attempt.obs);
       const keyframes = photoKeyframes ?? (tr.kind === "video" ? await grabKeyframes(video.current!, mediaTimesRef.current, payload.evidence_frames) : {});
       const f = fileRef.current;
@@ -1132,7 +1150,7 @@ export function CaptureFlow() {
         sessionMedia.set(id, { url: clipUrl, mediaTimes: mediaTimesRef.current });
         sessionCapture.set(id, { tracking: tr, view: finalMarks.view === "front_on" || finalMarks.view === "behind" ? finalMarks.view : "side_on", bowlerSide: finalMarks.bowlerSide, title, createdAt, recordedAt, target });
       }
-      stage("report", "done");
+      stage("report", "done", firstOfTwo && twoRef.current?.second ? "Saved. Now the second video" : "Opening it now");
       timeEnd("report");
       timeEnd("total");
       logVisit("result", `${resultWords(payload)} · ${Math.round((performance.now() - triedAt.current) / 1000)} s`);
@@ -1378,7 +1396,7 @@ export function CaptureFlow() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="eyebrow">{twoStep ? `Video ${twoStep} of 2` : "Analysing"}{file ? ` · ${file.name}` : ""}</p>
-                    <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">{stages.report === "active" ? "Building your report…" : "Working on it…"}</h1>
+                    <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">{stages.report === "done" ? "Opening your report…" : stages.report === "active" ? "Building your report…" : "Working on it…"}</h1>
                     <p className="mt-2 text-fg-muted">Everything runs on this device. Keep this screen open.</p>
                   </div>
                   <CricketLoader />
@@ -1399,18 +1417,18 @@ export function CaptureFlow() {
                     const pct =
                       k === "shot" ? scanProgress : (k === "track" || (photoMode && k === "read")) && progress.total ? progress.done / progress.total : null;
                     return (
-                      <li key={k} className="flex items-start gap-3 px-4 py-3" aria-current={st === "active" ? "step" : undefined}>
+                      <li key={k} className="step-row flex items-start gap-3 px-4 py-3" aria-current={st === "active" ? "step" : undefined}>
                         <StageIcon state={st} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline justify-between gap-3">
-                            <span className={st === "waiting" ? "text-fg-subtle" : "font-medium"}>{label}</span>
+                            <span className={`transition-colors duration-300 ${st === "waiting" ? "text-fg-subtle" : "font-medium"}`}>{label}</span>
                             {change && (
                               <button onClick={change} className="shrink-0 text-sm font-medium text-brand hover:underline">
                                 Change
                               </button>
                             )}
                           </div>
-                          {notes[k] && <p className="mt-0.5 text-sm text-fg-muted">{notes[k]}</p>}
+                          {notes[k] && <p key={notes[k]} className="step-note mt-0.5 text-sm text-fg-muted">{notes[k]}</p>}
                           {st === "active" && pct !== null && (
                             <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-line" role="progressbar" aria-valuenow={Math.round(pct * 100)} aria-valuemax={100}>
                               <div className="h-full bg-brand transition-all" style={{ width: `${Math.max(3, pct * 100)}%` }} />
@@ -1573,12 +1591,16 @@ export function CaptureFlow() {
 function StageIcon({ state }: { state: StageState }) {
   if (state === "done")
     return (
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-brand-fg" aria-label="done">
+      <span className="step-done mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-brand-fg" aria-label="done">
         <Check size={13} />
       </span>
     );
   if (state === "active")
-    return <span className="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand border-t-transparent" aria-label="in progress" />;
+    return (
+      <span className="step-active mt-0.5 h-5 w-5 shrink-0" aria-label="in progress">
+        <span className="block h-5 w-5 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+      </span>
+    );
   return <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-line-strong" aria-label="waiting" />;
 }
 
