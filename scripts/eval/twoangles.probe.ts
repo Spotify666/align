@@ -51,7 +51,8 @@ function phoneClip(s: KuShot, play: number, ph: Phone, target: TargetShot): Capt
     const still = tau < 0 || tau > play ? 0.002 * Math.sin(2.1 * tau + sway) : 0;
     const lost = rnd() < ph.dropout;
     body.push(
-      base.body[i]!.map((p, j) => {
+      base.body[i]!.map((p0, j) => {
+        const p = p0!;
         const q = base.body[i + 1]![j]!;
         const wrist = j === J.left_wrist || j === J.right_wrist;
         if (wrist && lost) return [NaN, NaN, 0.2] as const;
@@ -59,7 +60,8 @@ function phoneClip(s: KuShot, play: number, ph: Phone, target: TargetShot): Capt
       }),
     );
     world.push(
-      base.poseWorld![i]!.map((p, j) => {
+      base.poseWorld![i]!.map((p0, j) => {
+        const p = p0!;
         const q = base.poseWorld![i + 1]![j]!;
         return [p[0] + (q[0] - p[0]) * w + ph.worldNoise * gauss(), p[1] + (q[1] - p[1]) * w + ph.worldNoise * gauss(), p[2] + (q[2] - p[2]) * w + ph.worldNoise * gauss(), p[3]] as const;
       }),
@@ -262,9 +264,10 @@ it("two angles across ranges", { timeout: 7_200_000 }, () => {
   // Per range of each factor: thirds of its spread.
   for (const key of Object.keys(rows[0]!.f)) {
     const vals = rows.map((r) => r.f[key]!).sort((a, b) => a - b);
-    const cuts = [vals[Math.floor(vals.length / 3)]!, vals[Math.floor((2 * vals.length) / 3)]!];
-    const bins = [rows.filter((r) => r.f[key]! < cuts[0]), rows.filter((r) => r.f[key]! >= cuts[0] && r.f[key]! < cuts[1]), rows.filter((r) => r.f[key]! >= cuts[1])];
-    const lab = [`<${cuts[0].toFixed(2)}`, `${cuts[0].toFixed(2)}–${cuts[1].toFixed(2)}`, `≥${cuts[1].toFixed(2)}`];
+    const c0 = vals[Math.floor(vals.length / 3)]!;
+    const c1 = vals[Math.floor((2 * vals.length) / 3)]!;
+    const bins = [rows.filter((r) => r.f[key]! < c0), rows.filter((r) => r.f[key]! >= c0 && r.f[key]! < c1), rows.filter((r) => r.f[key]! >= c1)];
+    const lab = [`<${c0.toFixed(2)}`, `${c0.toFixed(2)}–${c1.toFixed(2)}`, `≥${c1.toFixed(2)}`];
     console.log(
       `${key.padEnd(10)} ` +
         bins
