@@ -1,0 +1,17 @@
+{
+  "note": "The athlete's own two-angle clips (media outside the repo, ATHLETE_DIR). Each pair is two videos chosen together in 'Two angles of one ball'; truth: one ball (combine) or not (refuse). Run every change on all of them, both pose paths: node scripts/eval/pairs.mjs <baseUrl> <ATHLETE_DIR> <outDir>",
+  "clips": {
+    "bfd_side_WA0003": { "shot": "back", "view": "side", "file": "bfd_side_WA0003.vp9.mp4" },
+    "bfd_front_WA00041": { "shot": "back", "view": "front", "file": "bfd_front_WA00041.vp9.mp4", "note": "WhatsApp copy, 854x480" },
+    "bfd_front_FA": { "shot": "back", "view": "front", "file": "bfd_front_FA.vp9.mp4", "note": "the same front video, original 1920x1080" },
+    "ffd_side_WA00021": { "shot": "front", "view": "side", "file": "ffd_side_WA00021.vp9.mp4" },
+    "ffd_front_WA00011": { "shot": "front", "view": "front", "file": "ffd_front_WA00011.vp9.mp4" }
+  },
+  "pairs": [
+    { "a": "bfd_side_WA0003", "b": "bfd_front_WA00041", "truth": "same", "shot": "back" },
+    { "a": "bfd_side_WA0003", "b": "bfd_front_FA", "truth": "same", "shot": "back" },
+    { "a": "ffd_side_WA00021", "b": "ffd_front_WA00011", "truth": "same", "shot": "front" },
+    { "a": "bfd_side_WA0003", "b": "ffd_front_WA00011", "truth": "different", "shot": "back" },
+    { "a": "ffd_side_WA00021", "b": "bfd_front_WA00041", "truth": "different", "shot": "front" }
+  ]
+}
