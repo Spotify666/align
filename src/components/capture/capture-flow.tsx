@@ -53,7 +53,7 @@ import { feetHandedness, gripHandedness } from "@/lib/capture/grip";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
 import { getAnalysis, getTracks, loadProfile, saveAnalysis, saveProfile, updateAnalysis, type LocalProfile } from "@/lib/store";
 import { angleFamily, otherAngleView, type AngleFamily } from "@/engine/angles";
-import { sameBall, shotTime } from "@/engine/same-ball";
+import { handsHeight, sameBall, sameBallTwoVideos, shotTime, type Movement } from "@/engine/same-ball";
 import { soundEnvelope } from "@/lib/capture/audio";
 import { holdUpdates } from "@/lib/fresh";
 import { decodeTracks } from "@/engine/tracks-codec";
@@ -309,7 +309,7 @@ export function CaptureFlow() {
   // Two videos chosen together (side + front of one ball): the second waits while the first runs.
   const twoRef = useRef<{ second: File | null } | null>(null);
   // The first angle, for the same-ball check: its file (or session video) and when its shot was.
-  const firstRef = useRef<{ id: string; media: Blob | null; shot: number | null } | null>(null);
+  const firstRef = useRef<{ id: string; media: Blob | null; shot: number | null; move?: Movement | null } | null>(null);
   const [twoStep, setTwoStep] = useState<1 | 2 | null>(null);
   // Both videos, shown together while they run; and the side/front slots on the Add screen.
   const [twoFiles, setTwoFiles] = useState<[File, File] | null>(null);
@@ -1167,16 +1167,27 @@ export function CaptureFlow() {
         const detected = twoPairRef.current ? j.viewTwo : j.viewConfident;
         if (j.viewChosen || !detected) return fail("Camera angle not detected", `Aline couldn't tell the camera angle of this video, so it isn't used. Choose a video of the same ball filmed straight from the ${want === "front_on" ? "front (the bowler's end)" : "side"}, with your whole body in view.`);
         if (seenView !== want) return fail(...wrongAngle(want, seenView));
-        // The same ball: both phones heard the same sounds, lined up with the shot.
-        stage("report", "active", "Checking it's the same ball, from the sound");
         const first = firstRef.current;
-        const [ea, eb] = await Promise.all([soundEnvelope(first?.media), soundEnvelope(fileRef.current)]);
         const shotB = shotTime(payload, attempt.obs);
-        const same = first?.shot != null && shotB != null ? sameBall(ea, eb, first.shot, shotB) : { verdict: "no_sound" as const };
-        if (same.verdict === "no_sound")
-          return fail("Can't check it's the same ball", "Aline checks that two videos show the same ball from their sound, and one of them has none it can read. Use the original videos, with sound, of one ball filmed by two phones at the same time.");
-        if (same.verdict !== "same")
-          return fail("Not the same ball", "These two videos don't sound like the same ball: their sounds don't line up with the moment of the shot. Film one ball with two phones at the same time, one from the side and one from the front (the bowler's end).");
+        if (twoPairRef.current) {
+          // Two videos chosen together: the same ball when the sound clearly lines up with the
+          // shot, or when the batter's movement does (the hands rise, come down and stop at the
+          // same moments in both). Neither: not the same ball.
+          stage("report", "active", "Checking it's the same ball, from your movement and the sound");
+          const [ea, eb] = await Promise.all([soundEnvelope(first?.media), soundEnvelope(fileRef.current)]);
+          const two = first?.shot != null && shotB != null ? sameBallTwoVideos({ a: ea, b: eb }, { a: first.move ?? null, b: handsHeight(attempt.obs) }, first.shot, shotB) : null;
+          if (two?.verdict !== "same")
+            return fail("Not the same ball", "Aline couldn't match these two videos as one ball: your movement doesn't line up between them at the moment of the shot, and neither does the sound. Film one ball with two phones at the same time, one from the side and one from the front (the bowler's end).");
+        } else {
+          // The report's "Add the other angle": both phones heard the same sounds, lined up with the shot.
+          stage("report", "active", "Checking it's the same ball, from the sound");
+          const [ea, eb] = await Promise.all([soundEnvelope(first?.media), soundEnvelope(fileRef.current)]);
+          const same = first?.shot != null && shotB != null ? sameBall(ea, eb, first.shot, shotB) : { verdict: "no_sound" as const };
+          if (same.verdict === "no_sound")
+            return fail("Can't check it's the same ball", "Aline checks that two videos show the same ball from their sound, and one of them has none it can read. Use the original videos, with sound, of one ball filmed by two phones at the same time.");
+          if (same.verdict !== "same")
+            return fail("Not the same ball", "These two videos don't sound like the same ball: their sounds don't line up with the moment of the shot. Film one ball with two phones at the same time, one from the side and one from the front (the bowler's end).");
+        }
       }
       stage("report", "active", "Saving it on this device");
       const gz = await encodeTracks(attempt.obs);
@@ -1203,7 +1214,7 @@ export function CaptureFlow() {
         setPair(next);
         twoPairRef.current = true;
         setTwoPair(true);
-        firstRef.current = { id, media: fileRef.current, shot: shotTime(payload, attempt.obs) };
+        firstRef.current = { id, media: fileRef.current, shot: shotTime(payload, attempt.obs), move: handsHeight(attempt.obs) };
         const second = twoRef.current.second;
         twoRef.current = { second: null };
         setTwoStep(2);
