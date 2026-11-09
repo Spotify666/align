@@ -10,7 +10,7 @@ import { it } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { analyze } from "@/engine/analyze";
 import { decodeTracks } from "@/engine/tracks-codec";
-import { handsHeight, shotMovementAgreement, shotTime } from "@/engine/same-ball";
+import { handsHeight, movementAgreement, shotTime } from "@/engine/same-ball";
 import type { CaptureObservation } from "@/engine/types";
 import { defenceKind, kuObservation, readKu, type KuShot } from "./ku3d";
 
@@ -41,7 +41,7 @@ it("same ball by movement", { timeout: 3_600_000 }, async () => {
       console.log(pair, "no shot or movement");
       continue;
     }
-    const m = shotMovementAgreement(A.move, B.move, A.shot, B.shot);
+    const m = movementAgreement(A.move, B.move, A.shot - B.shot);
     console.log(`${pair}: shots ${A.shot.toFixed(2)} / ${B.shot.toFixed(2)} s → offset ${(A.shot - B.shot).toFixed(2)}; movement r ${m?.r.toFixed(3)} at ${m?.lagS.toFixed(2)} s over ${m?.overlapS.toFixed(1)} s`);
   }
 
@@ -69,7 +69,7 @@ it("same ball by movement", { timeout: 3_600_000 }, async () => {
     const A = view(s, 90, d);
     const B = view(s, 0, d);
     if (A.shot !== null && B.shot !== null && A.move && B.move) {
-      const m = shotMovementAgreement(A.move, B.move, A.shot, B.shot);
+      const m = movementAgreement(A.move, B.move, A.shot - B.shot);
       if (m) same.push(m.r);
     }
     // Two balls: another defence of the same kind, played over its own length of time.
@@ -78,7 +78,7 @@ it("same ball by movement", { timeout: 3_600_000 }, async () => {
     const d2 = 1.8 + rnd() * 1.2;
     const C = view(o, 0, d2);
     if (A.shot !== null && C.shot !== null && A.move && C.move) {
-      const m = shotMovementAgreement(A.move, C.move, A.shot, C.shot);
+      const m = movementAgreement(A.move, C.move, A.shot - C.shot);
       if (m) {
         diff.push(m.r);
         if (Math.abs(d2 - d) < 0.15) diffNear.push(m.r);

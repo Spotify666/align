@@ -223,16 +223,6 @@ export function movementAgreement(a: Movement, b: Movement, expectedLagS: number
   return best;
 }
 
-/**
- * The movement around the shot itself: from before the backlift to just after the set or contact
- * (pair.motion.before_s, after_s, from the first video's shot). The still hold after it carries no
- * movement to match, only each camera's own drift (from the bowler's end the hands sink behind the
- * front pad and the batter strides toward the phone), so it is left out.
- */
-export function shotMovementAgreement(a: Movement, b: Movement, shotTimeA: number, shotTimeB: number): MovementAgreement | null {
-  return movementAgreement(a, b, shotTimeA - shotTimeB, { from: shotTimeA - th("pair.motion.before_s"), to: shotTimeA + th("pair.motion.after_s") });
-}
-
 export type SameBallTwo = { verdict: "same" | "not_confirmed"; by: "sound" | "movement" | null; sound: SoundAgreement | null; movement: MovementAgreement | null };
 
 /**
@@ -247,7 +237,7 @@ export function sameBallTwoVideos(
   shotTimeB: number,
 ): SameBallTwo {
   const s = sameBall(sound.a, sound.b, shotTimeA, shotTimeB);
-  const m = move.a && move.b ? shotMovementAgreement(move.a, move.b, shotTimeA, shotTimeB) : null;
+  const m = move.a && move.b ? movementAgreement(move.a, move.b, shotTimeA - shotTimeB) : null;
   if (s.verdict === "same") return { verdict: "same", by: "sound", sound: s.agreement, movement: m };
   const ok = !!m && m.r >= th("pair.motion.min_r");
   return { verdict: ok ? "same" : "not_confirmed", by: ok ? "movement" : null, sound: s.agreement, movement: m };

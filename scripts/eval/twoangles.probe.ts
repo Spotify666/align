@@ -8,8 +8,7 @@ import { it } from "vitest";
 import { existsSync, readdirSync } from "node:fs";
 import { analyze } from "@/engine/analyze";
 import { guessView, twoAngleView } from "@/lib/capture/view-guess";
-import { handsHeight, movementAgreement, shotMovementAgreement, shotTime, type Movement } from "@/engine/same-ball";
-import { th } from "@/engine/registry";
+import { handsHeight, movementAgreement, shotTime, type Movement } from "@/engine/same-ball";
 import { J, type CameraPoint, type CaptureObservation, type ImgPoint, type TargetShot } from "@/engine/types";
 import { defenceKind, kuObservation, readKu, type KuShot } from "./ku3d";
 
@@ -174,11 +173,12 @@ const LOGICS: Logic[] = [
     },
   },
   {
-    name: "around the shot (PR #44)",
+    // Tried and set aside: the movement compared only from 1.2 s before the shot to 0.6 s after.
+    name: "around the shot",
     same: (a, b) => {
       if (a.shot === null || b.shot === null || !a.move || !b.move) return false;
-      const m = shotMovementAgreement(a.move, b.move, a.shot, b.shot);
-      return !!m && m.r >= th("pair.motion.min_r");
+      const m = movementAgreement(a.move, b.move, a.shot - b.shot, { from: a.shot - 1.2, to: a.shot + 0.6 }, { windowS: 0.4, minOverlapS: 1.2 });
+      return !!m && m.r >= 0.95;
     },
   },
   ...[0.9, 0.95].flatMap((R) => [
