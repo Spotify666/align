@@ -33,8 +33,10 @@ it("same ball by movement", { timeout: 3_600_000 }, async () => {
   }
   for (const pair of (process.env.PAIRS ?? "").split(",").filter(Boolean)) {
     const [a, b] = pair.split(":");
-    const A = read(tracks.get(a!)!, "back_foot_defence");
-    const B = read(tracks.get(b!)!, "back_foot_defence");
+    // PAIR_TARGET=front reads the shots as front-foot defences (their contact or line moment).
+    const target = process.env.PAIR_TARGET === "front" ? "front_foot_defence" : "back_foot_defence";
+    const A = read(tracks.get(a!)!, target);
+    const B = read(tracks.get(b!)!, target);
     if (A.shot === null || B.shot === null || !A.move || !B.move) {
       console.log(pair, "no shot or movement");
       continue;

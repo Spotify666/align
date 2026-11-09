@@ -3,6 +3,38 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-09 · The Visitors page in plain words; the athlete's clips kept as a test set
+
+> Visitors page is not clear for understanding.
+
+Done (`src/components/visitors.tsx`): a line on who counts (one person is one phone or
+computer; bots aren't counted); the totals as a labelled table (people, visits, typical visit ×
+today, 7 days, 30 days); then the last 30 days in sections with plain names: analyses started and
+their results by shot ("Back-foot defence: scored 18 · couldn't tell the shot 6 · another
+shot 2"), why analyses stopped, where people came from (country names, devices, systems,
+browsers), pages by name ("A report", not `/report/…`), and the buttons tapped most by their own
+words (the smaller line under a button no longer runs into its name; the same button counted
+once). On the owner's private link each visit is a card (date and time, time spent, place,
+device, pages and actions, came before) that opens into its steps, instead of an 11-column table.
+
+> I asked you to not fix only case specific to one video. Logic should remain same for multiple
+> ranges. Why am I re-uploading everything and even then testing doesn't work for real world
+> scenarios? I don't get the point of me spoon feeding everything here.
+
+- Every two-angle clip the athlete sent is kept as one labelled set
+  (`scripts/eval/athlete-pairs.example.json`: which pairs are one ball; media outside the repo)
+  and `scripts/eval/pairs.mjs` runs each pair through the real two-video flow on both pose paths.
+  The live build: 8 of 10 right; their front-foot pair (one ball) is refused on both paths.
+- `scripts/eval/twoangles.probe.ts` tests the two-video checks across ranges (real 3D batting
+  through two virtual phones: camera positions, distances, 15–60 fps, clip starts and lengths,
+  shot speed, pose jitter, lost wrists; one ball vs two balls vs two shots). It showed the
+  same-ball check by movement is not range-proof: anchored to each camera's own reading of the
+  shot moment it misses true pairs (that reading is 0.3–1.5 s off across ranges); searched
+  freely it accepts different shots (the athlete's own mismatched pair 0.975); head and hips
+  are too noisy from the front. The case-tuned change (compare only around the shot) was taken
+  out, not shipped. Proposed instead (waiting on the athlete): clear match → combine; clear
+  mismatch → refuse with the reason; anything between → "can't confirm" and the batter decides.
+
 ## 2026-11-09 · The same ball, told by the movement (two-video option)
 
 > Report still says it's not the same ball, why? Actually it's the same ball played in 2 angles.

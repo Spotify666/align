@@ -191,15 +191,16 @@ function resample(m: Movement, from: number, to: number): number[] {
 
 /**
  * How well the two videos' movement lines up near the offset their shots give (`expectedLagS` =
- * the shot's time in the first minus its time in the second). Null when they overlap too little.
+ * the shot's time in the first minus its time in the second), compared over `focus` (times in the
+ * first video) when given. Null when they overlap too little.
  */
-export function movementAgreement(a: Movement, b: Movement, expectedLagS: number): MovementAgreement | null {
-  const w = th("pair.motion.window_s");
-  const minOverlap = th("pair.motion.min_overlap_s");
+export function movementAgreement(a: Movement, b: Movement, expectedLagS: number, focus?: { from: number; to: number }, limits?: { windowS?: number; minOverlapS?: number }): MovementAgreement | null {
+  const w = limits?.windowS ?? th("pair.motion.window_s");
+  const minOverlap = limits?.minOverlapS ?? th("pair.motion.min_overlap_s");
   let best: MovementAgreement | null = null;
   for (let lag = expectedLagS - w; lag <= expectedLagS + w + 1e-9; lag += 1 / RATE) {
-    const from = Math.max(a.t[0]!, b.t[0]! + lag);
-    const to = Math.min(a.t[a.t.length - 1]!, b.t[b.t.length - 1]! + lag);
+    const from = Math.max(a.t[0]!, b.t[0]! + lag, focus?.from ?? -Infinity);
+    const to = Math.min(a.t[a.t.length - 1]!, b.t[b.t.length - 1]! + lag, focus?.to ?? Infinity);
     if (to - from < minOverlap) continue;
     const xa = resample(a, from, to);
     const xb = resample(b, from - lag, to - lag);

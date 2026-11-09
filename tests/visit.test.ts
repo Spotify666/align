@@ -91,3 +91,21 @@ describe("visitor log: what a page may send", () => {
     expect(placeName(null)).toBeUndefined();
   });
 });
+
+// The visitors page reads in plain words.
+describe("visitors page: plain names", () => {
+  it("names pages, buttons and results the way a person would", async () => {
+    const { pageName, tapName, readResult } = await import("@/components/visitors");
+    expect(pageName("/")).toBe("Opening page");
+    expect(pageName("/report/3f2a-uuid")).toBe("A report");
+    expect(pageName("/angles?a=1&b=2")).toBe("Two-angle report");
+    expect(pageName("/somewhere-new")).toBe("/somewhere-new");
+    expect(tapName("Choose a video Slow motion is best")).toBe("Choose a video");
+    expect(tapName("Front video Choose Filmed from the bowler's end…")).toBe("Front video");
+    expect(tapName("Check back-foot defence")).toBe("Check back-foot defence");
+    expect(tapName("I am under 18 and a parent or guardian has agre…")).toBe("Under 18: parent agreed");
+    expect(readResult("graded")).toEqual({ shot: "Front-foot defence", outcome: "scored" });
+    expect(readResult("back-foot defence: shot unclear")).toEqual({ shot: "Back-foot defence", outcome: "couldn't tell the shot" });
+    expect(readResult("back-foot defence: not a back-foot defence")).toEqual({ shot: "Back-foot defence", outcome: "another shot" });
+  });
+});
