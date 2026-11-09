@@ -3,6 +3,38 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-09 · Two angles: the front video "not detected"; the option gone after a refusal
+
+> I have uploaded the right side angle and front angle videos but it's not detecting. And also
+> after one processing when I go back, the upload 2 videos option is missing. Again on hard
+> refresh it's visible. Make sure these changes are only for the 2 video option. Do not change
+> other flows.
+
+Found (from their screen recording): the front video's step read "Camera position: Bowler's end",
+so Aline had the angle right, but refused it as "Camera angle not detected". The guess counts as
+sure only when the body's depth is at least 1.6× its width; this clip reads 1.57–1.63 (right on
+the line) and fell just under it on the phone, although the head faced the camera by 11–21 cm in
+every frame. After that refusal the screen kept the first video as "the other angle" of a ball,
+which hid the two-video option until the page was reloaded.
+
+Done, for the two-video option only (engine 0.8.4; the one-video flow and the report's "Add the
+other angle" link are unchanged, checked end to end):
+- **Its own angle check** (`twoAngleView` in `src/lib/capture/view-guess.ts`): from the bowler's
+  end, a sure guess as before, or depth at least 1.4× width when the head clearly faces the camera
+  (8 cm or more) and the front side is clearly the nearer one. Measured on 642 international shots
+  per camera position through virtual cameras round the batter (`scripts/eval/view.probe.ts`):
+  straight on 99% accepted, 10–20° off 83–99%; 35° off 6% and 40° 2% (the sure guess alone: 5%
+  and 1%); 45° and wider never; behind never. Side-on is unchanged (sure only). Both limits in
+  the registry with this evidence.
+- **A refused second video goes back to the two slots**: the first video stays, shown as
+  "Checked", and only the other angle is chosen again ("Check the front video" analyses just
+  that one). "Start again" clears both.
+- **The athlete's clips**: with the fix both angles are read on both pose paths. Their two
+  videos are then refused as "Not the same ball", correctly: the side video (WA00021) is
+  outdoors on grass with a long front-foot stride, the front video (WA00041) in indoor nets, a
+  back-foot defence; their sounds match nowhere (best 0.21 at any offset; one ball on two
+  phones reads 0.4–0.99). The option needs one ball filmed by two phones at the same time.
+
 ## 2026-11-08 · Two videos at most, said up front; a third can't be chosen
 
 > Why is there no disclaimer of max 2 video uploads (only works for the same video shot in side

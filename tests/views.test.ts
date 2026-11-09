@@ -166,3 +166,41 @@ describe("camera position guess", () => {
     }
   });
 });
+
+// Two angles of one ball only: the second video's angle check (twoAngleView). The camera-angle
+// guess itself, and its `confident`, are what every other flow reads, and stay as they were.
+describe("two angles of one ball: the angle check", () => {
+  const front = (e: Partial<import("@/lib/capture/view-guess").ViewEvidence>, confident = false) =>
+    ({
+      view: "front_on" as const,
+      bowlerSide: "right" as const,
+      confident,
+      handedness: null,
+      evidence: { depthRatio: 1.5, headFacing: 0.11, headAgree: 1, frontNearer: 0.19, headClear: true, sideClear: true, ...e },
+    });
+  it("takes the athlete's front clip as the front angle when depth alone falls just short", async () => {
+    const { twoAngleView } = await import("@/lib/capture/view-guess");
+    // Read on their phone just under the confident 1.6, the head facing the camera by 11 cm.
+    expect(twoAngleView(front({}), "front_on")).toBe(true);
+    expect(twoAngleView(front({ depthRatio: 1.57 }), "front_on")).toBe(true);
+    // Never as the side angle.
+    expect(twoAngleView(front({}), "side_on")).toBe(false);
+  });
+  it("still refuses an angled camera or a guess without both clear signs", async () => {
+    const { twoAngleView } = await import("@/lib/capture/view-guess");
+    expect(twoAngleView(front({ depthRatio: 1.1 }), "front_on")).toBe(false); // about 40° off the bowler's end
+    expect(twoAngleView(front({ headFacing: 0.05 }), "front_on")).toBe(false); // the head barely faces the camera
+    expect(twoAngleView(front({ headClear: false }), "front_on")).toBe(false);
+    expect(twoAngleView(front({ sideClear: false }), "front_on")).toBe(false);
+    expect(twoAngleView(front({ frontNearer: -0.19 }), "front_on")).toBe(false); // the front side farther: behind
+    expect(twoAngleView({ ...front({}), view: "behind" }, "front_on")).toBe(false);
+    expect(twoAngleView(null, "front_on")).toBe(false);
+  });
+  it("side-on only when confident; a confident guess always counts", async () => {
+    const { twoAngleView } = await import("@/lib/capture/view-guess");
+    const side = { ...front({ depthRatio: 0.5 }), view: "side_on" as const };
+    expect(twoAngleView(side, "side_on")).toBe(false);
+    expect(twoAngleView({ ...side, confident: true }, "side_on")).toBe(true);
+    expect(twoAngleView(front({ depthRatio: 1.8 }, true), "front_on")).toBe(true);
+  });
+});

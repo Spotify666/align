@@ -39,7 +39,7 @@ import {
 } from "@/lib/capture/pose";
 import { batterCandidates, boxAt, findWindows, MAX_SCAN_SEC, scanVideo, verifyWindows, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
 import { visionPool } from "@/lib/capture/vision-pool";
-import { guessView } from "@/lib/capture/view-guess";
+import { guessView, twoAngleView } from "@/lib/capture/view-guess";
 import { strokeSegment } from "@/lib/capture/segments";
 import { linkBack } from "@/lib/capture/link";
 import { LumaTrack } from "@/lib/capture/picture-cuts";
@@ -262,6 +262,8 @@ export function CaptureFlow() {
     viewChosen: false,
     /** The camera position was read from the pose with confidence (not guessed, not chosen). */
     viewConfident: false,
+    /** Two angles of one ball only: the side or front angle as that option's check reads it (view-guess.ts `twoAngleView`). */
+    viewTwo: false,
     shotChosen: false,
     slow: 1,
     tried: [] as number[],
@@ -313,6 +315,33 @@ export function CaptureFlow() {
   const [twoFiles, setTwoFiles] = useState<[File, File] | null>(null);
   const [twoOpen, setTwoOpen] = useState(false);
   const [slots, setSlots] = useState<TwoSlots>({ side: null, front: null });
+  // The first of two videos is done and is the pair's first angle (two-video option only, not the
+  // report's "Add the other angle" link): the second is read by that option's own angle check,
+  // and a refused second goes back to the two slots with the first kept.
+  const twoPairRef = useRef(false);
+  const [twoPair, setTwoPair] = useState(false);
+  /** Leave the two-video run: both slots editable again (the files chosen stay in them). */
+  const endTwoPair = () => {
+    twoPairRef.current = false;
+    setTwoPair(false);
+    pairRef.current = null;
+    setPair(null);
+    firstRef.current = null;
+    twoRef.current = null;
+    setTwoStep(null);
+    setTwoFiles(null);
+  };
+  /** The second video of a two-video run whose first is done: only it is analysed. */
+  const startSecondOfTwo = (f: File) => {
+    const first = twoFiles?.[0];
+    twoRef.current = null;
+    setTwoStep(2);
+    setTwoFiles(first ? [first, f] : null);
+    triedAt.current = performance.now();
+    job.current.target = shot;
+    logVisit("analyse", `video, ${(f.size / 1e6).toFixed(1)} MB`);
+    void startVideo(f);
+  };
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("angle");
     if (!id) return;
@@ -412,7 +441,7 @@ export function CaptureFlow() {
     nextReport.current = null;
     run.current++;
     job.current.src?.close();
-    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, viewConfident: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null, target: job.current.target };
+    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, viewConfident: false, viewTwo: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null, target: job.current.target };
     setScan(null);
     setScanProgress(0);
     setWin(null);
@@ -580,6 +609,7 @@ export function CaptureFlow() {
       setGuess(g ? choice : null);
       j.view = choice;
       j.viewConfident = !!g?.confident;
+      j.viewTwo = choice !== "behind" && twoAngleView(g, choice);
       setView(choice);
       // The second angle of a ball: clearly the wrong camera position, so stop before tracking.
       const want = pairRef.current ? otherAngleView(pairRef.current.family) : null;
@@ -955,13 +985,18 @@ export function CaptureFlow() {
       const g = j.viewChosen ? null : guessView(watching, grip ?? j.hand ?? profile.handedness);
       if (g) {
         const choice: ViewChoice = g.view === "front_on" || g.view === "behind" ? g.view : "side_on";
+        const two = choice !== "behind" && twoAngleView(g, choice);
         if (choice !== j.view) {
           j.view = choice;
           j.viewConfident = g.confident;
+          j.viewTwo = two;
           setView(choice);
           setGuess(choice);
           stage("camera", "done", `${VIEW_TEXT[choice][0]!.toUpperCase()}${VIEW_TEXT[choice].slice(1)}`);
-        } else j.viewConfident = j.viewConfident || g.confident;
+        } else {
+          j.viewConfident = j.viewConfident || g.confident;
+          j.viewTwo = j.viewTwo || two;
+        }
         j.bowlerSide = g.bowlerSide;
         setBowlerSide(g.bowlerSide);
       }
@@ -1122,14 +1157,15 @@ export function CaptureFlow() {
       }
       // Two videos chosen together: the first must be side-on or front-on, read by Aline itself.
       const firstOfTwo = !!twoRef.current?.second && !pairRef.current && !remark && tr.kind === "video";
-      if (firstOfTwo && (j.viewChosen || !j.viewConfident || (finalMarks.view !== "side_on" && finalMarks.view !== "front_on")))
+      if (firstOfTwo && (j.viewChosen || !j.viewTwo || (finalMarks.view !== "side_on" && finalMarks.view !== "front_on")))
         return fail("Camera angle not detected", `Aline couldn't tell whether ${fileRef.current?.name ?? "the first video"} is filmed from the side or the front, so the two videos aren't used. Choose two videos of the same ball: one filmed from the side, one from the front (the bowler's end), each with the whole body in view.`);
       // The second angle of a ball is used only when Aline itself read its camera position, and
       // it is the missing one (front-on for a side-on first clip, side-on for a front-on one).
       const want = pairRef.current && !remark && tr.kind === "video" ? otherAngleView(pairRef.current.family) : null;
       if (want) {
         const seenView = finalMarks.view;
-        if (j.viewChosen || !j.viewConfident) return fail("Camera angle not detected", `Aline couldn't tell the camera angle of this video, so it isn't used. Choose a video of the same ball filmed straight from the ${want === "front_on" ? "front (the bowler's end)" : "side"}, with your whole body in view.`);
+        const detected = twoPairRef.current ? j.viewTwo : j.viewConfident;
+        if (j.viewChosen || !detected) return fail("Camera angle not detected", `Aline couldn't tell the camera angle of this video, so it isn't used. Choose a video of the same ball filmed straight from the ${want === "front_on" ? "front (the bowler's end)" : "side"}, with your whole body in view.`);
         if (seenView !== want) return fail(...wrongAngle(want, seenView));
         // The same ball: both phones heard the same sounds, lined up with the shot.
         stage("report", "active", "Checking it's the same ball, from the sound");
@@ -1165,6 +1201,8 @@ export function CaptureFlow() {
         const next = { id, title, family } as const;
         pairRef.current = next;
         setPair(next);
+        twoPairRef.current = true;
+        setTwoPair(true);
         firstRef.current = { id, media: fileRef.current, shot: shotTime(payload, attempt.obs) };
         const second = twoRef.current.second;
         twoRef.current = { second: null };
@@ -1189,6 +1227,8 @@ export function CaptureFlow() {
   const onFiles = (list: FileList | File[] | null) => {
     const files = Array.from(list ?? []);
     if (!files.length) return;
+    // A new choice from the Add screen leaves a two-video run whose second video was refused.
+    if (twoPairRef.current) endTwoPair();
     const images = files.filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif)$/i.test(f.name));
     const videos = files.filter((f) => f.type.startsWith("video/") || VIDEO_EXT.test(f.name));
     const vid = videos[0];
@@ -1249,7 +1289,7 @@ export function CaptureFlow() {
                     <Link href={`/angles?a=${paired.a}&b=${paired.b}`} className="underline underline-offset-4">See both angles together</Link>
                   </p>
                 )}
-                {pair && (
+                {pair && !twoPair && (
                   <p className="rounded-xl border border-line-strong px-4 py-3 text-sm">
                     <span className="font-semibold">Other angle for “{pair.title}”.</span> Choose a video of the same ball, filmed from the {pair.family === "side" ? "front (the bowler's end)" : "side"}. Aline checks the angle itself.
                   </p>
@@ -1375,6 +1415,21 @@ export function CaptureFlow() {
                     <input type="file" disabled={!consented} accept="image/*" capture="environment" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                 </div>
+                {twoPair && pair ? (
+                  <TwoVideoPicker
+                    slots={slots}
+                    onChange={setSlots}
+                    onStart={(f) => onFiles(f)}
+                    onClose={() => setTwoOpen(false)}
+                    disabled={!consented}
+                    done={{ slot: pair.family === "side" ? "side" : "front", file: twoFiles?.[0] ?? null, title: pair.title }}
+                    onStartOne={startSecondOfTwo}
+                    onStartAgain={() => {
+                      endTwoPair();
+                      setTwoOpen(true);
+                    }}
+                  />
+                ) : null}
                 {!pair && !paired &&
                   (twoOpen ? (
                     <TwoVideoPicker slots={slots} onChange={setSlots} onStart={(f) => onFiles(f)} onClose={() => setTwoOpen(false)} disabled={!consented} />

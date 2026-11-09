@@ -14,6 +14,9 @@ skill (`.claude/skills/real-media-eval/SKILL.md`).
 - `ku3d.ts`, `ku3d.probe.ts` — real batting movement (KU CricShot 3D poses, `KU_DIR`) seen from any
   camera position (bowler's end, side-on either side, behind, 45°) through the whole engine, as
   front-foot and back-foot requests: every verdict per shot class and view (`KU_OUT` writes them).
+- `view.probe.ts` — the camera-angle guess on the KU shots from every camera position, and how
+  often the two-angle option's own check (`twoAngleView`, `pair.view.*`) accepts each: how its
+  limits were set.
 - `formula.probe.ts` — the back-foot definition's signals (`backfoot-formula.ts`) on the KU shots
   and on exported tracks (`TRACKS=…`), with their spread per class and view: how each limit was set.
 

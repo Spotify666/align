@@ -4,12 +4,16 @@
 // camera angle it detects, checks they are the same ball from their sound, and shows them
 // together; anything else is refused with the reason.
 //   node tests/e2e/two-videos.mjs <baseUrl> <video,video> <outPrefix>
-// SHOT=back analyses them as back-foot defences.
+// SHOT=back analyses them as back-foot defences. RETRY=<video>: when the second video is
+// refused, "Try another file" must bring back the two slots with the first video kept as
+// checked; the other angle is chosen again (this video) and only it is analysed.
+// POSE_DELEGATE=GPU|CPU forces the pose path.
 import { chromium } from "@playwright/test";
 const [, , base, list, out] = process.argv;
 const files = list.split(",");
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH, args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+if (process.env.POSE_DELEGATE) await ctx.addInitScript((d) => localStorage.setItem("align:pose-delegate", d), process.env.POSE_DELEGATE);
 const page = await ctx.newPage();
 page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
 const t0 = Date.now();
@@ -49,6 +53,20 @@ while (Date.now() < deadline) {
   if (/Not the|same ball|Too many|not detected|can't analyse|can’t analyse|Analysis failed/i.test(h1)) {
     step(`refused: ${h1} | ${(await page.locator("main").innerText()).replace(/\s+/g, " ").slice(0, 260)}`);
     await page.screenshot({ path: `${out}_refused.png` });
+    const retry = process.env.RETRY;
+    if (retry && seen && /2 of 2/i.test(seen)) {
+      process.env.RETRY = "";
+      await page.getByRole("button", { name: "Try another file" }).click();
+      const picker = page.locator("#two-h").locator("xpath=ancestor::section");
+      await picker.waitFor();
+      step(`back to the slots: ${(await picker.innerText()).replace(/\s+/g, " ").slice(0, 300)}`);
+      await picker.screenshot({ path: `${out}_retry.png` });
+      await page.getByLabel(/Choose the (front|side) video/).setInputFiles(retry);
+      await page.waitForTimeout(600);
+      await page.getByRole("button", { name: /Check the (front|side) video/ }).click();
+      seen = "";
+      continue;
+    }
     await browser.close();
     process.exit(0);
   }
