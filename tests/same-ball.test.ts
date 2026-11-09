@@ -1,6 +1,6 @@
 // Two videos are the same ball only when their soundtracks line up at the offset their shots give.
 import { describe, expect, it } from "vitest";
-import { handsHeight, movementAgreement, onsetEnvelope, sameBall, sameBallTwoVideos, type Movement } from "@/engine/same-ball";
+import { handsHeight, movementAgreement, onsetEnvelope, sameBall, sameBallTwoVideos, shotMovementAgreement, type Movement } from "@/engine/same-ball";
 import { J } from "@/engine/types";
 
 const RATE = 8000;
@@ -88,6 +88,16 @@ describe("the same ball, from the batter's movement (two-video option)", () => {
   it("movement that lines up only far from where the shots say doesn't count", () => {
     // The pictures put the shots 0.4 s apart; the movement lines up at 1.2 s.
     expect(sameBallTwoVideos({ a: null, b: null }, { a: side, b: front }, 1.8, 1.4).verdict).toBe("not_confirmed");
+  });
+
+  it("a camera's own drift in the still finish doesn't hide one ball", () => {
+    // From the bowler's end the hands sink behind the front pad through the hold: the front
+    // video drifts down after the set while the side stays still. Around the shot they match.
+    const drift = (t: number) => course(t) - (t > 2.2 ? 0.15 * Math.min(1, (t - 2.2) / 1.2) : 0);
+    const frontDrifting = take(0, 2.5, 1.2, drift);
+    expect(movementAgreement(side, frontDrifting, 1.2)!.r).toBeLessThan(0.95); // the whole clips
+    expect(shotMovementAgreement(side, frontDrifting, 1.8, 0.6)!.r).toBeGreaterThan(0.95); // around the shot
+    expect(sameBallTwoVideos({ a: null, b: null }, { a: side, b: frontDrifting }, 1.8, 0.6).verdict).toBe("same");
   });
 
   it("too short an overlap can't be compared", () => {

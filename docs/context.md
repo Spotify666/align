@@ -3,6 +3,26 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-09 · A front-foot defence from two angles: compared around the shot
+
+> [screenshot: "Not the same ball"] Front foot defence. Multiple videos option. Why is it not
+> working?
+
+Found: their side video (WA0002, the same file as WA00021) and front video (WA00011) are one
+front-foot defence: the shots give a 1.20 s offset and the movement lines up at exactly 1.20 s,
+but at 0.935, just under the 0.95 needed. Around the shot (backlift, stride, hands down) the two
+match; in the long still finish the front video drifts (from the bowler's end the hands sink
+behind the front pad and the stride brings the batter toward the phone) while the side stays
+still, and that drift pulled the whole-clip match down.
+
+Done (two-video option only, engine 0.8.6): the movement is compared around the shot only, from
+1.2 s before the first video's shot to 0.6 s after it (`shotMovementAgreement`), over at least 1.2
+s. The athlete's front-foot pair now reads 0.97 and combines (both pose paths); their back-foot
+pair still 0.98; their videos of different shots against each other −0.84 to −0.29 (refused). On
+the 3D defences one ball from side and front passes 84%, two different balls 8% (5% before; a
+shorter span would let 15% through). Single videos and the report's "Add the other angle" link
+are unchanged.
+
 ## 2026-11-09 · The same ball, told by the movement (two-video option)
 
 > Report still says it's not the same ball, why? Actually it's the same ball played in 2 angles.
