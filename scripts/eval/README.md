@@ -17,6 +17,9 @@ skill (`.claude/skills/real-media-eval/SKILL.md`).
 - `view.probe.ts` — the camera-angle guess on the KU shots from every camera position, and how
   often the two-angle option's own check (`twoAngleView`, `pair.view.*`) accepts each: how its
   limits were set.
+- `motion.probe.ts` — the two-video option's same-ball check by movement (`pair.motion.*`): real
+  pairs from exported tracks (`TRACKS`, `PAIRS`) and KU defences seen from the side and the front
+  (one ball) against two different balls: how its limits were set.
 - `formula.probe.ts` — the back-foot definition's signals (`backfoot-formula.ts`) on the KU shots
   and on exported tracks (`TRACKS=…`), with their spread per class and view: how each limit was set.
 

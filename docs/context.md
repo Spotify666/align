@@ -3,6 +3,33 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-09 · The same ball, told by the movement (two-video option)
+
+> Report still says it's not the same ball, why? Actually it's the same ball played in 2 angles.
+> The place setup is also same, you can analyse the biomechanics instead of focusing on grass and
+> surroundings. Yeah test and make the changes.
+
+Found: the athlete was right. Compared by the movement, their side video (WA0003) and front video
+(WA00041) line up as one ball: the hands' height over time follows the same course in both (0.98)
+once the front video is shifted 1.13–1.15 s, and their set positions are 1.32 s apart. The sound
+did not confirm it (0.12): the front phone, at the bowler's end, hears the bat faintly and the
+messaging app compresses the sound, so sound alone wrongly refused them.
+
+Done, for the two-video option only (engine 0.8.5; the report's "Add the other angle" link and the
+one-video flow are unchanged, checked end to end):
+- **The same ball by movement** (`handsHeight`, `movementAgreement`, `sameBallTwoVideos` in
+  `src/engine/same-ball.ts`): the hands' height above the feet, as a share of the batter's height
+  (vertical in the picture, so read alike from the side and the front), must follow the same course
+  in both videos (0.95 or closer) near the offset their shots give (within 0.4 s), over at least
+  1.5 s. Clear sound still confirms on its own; sound alone no longer refuses. Neither: "Not the same
+  ball", saying the movement doesn't line up.
+- **Evidence** (`scripts/eval/motion.probe.ts`): the athlete's pair 0.98 on every pose path; their
+  front-foot stride (WA00021) against the same front video −0.51 (refused); international defences
+  in 3D seen from the side and the front, one ball: 85% reach 0.95; two different balls of the same
+  kind: 5%. Movement can't tell apart two balls played identically; that is the known limit.
+- End to end: the athlete's pair now combines (both pose paths); the stride pair is refused; a
+  refused second video retried with the right one combines.
+
 ## 2026-11-09 · Two angles: the front video "not detected"; the option gone after a refusal
 
 > I have uploaded the right side angle and front angle videos but it's not detecting. And also

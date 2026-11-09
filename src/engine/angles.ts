@@ -67,7 +67,7 @@ export function bothAnglesLabel(end: AnalysisPayload | null): AngleLabel {
   const behind = end?.camera_view === "behind";
   return {
     short: behind ? "Side + back angle" : "Side + front angle",
-    long: `Two clips of the same ball (their sounds line up with the shot): one filmed from the side, one from ${behind ? "behind the batter" : "the front"}. Each check is read from the angle that sees it best.`,
+    long: `Two clips of the same ball, filmed at the same time: one from the side, one from ${behind ? "behind the batter" : "the front"}. Each check is read from the angle that sees it best.`,
   };
 }
 
