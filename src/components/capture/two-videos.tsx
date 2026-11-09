@@ -145,8 +145,78 @@ function SlotCard({ slot, file, disabled, onPick }: { slot: Slot; file: File | n
   );
 }
 
-/** The two slots and the button that starts both. */
-export function TwoVideoPicker({ slots, onChange, onStart, onClose, disabled }: { slots: TwoSlots; onChange: (s: TwoSlots) => void; onStart: (files: [File, File]) => void; onClose: () => void; disabled: boolean }) {
+/** The first video, already checked: kept while the other angle is chosen again. */
+function DoneCard({ slot, file, title }: { slot: Slot; file: File | null; title: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2 rounded-2xl border-2 border-brand p-2.5">
+      <span className="flex items-center justify-between gap-2 px-0.5">
+        <span className="text-sm font-semibold">{SLOT_NAME[slot]}</span>
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-brand-fg" aria-label="checked">
+          <Check size={13} />
+        </span>
+      </span>
+      <span className="relative block aspect-[4/3] overflow-hidden rounded-xl bg-line">{file && <VideoThumb file={file} />}</span>
+      <span className="min-w-0 px-0.5 text-xs">
+        <span className="block truncate font-medium">{file?.name ?? title}</span>
+        <span className="text-fg-muted">Checked</span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The two slots and the button that starts both. With `done`, the first video of the pair is
+ * already checked (the second was refused): it stays, and only the other angle is chosen again.
+ */
+export function TwoVideoPicker({
+  slots,
+  onChange,
+  onStart,
+  onClose,
+  disabled,
+  done,
+  onStartOne,
+  onStartAgain,
+}: {
+  slots: TwoSlots;
+  onChange: (s: TwoSlots) => void;
+  onStart: (files: [File, File]) => void;
+  onClose: () => void;
+  disabled: boolean;
+  done?: { slot: Slot; file: File | null; title: string };
+  onStartOne?: (f: File) => void;
+  onStartAgain?: () => void;
+}) {
+  const [next, setNext] = useState<File | null>(null);
+  if (done) {
+    const other: Slot = done.slot === "side" ? "front" : "side";
+    const pickNext = (files: File[]) => setNext(files.find((f) => f.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(f.name)) ?? null);
+    const cards = [<DoneCard key="done" slot={done.slot} file={done.file} title={done.title} />, <SlotCard key="next" slot={other} file={next} disabled={disabled} onPick={pickNext} />];
+    return (
+      <section aria-labelledby="two-h" className="card space-y-4 p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="two-h" className="text-lg font-semibold">Two angles of one ball</h2>
+            <p className="mt-1 text-sm text-fg-muted">2 videos only: the same ball, filmed at the same time, one from the side and one from the front.</p>
+          </div>
+          <button type="button" onClick={onStartAgain} className="shrink-0 text-sm font-medium text-fg-muted hover:text-fg hover:underline">
+            Start again
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">{done.slot === "side" ? cards : [...cards].reverse()}</div>
+        <p className="text-sm" aria-live="polite">
+          {next ? (
+            <span className="font-medium">2 of 2 videos chosen.</span>
+          ) : (
+            <span className="text-fg-muted">{`${SLOT_NAME[done.slot]} checked. Now choose the ${other} video again.`}</span>
+          )}
+        </p>
+        <button type="button" className="btn btn-primary w-full" disabled={!next || disabled} onClick={() => next && onStartOne?.(next)}>
+          Check the {other} video
+        </button>
+      </section>
+    );
+  }
   const pick = (slot: Slot) => (files: File[]) => {
     const video = files.find((f) => f.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(f.name));
     if (video) onChange({ ...slots, [slot]: video });
