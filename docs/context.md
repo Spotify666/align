@@ -10,7 +10,7 @@ change that answers a new ask, so the next session starts from the same page.
 Done (engine 0.9.0, pushed, **not live**; `docs/12`, "Engine 0.9.0"):
 - **Moment detectors on one noisy frame; limits outside the registry**: Trigger and Back foot are
   now placed where the foot keeps moving for 80 ms. Worst-case error on generated clips 409 → 67
-  ms and 288 → 50 ms; the same or within a frame on the three real tracks. All eleven inline
+  ms and 288 → 50 ms; the same or within a frame on the three real tracks. All ten inline
   limits in `events.ts` are registered with reasons, values unchanged. Nothing a batter is told
   changes (tested). Plant was tried the same way and made worse on real tracks, so it was left.
 - **Back-foot defence from the bowler's end**: the generated set can't stand in for that view

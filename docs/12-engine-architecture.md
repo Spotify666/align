@@ -201,7 +201,7 @@ tracks in the repo. Stated as that, not as validation.
 - Trigger and the back foot's first movement are placed where the foot *keeps moving* for 80 ms
   (`events.foot.sustain_s`), not at the first single frame that reads fast (`steadyFootMarkers`,
   `detectEvents` in `events.ts`). Only the time of a marker that was already found changes.
-- All eleven limits that were inline in `events.ts` are in the registry with their reasons
+- All ten limits that were inline in `events.ts` are in the registry with their reasons
   (`events.foot.*`, `events.contact.*`, `events.bat.*`), values unchanged.
 
 **Evidence** (`scripts/eval/foot-markers.probe.ts`; truth = the same movement generated without
