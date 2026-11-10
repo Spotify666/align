@@ -170,6 +170,35 @@ describe("analysis result contract", () => {
   });
 });
 
+describe("saved sessions from older builds", () => {
+  it("builds from a payload that lacks the fields added since, without the observation or with an unreadable one", () => {
+    const { payload, obs } = of("valid_ffd");
+    const old = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
+    for (const k of ["requested_shot", "camera_view", "line", "back_foot", "observations", "evidence_basis", "recapture", "limitations"]) delete old[k];
+    (old.versions as Record<string, unknown>).metric_version = "ffd-0.2.0";
+    const r = buildResult(old as never);
+    expect(r.intended).toBe("front_foot_defence");
+    expect(r.action.outcome).toBe("accepted");
+    expect(r.events.find((e) => e.type === "contact")!.state).toBe("detected");
+    expect(r.subject.view).toBeNull();
+    // An observation this build can't re-read falls back to the payload instead of throwing.
+    const broken = { ...obs, body: undefined, t: undefined } as never;
+    expect(() => buildResult(old as never, broken)).not.toThrow();
+    expect(buildResult(old as never, broken).events.length).toBe(r.events.length);
+    // A camera position this build doesn't know.
+    expect(buildResult({ ...payload, camera_view: "side" as never }).subject.viewSupport).toBeNull();
+  });
+
+  it("an uncertain result saved without observations or events still gets every phase, as missing or found", () => {
+    const old = JSON.parse(JSON.stringify(of("capture_failed").payload)) as Record<string, unknown>;
+    delete old.events;
+    delete old.metrics;
+    const r = buildResult(old as never);
+    expect(r.action.outcome).toBe("capture_failed");
+    expect(r.events.every((e) => e.state === "missing")).toBe(true);
+  });
+});
+
 describe("timebase", () => {
   const base = fixture("valid_ffd");
 

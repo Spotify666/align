@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aline · label a clip</title>
+<!--
+  Label the moments of a shot frame by frame. Open this file in a browser (no server, nothing
+  is uploaded: the video stays on this machine). Export the labels, then:
+    node scripts/eval/dataset.mjs add <video> <labels.json>
+  Keys: ← → one frame · Shift+← → ten frames · Space play/pause · 1–7 set that moment at this
+  frame · Shift+1–7 mark it "can't be seen".
+-->
+<style>
+  :root { --paper: #E3EADF; --ink: #000; --mute: rgba(0,0,0,.6); --line: rgba(0,0,0,.25); }
+  @media (prefers-color-scheme: dark) { :root { --paper: #000; --ink: #E3EADF; --mute: rgba(227,234,223,.65); --line: rgba(227,234,223,.3); } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+  h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 15px; margin: 16px 0 6px; }
+  p { margin: 0 0 8px; } .mute { color: var(--mute); }
+  video { width: 100%; max-height: 62vh; background: #000; display: block; }
+  button, input, select { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-height: 40px; }
+  button { cursor: pointer; } button:hover { border-color: var(--ink); } button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .num { font-variant-numeric: tabular-nums; }
+  #strip { position: relative; height: 28px; border: 1px solid var(--line); border-radius: 6px; margin-top: 8px; cursor: pointer; }
+  #strip i { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); }
+  #strip i.now { width: 1px; opacity: .5; } #strip i.guess { background: none; border-left: 2px dashed var(--ink); }
+  #strip span { position: absolute; top: 100%; font-size: 10px; transform: translateX(-50%); }
+  table { width: 100%; border-collapse: collapse; } td, th { text-align: left; padding: 5px 4px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  td button { min-height: 34px; padding: 4px 8px; margin: 2px 0; }
+  input[type=file], form input, form select { max-width: 100%; min-width: 0; width: 100%; } section { min-width: 0; } fieldset { min-width: 0; } fieldset input { width: auto; }
+  label { display: grid; gap: 2px; font-size: 13px; } form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  fieldset { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; } fieldset label { display: inline-flex; gap: 6px; align-items: center; margin: 2px 10px 2px 0; }
+  fieldset input { min-height: 0; } .wide { grid-column: 1 / -1; } .guess { font-style: italic; }
+  #msg { min-height: 1.4em; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>Label a clip</h1>
+    <p class="mute">The video stays on this machine. Step to the exact frame of each moment and set it.</p>
+    <div class="row">
+      <input type="file" id="file" accept="video/*" aria-label="Choose a video">
+      <label>Frames per second <input type="number" id="fps" value="30" min="1" max="1000" step="any" style="width: 7em"></label>
+    </div>
+    <video id="v" playsinline muted></video>
+    <div class="row">
+      <button id="back10" aria-label="Back ten frames">−10</button>
+      <button id="back" aria-label="Back one frame">−1</button>
+      <button id="play">Play</button>
+      <button id="fwd" aria-label="Forward one frame">+1</button>
+      <button id="fwd10" aria-label="Forward ten frames">+10</button>
+      <span class="num" id="pos" aria-live="polite">no video</span>
+    </div>
+    <div id="strip" title="Click to move"></div>
+    <p class="mute" style="margin-top: 22px">← → one frame · Shift ten · Space play · 1–7 set a moment here · Shift+1–7 it can't be seen</p>
+    <p id="clip" class="num mute"></p>
+  </section>
+  <section>
+    <h2>Moments</h2>
+    <table><tbody id="events"></tbody></table>
+    <div class="row">
+      <button id="load">Open labels or an evaluation report</button><input type="file" id="json" accept="application/json" hidden>
+    </div>
+    <h2>About the clip</h2>
+    <form id="meta">
+      <label>Athlete (anonymous) <input name="athlete" placeholder="ath_01" pattern="ath_[a-z0-9]{1,12}"></label>
+      <label>Labelled by <input name="by" placeholder="lab_01" pattern="lab_[a-z0-9]{1,12}"></label>
+      <label>Device <input name="device" placeholder="android_mid" pattern="[a-z0-9_]{2,32}"></label>
+      <label>Camera <select name="view"><option>side_on<option>front_on<option>behind<option>oblique</select></label>
+      <label>Light <select name="lighting"><option>outdoor_day<option>outdoor_low<option>indoor<option>mixed</select></label>
+      <label>Bats <select name="handedness"><option>right<option>left</select></label>
+      <label>What was played <select name="category"><option>front_foot_defence<option>back_foot_defence<option>front_foot_drive<option>pull<option>hook<option>cut<option>sweep<option>leave<option>none</select></label>
+      <label>Asked to analyse as <select name="intended"><option>front_foot_defence<option>back_foot_defence</select></label>
+      <label>Recording <select name="quality"><option>good<option>marginal<option>unusable</select></label>
+      <label>Slow motion (media ms per real ms) <input name="timeScale" type="number" value="1" min="0.1" step="any"></label>
+      <fieldset><legend>Problems in the recording</legend><span id="issues"></span></fieldset>
+      <fieldset><legend>Right answers for this clip (tick every one that would be correct)</legend><span id="expected"></span></fieldset>
+      <label class="wide">Note <input name="note" maxlength="300"></label>
+    </form>
+    <div class="row"><button id="export">Export labels</button></div>
+    <p id="msg" aria-live="polite"></p>
+  </section>
+</main>
+<script>
+const EVENTS = [["trigger", "Trigger"], ["backswing_top", "Top"], ["bounce", "Bounce"], ["front_foot_plant", "Plant"], ["back_foot_commit", "Back foot"], ["contact", "Contact"], ["follow_through", "Follow"]];
+const ISSUES = ["blur", "shake", "zoom", "crop", "occlusion", "multiple_people", "low_light", "bat_hidden", "ball_hidden", "cut", "slow_motion", "variable_frame_rate"];
+const OUTCOMES = ["accepted", "recognised_other_supported", "recognised_unsupported", "unknown_action", "ambiguous", "insufficient_evidence", "capture_failed"];
+const $ = (id) => document.getElementById(id);
+const v = $("v"), form = $("meta");
+// events[key] = { ms, visible, guess } ; guess = the engine's marker, not yet confirmed by a person.
+let events = {}, clip = { id: null, sha256: null }, revision = 1;
+const fps = () => Math.max(1, Number($("fps").value) || 30);
+const frame = () => Math.floor(v.currentTime * fps() + 1e-4);
+const toFrame = (f) => { v.pause(); v.currentTime = Math.max(0, Math.min((v.duration || 0) - 1e-3, (Math.max(0, f) + 0.5) / fps())); };
+const say = (t) => { $("msg").textContent = t; };
+$("issues").innerHTML = ISSUES.map((i) => `<label><input type="checkbox" name="issue" value="${i}">${i.replace(/_/g, " ")}</label>`).join("");
+$("expected").innerHTML = OUTCOMES.map((o) => `<label><input type="checkbox" name="expected" value="${o}">${o.replace(/_/g, " ")}</label>`).join("");
+
+function draw() {
+  const d = v.duration || 0;
+  $("pos").textContent = d ? `frame ${frame()} · ${Math.round(v.currentTime * 1000)} ms of ${Math.round(d * 1000)}` : "no video";
+  $("events").innerHTML = EVENTS.map(([k, name], i) => {
+    const e = events[k];
+    const at = !e ? "not labelled" : !e.visible ? "can't be seen" : `${Math.round(e.ms)} ms${e.guess ? " (engine's marker: confirm or move)" : ""}`;
+    return `<tr><th scope="row">${i + 1} ${name}</th><td class="num ${e?.guess ? "guess" : ""}">${e?.visible ? `<button data-go="${k}">${at}</button>` : at}</td>
+      <td><button data-set="${k}">Set here</button> <button data-hide="${k}" aria-pressed="${!!e && !e.visible}">Not seen</button> ${e ? `<button data-clear="${k}" aria-label="Clear ${name}">×</button>` : ""}</td></tr>`;
+  }).join("");
+  $("strip").innerHTML = (d ? `<i class="now" style="left:${(v.currentTime / d) * 100}%"></i>` : "") + EVENTS.map(([k, name]) => {
+    const e = events[k];
+    return e?.visible && d ? `<i class="${e.guess ? "guess" : ""}" style="left:${(e.ms / 1000 / d) * 100}%"></i><span style="left:${(e.ms / 1000 / d) * 100}%">${name}</span>` : "";
+  }).join("");
+}
+const setHere = (k) => { if (!v.duration) return; events[k] = { ms: Math.round(((frame() + 0.5) / fps()) * 1000), visible: true }; draw(); };
+const hide = (k) => { events[k] = events[k] && !events[k].visible ? undefined : { ms: null, visible: false }; if (!events[k]) delete events[k]; draw(); };
+
+$("file").onchange = async (ev) => {
+  const f = ev.target.files[0];
+  if (!f) return;
+  v.src = URL.createObjectURL(f);
+  events = {}; revision = 1;
+  try {
+    const hex = [...new Uint8Array(await crypto.subtle.digest("SHA-256", await f.arrayBuffer()))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    clip = { id: `clip_${hex.slice(0, 12)}`, sha256: hex };
+    $("clip").textContent = `${clip.id} · this id is made from the file's contents, not its name`;
+  } catch { clip = { id: null, sha256: null }; $("clip").textContent = "This browser can't hash the file here; the id is added by dataset.mjs."; }
+  draw();
+};
+v.onloadedmetadata = v.ontimeupdate = v.onseeked = draw;
+$("fps").oninput = draw;
+$("back").onclick = () => toFrame(frame() - 1); $("fwd").onclick = () => toFrame(frame() + 1);
+$("back10").onclick = () => toFrame(frame() - 10); $("fwd10").onclick = () => toFrame(frame() + 10);
+$("play").onclick = () => (v.paused ? v.play() : v.pause());
+v.onplay = v.onpause = () => { $("play").textContent = v.paused ? "Play" : "Pause"; };
+$("strip").onclick = (e) => { const r = $("strip").getBoundingClientRect(); if (v.duration) toFrame(Math.floor(((e.clientX - r.left) / r.width) * v.duration * fps())); };
+$("events").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.set) setHere(b.dataset.set);
+  if (b.dataset.hide) hide(b.dataset.hide);
+  if (b.dataset.clear) { delete events[b.dataset.clear]; draw(); }
+  if (b.dataset.go) { const x = events[b.dataset.go]; toFrame(Math.floor((x.ms / 1000) * fps())); if (x.guess) { x.guess = false; draw(); } }
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, select, textarea")) return;
+  const n = e.code.startsWith("Digit") ? Number(e.code.slice(5)) : 0;
+  if (n >= 1 && n <= EVENTS.length) { e.preventDefault(); (e.shiftKey ? hide : setHere)(EVENTS[n - 1][0]); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); toFrame(frame() - (e.shiftKey ? 10 : 1)); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); toFrame(frame() + (e.shiftKey ? 10 : 1)); }
+  else if (e.key === " ") { e.preventDefault(); $("play").click(); }
+});
+
+$("load").onclick = () => $("json").click();
+$("json").onchange = async (ev) => {
+  const f = ev.target.files[0]; if (!f) return;
+  const j = JSON.parse(await f.text());
+  if (j.schema === "aline.evalreport/1") {
+    // The engine's markers for this clip, as suggestions to confirm or move.
+    const c = j.clips.find((x) => x.id === clip.id);
+    if (!c) return say("That report has no clip with this id. Choose the video first.");
+    for (const [k, e] of Object.entries(c.events)) if (!events[k] && e.predMs !== null) events[k] = { ms: e.predMs, visible: true, guess: true };
+    say("The engine's markers are shown in italics. Go to each one, then confirm it or set the right frame.");
+  } else {
+    events = Object.fromEntries(Object.entries(j.events ?? {}).map(([k, e]) => [k, { ms: e.ms, visible: e.visible }]));
+    revision = (j.labels?.revision ?? 0) + 1;
+    for (const k of ["athlete", "device", "view", "lighting", "handedness", "category", "intended", "timeScale", "note"]) if (j[k] !== undefined && form[k]) form[k].value = j[k];
+    if (j.labels?.by) form.by.value = j.labels.by;
+    if (j.capture) { form.quality.value = j.capture.quality; form.querySelectorAll("[name=issue]").forEach((x) => (x.checked = j.capture.issues.includes(x.value))); }
+    if (j.expected) form.querySelectorAll("[name=expected]").forEach((x) => (x.checked = j.expected.includes(x.value)));
+    if (j.fps) $("fps").value = j.fps;
+    say("Labels opened. Correct them and export again.");
+  }
+  ev.target.value = ""; draw();
+};
+
+$("export").onclick = () => {
+  const d = new FormData(form);
+  const guesses = EVENTS.filter(([k]) => events[k]?.guess).map(([, n]) => n);
+  if (guesses.length) return say(`Confirm or move the engine's markers first: ${guesses.join(", ")}.`);
+  if (!v.videoWidth) return say("Choose a video first.");
+  if (!form.reportValidity()) return;
+  const expected = d.getAll("expected");
+  if (!d.get("athlete") || !d.get("by") || !d.get("device") || !expected.length) return say("Fill in the athlete, who labelled it, the device, and tick at least one right answer.");
+  const out = {
+    id: clip.id, sha256: clip.sha256,
+    athlete: d.get("athlete"), device: d.get("device"), view: d.get("view"), fps: fps(), timeScale: Number(d.get("timeScale")) || 1,
+    width: v.videoWidth, height: v.videoHeight, lighting: d.get("lighting"), handedness: d.get("handedness"),
+    category: d.get("category"), intended: d.get("intended"),
+    capture: { quality: d.get("quality"), issues: d.getAll("issue") },
+    expected,
+    events: Object.fromEntries(EVENTS.filter(([k]) => events[k]).map(([k]) => [k, { ms: events[k].ms, visible: events[k].visible }])),
+    labels: { by: d.get("by"), revision, at: new Date().toISOString().slice(0, 10) },
+    ...(d.get("note") ? { note: d.get("note") } : {}),
+  };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: "application/json" }));
+  a.download = `${clip.id ?? "clip"}.labels.json`;
+  a.click();
+  window.__lastLabels = out;
+  say(`Exported ${a.download}. Next: node scripts/eval/dataset.mjs add <video> ${a.download}`);
+};
+draw();
+</script>
+</body>
+</html>

@@ -22,7 +22,7 @@ import {
 import { FRONTAL_METRICS, FRONTAL_UNGRADED, frontalMetrics, withholdAlongPitch } from "./frontal";
 import { assessCapture, bodyCoverage } from "./quality";
 import { buildScene } from "./scene";
-import { handsSeries, segmentEvents } from "./events";
+import { handsSeries, segmentEvents, type EventSet } from "./events";
 import { estimateDelivery } from "./delivery";
 import { extractFeatures } from "./features";
 import { classify, leadingAlternative, SHOT_DISPLAY, type Classification } from "./classify";
@@ -50,6 +50,11 @@ export const TARGET_NAME: Record<TargetShot, string> = { front_foot_defence: CAT
 export interface AnalyzeOptions {
   analysisId: string;
   createdAt: string;
+  /**
+   * The event detector to use in place of the built-in one (events.ts). The seam for a candidate
+   * detector behind a flag and for the evaluation tools; absent, nothing changes.
+   */
+  eventDetector?: (obs: CaptureObservation, scene: ReturnType<typeof buildScene>) => EventSet;
 }
 
 export function hashObservation(obs: CaptureObservation): string {
@@ -621,7 +626,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   }
 
   // 2–5. Tracking, events, delivery, shot recognition, compatibility.
-  const events = segmentEvents(obs, scene);
+  const events = (opts.eventDetector ?? segmentEvents)(obs, scene);
   const delivery = estimateDelivery(scene, events);
   const features = extractFeatures(scene, events, delivery);
   const frontal = scene.plane === "frontal";

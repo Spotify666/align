@@ -95,6 +95,8 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Category specs (phases, order, views, abstention table per shot) | `src/engine/category.ts` |
 | Result contract the report reads (outcome, events with uncertainty, withheld claims) | `src/engine/result.ts`, `timebase.ts`; timeline `report/phase-timeline.tsx`, `result-panel.tsx`; @docs/12-engine-architecture.md |
 | Gate against one-clip fixes (same movement, different recording) | `src/engine/eval/*`, `tests/metamorphic.test.ts`, `tests/baselines/metamorphic.json`, `scripts/eval/metamorphic.probe.ts`, `golden.probe.ts` |
+| Real-clip dataset and detector gate (labels, manifest, per-slice and leave-one-athlete-out, accept / reject) | `scripts/eval/dataset/README.md`, `label.html`, `dataset.mjs`, `real.probe.ts`, `compare-reports.mjs`, `src/engine/eval/dataset.ts`, `real.ts`, `detectors.ts`; clips in `eval-media/` (ignored) |
+| What depends on each event; what the contract costs | `scripts/eval/sensitivity.probe.ts`, `perf.probe.ts` |
 | Synthetic fixtures and population | `src/engine/fixtures/*` |
 | Real-media evaluation | `scripts/eval/*` |
 | Product docs | `docs/00…10-*.md` |

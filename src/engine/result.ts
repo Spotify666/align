@@ -168,7 +168,7 @@ export function actionOutcome(p: AnalysisPayload, spec: CategorySpec): ActionOut
   if (p.analysis_status === "invalid_for_requested_analysis") {
     const label = p.observed_shot?.label ?? "unknown";
     if (label === "unknown") return "unknown_action";
-    return (TARGET_SHOTS as readonly string[]).includes(label) && label !== p.requested_shot ? "recognised_other_supported" : "recognised_unsupported";
+    return (TARGET_SHOTS as readonly string[]).includes(label) && label !== (p.requested_shot ?? "front_foot_defence") ? "recognised_other_supported" : "recognised_unsupported";
   }
   return spec.abstention[p.status_reason]?.outcome ?? "insufficient_evidence";
 }
@@ -187,7 +187,7 @@ function detectorStability(obs: CaptureObservation | undefined, scene: Scene | n
     const half = downsample(obs, 2, offset);
     return { byType: segmentEvents(half, buildScene(half)).byType, t: half.t };
   });
-  for (const e of p.events) {
+  for (const e of p.events ?? []) {
     const raw = full[e.type];
     if (!raw || raw.frame !== e.frame) continue;
     const tFull = obs.t[e.frame]!;
@@ -233,14 +233,14 @@ export function eventResults(p: AnalysisPayload, spec: CategorySpec, obs?: Captu
   const stability = detectorStability(obs, scene, p);
 
   return spec.phases.map((phase) => {
-    const e = p.events.find((x) => x.type === phase.event);
+    const e = (p.events ?? []).find((x) => x.type === phase.event);
     const base = { id: `evt_${phase.event}`, type: phase.event, label: phase.label, required: phase.required };
     if (!e) {
       const why = !video ? (p.mode === "posture_screen" ? "A photo shows one moment: the phases of the movement need a video." : "Not assessed: the recording couldn't be analysed.") : phase.unavailable;
       return { ...base, state: "missing" as const, frame: null, tMs: null, confidence: 0, uncertainty: null, stable: null, visibility: null, sources: [], method: "not found", limitation: why };
     }
     const marked =
-      (phase.event === "contact" && obs?.marks.contactFrame === e.frame) || (phase.event === "bounce" && obs?.marks.bounceFrame === e.frame && !p.tracking.ball.ok) || /marked by/.test(e.method);
+      (phase.event === "contact" && obs?.marks?.contactFrame === e.frame) || (phase.event === "bounce" && obs?.marks?.bounceFrame === e.frame && !p.tracking.ball.ok) || /marked by/.test(e.method);
     const movedMs = marked ? undefined : stability.get(phase.event);
     // Seen directly only if it also stays put on a second reading of the clip.
     const stable = movedMs === undefined ? null : movedMs <= phase.windowS * 1000;
@@ -282,7 +282,7 @@ export function eventResults(p: AnalysisPayload, spec: CategorySpec, obs?: Captu
 
 /** Frame interval from the events themselves, for a payload read without its observation. */
 function frameIntervalMs(p: AnalysisPayload): number | null {
-  const es = [...p.events].sort((a, b) => a.frame - b.frame);
+  const es = [...(p.events ?? [])].sort((a, b) => a.frame - b.frame);
   const first = es[0];
   const last = es[es.length - 1];
   return first && last && last.frame > first.frame ? (last.tMs - first.tMs) / (last.frame - first.frame) : null;
@@ -315,10 +315,11 @@ export function checkPhaseOrder(events: EventResult[], spec: CategorySpec): { va
 
 function metricResults(p: AnalysisPayload, events: EventResult[], accepted: boolean): MetricResult[] {
   const gradedMode = accepted || p.mode === "posture_screen";
-  const list = accepted || p.mode === "posture_screen" ? p.metrics : (p.observations ?? []);
+  const list = (accepted || p.mode === "posture_screen" ? p.metrics : p.observations) ?? [];
   return list.map((m) => {
-    const eventRefs = m.evidenceIds.filter((id) => id.startsWith("evt_"));
-    const frames = m.evidenceIds.filter((id) => id.startsWith("frame_")).map((id) => Number(id.slice(6))).filter(Number.isFinite);
+    const ids = m.evidenceIds ?? [];
+    const eventRefs = ids.filter((id) => id.startsWith("evt_"));
+    const frames = ids.filter((id) => id.startsWith("frame_")).map((id) => Number(id.slice(6))).filter(Number.isFinite);
     const refd = eventRefs.map((id) => events.find((e) => e.id === id)).filter((e): e is EventResult => !!e && e.state !== "missing");
     return {
       id: m.id,
@@ -347,11 +348,21 @@ export function buildResult(p: AnalysisPayload, obs?: CaptureObservation): Analy
   const spec = categoryOf(p.requested_shot);
   const outcome = actionOutcome(p, spec);
   const accepted = outcome === "accepted";
-  const timebase = obs ? assessTimebase(obs) : null;
-  const events = eventResults(p, spec, obs, timebase);
+  // A session saved by an older build may hold an observation this build can't re-read: the
+  // contract then falls back to what the stored payload alone supports, and never throws.
+  let timebase: Timebase | null = null;
+  let events: EventResult[];
+  try {
+    timebase = obs ? assessTimebase(obs) : null;
+    events = eventResults(p, spec, obs, timebase);
+  } catch {
+    timebase = null;
+    events = eventResults(p, spec);
+  }
   const phaseOrder = checkPhaseOrder(events, spec);
   const metrics = metricResults(p, events, accepted);
-  const view = p.camera_view ?? obs?.camera.view ?? null;
+  const seen = p.camera_view ?? obs?.camera?.view ?? null;
+  const view = seen && spec.views[seen] ? seen : null;
 
   const alternatives = p.shot_probabilities
     ? SHOT_CLASSES.map((label) => ({ label, probability: p.shot_probabilities![label] ?? 0, supported: (TARGET_SHOTS as readonly string[]).includes(label) }))
@@ -374,7 +385,7 @@ export function buildResult(p: AnalysisPayload, obs?: CaptureObservation): Analy
           : `The action wasn't accepted as a ${spec.name}, and technique is only graded for an accepted action.`;
     withheld.push({ claim: "Technique score, strengths and priorities", reason: why });
   }
-  if (!p.delivery.available) withheld.push({ claim: "Ball line, length and bounce", reason: p.delivery.reason ?? "The ball wasn't tracked." });
+  if (!p.delivery?.available) withheld.push({ claim: "Ball line, length and bounce", reason: p.delivery?.reason ?? "The ball wasn't tracked." });
   for (const m of metrics) if (m.availability === "withheld") withheld.push({ claim: m.name, reason: m.reason ?? "Not measured." });
   for (const e of events) if (e.state === "missing" && e.required && p.mode === "video" && outcome !== "capture_failed") withheld.push({ claim: `${e.label} timing`, reason: e.limitation ?? "Not found." });
   if (timebase?.kind === "irregular") withheld.push({ claim: "Exact timing", reason: `${timebase.issues.join(" ")} Times are measured as if frames were evenly spaced, so timing measures are less sure.` });
@@ -386,12 +397,12 @@ export function buildResult(p: AnalysisPayload, obs?: CaptureObservation): Analy
     demo: p.demo,
     mode: p.mode,
     category: { schema: CATEGORY_SCHEMA, id: spec.id, version: spec.version, name: spec.name },
-    intended: p.requested_shot,
-    capture: { status: p.capture.status, confidence: p.capture_confidence, checks: p.capture.checks, timebase, recapture: p.recapture },
+    intended: p.requested_shot ?? ("front_foot_defence" as const),
+    capture: { status: p.capture.status, confidence: p.capture_confidence, checks: p.capture.checks, timebase, recapture: p.recapture ?? [] },
     subject: {
       handedness: p.handedness,
       handednessSource: "declared_or_grip" as const,
-      people: obs?.quality.maxPeople ?? null,
+      people: obs?.quality?.maxPeople ?? null,
       bodyCoverage: p.tracking.body.coverage,
       bodyConfidence: p.tracking.body.meanConfidence,
       view,
@@ -414,7 +425,7 @@ export function buildResult(p: AnalysisPayload, obs?: CaptureObservation): Analy
     phaseOrder,
     metrics,
     withheld,
-    limitations: [...p.limitations, ...spec.limitations.map((text, i) => ({ id: `lim_spec_${i + 1}`, text })).filter((l) => !p.limitations.some((x) => x.text === l.text))],
+    limitations: [...(p.limitations ?? []), ...spec.limitations.map((text, i) => ({ id: `lim_spec_${i + 1}`, text })).filter((l) => !(p.limitations ?? []).some((x) => x.text === l.text))],
     confidence: {
       capture: p.capture_confidence,
       subject: round(p.tracking.body.coverage * p.tracking.body.meanConfidence, 2),

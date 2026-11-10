@@ -11,6 +11,7 @@ import { DOMAIN_LABELS, THRESHOLDS } from "@/engine/registry";
 import { type CompareReference, EvidenceViewer, type EvidenceViewerHandle } from "./evidence-viewer";
 import { ResultPanel } from "./result-panel";
 import { buildResult } from "@/engine/result";
+import { timeEnd, timeStart } from "@/lib/capture/timing";
 import { MetricCard } from "./metric-card";
 import { CaptureChecklist, DomainGrid, Limitations, PriorityPlan, ShotProbabilityPanel, Versions } from "./panels";
 import { ConfidenceChip, DemoBadge, STATUS_META, statusKey } from "./status";
@@ -94,7 +95,13 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       : STATUS_META[statusKey(p)];
   const contact = p.events.find((e) => e.type === "contact");
   // The typed result every evidence view reads: outcome, events with uncertainty, what was withheld.
-  const result = useMemo(() => buildResult(p, obs), [p, obs]);
+  // Timed like every other step ("[align:time] result contract …") so its cost shows on a phone.
+  const result = useMemo(() => {
+    timeStart("result contract");
+    const r = buildResult(p, obs);
+    timeEnd("result contract");
+    return r;
+  }, [p, obs]);
   const t0 = obs.t[0] ?? 0;
   const seek = (frame: number, metricId?: string) => {
     if (viewer.current) return viewer.current.seek(frame, metricId);
