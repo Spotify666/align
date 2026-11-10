@@ -229,10 +229,26 @@ tracker noise at 240 fps)
   of the clip: no better on generated movement (median 21 → 25 ms) and it moved by 1.3 s on a
   real track read at 15 fps where the old rule did not move. Plant keeps the old rule.
 
+- *Withholding a grade when the answer isn't steady* (body only, Contact estimated, the grade
+  different with Contact at either end of its stated timing). It can only withhold, never grant,
+  and the two real accepted defences in the repo held. But on the project's own gates it cut
+  "confirms defences from body and hands" from at least 95% to 0% (`tests/gates.test.ts`) and 50%
+  (`tests/population.test.ts`): most phone clips would read "can't confirm". Reverted. Either the
+  stated ±0.1 s for an estimated Contact is too wide or body-only grades really are that
+  fragile; only labelled clips can say which.
+
+**Added instead (display only)**
+
+- "Answer steady: yes / borderline" in "How sure each part is" (`src/engine/sensitivity.ts`),
+  shown only where Contact is estimated, worked out after the report has drawn. It changes no
+  result. On the real tracks: the two accepted defences steady, the unstable clip borderline.
+- No milliseconds in the timeline's notes or labels (standing rule 8): seconds.
+
 **Not changed, and why**
 
-- *Contact*. It decides the verdict, so any change to it is a change to acceptance. Without
-  labelled real clips there is no way to tell a better Contact from a different one.
+- *Contact*. It decides the verdict, so any change to it is a change to acceptance (see the
+  reverted attempt above). Without labelled real clips there is no way to tell a better Contact
+  from a different one.
 - *Bat and ball found automatically*: needs a detection model and labelled frames.
 - *Slow motion*: telling a 240 fps file played at 30 from a slow shadow drill needs real examples
   of both; a guess would refuse real drills.

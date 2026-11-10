@@ -154,7 +154,7 @@ export function PhaseTimeline({
                 aria-label={
                   e.frame === null
                     ? `${e.label}: not found`
-                    : `${e.label} at ${secs(e.frame)} seconds, ${STATE_WORD[e.state].toLowerCase()}${e.uncertainty?.ms ? `, within ${e.uncertainty.ms} milliseconds` : ""}`
+                    : `${e.label} at ${secs(e.frame)} seconds, ${STATE_WORD[e.state].toLowerCase()}${e.uncertainty?.ms ? `, give or take ${(e.uncertainty.ms / 1000).toFixed(2)} seconds` : ""}`
                 }
                 className={`chip min-h-11 cursor-pointer transition-colors duration-150 hover:bg-tint ${on ? "border-fg bg-brand-soft text-fg" : e.frame === null ? "border-dashed text-fg-subtle" : "text-fg-muted"}`}
               >

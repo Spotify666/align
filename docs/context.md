@@ -16,10 +16,18 @@ Done (engine 0.9.0, pushed, **not live**; `docs/12`, "Engine 0.9.0"):
 - **Back-foot defence from the bowler's end**: the generated set can't stand in for that view
   (its limit was set on real footage); marked so. Not an engine gap on the evidence there is.
 
-Not done, because each needs real clips or a model, not code alone: Contact (it decides the
+- **Contact**: tried withholding a grade whenever it would change with Contact a moment earlier
+  or later. It cut body-only acceptance from 95% to 0–50% on the project's own gates, so it was
+  reverted. Instead the report says "Answer steady: yes / borderline" (Details, How sure each
+  part is), which changes no result.
+- The timeline's notes no longer show milliseconds (seconds, per the standing rule).
+
+> yes, work on the gaps, fix and make them live
+
+Made live (engine 0.9.0, registry `18d0cc2bd491fd17` applied to Supabase).
+
+Still open, because each needs real clips or a model, not code alone: Contact (it decides the
 verdict), automatic bat and ball, slow motion, validation and calibration, more shots.
-Registry `18d0cc2bd491fd17` is in a migration file, not yet applied to Supabase: apply it when
-this ships.
 
 ## 2026-11-10 · Made live at the athlete's request
 

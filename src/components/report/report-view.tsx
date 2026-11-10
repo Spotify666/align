@@ -293,7 +293,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         {moreMounted && (
         <div className="space-y-8 border-t border-line px-4 py-6 sm:px-5">
 
-      <ResultPanel result={result} />
+      <ResultPanel result={result} payload={p} obs={obs} />
 
       <DeliveryPanel payload={p} onSeek={seekId} />
 

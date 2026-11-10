@@ -158,6 +158,9 @@ export interface AnalysisResult {
   reproducibility: { input_hash: string; payload_hash: string; result_hash: string };
 }
 
+/** A duration for a report screen: seconds, never milliseconds. */
+const secs = (ms: number) => `${ms >= 95 ? (ms / 1000).toFixed(1) : (ms / 1000).toFixed(2)} s`;
+
 const SIGNAL_WORD: Record<Signal, string> = { body: "the body", bat: "the bat", ball: "the ball", pitch_scale: "the pitch markings", depth: "depth", user_mark: "a mark you placed" };
 const words = (xs: Signal[]) => xs.map((s) => SIGNAL_WORD[s]).join(" and ");
 
@@ -261,9 +264,9 @@ export function eventResults(p: AnalysisPayload, spec: CategorySpec, obs?: Captu
     const notes: string[] = [];
     const unseen = phase.primary.filter((s) => !available.has(s));
     if (state === "inferred" && stable !== false) notes.push(unseen.length ? `Estimated from ${words(sources)}: ${words(unseen)} ${unseen.length > 1 ? "weren't" : "wasn't"} tracked.` : "Estimated: the signal was weak.");
-    if (stable === false) notes.push(`Approximate: this marker moved by ${Math.round(movedMs!)} ms when the same clip was read at half its frame rate.`);
+    if (stable === false) notes.push(`Approximate: this marker moved by ${secs(movedMs!)} when the same clip was read at half its frame rate.`);
     if (vis.share !== null && vis.share < 0.7) notes.push("Part of the body it rests on was hidden around this moment.");
-    if (dtMs && dtMs > 1000 / th("capture.min_fps_timing")) notes.push(`One frame is ${Math.round(dtMs)} ms at this frame rate.`);
+    if (dtMs && dtMs > 1000 / th("capture.min_fps_timing")) notes.push(`At this frame rate the frames are ${secs(dtMs)} apart.`);
     return {
       ...base,
       state,

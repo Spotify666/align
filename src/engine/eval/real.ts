@@ -5,10 +5,10 @@
 // What a report can decide: whether one build is better than another on these clips
 // (compareReports). What it cannot: anything about clips, athletes or devices not in the set.
 
-import { analyze, type AnalyzeOptions } from "../analyze";
-import { detectEvents } from "../events";
+import { analyze } from "../analyze";
 import { ENGINE_VERSION, REGISTRY_HASH } from "../registry";
 import { buildResult, UNCERTAINTY_MODEL } from "../result";
+import { contactSensitivity, type Detector } from "../sensitivity";
 import type { CaptureObservation, EventType } from "../types";
 import { LABEL_EVENTS, slicesOf, sourceMs, type DatasetClip, type LabelEvent } from "./dataset";
 
@@ -19,7 +19,7 @@ export const NOMINAL_COVERAGE = 0.9;
 export const MIN_ATHLETES = 3;
 export const MIN_CLIPS = 10;
 
-export type Detector = NonNullable<AnalyzeOptions["eventDetector"]>;
+export type { Detector };
 
 export interface EventScore {
   labelMs: number | null;
@@ -49,7 +49,7 @@ export interface ClipScore {
   /** Contact and Follow on one frame with no reason the category accepts. */
   unexplainedCollapse: boolean;
   orderViolation: boolean;
-  /** Does the verdict hold when Contact is moved to either end of its own stated uncertainty? */
+  /** Where Contact is estimated: does the verdict hold with it at either end of its own stated uncertainty? */
   verdictHolds: boolean | null;
   ms: { analyze: number; result: number };
 }
@@ -126,22 +126,7 @@ export function scoreClip(clip: DatasetClip, tracks: CaptureObservation, detecto
   }
 
   // Would the verdict survive Contact being wrong by as much as the engine itself says it may be?
-  const contact = result.events.find((e) => e.type === "contact");
-  let verdictHolds: boolean | null = null;
-  if (contact?.frame != null && contact.uncertainty) {
-    const by = Math.max(1, Math.round(contact.uncertainty.frames));
-    verdictHolds = [-by, by].every((d) => {
-      const moved: Detector = (o, sc) => {
-        const set = (detector ?? detectEvents)(o, sc);
-        const c = set.byType.contact;
-        if (!c) return set;
-        const frame = Math.max(0, Math.min(sc.n - 1, c.frame + d));
-        const next = { ...c, frame, tMs: Math.round(sc.t[frame] ?? c.tMs) };
-        return { list: set.list.map((x) => (x.type === "contact" ? next : x)), byType: { ...set.byType, contact: next } };
-      };
-      return (analyze(obs, { ...AT, eventDetector: moved }).analysis_status === "valid") === (payload.analysis_status === "valid");
-    });
-  }
+  const verdictHolds = contactSensitivity(obs, payload, result, detector)?.holds ?? null;
 
   const accepted = result.action.accepted;
   const shouldAccept = clip.expected.includes("accepted");

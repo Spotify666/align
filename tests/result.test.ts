@@ -7,6 +7,7 @@ import { FIXTURE_SPECS, fixture } from "@/engine/fixtures";
 import { backFootPopulation, population } from "@/engine/fixtures/population";
 import { THRESHOLDS } from "@/engine/registry";
 import { buildResult, RESULT_SCHEMA } from "@/engine/result";
+import { contactSensitivity } from "@/engine/sensitivity";
 import { assessTimebase, normalizeTimebase } from "@/engine/timebase";
 import type { CaptureObservation } from "@/engine/types";
 
@@ -167,6 +168,29 @@ describe("analysis result contract", () => {
     expect(r.capture.timebase).toBeNull();
     expect(r.events.find((e) => e.type === "contact")!.uncertainty!.frames).toBeGreaterThan(0);
     expect(r.events.find((e) => e.type === "contact")!.stable).toBeNull();
+  });
+});
+
+describe("is the answer steady?", () => {
+  it("says whether graded / not graded survives contact moving within its own stated timing, and changes nothing", () => {
+    // Asked only where contact is estimated: a contact that was seen is not second-guessed.
+    expect(contactSensitivity(of("valid_ffd").obs, of("valid_ffd").payload, of("valid_ffd").result)).toBeNull();
+    const body = results.find((r) => r.result.events.find((e) => e.type === "contact")?.state === "inferred" && r.payload.mode === "video" && r.payload.analysis_status !== "capture_failed")!;
+    const { obs, payload, result } = body;
+    const before = JSON.stringify(payload);
+    const s = contactSensitivity(obs, payload, result)!;
+    expect(typeof s.holds).toBe("boolean");
+    expect(s.bandS).toBeGreaterThan(0);
+    expect(JSON.stringify(payload)).toBe(before);
+    expect(contactSensitivity(of("photo").obs, of("photo").payload, of("photo").result)).toBeNull();
+    expect(contactSensitivity(of("capture_failed").obs, of("capture_failed").payload, of("capture_failed").result)).toBeNull();
+  });
+
+  it("never puts milliseconds on a report screen", () => {
+    for (const r of results) {
+      for (const e of r.result.events) expect(e.limitation ?? "", `${r.id} ${e.type}`).not.toMatch(/\d\s?ms\b/);
+      for (const w of r.result.withheld) expect(w.reason, r.id).not.toMatch(/\d\s?ms\b/);
+    }
   });
 });
 
