@@ -17,7 +17,7 @@
 // The legacy payload (`align.analysis/1`) stays the stored format and is not changed by this.
 
 import { downsample } from "./eval/transforms";
-import { segmentEvents } from "./events";
+import { detectEvents } from "./events";
 import { ACTION_OUTCOMES, CATEGORY_SCHEMA, categoryOf, type ActionOutcome, type CategorySpec, type PhaseSpec, type Signal, type ViewSupport } from "./category";
 import { canonicalJson, round, sha256 } from "./math";
 import { th } from "./registry";
@@ -182,10 +182,10 @@ function detectorStability(obs: CaptureObservation | undefined, scene: Scene | n
   const out = new Map<EventType, number>();
   const fps = obs?.media.fps;
   if (!obs || !scene || !fps || fps / 2 < th("capture.min_fps_any") || obs.t.length < 12) return out;
-  const full = segmentEvents(obs, scene).byType;
+  const full = detectEvents(obs, scene).byType;
   const halves = [0, 1].map((offset) => {
     const half = downsample(obs, 2, offset);
-    return { byType: segmentEvents(half, buildScene(half)).byType, t: half.t };
+    return { byType: detectEvents(half, buildScene(half)).byType, t: half.t };
   });
   for (const e of p.events ?? []) {
     const raw = full[e.type];

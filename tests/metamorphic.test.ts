@@ -98,7 +98,14 @@ describe("metamorphic relations (synthetic movement)", () => {
     };
     if (process.env.UPDATE_BASELINE || !existsSync(BASELINE)) writeFileSync(BASELINE, JSON.stringify(current, null, 2) + "\n");
     const baseline = JSON.parse(readFileSync(BASELINE, "utf8")) as typeof current;
-    expect(broken.filter((b) => !baseline.broken.includes(b)), "relations that held before and are broken now").toEqual([]);
+    // A pair may stay broken or become less broken (fewer kinds of difference); it may not be
+    // newly broken, or broken in a way it wasn't before.
+    const was = new Map(baseline.broken.map((b) => [b.split(" · ").slice(0, 2).join(" · "), b.split(" · ")[2]!.split("+")]));
+    const worse = broken.filter((b) => {
+      const kinds = was.get(b.split(" · ").slice(0, 2).join(" · "));
+      return !kinds || b.split(" · ")[2]!.split("+").some((k) => !kinds.includes(k));
+    });
+    expect(worse, "relations that held before and are broken now").toEqual([]);
     expect(missed.filter((m) => !baseline.not_accepted_but_should_be.includes(m)), "supported shots accepted before and not now").toEqual([]);
   });
 });

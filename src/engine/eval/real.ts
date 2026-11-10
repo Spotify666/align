@@ -6,7 +6,7 @@
 // (compareReports). What it cannot: anything about clips, athletes or devices not in the set.
 
 import { analyze, type AnalyzeOptions } from "../analyze";
-import { segmentEvents } from "../events";
+import { detectEvents } from "../events";
 import { ENGINE_VERSION, REGISTRY_HASH } from "../registry";
 import { buildResult, UNCERTAINTY_MODEL } from "../result";
 import type { CaptureObservation, EventType } from "../types";
@@ -132,7 +132,7 @@ export function scoreClip(clip: DatasetClip, tracks: CaptureObservation, detecto
     const by = Math.max(1, Math.round(contact.uncertainty.frames));
     verdictHolds = [-by, by].every((d) => {
       const moved: Detector = (o, sc) => {
-        const set = (detector ?? segmentEvents)(o, sc);
+        const set = (detector ?? detectEvents)(o, sc);
         const c = set.byType.contact;
         if (!c) return set;
         const frame = Math.max(0, Math.min(sc.n - 1, c.frame + d));

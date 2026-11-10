@@ -8,7 +8,7 @@ import { FRONTAL_METRICS } from "./frontal";
 import { LINE_BANDS, LINE_SOURCE } from "./alignment";
 import { BFD_METRICS, BFD_METRIC_VERSION } from "./backfoot-defs";
 
-export const ENGINE_VERSION = "0.8.5";
+export const ENGINE_VERSION = "0.9.0";
 export const METRIC_VERSION = "ffd-0.6.0";
 export const CLASSIFIER_VERSION = "prototype-bands-0.5.0";
 export const POSE_MODEL = "mediapipe-pose_landmarker_full-float16-v1";
@@ -58,6 +58,19 @@ export const THRESHOLDS = {
   "ffd.min_head_drop": { value: 0.05, unit: "× stature", rationale: "A front-foot defence goes forward and down into the ball: the head drops, or the hips do as the front knee bends (either is enough: a beginner may stay upright or keep the leg straight). Real defences lowered the head 0.17–0.39 × height; a stance and backlift with no stroke, 0.03." },
   "ffd.min_hip_drop": { value: 0.03, unit: "× stature", rationale: "Hips: real defences 0.10–0.23 × height; a stance and backlift 0.02; back-foot shots about 0." },
   "stroke.max_zoom_for_rejection": { value: 1.8, unit: "× size change", rationale: "Broadcast clips that zoomed 2.3–2.4× during the stroke were classified correctly only 2 times in 3 (a defence read as a drive). Past this zoom no different shot is named; the result is uncertain instead." },
+  // Foot-movement markers (events.ts). The first five were inline numbers in the detector until
+  // engine 0.9.0; their values are unchanged. The last is new with the steady markers.
+  "events.foot.move_speed": { value: 0.35, unit: "× stature/s", rationale: "A foot moving this fast along the pitch is stepping, not shifting weight: a 0.6 m stride in 0.3 s is about 1.1 × stature/s; a shuffle in the stance stays under 0.1." },
+  "events.foot.still_speed": { value: 0.12, unit: "× stature/s", rationale: "Below this the front foot has landed: about a third of the stepping speed, and above what tracker jitter alone reads on a planted foot." },
+  "events.foot.min_stride": { value: 0.08, unit: "× stature", rationale: "The front ankle must travel at least this far forward of the stance for a landing to be looked for (14 cm for a 1.75 m batter)." },
+  "events.foot.settled_forward": { value: 0.06, unit: "× stature", rationale: "A landing is only placed once the foot is at least this far forward of the stance, so a pause mid-shuffle isn't taken for it." },
+  "events.foot.min_back": { value: 0.06, unit: "× stature", rationale: "The back ankle must travel at least this far toward the stumps for a back-foot movement to be marked." },
+  "events.foot.sustain_s": { value: 0.08, unit: "s", rationale: "A step is marked where the foot keeps moving for this long, not where one frame reads fast: over 80 ms, tracker jitter of 0.5% of height averages to about 0.09 × stature/s, a quarter of the stepping speed, at any frame rate. Generated movement with tracker-like noise, 30–240 fps: the first-movement marker's 90th-percentile error fell from 409 to 67 ms against the old single-frame rule (scripts/eval/foot-markers.probe.ts). Not yet checked on labelled real clips." },
+  // Bat and contact markers (events.ts): inline numbers in the detector until engine 0.9.0, values unchanged.
+  "events.contact.max_bat_ball_gap": { value: 0.08, unit: "× stature", rationale: "Contact is read from the ball passing within this of the bat (14 cm for a 1.75 m batter: a bat's width plus the tracker's error on a blurred ball). Further apart, the ball missed the bat or one of them was mistracked." },
+  "events.contact.min_drop": { value: 0.05, unit: "× stature", rationale: "Without bat and ball, contact is looked for only where the head, or the hands, came down by at least this much (9 cm): smaller falls are shuffles in the stance, not the body going into the ball." },
+  "events.bat.downswing_speed": { value: 0.6, unit: "× stature/s", rationale: "The downswing starts where the bat toe (or the hands) first falls this fast: about 1 m/s, well above the drift of a held backlift." },
+  "events.bat.settled_speed": { value: 0.3, unit: "× stature/s", rationale: "After the stroke the bat has settled when its sweet spot moves slower than this (about 0.5 m/s)." },
   "stroke.min_stride": { value: 0.12, unit: "× stature", rationale: "A front-foot movement this large counts as a stroke even when the hands are hidden." },
   "ffd.accept_body.min_probability": { value: 0.8, unit: "probability", rationale: "Bat or ball not seen: the same probability bar as full evidence, plus a wider margin, near-complete body evidence and a fully visible contact." },
   "ffd.accept_body.min_margin": { value: 0.5, unit: "probability", rationale: "Without the bat, a defence must beat the drive and every other shot by a wide margin (full evidence: 0.3)." },

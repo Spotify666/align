@@ -13,7 +13,14 @@ import type { CaptureObservation, TargetShot } from "../types";
 import type { Relation } from "./relations";
 import { downsample, mirror, resize, timeOffset, trimStart, variableFrameRate } from "./transforms";
 
-export type Expected = "accepted" | "not_accepted";
+/**
+ * "unmodelled": the generator can't stand in for this case, so no expectation is held. A
+ * back-foot defence from the bowler's end is one: there the feet's gap along the pitch comes from
+ * the pose estimate's depth, which reads it shorter on real footage (median 0.09 × height, limit
+ * 0.15: `bfd.formula.max_gap_end`); the generator's estimate doesn't shorten it (0.18), so its
+ * back-foot defences read a stride apart from that end. Real clips decide that view, not this set.
+ */
+export type Expected = "accepted" | "not_accepted" | "unmodelled";
 
 export interface EvalCase {
   id: string;
@@ -22,6 +29,8 @@ export interface EvalCase {
   expected: Expected;
   fps: number;
   slices: string[];
+  /** How it was generated, so a noise-free twin of the same movement can be made. */
+  options: GenerateOptions;
 }
 
 const FAMILIES: Array<{ family: string; script: () => ShotScript; category: TargetShot | null }> = [
@@ -70,8 +79,9 @@ export function evalCases(): EvalCase[] {
               out.push({
                 id: opts.id,
                 obs: target === "back_foot_defence" ? { ...obs, target } : obs,
-                expected: category === target ? "accepted" : "not_accepted",
+                expected: category !== target ? "not_accepted" : target === "back_foot_defence" && view === "front_on" ? "unmodelled" : "accepted",
                 fps,
+                options: opts,
                 slices: [`family:${family}`, `asked:${target}`, `fps:${fps}`, `hand:${handedness}`, `view:${view}`, `evidence:${evidence}`],
               });
             }
