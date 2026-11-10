@@ -3,13 +3,24 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-10 · Made live at the athlete's request
+
+> push changes and make it live on vecel
+
+Shipped (PR #45): the category specs, the result contract, the evidence timeline and "How sure
+each part is" in the report, loading screens that say what is loading, the real engine version in
+the footer, the gate against one-clip fixes, and the real-clip dataset tools. Verdicts and
+measures are unchanged (byte-identical on 156 fixture cases; engine 0.8.5, registry unchanged).
+Shipped without the real-media matrix: no real clips were available, and the athlete was told so.
+Still open: the detectors themselves (Contact first), which need 20–30 labelled real clips.
+
 ## 2026-11-10 · Phase 2 groundwork: measure first, a real-clip dataset, no detector change yet
 
 > Continue with Phase 2: real-media detector hardening. […] If real clips are not yet available,
 > stop after implementing the manifest, label tooling, evaluation runner and performance
 > instrumentation. Do not tune the detectors using synthetic fixtures alone.
 
-No labelled real clips were available, so it stops there (draft PR, not for merging). Found and
+No labelled real clips were available, so it stops there. Found and
 built (`docs/12-engine-architecture.md`, "Phase 2 groundwork"):
 - **Contact is the keystone**: every measure at contact, 15 classifier features and the verdict
   move with it (25 ms is enough); Trigger, Plant, Follow and Back foot change nothing but the
@@ -26,7 +37,7 @@ built (`docs/12-engine-architecture.md`, "Phase 2 groundwork"):
 
 Needed from the athlete: 20–30 clips from at least 3 batters, labelled with the page.
 
-## 2026-11-10 · One engine for every clip: a gate against one-video fixes (not live yet)
+## 2026-11-10 · One engine for every clip: a gate against one-video fixes
 
 > The analysis is behaving differently across uploaded videos. Thresholds or logic are being
 > tuned to make one video work, but the resulting fix does not generalize. This is the core
@@ -39,7 +50,7 @@ and moved by up to 0.4 s between 120 and 60 fps while claiming 75%; Contact and 
 frame with no reason; nothing stopped a one-clip fix. Graded / not graded never flipped.
 
 Done, on the branch (the stored result is byte-identical on all 156 fixture cases; engine
-version unchanged; **not merged: no real clips were available to test on**):
+version unchanged):
 - **Category specs** (`src/engine/category.ts`): each defence's phases, order, views, measures,
   acceptance thresholds by name, and why it wasn't confirmed, in one versioned place.
 - **A typed result** (`src/engine/result.ts`): accepted / another shot / unknown / fits more than
