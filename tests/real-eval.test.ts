@@ -112,12 +112,25 @@ describe("real-media evaluation", () => {
 
   it("gate: accepts only when timing improves with no verdict regression", () => {
     const before = evaluate(set, { name: "late", datasetVersion: "0.1.0", detector: late(40), detectorName: "late" });
+    // How long each run took depends on the machine and what else it is doing, so it is fixed
+    // here; the time rule has its own test below with stated numbers.
+    before.overall.medianMs = current.overall.medianMs;
     const c = compareReports(before, current);
     expect(c.lines.find((l) => l.criterion.startsWith("Event timing"))!.pass).toBe(true);
     expect(c.lines.find((l) => l.criterion.startsWith("No supported"))!.pass).toBe(true);
     expect(c.slices.length).toBeGreaterThan(5);
     expect(c.lines.filter((l) => l.pass !== true).map((l) => `${l.criterion}: ${l.detail}`)).toEqual([]);
     expect(c.decision).toBe("accept");
+  });
+
+  it("gate: a build that takes more than a quarter longer per clip is not accepted", () => {
+    const timed = (ms: number) => ({ ...current, overall: { ...current.overall, medianMs: ms } });
+    const line = (a: number, b: number) => compareReports(timed(a), timed(b)).lines.find((l) => l.criterion.startsWith("Processing time"))!.pass;
+    expect(line(40, 40)).toBe(true);
+    expect(line(40, 49)).toBe(true);
+    expect(line(40, 60)).toBe(false);
+    // A few ms either way on a fast clip is noise, not a slowdown.
+    expect(line(4, 8)).toBe(true);
   });
 
   it("gate: refuses to decide on too few athletes or on two different datasets", () => {
