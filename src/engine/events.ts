@@ -3,6 +3,7 @@
 // neither bat nor ball is seen it is estimated from the hands (where they reach
 // furthest forward after the stride), at lower confidence and labelled as such.
 
+import { th } from "./registry";
 import { argmax, argmin, derivative, len2, smooth } from "./math";
 import { type P, type Scene, sweetSpot } from "./scene";
 import type { CaptureObservation, EventType, MotionEvent } from "./types";
@@ -110,7 +111,7 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
   const backF = smooth(series(scene, (i) => scene.get(i, "back_ankle"), "f"), r);
   const frontV = derivative(frontF, dt);
   const backV = derivative(backF, dt);
-  const moveThr = 0.35 * S; // stature per second
+  const moveThr = th("events.foot.move_speed") * S;
 
   add("setup", 0, 0.9, "first analysed frame");
 
@@ -123,9 +124,9 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
   const frontStart = front0.length ? front0.reduce((a, b) => a + b, 0) / front0.length : NaN;
   const peakFwd = argmax(frontF);
   let plant = -1;
-  if (peakFwd >= 0 && frontF[peakFwd]! - frontStart > 0.08 * S) {
+  if (peakFwd >= 0 && frontF[peakFwd]! - frontStart > th("events.foot.min_stride") * S) {
     const moveStart = firstIndex(frontV, (v) => v > moveThr);
-    plant = firstIndex(frontV, (v, i) => i > moveStart && Math.abs(v) < 0.12 * S && frontF[i]! - frontStart > 0.06 * S, moveStart);
+    plant = firstIndex(frontV, (v, i) => i > moveStart && Math.abs(v) < th("events.foot.still_speed") * S && frontF[i]! - frontStart > th("events.foot.settled_forward") * S, moveStart);
     if (plant >= 0) add("front_foot_plant", plant, 0.8, "front ankle speed settles after forward stride");
   }
 
@@ -133,7 +134,7 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
   const back0 = backF.slice(0, Math.max(2, Math.round(scene.n * 0.15))).filter(Number.isFinite);
   const backStart = back0.length ? back0.reduce((a, b) => a + b, 0) / back0.length : NaN;
   const minBack = argmin(backF);
-  if (minBack >= 0 && backStart - backF[minBack]! > 0.06 * S) {
+  if (minBack >= 0 && backStart - backF[minBack]! > th("events.foot.min_back") * S) {
     const commit = firstIndex(backV, (v) => v < -moveThr);
     if (commit >= 0) add("back_foot_commit", commit, 0.75, "back ankle moves toward stumps");
   }
@@ -179,7 +180,7 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
         contact = i;
       }
     }
-    if (best < 0.08 * S) {
+    if (best < th("events.contact.max_bat_ball_gap") * S) {
       contactMethod = "bat–ball proximity";
       contactConf = 0.85;
     } else {
@@ -232,14 +233,14 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
     const tall = headU.filter(Number.isFinite).sort((a, b) => a - b);
     const standing = tall.length ? tall[Math.floor(tall.length * 0.9)]! : NaN;
     const headDrop = lowest >= 0 ? standing - headU[lowest]! : 0;
-    const arrive = headDrop >= 0.05 * S ? firstIndex(headU, (v) => v <= headU[lowest]! + 0.25 * headDrop, lo, hi) : -1;
+    const arrive = headDrop >= th("events.contact.min_drop") * S ? firstIndex(headU, (v) => v <= headU[lowest]! + 0.25 * headDrop, lo, hi) : -1;
     const [jFrom, jTo] = arrive >= 0 ? [Math.max(lo, arrive - Math.round(0.3 / dt)), Math.min(hi, arrive + Math.round(0.3 / dt))] : [lo, hi];
     const hands = handsForward(scene, lo, r);
     let top = -1;
     let bottom = -1;
     if (hands) {
       const w = Math.round(0.6 / dt);
-      let best = 0.05 * S; // smaller falls are stance shuffles, not a downswing
+      let best = th("events.contact.min_drop") * S; // smaller falls are stance shuffles, not a downswing
       for (let j = jFrom; j <= jTo; j++) {
         if (!Number.isFinite(hands.hu[j]!)) continue;
         for (let i = Math.max(0, j - w); i < j; i++)
@@ -288,7 +289,7 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
 
   if (top >= 0) {
     const liftV = derivative(lift, dt);
-    const onset = firstIndex(liftV, (v) => v < -0.6 * S, top, contact >= 0 ? contact : scene.n - 1);
+    const onset = firstIndex(liftV, (v) => v < -th("events.bat.downswing_speed") * S, top, contact >= 0 ? contact : scene.n - 1);
     if (onset >= 0) add("downswing_onset", onset, hasToe ? 0.7 : 0.4, "bat starts descending");
   }
 
@@ -301,7 +302,7 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
     const window = Math.round(0.4 / dt);
     const ft = hasToe ? argmax(toeU, contact, Math.min(scene.n - 1, contact + window)) : argmax(handsU, contact, Math.min(scene.n - 1, contact + window));
     if (ft >= 0) add("follow_through", ft, hasToe ? 0.65 : 0.4, "peak bat/hand height after contact");
-    const settle = firstIndex(ssSpeed, (v) => v < 0.3 * S, Math.max(ft, contact) + 1);
+    const settle = firstIndex(ssSpeed, (v) => v < th("events.bat.settled_speed") * S, Math.max(ft, contact) + 1);
     add("recovery", settle >= 0 ? settle : scene.n - 1, 0.5, settle >= 0 ? "bat speed settles" : "end of clip");
   }
 
@@ -309,4 +310,78 @@ export function segmentEvents(obs: CaptureObservation, scene: Scene): EventSet {
   const byType: EventSet["byType"] = {};
   for (const e of list) byType[e.type] = e;
   return { list, byType };
+}
+
+// ---------------------------------------------------------------------------------------
+// Steady foot markers (engine 0.9.0). The rules above place Trigger, Plant and the back foot's
+// first movement at the first single frame whose speed crosses a limit; speed between two frames
+// amplifies tracking noise, so one noisy frame moved a marker by hundreds of ms between two
+// recordings of the same movement. Here Trigger and the back foot's first movement are placed
+// again by movement that is sustained over a fixed time (events.foot.sustain_s).
+//
+// Only the time of a marker changes, and only for a marker the rules above found: none is added
+// or removed. No measure, classifier feature or verdict reads these two markers
+// (scripts/eval/sensitivity.probe.ts; tests/foot-markers.test.ts holds that true).
+
+/** Average speed of `x` over the next `w` frames (units/s), NaN where either end is unseen. */
+function windowSpeed(x: number[], i: number, w: number, dt: number): number {
+  const a = x[i];
+  const b = x[i + w];
+  return a !== undefined && b !== undefined && Number.isFinite(a) && Number.isFinite(b) ? (b - a) / (w * dt) : NaN;
+}
+
+/** First frame from which `x` keeps moving faster than `speed` for the whole window (`dir` 0 = either way). */
+function sustainedOnset(x: number[], w: number, dt: number, speed: number, dir: -1 | 0 | 1, from = 0): number {
+  for (let i = Math.max(0, from); i + w < x.length; i++) {
+    const v = windowSpeed(x, i, w, dt);
+    if (dir === 0 ? Math.abs(v) > speed : dir * v > speed) {
+      // The window may start before the foot does: step on to where it has left its starting place.
+      const total = x[i + w]! - x[i]!;
+      let j = i;
+      while (j < i + w && Number.isFinite(x[j + 1]) && Math.abs(x[j + 1]! - x[i]!) < Math.abs(total) / w) j++;
+      return j;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The same events with Trigger and the back foot's first movement placed by sustained movement.
+ * Plant keeps the rule above: placed this way it was no better on generated movement and moved
+ * more on real tracks read at 15 fps (scripts/eval/foot-markers.probe.ts), so it was not adopted.
+ */
+export function steadyFootMarkers(scene: Scene, set: EventSet): EventSet {
+  if (!scene.dt || scene.n < 5) return set;
+  const dt = scene.dt;
+  const S = scene.stature;
+  const r = Math.max(1, Math.round(0.015 / dt));
+  const frontF = smooth(series(scene, (i) => scene.get(i, "front_ankle"), "f"), r);
+  const backF = smooth(series(scene, (i) => scene.get(i, "back_ankle"), "f"), r);
+  const w = Math.max(2, Math.round(th("events.foot.sustain_s") / dt));
+  const move = th("events.foot.move_speed") * S;
+  const placed = new Map<EventType, { frame: number; method: string }>();
+
+  if (set.byType.trigger) {
+    const f = sustainedOnset(frontF, w, dt, move, 0);
+    const b = sustainedOnset(backF, w, dt, move, 0);
+    const first = [f, b].filter((x) => x >= 0).sort((a, c) => a - c)[0];
+    if (first !== undefined) placed.set("trigger", { frame: first, method: "first foot movement that keeps going" });
+  }
+  if (set.byType.back_foot_commit) {
+    const c = sustainedOnset(backF, w, dt, move, -1);
+    if (c >= 0) placed.set("back_foot_commit", { frame: c, method: "back foot starts toward the stumps and keeps going" });
+  }
+  if (!placed.size) return set;
+  const list = set.list
+    .map((e) => {
+      const p = placed.get(e.type);
+      return p ? { ...e, frame: p.frame, tMs: Math.round(scene.t[p.frame] ?? e.tMs), method: p.method } : e;
+    })
+    .sort((a, b) => a.frame - b.frame || a.type.localeCompare(b.type));
+  return { list, byType: Object.fromEntries(list.map((e) => [e.type, e])) as EventSet["byType"] };
+}
+
+/** The engine's event detector: the rules above, then the steady foot markers. */
+export function detectEvents(obs: CaptureObservation, scene: Scene): EventSet {
+  return steadyFootMarkers(scene, segmentEvents(obs, scene));
 }

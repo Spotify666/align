@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { AnalysisResult } from "@/engine/result";
+import { contactSensitivity, type ContactSensitivity } from "@/engine/sensitivity";
+import type { AnalysisPayload, CaptureObservation } from "@/engine/types";
 import { SHOT_DISPLAY } from "@/engine/classify";
 
 const OUTCOME: Record<AnalysisResult["action"]["outcome"], (name: string) => string> = {
@@ -19,7 +22,21 @@ const pct = (x: number | null | undefined) => (x === null || x === undefined ? "
  * How sure each layer of the analysis is, kept apart: a clear recording doesn't make the shot
  * certain, and a certain shot doesn't make every measure certain. Also what was not claimed.
  */
-export function ResultPanel({ result: r }: { result: AnalysisResult }) {
+export function ResultPanel({ result: r, payload, obs }: { result: AnalysisResult; payload?: AnalysisPayload; obs?: CaptureObservation }) {
+  // Would the answer be the same with contact a moment earlier or later? Worked out after the
+  // page has drawn (two more runs of the analysis), so opening a report never waits on it.
+  const [steady, setSteady] = useState<ContactSensitivity | null>(null);
+  useEffect(() => {
+    if (!payload || !obs) return;
+    const t = setTimeout(() => {
+      try {
+        setSteady(contactSensitivity(obs, payload, r));
+      } catch {
+        setSteady(null);
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [payload, obs, r]);
   const found = r.events.filter((e) => e.state !== "missing");
   const shaky = found.filter((e) => e.stable === false || e.state === "inferred");
   const rows: Array<[string, string, string]> = [
@@ -33,6 +50,14 @@ export function ResultPanel({ result: r }: { result: AnalysisResult }) {
     ],
     ["Measures", r.confidence.metrics ? `${r.confidence.metrics.measured} of ${r.confidence.metrics.measured + r.confidence.metrics.withheld}` : "none", r.confidence.metrics?.withheld ? "The rest were withheld: see below." : r.confidence.metrics ? "All reported." : "None reported."],
   ];
+  if (steady)
+    rows.push([
+      "Answer steady",
+      steady.holds ? "yes" : "borderline",
+      steady.holds
+        ? "The same answer wherever contact falls within how sure its timing is."
+        : `Placing contact a moment earlier or later (within how sure its timing is, about ${steady.bandS} s) would change this answer. Tap the ball and the bat on a few frames to pin contact down.`,
+    ]);
   const alts = r.action.alternatives.filter((a) => a.label !== "unknown").slice(0, 3);
   return (
     <section aria-labelledby="result-h" className="space-y-3">

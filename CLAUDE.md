@@ -54,7 +54,9 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
   on saved real tracks against a worktree of `lock/ffd-2026-10-10`), with one deliberate
   exception: a clip that shows the back-foot defence's whole definition (`backfoot-formula.ts`) is
   never passed as a front-foot defence; it reads "looks like a back-foot defence" (or is named one
-  when the FFD model names no shot) and offers that analysis (docs/11, 2026-11-08).
+  when the FFD model names no shot) and offers that analysis (docs/11, 2026-11-08). Since engine
+  0.9.0 the times of the Trigger and Back-foot markers also differ, by design (they read nothing
+  else: `tests/foot-markers.test.ts`, docs/12).
 - The BFD is identified by its definition checked on the body from any camera position
   (`backfoot-formula.ts`), never tuned to one clip: check every change on real movement from every
   view (`scripts/eval/ku3d.probe.ts`, `formula.probe.ts`) and on the athlete's real clips.
@@ -81,7 +83,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Pipeline (gate → scene → events → classify → status → metrics → plan) | `src/engine/analyze.ts` |
 | The line and its timing | `src/engine/alignment.ts` |
 | Measures and ranges | `src/engine/registry.ts`, `metrics.ts`, `frontal.ts` (bowler's-end view) |
-| Shot identity | `classify.ts`, `features.ts`, `events.ts` |
+| Shot identity | `classify.ts`, `features.ts`, `events.ts` (`detectEvents`; old against steady markers: `scripts/eval/foot-markers.probe.ts`) |
 | Coaching and drill ladders | `coaching.ts`, `scoring.ts` (`buildPlan`) |
 | Back-foot defence (measures, ranges, coaching, gate) | `backfoot.ts`, `backfoot-defs.ts`, `backfoot-coaching.ts`, `analyze.ts` (`analyzeBackFoot`), report `back-foot-panel.tsx`, guide `back-foot-guide.tsx` |
 | Shot signature and match % | `signature.ts`, `src/lib/compare.ts`, Supabase `shot_profiles` |

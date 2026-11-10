@@ -107,9 +107,8 @@ and were not available in the session that wrote this.
 
 ## Limits, and why they remain
 
-- **Detectors unchanged.** Trigger, back-foot commit and the plant's search start still fire on
-  one frame; their inline limits are still outside the registry. Changing them changes results
-  on real clips, which could not be checked here, and the FFD build is locked.
+- **Contact, Top, Plant and Follow are placed as before** (Trigger and Back foot were made
+  steady in 0.9.0, below). Contact decides the verdict; changing it needs labelled real clips.
 - **The resampler is not in the capture path.** Capture already samples on an even grid, and
   event frames are tied to media times and hand marks there; resampling at ingestion needs those
   moved together and tested in the browser on real variable-rate clips.
@@ -191,6 +190,73 @@ labelling page (`scripts/eval/label.html`), the dataset CLI (`dataset.mjs`), the
 (`real.probe.ts`), leave-one-athlete-out and the before/after gate (`src/engine/eval/real.ts`,
 `compare-reports.mjs`), and the seam a candidate detector plugs into (`AnalyzeOptions.eventDetector`,
 `src/engine/eval/detectors.ts`).
+
+## Engine 0.9.0 (2026-11-10): steady Trigger and Back-foot markers, every event limit registered
+
+Asked for without labelled real clips, so the evidence is generated movement plus the three real
+tracks in the repo. Stated as that, not as validation.
+
+**Changed**
+
+- Trigger and the back foot's first movement are placed where the foot *keeps moving* for 80 ms
+  (`events.foot.sustain_s`), not at the first single frame that reads fast (`steadyFootMarkers`,
+  `detectEvents` in `events.ts`). Only the time of a marker that was already found changes.
+- All ten limits that were inline in `events.ts` are in the registry with their reasons
+  (`events.foot.*`, `events.contact.*`, `events.bat.*`), values unchanged.
+
+**Evidence** (`scripts/eval/foot-markers.probe.ts`; truth = the same movement generated without
+tracker noise at 240 fps)
+
+| | Old rule | Steady rule |
+|---|---|---|
+| Trigger error, median / 90th percentile | 55 / 409 ms | 38 / 67 ms |
+| Back foot error, median / 90th percentile | 55 / 288 ms | 25 / 50 ms |
+| Trigger moves at half the frame rate, 90th percentile | 384 ms | 175 ms |
+| Back foot moves at half the frame rate, 90th percentile | 317 ms | 41 ms |
+| Real tracks (3, no truth): Trigger | 40, 133, 133 ms | 0, 133, 133 ms |
+
+- **Nothing a batter is told changes**: verdict, reason, headline, every measure, classifier
+  feature, plan and every other event are identical with the old and the new markers on all
+  fixtures, 80 population cases, the 70 evaluation cases and the three real tracks asked as both
+  defences (`tests/foot-markers.test.ts`). Verdicts and reasons are identical to the original
+  snapshot on all 156 golden cases.
+- **Ratchet**: known breaks 26 → 21; "clip starts later" 67 → 69 of 70, variable frame rate 34 →
+  37 of 50. None new.
+
+**Tried and not adopted**
+
+- *Plant* by the same rule, with the stance taken from a still interval instead of the first 15%
+  of the clip: no better on generated movement (median 21 → 25 ms) and it moved by 1.3 s on a
+  real track read at 15 fps where the old rule did not move. Plant keeps the old rule.
+
+- *Withholding a grade when the answer isn't steady* (body only, Contact estimated, the grade
+  different with Contact at either end of its stated timing). It can only withhold, never grant,
+  and the two real accepted defences in the repo held. But on the project's own gates it cut
+  "confirms defences from body and hands" from at least 95% to 0% (`tests/gates.test.ts`) and 50%
+  (`tests/population.test.ts`): most phone clips would read "can't confirm". Reverted. Either the
+  stated ±0.1 s for an estimated Contact is too wide or body-only grades really are that
+  fragile; only labelled clips can say which.
+
+**Added instead (display only)**
+
+- "Answer steady: yes / borderline" in "How sure each part is" (`src/engine/sensitivity.ts`),
+  shown only where Contact is estimated, worked out after the report has drawn. It changes no
+  result. On the real tracks: the two accepted defences steady, the unstable clip borderline.
+- No milliseconds in the timeline's notes or labels (standing rule 8): seconds.
+
+**Not changed, and why**
+
+- *Contact*. It decides the verdict, so any change to it is a change to acceptance (see the
+  reverted attempt above). Without labelled real clips there is no way to tell a better Contact
+  from a different one.
+- *Bat and ball found automatically*: needs a detection model and labelled frames.
+- *Slow motion*: telling a 240 fps file played at 30 from a slow shadow drill needs real examples
+  of both; a guess would refuse real drills.
+- *More shots*, *calibration*, *ranges fitted to players*: all need real data.
+- *Back-foot defence from the bowler's end in the generated set*: not an engine gap. Its limit
+  (0.15 × height) was set on real footage, where the pose estimate reads the feet's gap shorter
+  (median 0.09); the generator doesn't model that. The case is now marked "unmodelled"
+  (`eval/suite.ts`); supported shots accepted: 12 of 13.
 
 ## Next
 

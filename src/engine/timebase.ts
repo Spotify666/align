@@ -68,8 +68,8 @@ export function assessTimebase(obs: CaptureObservation): Timebase {
   const drift = declaredMs ? declaredMs / meanMs - 1 : null;
 
   const issues: string[] = [];
-  if (jitterMs > TIMEBASE_TOLERANCE.jitter * medianMs) issues.push(`Frames are unevenly spaced (within ${Math.round(jitterMs)} ms of a ${Math.round(medianMs)} ms step): a variable frame rate.`);
-  if (dropped > 0) issues.push(`${dropped} frame${dropped === 1 ? "" : "s"} missing (longest gap ${Math.round(maxGapMs)} ms).`);
+  if (jitterMs > TIMEBASE_TOLERANCE.jitter * medianMs) issues.push("Frames are unevenly spaced: a variable frame rate.");
+  if (dropped > 0) issues.push(`${dropped} frame${dropped === 1 ? "" : "s"} missing (longest gap ${(maxGapMs / 1000).toFixed(2)} s).`);
   if (drift !== null && Math.abs(drift) > TIMEBASE_TOLERANCE.drift)
     issues.push(`The declared ${Math.round(1000 / declaredMs!)} fps doesn't match the frame times (${Math.round(1000 / meanMs)} fps).`);
   return { kind: issues.length ? "irregular" : "uniform", frames: n, declaredMs, medianMs, jitterMs, maxGapMs, dropped, drift, monotonic, issues };

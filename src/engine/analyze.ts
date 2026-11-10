@@ -22,7 +22,7 @@ import {
 import { FRONTAL_METRICS, FRONTAL_UNGRADED, frontalMetrics, withholdAlongPitch } from "./frontal";
 import { assessCapture, bodyCoverage } from "./quality";
 import { buildScene } from "./scene";
-import { handsSeries, segmentEvents, type EventSet } from "./events";
+import { detectEvents, handsSeries, type EventSet } from "./events";
 import { estimateDelivery } from "./delivery";
 import { extractFeatures } from "./features";
 import { classify, leadingAlternative, SHOT_DISPLAY, type Classification } from "./classify";
@@ -51,7 +51,7 @@ export interface AnalyzeOptions {
   analysisId: string;
   createdAt: string;
   /**
-   * The event detector to use in place of the built-in one (events.ts). The seam for a candidate
+   * The event detector to use in place of the built-in one (events.ts, `detectEvents`). The seam for a candidate
    * detector behind a flag and for the evaluation tools; absent, nothing changes.
    */
   eventDetector?: (obs: CaptureObservation, scene: ReturnType<typeof buildScene>) => EventSet;
@@ -626,7 +626,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   }
 
   // 2–5. Tracking, events, delivery, shot recognition, compatibility.
-  const events = (opts.eventDetector ?? segmentEvents)(obs, scene);
+  const events = (opts.eventDetector ?? detectEvents)(obs, scene);
   const delivery = estimateDelivery(scene, events);
   const features = extractFeatures(scene, events, delivery);
   const frontal = scene.plane === "frontal";
@@ -893,7 +893,7 @@ function analyzeBackFoot(
   obs: CaptureObservation,
   scene: ReturnType<typeof buildScene>,
   tracking: TrackingSummary,
-  events: ReturnType<typeof segmentEvents>,
+  events: EventSet,
   delivery: ReturnType<typeof estimateDelivery>,
   featuresIn: ReturnType<typeof extractFeatures>,
   base: Base,

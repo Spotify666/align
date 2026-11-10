@@ -3,6 +3,32 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-10 · The gaps: what could be fixed without real clips, and what could not
+
+> work on these changes [the seven gaps] … commit and push
+
+Done (engine 0.9.0, pushed, **not live**; `docs/12`, "Engine 0.9.0"):
+- **Moment detectors on one noisy frame; limits outside the registry**: Trigger and Back foot are
+  now placed where the foot keeps moving for 80 ms. Worst-case error on generated clips 409 → 67
+  ms and 288 → 50 ms; the same or within a frame on the three real tracks. All ten inline
+  limits in `events.ts` are registered with reasons, values unchanged. Nothing a batter is told
+  changes (tested). Plant was tried the same way and made worse on real tracks, so it was left.
+- **Back-foot defence from the bowler's end**: the generated set can't stand in for that view
+  (its limit was set on real footage); marked so. Not an engine gap on the evidence there is.
+
+- **Contact**: tried withholding a grade whenever it would change with Contact a moment earlier
+  or later. It cut body-only acceptance from 95% to 0–50% on the project's own gates, so it was
+  reverted. Instead the report says "Answer steady: yes / borderline" (Details, How sure each
+  part is), which changes no result.
+- The timeline's notes no longer show milliseconds (seconds, per the standing rule).
+
+> yes, work on the gaps, fix and make them live
+
+Made live (engine 0.9.0, registry `18d0cc2bd491fd17` applied to Supabase).
+
+Still open, because each needs real clips or a model, not code alone: Contact (it decides the
+verdict), automatic bat and ball, slow motion, validation and calibration, more shots.
+
 ## 2026-11-10 · Made live at the athlete's request
 
 > push changes and make it live on vecel
