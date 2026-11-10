@@ -3,6 +3,38 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-10 · One engine for every clip: a gate against one-video fixes (not live yet)
+
+> The analysis is behaving differently across uploaded videos. Thresholds or logic are being
+> tuned to make one video work, but the resulting fix does not generalize. This is the core
+> problem to solve.
+
+Found (measured on generated movement, `docs/12-engine-architecture.md`): no clip-specific code;
+mirroring, resizing and moving timestamps change nothing (70/70). What moves between two
+recordings of one movement is the markers and the reason given: Trigger fires on one noisy frame
+and moved by up to 0.4 s between 120 and 60 fps while claiming 75%; Contact and Follow shared a
+frame with no reason; nothing stopped a one-clip fix. Graded / not graded never flipped.
+
+Done, on the branch (the stored result is byte-identical on all 156 fixture cases; engine
+version unchanged; **not merged: no real clips were available to test on**):
+- **Category specs** (`src/engine/category.ts`): each defence's phases, order, views, measures,
+  acceptance thresholds by name, and why it wasn't confirmed, in one versioned place.
+- **A typed result** (`src/engine/result.ts`): accepted / another shot / unknown / fits more than
+  one / not enough seen / recording failed; every moment as seen, estimated, marked by you or
+  not found, with how sure its timing is (including how far it moves when the clip is read
+  again at half its frame rate); each measure tied to its moments and frames; what wasn't
+  claimed; confidence per layer, no single number.
+- **The timeline** (report, Details): markers with a bar for how sure the timing is, the reason
+  two moments share a frame, arrow keys between markers, 44 px targets, reduced motion.
+  "How sure each part is" under Every measure.
+- **The gate** (`tests/metamorphic.test.ts`, `tests/baselines/metamorphic.json`): the same
+  movement as a mirrored, resized, re-timed, half-rate, variable-rate and evidence-missing
+  recording must agree; what doesn't yet hold is listed and may only shrink.
+- Loading screens say what is loading and offer a reload if it stalls; the footer shows the real
+  engine version.
+
+Not done (said plainly): the detectors themselves, report sections, progress charts, landing copy.
+
 ## 2026-11-09 · The Visitors page in plain words; the athlete's clips kept as a test set
 
 > Visitors page is not clear for understanding.

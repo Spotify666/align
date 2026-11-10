@@ -1,5 +1,6 @@
 "use client";
 
+import { ENGINE_VERSION } from "@/engine/registry";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -165,7 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="border-t border-line">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4 text-xs text-fg-subtle">
-            <p>Prototype engine v0.1 — not yet validated on real athletes. Not a medical assessment.</p>
+            <p>Prototype (engine {ENGINE_VERSION}): not yet validated on real athletes. Not a medical assessment.</p>
             <Link href="/visitors" className="hover:text-fg">Visitors</Link>
           </div>
         </div>

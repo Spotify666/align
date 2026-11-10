@@ -1,8 +1,9 @@
 "use client";
 
+import { PageLoading } from "@/components/common/page-loading";
 import dynamic from "next/dynamic";
 
-const Loading = () => <p className="mx-auto max-w-7xl px-4 py-12 text-fg-muted">Loading…</p>;
+const Loading = () => <PageLoading what="Opening the page…" />;
 
 // These pages read on-device storage, so they render on the client only.
 export const ProfileClient = dynamic(() => import("./profile/profile-page").then((m) => m.ProfilePage), { ssr: false, loading: Loading });

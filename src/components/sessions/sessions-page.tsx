@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/common/page-loading";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { listAnalyses, updateAnalysis, type StoredAnalysis } from "@/lib/store";
@@ -48,7 +49,7 @@ export function SessionsPage() {
     setItems((xs) => xs?.map((x) => (x.id === id ? { ...x, ...p } : x)) ?? null);
   };
 
-  if (items === null) return <p className="mx-auto max-w-7xl px-4 py-12 text-fg-muted">Loading…</p>;
+  if (items === null) return <PageLoading what="Reading your saved sessions from this device…" />;
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 py-10 space-y-6">

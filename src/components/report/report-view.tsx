@@ -9,6 +9,8 @@ import { templateReport, type Report } from "@/engine/report";
 import { SHOT_DISPLAY } from "@/engine/classify";
 import { DOMAIN_LABELS, THRESHOLDS } from "@/engine/registry";
 import { type CompareReference, EvidenceViewer, type EvidenceViewerHandle } from "./evidence-viewer";
+import { ResultPanel } from "./result-panel";
+import { buildResult } from "@/engine/result";
 import { MetricCard } from "./metric-card";
 import { CaptureChecklist, DomainGrid, Limitations, PriorityPlan, ShotProbabilityPanel, Versions } from "./panels";
 import { ConfidenceChip, DemoBadge, STATUS_META, statusKey } from "./status";
@@ -91,6 +93,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       ? { ...STATUS_META.valid, label: `Valid ${shotName}` }
       : STATUS_META[statusKey(p)];
   const contact = p.events.find((e) => e.type === "contact");
+  // The typed result every evidence view reads: outcome, events with uncertainty, what was withheld.
+  const result = useMemo(() => buildResult(p, obs), [p, obs]);
   const t0 = obs.t[0] ?? 0;
   const seek = (frame: number, metricId?: string) => {
     if (viewer.current) return viewer.current.seek(frame, metricId);
@@ -244,7 +248,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
 
       <Lesson payload={p} obs={obs} />
 
-      <EvidenceViewer ref={viewer} obs={obs} payload={p} videoUrl={videoUrl} mediaTimes={mediaTimes} keyframes={keyframes} reference={reference} />
+      <EvidenceViewer ref={viewer} obs={obs} payload={p} videoUrl={videoUrl} mediaTimes={mediaTimes} keyframes={keyframes} reference={reference} result={result} />
 
       {p.plan && (
         <section id="plan" aria-labelledby="plan-h" className="space-y-4 scroll-mt-20">
@@ -282,6 +286,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         {moreMounted && (
         <div className="space-y-8 border-t border-line px-4 py-6 sm:px-5">
 
+      <ResultPanel result={result} />
+
       <DeliveryPanel payload={p} onSeek={seekId} />
 
       {isValid && (
@@ -292,7 +298,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           </section>
 
           <section aria-labelledby="indicators" className="space-y-4">
-            <SectionHead id="indicators" eyebrow="Movement indicators" title="Measures, ranges and evidence" note="Ranges are provisional coaching ranges (v0.1), not population norms. Not-measured means the capture could not support it — never zero." />
+            <SectionHead id="indicators" eyebrow="Movement indicators" title="Measures, ranges and evidence" note="Ranges are provisional coaching ranges, not population norms. Not-measured means the capture could not support it — never zero." />
             {(["alignment", "footwork", "head_trunk", "bat_contact", "setup", "sequence", "outcome"] as const).map((d) => {
               const ms = p.metrics.filter((m) => m.domain === d);
               if (!ms.length) return null;

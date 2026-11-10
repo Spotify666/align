@@ -8,6 +8,7 @@ import { bodyCentre, buildScene, semanticToJoint } from "@/engine/scene";
 import { angleAt } from "@/engine/math";
 import { BONES } from "@/lib/viz";
 import { PhaseTimeline } from "./phase-timeline";
+import { buildResult, type AnalysisResult } from "@/engine/result";
 import { Pause, Play } from "../icons";
 
 const Scene3D = dynamic(() => import("./scene-3d"), {
@@ -41,11 +42,14 @@ interface Props {
   mediaTimes?: number[] | null;
   keyframes?: Record<number, string>;
   reference?: CompareReference | null;
+  /** The typed result (events with state and uncertainty); built here when not passed. */
+  result?: AnalysisResult;
 }
 
 const COL = { body: "#5ed6e6", bat: "#d7a62a", ball: "#e2463a", trail: "rgba(94,214,230,0.55)", low: "rgba(167,176,184,0.5)", lime: "#b7f34a", coral: "#f06b5f", text: "#f3f0e8", gold: "#d7a62a" };
 
-export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function EvidenceViewer({ obs, payload, videoUrl, mediaTimes, keyframes, reference }, ref) {
+export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function EvidenceViewer({ obs, payload, videoUrl, mediaTimes, keyframes, reference, result: given }, ref) {
+  const result = useMemo(() => given ?? buildResult(payload, obs), [given, payload, obs]);
   const n = obs.body.length;
   const contact = payload.events.find((e) => e.type === "contact");
   const [frame, setFrame] = useState(() => {
@@ -584,7 +588,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
             <button onClick={() => setFrame((f) => Math.max(0, f - 1))} className="chip border-line text-fg-muted min-h-9" aria-label="Previous frame">−1 f</button>
             <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} className="chip border-line text-fg-muted min-h-9" aria-label="Next frame">+1 f</button>
           </div>
-          <PhaseTimeline events={payload.events} frames={n} frame={frame} times={obs.t} onSeek={(f) => { setPlaying(false); setFrame(f); }} />
+          <PhaseTimeline events={result.events} issues={result.phaseOrder.issues} frames={n} frame={frame} times={obs.t} onSeek={(f) => { setPlaying(false); setFrame(f); }} />
         </div>
       )}
     </section>
