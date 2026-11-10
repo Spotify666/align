@@ -22,7 +22,7 @@ import {
 import { FRONTAL_METRICS, FRONTAL_UNGRADED, frontalMetrics, withholdAlongPitch } from "./frontal";
 import { assessCapture, bodyCoverage } from "./quality";
 import { buildScene } from "./scene";
-import { handsSeries, segmentEvents } from "./events";
+import { handsSeries, segmentEvents, type EventSet } from "./events";
 import { estimateDelivery } from "./delivery";
 import { extractFeatures } from "./features";
 import { classify, leadingAlternative, SHOT_DISPLAY, type Classification } from "./classify";
@@ -32,6 +32,7 @@ import { buildPlan, domainResults, nextLevelPlan, strengthsAndPriorities, techni
 import { backFootMetrics, backFootSummary, measureBackFoot, type BackFootReading } from "./backfoot";
 import { BFD_METRICS } from "./backfoot-defs";
 import { backFootFormula, type BackFootFormula, type FormulaCheckId } from "./backfoot-formula";
+import { BACK_FOOT_DEFENCE, CATEGORIES, FRONT_FOOT_DEFENCE, abstentionRecapture, abstentionText } from "./category";
 import type {
   AnalysisPayload,
   AnalysisStatus,
@@ -44,11 +45,16 @@ import type {
 } from "./types";
 
 /** The shot's name in a sentence. */
-export const TARGET_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
+export const TARGET_NAME: Record<TargetShot, string> = { front_foot_defence: CATEGORIES.front_foot_defence.name, back_foot_defence: CATEGORIES.back_foot_defence.name };
 
 export interface AnalyzeOptions {
   analysisId: string;
   createdAt: string;
+  /**
+   * The event detector to use in place of the built-in one (events.ts). The seam for a candidate
+   * detector behind a flag and for the evaluation tools; absent, nothing changes.
+   */
+  eventDetector?: (obs: CaptureObservation, scene: ReturnType<typeof buildScene>) => EventSet;
 }
 
 export function hashObservation(obs: CaptureObservation): string {
@@ -245,22 +251,6 @@ export function lowering(scene: ReturnType<typeof buildScene>, ref: number): { h
   };
   return { head: drop(head), hips: drop(hips) };
 }
-
-const UNCERTAIN_TEXT: Record<string, string> = {
-  no_stroke: "no batting stroke was found in the clip",
-  no_lowering: "the batter's head and hips didn't go forward and down into the ball, as they do in a defence, in this part of the clip",
-  camera_zoom: "the camera zoomed in during the stroke, and a zoom makes a stride and a follow-through look like a drive",
-  contact_hidden: "the moment the bat meets the ball is hidden, so the shot can't be decided",
-  body_hidden: "Aline didn't find the bat and ball on its own, so the shot is read from the body, and the hands or legs are hidden for too much of the stroke",
-  body_inconclusive: "Aline didn't find the bat and ball on its own, and the body movement alone fits more than one shot",
-  ball_missing: "the ball isn't visible, so the delivery can't be confirmed",
-  bat_missing: "the bat isn't tracked, so a defence can't be separated from a drive",
-  insufficient_evidence: "too few deciding signals were visible",
-  out_of_distribution: "the movement doesn't match any supported shot closely",
-  ambiguous: "the evidence fits more than one shot",
-  looks_back_foot: "this looks like a back-foot defence (the batter went back, stayed tall and the front foot didn't stride), so analyse it as a back-foot defence",
-  photo_only: "a photo can't show shot type, timing, bat or ball",
-};
 
 const EMPTY_DELIVERY: AnalysisPayload["delivery"] = {
   available: false,
@@ -636,7 +626,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   }
 
   // 2–5. Tracking, events, delivery, shot recognition, compatibility.
-  const events = segmentEvents(obs, scene);
+  const events = (opts.eventDetector ?? segmentEvents)(obs, scene);
   const delivery = estimateDelivery(scene, events);
   const features = extractFeatures(scene, events, delivery);
   const frontal = scene.plane === "frontal";
@@ -649,7 +639,7 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
       mode: "video",
       analysis_status: "uncertain_shot",
       status_reason: "no_stroke",
-      headline: `We can't confirm a ${TARGET_NAME[target]}: ${UNCERTAIN_TEXT.no_stroke}.`,
+      headline: `We can't confirm a ${TARGET_NAME[target]}: ${abstentionText(CATEGORIES[target], "no_stroke")}.`,
       observed_shot: null,
       shot_probabilities: null,
       classifier: null,
@@ -787,21 +777,13 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
   };
 
   if (status !== "valid") {
-    const extraRecapture: string[] = [];
-    if (reason === "camera_zoom") extraRecapture.push("Use footage from a fixed camera (a phone on a tripod) that doesn't zoom during the shot.");
-    if (reason === "no_lowering") extraRecapture.push("Record the whole stroke: from the stance until after the bat meets the ball.");
-    if (reason === "body_hidden" || reason === "body_inconclusive")
-      extraRecapture.push("Tap the ball and the bat on a few frames (Add ball and bat), or film side-on at hip height so the hands and front leg stay visible throughout.");
-    if (reason === "ball_missing") extraRecapture.push("Keep the bounce area and the ball's path to the bat in frame.");
-    if (reason === "bat_missing") extraRecapture.push("Keep the whole bat in view, or mark the bat handle and toe on three frames.");
-    if (reason === "contact_hidden") extraRecapture.push("Keep the batter, bat and ball in view through the moment of contact.");
-    if (reason === "insufficient_evidence" || reason === "ambiguous") extraRecapture.push("Film side-on at hip height with nobody between the camera and the batter.");
+    const extraRecapture = abstentionRecapture(FRONT_FOOT_DEFENCE, reason);
     const headline =
       status === "invalid_for_requested_analysis"
         ? `This appears to be ${named ? `a ${SHOT_DISPLAY[top].toLowerCase()}` : (cls.family ?? "a different shot")}, not a front-foot defence.${top === "back_foot_defence" && named ? " Analyse it as a back-foot defence instead." : ""}`
         : reason === "looks_back_foot"
           ? "This looks like a back-foot defence, not a front-foot defence: you went back, stayed tall and didn't stride."
-          : `We can't confirm a front-foot defence: ${UNCERTAIN_TEXT[reason] ?? "the evidence is incomplete"}.`;
+          : `We can't confirm a front-foot defence: ${abstentionText(FRONT_FOOT_DEFENCE, reason)}.`;
     // Uncertain (never a different shot): neutral body observations, ungraded.
     // Filmed along the pitch, the sideways measures that view sees, in place of forward ones.
     // Looking like a back-foot defence, the front-foot line means nothing: no observations.
@@ -880,16 +862,6 @@ export function analyze(obs: CaptureObservation, opts: AnalyzeOptions): Analysis
 
 type Base = Omit<AnalysisPayload, "result_hash" | "mode" | "analysis_status" | "status_reason" | "headline" | "observed_shot" | "shot_probabilities" | "classifier" | "delivery" | "events" | "features" | "metrics" | "limitations" | "recapture" | "evidence_frames" | "technique_index" | "strengths" | "priorities" | "drill_candidates" | "plan" | "domains">;
 type Withheld = Pick<AnalysisPayload, "technique_index" | "strengths" | "priorities" | "drill_candidates" | "plan" | "domains">;
-
-const BFD_UNCERTAIN: Record<string, string> = {
-  ...UNCERTAIN_TEXT,
-  not_back: "no movement back toward the stumps was seen: the feet didn't close up and the weight didn't go back",
-  stride: "the feet ended a stride apart along the pitch; a back-foot defence brings the front foot back beside the back foot",
-  not_tall: "the batter went down into the shot (hips or head well below the stance) instead of standing tall",
-  not_dead_bat: "the hands didn't stop at the ball in front of the body (they carried on, swept across, or the shoulders turned open), which an attacking stroke does; without the bat and ball the two can't be told apart",
-  part_unseen: "part of the movement couldn't be seen from this camera",
-  bat_missing: "the bat isn't tracked, so a block can't be separated from a pull or a cut",
-};
 
 const FORMULA_REASON: Record<FormulaCheckId, string> = { no_stride: "stride", went_back: "not_back", stayed_tall: "not_tall", dead_bat: "not_dead_bat" };
 
@@ -1008,21 +980,12 @@ function analyzeBackFoot(
   };
 
   if (status !== "valid") {
-    const extra: string[] = [];
-    if (reason === "camera_zoom") extra.push("Use footage from a fixed camera (a phone on a tripod) that doesn't zoom during the shot.");
-    if (reason === "not_back" || reason === "part_unseen") extra.push("Record the whole stroke, from the stance until after the bat meets the ball, with both feet in view.");
-    if (reason === "not_dead_bat") extra.push("Tap the ball and the bat on a few frames: where the ball goes after the bat tells a block from an attacking stroke.");
-    if (reason === "body_hidden" || reason === "body_inconclusive")
-      extra.push("Tap the ball and the bat on a few frames (Add ball and bat), or film side-on at hip height so the hands and both feet stay visible throughout.");
-    if (reason === "ball_missing") extra.push("Keep the bounce area and the ball's path to the bat in frame.");
-    if (reason === "bat_missing") extra.push("Keep the whole bat in view, or mark the bat handle and toe on three frames.");
-    if (reason === "contact_hidden") extra.push("Keep the batter, bat and ball in view through the moment of contact.");
-    if (reason === "insufficient_evidence" || reason === "ambiguous") extra.push("Film side-on at hip height with nobody between the camera and the batter.");
+    const extra = abstentionRecapture(BACK_FOOT_DEFENCE, reason);
     const front = named && cls.top === "front_foot_defence";
     const headline =
       status === "invalid_for_requested_analysis"
         ? `This appears to be ${named ? `a ${SHOT_DISPLAY[cls.top].toLowerCase()}` : (cls.family ?? "a different shot")}, not a back-foot defence.${front ? " Analyse it as a front-foot defence instead." : ""}`
-        : `We can't confirm a back-foot defence: ${BFD_UNCERTAIN[reason] ?? "the evidence is incomplete"}.`;
+        : `We can't confirm a back-foot defence: ${abstentionText(BACK_FOOT_DEFENCE, reason)}.`;
     const observations = status === "uncertain_shot" && reading ? ungradedBackFoot(backFootMetrics(reading, scene).filter((m) => m.status !== "not_measured")) : [];
     return {
       ...common,

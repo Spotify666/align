@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/common/page-loading";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -44,7 +45,7 @@ export function CoachPage() {
     });
   }, []);
 
-  if (user === undefined) return <p className="mx-auto max-w-7xl px-4 py-12 text-fg-muted">Loading…</p>;
+  if (user === undefined) return <PageLoading what="Checking who is signed in…" />;
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 space-y-8">

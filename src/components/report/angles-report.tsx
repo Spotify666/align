@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/common/page-loading";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
@@ -49,7 +50,7 @@ export function AnglesReport() {
 
   const c = useMemo(() => (state.kind === "ready" ? combineAngles(state.a.payload, state.b.payload, level) : null), [state, level]);
 
-  if (state.kind === "loading") return <p className="mx-auto max-w-7xl px-4 py-16 text-fg-muted">Loading…</p>;
+  if (state.kind === "loading") return <PageLoading what="Opening both angles of the ball…" />;
   if (state.kind === "missing" || !c)
     return (
       <div className="mx-auto max-w-2xl space-y-4 px-4 py-16">

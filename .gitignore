@@ -12,3 +12,6 @@ next-env.d.ts
 .DS_Store
 public/vendor/mediapipe/
 public/models/
+
+# Real-media evaluation: clips, exported tracks and reports stay on this machine (scripts/eval/dataset/README.md)
+eval-media/

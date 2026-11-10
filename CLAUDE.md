@@ -63,6 +63,9 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
   needs the full 40-character SHA); never force-push.
 - Commit messages end with the session's attribution lines; PR bodies end with the Claude Code
   footer. No model names or identifiers in commits, PRs or code.
+- No threshold or detector change on the strength of one clip: `tests/metamorphic.test.ts` must
+  pass (its list of known breaks may shrink, never grow), and the slice report before and after
+  goes in the change (docs/12).
 - Do not commit third-party media (broadcast clips, dataset videos, photos of real players).
   Real-media test sets live outside the repo; only their manifests and tools are committed.
 - Do all work in this session (no sub-agents).
@@ -89,6 +92,11 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Visitor log (tracker, bot filter, public totals page) | `src/lib/visit.ts`, `visit-shared.ts`, `src/app/api/visit`, `src/components/visitors.tsx`, Supabase `visits`, `visits_overview()` |
 | Report | `src/components/report/*` (`report-view.tsx`: summary, then "Details"; `line-panel.tsx`, `compare-panel.tsx`, `panels.tsx`); plain summary `src/engine/summary.ts` |
 | Two angles of the same ball (optional, `/angles`) | `src/engine/angles.ts`, `src/components/report/angles-report.tsx`; side and front slots on the Add screen (`src/components/capture/two-videos.tsx`; one video per picker, two at most; its own angle check `twoAngleView`, `scripts/eval/view.probe.ts`) or capture `?angle=<id>`; same ball from the sound `src/engine/same-ball.ts`, `src/lib/capture/audio.ts` (two-video option: or from the movement, `sameBallTwoVideos`, `scripts/eval/motion.probe.ts`); `tests/e2e/two-videos.mjs`, `two-angles.mjs` |
+| Category specs (phases, order, views, abstention table per shot) | `src/engine/category.ts` |
+| Result contract the report reads (outcome, events with uncertainty, withheld claims) | `src/engine/result.ts`, `timebase.ts`; timeline `report/phase-timeline.tsx`, `result-panel.tsx`; @docs/12-engine-architecture.md |
+| Gate against one-clip fixes (same movement, different recording) | `src/engine/eval/*`, `tests/metamorphic.test.ts`, `tests/baselines/metamorphic.json`, `scripts/eval/metamorphic.probe.ts`, `golden.probe.ts` |
+| Real-clip dataset and detector gate (labels, manifest, per-slice and leave-one-athlete-out, accept / reject) | `scripts/eval/dataset/README.md`, `label.html`, `dataset.mjs`, `real.probe.ts`, `compare-reports.mjs`, `src/engine/eval/dataset.ts`, `real.ts`, `detectors.ts`; clips in `eval-media/` (ignored) |
+| What depends on each event; what the contract costs | `scripts/eval/sensitivity.probe.ts`, `perf.probe.ts` |
 | Synthetic fixtures and population | `src/engine/fixtures/*` |
 | Real-media evaluation | `scripts/eval/*` |
 | Product docs | `docs/00…10-*.md` |

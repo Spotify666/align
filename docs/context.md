@@ -3,6 +3,72 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-10 · Made live at the athlete's request
+
+> push changes and make it live on vecel
+
+Shipped (PR #45): the category specs, the result contract, the evidence timeline and "How sure
+each part is" in the report, loading screens that say what is loading, the real engine version in
+the footer, the gate against one-clip fixes, and the real-clip dataset tools. Verdicts and
+measures are unchanged (byte-identical on 156 fixture cases; engine 0.8.5, registry unchanged).
+Shipped without the real-media matrix: no real clips were available, and the athlete was told so.
+Still open: the detectors themselves (Contact first), which need 20–30 labelled real clips.
+
+## 2026-11-10 · Phase 2 groundwork: measure first, a real-clip dataset, no detector change yet
+
+> Continue with Phase 2: real-media detector hardening. […] If real clips are not yet available,
+> stop after implementing the manifest, label tooling, evaluation runner and performance
+> instrumentation. Do not tune the detectors using synthetic fixtures alone.
+
+No labelled real clips were available, so it stops there. Found and
+built (`docs/12-engine-architecture.md`, "Phase 2 groundwork"):
+- **Contact is the keystone**: every measure at contact, 15 classifier features and the verdict
+  move with it (25 ms is enough); Trigger, Plant, Follow and Back foot change nothing but the
+  marker. On a real body-only track the verdict flips inside Contact's own uncertainty.
+- **12 of 14**: two back-foot abstentions (body-only Contact 100 ms early reads as "not a dead
+  bat"; from the bowler's end the feet read a stride apart). Neither is a wrong grade.
+- **Cost**: the contract re-reads stored tracks (no pose, bat or ball inference again): 5 ms for
+  a 2 s clip, 20–70 ms on a throttled phone, once per report.
+- **Older saved sessions** open with the new contract (tested); PDFs and progress are unchanged.
+- **Real-clip dataset**: label page (`scripts/eval/label.html`), `dataset.mjs`, a manifest with
+  anonymised ids and hashes (clips never committed), per-slice and leave-one-athlete-out
+  evaluation, and a gate that says accept / reject / not enough data
+  (`scripts/eval/dataset/README.md`).
+
+Needed from the athlete: 20–30 clips from at least 3 batters, labelled with the page.
+
+## 2026-11-10 · One engine for every clip: a gate against one-video fixes
+
+> The analysis is behaving differently across uploaded videos. Thresholds or logic are being
+> tuned to make one video work, but the resulting fix does not generalize. This is the core
+> problem to solve.
+
+Found (measured on generated movement, `docs/12-engine-architecture.md`): no clip-specific code;
+mirroring, resizing and moving timestamps change nothing (70/70). What moves between two
+recordings of one movement is the markers and the reason given: Trigger fires on one noisy frame
+and moved by up to 0.4 s between 120 and 60 fps while claiming 75%; Contact and Follow shared a
+frame with no reason; nothing stopped a one-clip fix. Graded / not graded never flipped.
+
+Done, on the branch (the stored result is byte-identical on all 156 fixture cases; engine
+version unchanged):
+- **Category specs** (`src/engine/category.ts`): each defence's phases, order, views, measures,
+  acceptance thresholds by name, and why it wasn't confirmed, in one versioned place.
+- **A typed result** (`src/engine/result.ts`): accepted / another shot / unknown / fits more than
+  one / not enough seen / recording failed; every moment as seen, estimated, marked by you or
+  not found, with how sure its timing is (including how far it moves when the clip is read
+  again at half its frame rate); each measure tied to its moments and frames; what wasn't
+  claimed; confidence per layer, no single number.
+- **The timeline** (report, Details): markers with a bar for how sure the timing is, the reason
+  two moments share a frame, arrow keys between markers, 44 px targets, reduced motion.
+  "How sure each part is" under Every measure.
+- **The gate** (`tests/metamorphic.test.ts`, `tests/baselines/metamorphic.json`): the same
+  movement as a mirrored, resized, re-timed, half-rate, variable-rate and evidence-missing
+  recording must agree; what doesn't yet hold is listed and may only shrink.
+- Loading screens say what is loading and offer a reload if it stalls; the footer shows the real
+  engine version.
+
+Not done (said plainly): the detectors themselves, report sections, progress charts, landing copy.
+
 ## 2026-11-09 · The Visitors page in plain words; the athlete's clips kept as a test set
 
 > Visitors page is not clear for understanding.

@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/common/page-loading";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -50,7 +51,7 @@ export function ProgressPage() {
     n: data.filter((r) => r.payload.analysis_status === s).length,
   }));
 
-  if (rows === null) return <p className="mx-auto max-w-7xl px-4 py-12 text-fg-muted">Loading…</p>;
+  if (rows === null) return <PageLoading what="Reading your saved sessions from this device…" />;
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 space-y-8">

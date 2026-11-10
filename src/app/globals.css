@@ -767,3 +767,36 @@
     opacity: 0;
   }
 }
+
+/* Evidence timeline: motion only to show what changed (the picked marker, its explanation). */
+@keyframes tl-pulse {
+  0% { transform: translate(-50%, -50%) scaleY(1); }
+  45% { transform: translate(-50%, -50%) scaleY(1.7); }
+  100% { transform: translate(-50%, -50%) scaleY(1); }
+}
+@keyframes tl-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+.tl-pulse { animation: tl-pulse 220ms ease-out; }
+.tl-in { animation: tl-in 140ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .tl-pulse,
+  .tl-in {
+    animation: none !important;
+  }
+}
+
+/* A page or a model on its way: one bar moving, no spinner. Still under reduced motion. */
+@keyframes load-bar {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+.load-bar { animation: load-bar 1100ms ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .load-bar {
+    animation: none !important;
+    width: 100%;
+    opacity: 0.4;
+  }
+}
