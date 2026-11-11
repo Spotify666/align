@@ -43,11 +43,16 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 
 ## Working rules
 
-- **Design**: two tones, flat — black ink on sage-cream paper (#000 on #E3EADF), inverted in
-  the dark theme; no gradients, shadows or textures; demonstration figures are solid black
-  silhouettes. Load the `frontend-design` skill before UI work and check the result in a
-  browser with the `webapp-testing` skill (phone viewport, both themes, 4× CPU slowdown for
-  performance). Never put a continuously rendering canvas (WebGL) on a page that scrolls.
+- **Design** (docs/13, the owner's decisions of 2026-11-11): a dark field (#050505), warm white
+  text (#F4F1E8) and one orange (#FF6A00) that is the line, the moment being looked at and the
+  one primary action, never a surface; a daylight theme for outdoor use and print; Archivo for
+  display, Geist for text; lanes and rules, not cards; no gradients, shadows or glass. Tokens:
+  `globals.css` under `:root[data-ui="2"]` (`NEXT_PUBLIC_UI=1` brings the first design back),
+  held to AA contrast by `tests/design-tokens.test.ts`. Load the `frontend-design` skill before
+  UI work and check the result in a browser with the `webapp-testing` skill (phone viewport,
+  both themes, 4× CPU slowdown for performance). A moving canvas must draw nothing off-screen,
+  in a hidden tab, once left alone, or under reduced motion, and must show a still first (the
+  landing figure, `components/landing/hero-figure.tsx`, is the pattern).
 
 - The BFD runs only when the observation carries `target: "back_foot_defence"`; without it every
   result must stay byte-identical to the FFD build (check with `scripts/eval/verdicts.probe.ts`
@@ -89,6 +94,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Shot signature and match % | `signature.ts`, `src/lib/compare.ts`, Supabase `shot_profiles` |
 | Capture (scan, pick batter, gate, track) | `src/components/capture/capture-flow.tsx`, `src/lib/capture/*` |
 | Parallel model work (workers; must give the page's exact results) | `src/lib/capture/vision.worker.ts`, `vision-pool.ts` |
+| Landing (one action, the figure drawn from the engine's own track, what is true today) | `src/app/page.tsx`, `src/components/landing/hero-figure.tsx`, `src/lib/hero-geometry.ts`; redesign plan and batches @docs/13-redesign-master-plan.md |
 | Brand (mark geometry, flat and 3D logo, icons) | `src/components/brand/*`, `scripts/brand-icons.mjs` |
 | Fresh pages after a release (build id, reload when a new one is live, held while busy) | `src/lib/fresh.ts` (`VersionWatch`, `holdUpdates`), `src/app/api/version`, `next.config.ts` |
 | Visitor log (tracker, bot filter, public totals page) | `src/lib/visit.ts`, `visit-shared.ts`, `src/app/api/visit`, `src/components/visitors.tsx`, Supabase `visits`, `visits_overview()` |

@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { AppShell } from "@/components/app-shell";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
+// Display: wide and heavy, for headlines and big numbers (the second design, docs/13).
+const archivo = Archivo({ subsets: ["latin"], variable: "--font-archivo", display: "swap", axes: ["wdth"] });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 // Hand lettering for the lesson illustrations: Caveat (SIL Open Font License, fonts/Caveat-OFL.txt),
 // served from the app. Google Fonts sometimes serves its files under a URL that the build's font
@@ -33,8 +35,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#e3eadf" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: light)", color: "#050505" },
+    { media: "(prefers-color-scheme: dark)", color: "#050505" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -46,7 +48,7 @@ const themeScript = `try{var t=localStorage.getItem("align.theme");if(t==="light
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${hand.variable}`} suppressHydrationWarning>
+    <html lang="en" data-ui={process.env.NEXT_PUBLIC_UI === "1" ? undefined : "2"} className={`${geist.variable} ${archivo.variable} ${geistMono.variable} ${hand.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

@@ -3,6 +3,36 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-11 · Redesign Batch 1: the new look and the landing page (live)
+
+Decisions taken in the pop-ups: replace the sage design with black and orange and a moving
+figure; keep a daylight theme; Canvas 2D; say plainly that two shots are graded; Archivo +
+Geist; proceed without the reference site; **merge after green CI**; level, not age, decides
+wording (Batch 2 onward). Then: "Approve, start Batch 1".
+
+Done: `docs/13`, "Batch 1 as built". The landing: "Every shot, explained.", one action (Check
+your shot), the figure drawn from the engine's own track with the orange line, three steps, a
+sample made by the engine, what is true today. The whole app takes the new colours; navigation
+says "Check your shot". Faster than before on a slow phone (largest paint 0.44 → 0.21 s,
+JavaScript 305 → 216 KB). Analysis untouched.
+
+Open: Batch 2 (the check flow, levels, focus areas, capture guidance) has not started.
+
+## 2026-11-11 · Redesign: master plan (Phase 0), approved the same day
+
+> Plan and execute a substantial phased redesign of Aline … First produce a complete master
+> plan … Do not begin Batch 1 until the Phase 0 plan is complete and explicitly approved.
+
+Done: `docs/13-redesign-master-plan.md` (audit with measured baseline, information
+architecture, the "line" visual direction in black and orange, hero approach, components,
+terminology, flows, data changes, risks, eight batches with acceptance criteria, Batch 1 scope,
+fifteen decisions for the owner). No code changed. Not done: the reference site
+(`pitchwolf.ai`) could not be opened from the session, so it was not reviewed; none of the six
+named design skills is installed. Batch 1 has not started.
+
+The brief contradicts standing rules (sage two-tone design, no moving canvas on a scrolling
+page, wording by age, "ship it"): listed as decisions 1, 3 and 15 in the plan, not assumed.
+
 ## 2026-11-10 · The gaps: what could be fixed without real clips, and what could not
 
 > work on these changes [the seven gaps] … commit and push
