@@ -149,11 +149,25 @@ export async function storageEstimate() {
 
 // ---------- Profile (local, signed-out) ----------
 
+/** What a batter may tell Aline about their build. Each is optional; none is asked for before a first analysis. */
+export const BODY_MEASUREMENTS = [
+  { id: "armSpanCm", label: "Arm span", why: "Fingertip to fingertip, arms out. Sets the scale for reach.", min: 100, max: 240 },
+  { id: "shoulderWidthCm", label: "Shoulder width", why: "Across the shoulders. Sets the scale for how far the shoulders turn.", min: 20, max: 70 },
+  { id: "upperArmCm", label: "Upper arm", why: "Shoulder to elbow. Sets the scale for elbow height.", min: 15, max: 50 },
+  { id: "forearmCm", label: "Forearm", why: "Elbow to wrist. Sets the scale for the hands.", min: 15, max: 45 },
+  { id: "legLengthCm", label: "Leg length", why: "Hip to ankle. Sets the scale for stride and knee bend.", min: 50, max: 130 },
+] as const;
+export type BodyMeasurementId = (typeof BODY_MEASUREMENTS)[number]["id"];
+export type BodyMeasurements = Record<BodyMeasurementId, number | null>;
+export const NO_MEASUREMENTS: BodyMeasurements = { armSpanCm: null, shoulderWidthCm: null, upperArmCm: null, forearmCm: null, legLengthCm: null };
+
 export interface LocalProfile {
   handedness: "right" | "left";
   heightCm: number | null;
   ageBand: "u13" | "13_15" | "16_18" | "adult" | "masters" | null;
   skill: "beginner" | "club" | "academy" | "elite" | null;
+  /** Optional body measurements (cm); null = not provided. Kept on this device. */
+  body: BodyMeasurements;
   /** The analysis level the batter chose; null until they choose (wording then follows the age band). */
   level: AnalysisLevel | null;
   focusAreas: FocusAreaId[];
@@ -171,6 +185,7 @@ export const DEFAULT_PROFILE: LocalProfile = {
   displayName: "",
   consentProcessing: false,
   retentionDays: 14,
+  body: NO_MEASUREMENTS,
   level: null,
   focusAreas: [],
 };

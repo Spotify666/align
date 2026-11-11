@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { currentUser, latestConsent, setConsent } from "@/lib/cloud";
-import { deleteEverything, getTracks, listAnalyses, loadProfile, saveProfile, storageEstimate, type LocalProfile, type StoredAnalysis } from "@/lib/store";
+import { ANALYSIS_LEVELS, BODY_MEASUREMENTS, NO_MEASUREMENTS, deleteEverything, getTracks, listAnalyses, loadProfile, saveProfile, storageEstimate, type LocalProfile, type StoredAnalysis } from "@/lib/store";
 import { decodeTracks } from "@/engine/tracks-codec";
 import { th } from "@/engine/registry";
 import { Download, Lock, Trash } from "../icons";
@@ -109,6 +109,44 @@ export function ProfilePage() {
             <span className="text-fg-muted">Height (cm) — scales distances when stumps aren&apos;t marked</span>
             <input className="field mt-1" type="number" inputMode="numeric" min={100} max={230} value={p.heightCm ?? ""} onChange={(e) => update({ heightCm: e.target.value ? Number(e.target.value) : null })} />
           </label>
+          <label className="text-sm">
+            <span className="text-fg-muted">Analysis level — decides how reports are worded</span>
+            <select className="field mt-1" value={p.level ?? ""} onChange={(e) => update({ level: (e.target.value || null) as LocalProfile["level"] })}>
+              <option value="">Not chosen (follows your age band)</option>
+              {ANALYSIS_LEVELS.map((l) => (
+                <option key={l.id} value={l.id}>{l.label}</option>
+              ))}
+            </select>
+          </label>
+          <details className="rounded-lg border border-line px-4 sm:col-span-2">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium">
+              <span>
+                Body measurements <span className="font-normal text-fg-subtle">(optional{Object.values(p.body ?? NO_MEASUREMENTS).some((v) => v !== null) ? ", some given" : ", none given"})</span>
+              </span>
+              <span className="text-fg-subtle" aria-hidden>›</span>
+            </summary>
+            <div className="grid gap-4 pb-4 pt-1 sm:grid-cols-2">
+              {BODY_MEASUREMENTS.map((m) => (
+                <label key={m.id} className="text-sm">
+                  <span className="text-fg-muted">{m.label} (cm)</span>
+                  <input
+                    className="field mt-1"
+                    type="number"
+                    inputMode="numeric"
+                    min={m.min}
+                    max={m.max}
+                    placeholder="Not provided"
+                    value={(p.body ?? NO_MEASUREMENTS)[m.id] ?? ""}
+                    onChange={(e) => update({ body: { ...(p.body ?? NO_MEASUREMENTS), [m.id]: e.target.value ? Number(e.target.value) : null } })}
+                  />
+                  <span className="mt-1 block text-xs text-fg-subtle">{m.why}</span>
+                </label>
+              ))}
+              <p className="text-xs text-fg-subtle sm:col-span-2">
+                Leave any of these blank. They stay on this device. They are not used in the analysis yet: today distances are scaled from your height or the stumps, and measures are given as a share of your height. A later update will use these where they make a measure more exact.
+              </p>
+            </div>
+          </details>
           <label className="text-sm">
             <span className="text-fg-muted">Age band</span>
             <select className="field mt-1" value={p.ageBand ?? ""} onChange={(e) => update({ ageBand: (e.target.value || null) as LocalProfile["ageBand"] })}>

@@ -4,35 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { loadPose, detectFrame } from "@/lib/capture/pose";
 import { Check, CameraOff, Question } from "../icons";
 
-/** Plan view of where to put the phone, plus the frame the athlete should see. */
-export function CameraPlacementDiagram() {
-  return (
-    <figure className="card p-4">
-      <svg viewBox="0 0 320 170" className="w-full" role="img" aria-label="Camera placement: phone side-on to the batter, about 6 to 8 metres away at hip height, with the pitch running left to right.">
-        <rect x="20" y="70" width="290" height="40" rx="3" fill="#1c2229" stroke="#36414c" />
-        <line x1="60" y1="66" x2="60" y2="114" stroke="#e9e3d3" strokeWidth="1" />
-        <line x1="48" y1="66" x2="48" y2="114" stroke="#e9e3d3" strokeWidth="1" opacity="0.5" />
-        <rect x="40" y="86" width="6" height="8" fill="#e9e3d3" />
-        <circle cx="68" cy="90" r="6" fill="#5ed6e6" />
-        <text x="68" y="62" textAnchor="middle" fontSize="9" fill="#a7b0b8">batter</text>
-        <text x="296" y="62" textAnchor="end" fontSize="9" fill="#a7b0b8">bowler →</text>
-        <text x="150" y="94" textAnchor="middle" fontSize="9" fill="#5ed6e6" opacity="0.8">bounce zone in frame</text>
-        <rect x="76" y="140" width="22" height="13" rx="2" fill="#d7a62a" />
-        <path d="M87 140 L40 110 M87 140 L230 110" stroke="#d7a62a" strokeDasharray="3 3" fill="none" />
-        <line x1="87" y1="135" x2="87" y2="114" stroke="#a7b0b8" strokeWidth="1" markerEnd="url(#a)" />
-        <text x="104" y="150" fontSize="9" fill="#f3f0e8">phone · 6–8 m · hip height</text>
-        <defs>
-          <marker id="a" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
-            <path d="M0,0 L6,3 L0,6" fill="#a7b0b8" />
-          </marker>
-        </defs>
-      </svg>
-      <figcaption className="mt-2 text-sm text-fg-muted">
-        Square-on to the batter, landscape, on a tripod or wedged still. Keep the batter, bat, stumps and the bounce zone in frame for the whole delivery.
-      </figcaption>
-    </figure>
-  );
-}
+/** Where to put the phone: the plan of the pitch, to scale, for both camera positions. */
+export { PitchGuide as CameraPlacementDiagram } from "./pitch-guide";
 
 type LiveCheck = { body: "pass" | "warn" | "fail"; level: "pass" | "warn"; landscape: boolean; people: number };
 

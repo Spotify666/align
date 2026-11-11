@@ -106,7 +106,7 @@ describe("the plain summary", () => {
 
 // The analysis level the batter chooses decides the wording; age only stands in when none is chosen.
 import { readingLevel as wordingFor } from "@/engine/summary";
-import { ANALYSIS_LEVELS, DEFAULT_PROFILE, FOCUS_AREAS } from "@/lib/store";
+import { ANALYSIS_LEVELS, BODY_MEASUREMENTS, DEFAULT_PROFILE, FOCUS_AREAS } from "@/lib/store";
 
 describe("analysis level", () => {
   it("decides the wording when chosen, whatever the age", () => {
@@ -128,5 +128,8 @@ describe("analysis level", () => {
     expect(new Set(FOCUS_AREAS.map((a) => a.id)).size).toBe(8);
     expect(DEFAULT_PROFILE.level).toBeNull();
     expect(DEFAULT_PROFILE.focusAreas).toEqual([]);
+    // Body measurements are optional: nothing is provided until the batter gives it.
+    expect(Object.values(DEFAULT_PROFILE.body).every((v) => v === null)).toBe(true);
+    expect(BODY_MEASUREMENTS.map((m) => m.id).sort()).toEqual(Object.keys(DEFAULT_PROFILE.body).sort());
   });
 });

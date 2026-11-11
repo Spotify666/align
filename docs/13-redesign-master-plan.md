@@ -22,7 +22,7 @@ Three things to know before reading:
 |---|---|
 | 0 Plan | Approved 2026-11-11 |
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
-| 2 Analysis interaction | **In progress.** Shipped: "Check your shot" screen and `/check`, the new capture terms, the analysis level (decides the wording now) and focus areas (saved with the analysis). Not yet: capture-position guide, camera overlay, body measurements, dual-angle session shell, splitting the capture flow, one entry without choosing the shot |
+| 2 Analysis interaction | **In progress.** Shipped: "Check your shot" screen and `/check`, the new capture terms, the analysis level (decides the wording now), focus areas (saved with the analysis), the capture-position guide (plan of the pitch, to scale, both camera positions), optional body measurements in the profile (stored, not used yet). Not yet: camera overlay, dual-angle session shell, splitting the capture flow, one entry without choosing the shot |
 | 3–8 | Not started |
 
 ## 1. Diagnosis
@@ -488,3 +488,15 @@ track was built and not shipped (it read as a mannequin). The owner pointed to a
 and to professionals' defences as reference; neither could be opened from the session (no
 access to video sites), and no video file was in the session's storage. Open: needs a clip
 file, or screenshots of the reference, sent in the chat.
+
+## Batch 2, second part, as built (2026-11-11)
+
+- **Capture-position guide** (`components/capture/pitch-guide.tsx`): a plan of the pitch drawn to
+  scale, with the two camera positions Aline reads (side-on, 6–8 m square of the crease; straight
+  behind the bowler's stumps), what each must keep in the picture, and where not to film from.
+  Static guidance: it uses no camera or sensors. It replaces the old placement diagram on the
+  check screen and on `/guide`.
+- **Body measurements** (`LocalProfile.body`, Profile page): arm span, shoulder width, upper arm,
+  forearm, leg length. All optional, each "not provided" until given, kept on the device, with
+  why each would help. **Not used in the analysis yet**, and the page says so (Batch 4).
+- The analysis level can also be set from the Profile page.
