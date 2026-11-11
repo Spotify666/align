@@ -3,6 +3,20 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-11 · A human in the landing figure: asked for, not delivered yet
+
+> Why can't you use human for action and illustration?
+
+> See human illustration playing a cricketing [shot].
+
+Tried: a figure with a body's proportions driven by a real batter's movement (the pose track of
+a phone clip at the nets already in `tests/assets/real`, which turned out to be filmed from the
+bowler's end). Not shipped: seventeen tracked points and no tracked bat still draw a mannequin,
+not a person, and the bat had to be guessed from the hands. The instrument view (PR #48) stays
+live. What would work: a real clip or photo the athlete has the rights to (their own, or
+licensed stock) shown with Aline's real overlay, or a finished illustration or animation from an
+illustrator. Waiting on the athlete for one of those.
+
 ## 2026-11-11 · The landing figure: not a drawn batter
 
 > This illustration is nowhere close to what human biomechanics show a cricket shot. It looks
