@@ -450,3 +450,20 @@ development, because they are.
 
 **Not verified**: a real phone; Safari and Firefox; a screen reader (structure and tab order
 were checked, speech was not).
+
+### The landing figure, changed the same day (owner's feedback)
+
+The first figure was a jointed line figure playing the generated example. The owner, on a real
+phone: "nowhere close to what human biomechanics show a cricket shot", then of the idea of a
+drawn batter at all: "don't just stick to the TED-Ed thing". Both right. The movement comes from
+a scripted, generated example, not from a person, so no way of drawing limbs makes its arms
+move like a human's; a fuller mannequin was built and discarded for the same reason.
+
+What ships instead is **the line as an instrument** (`instrument()` in `hero-geometry.ts`): a
+side elevation to scale (ground, stumps, both feet, bat, ball) and the three things Aline reads
+above the front foot, each with the engine's own range, travelling into place as the ball
+arrives. It draws only what the engine measured, including the example's fault (head behind
+the line, the same finding as the sample report). No person is depicted.
+
+**Still the better hero, and not possible yet**: a real clip of a real batter with the engine's
+real overlay. It needs one clip the owner has the rights to.

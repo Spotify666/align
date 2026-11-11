@@ -3,6 +3,21 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-11 · The landing figure: not a drawn batter
+
+> This illustration is nowhere close to what human biomechanics show a cricket shot. It looks
+> like a dud just swinging across lines.
+
+> The hands body movement of illustration is nowhere close to human. It's poor. Make sure you
+> do it differently. Don't just stick to Ted Ed thing. Choose the best one.
+
+Found: the movement is a scripted, generated example, not a person, so no drawing of limbs can
+make it look human. Done: the figure is now the line as an instrument (side elevation to scale:
+stumps, feet, bat, ball; head, front shoulder and front knee against the engine's own ranges;
+the orange line joining them), showing what the engine measured, including that example's
+fault. No person is drawn. Open: the better hero is a real clip with the real overlay, which
+needs one clip the athlete has the rights to.
+
 ## 2026-11-11 · Redesign Batch 1: the new look and the landing page (live)
 
 Decisions taken in the pop-ups: replace the sage design with black and orange and a moving

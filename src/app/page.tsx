@@ -34,8 +34,10 @@ const LEVELS = [
 export default function Landing() {
   const sample = analyze(fixture("valid_ffd"), AT);
   const track = fixture("session3d");
-  const contact = analyze(track, AT).events.find((e) => e.type === "contact")?.frame ?? Math.round(track.body.length / 2);
-  const hero = heroData(track, contact);
+  const tracked = analyze(track, AT);
+  const contact = tracked.events.find((e) => e.type === "contact")?.frame ?? Math.round(track.body.length / 2);
+  // The figure shows the engine's own ranges for the line; without them there is nothing honest to draw.
+  const hero = tracked.line ? heroData(track, contact, tracked.line.bands) : null;
   const facts = [
     ["Shot identified", sample.observed_shot?.display ?? "Not identified"],
     ["What was good", sample.strengths[0]?.title ?? "—"],
