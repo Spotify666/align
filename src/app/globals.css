@@ -104,6 +104,76 @@
   color-scheme: dark;
 }
 
+/* ------------------------------------------------------------------------------------------
+   The second design (docs/13): a dark field, warm white text, one orange line. Orange is the
+   line, the moment being looked at and the one primary action; never a surface.
+   It applies when <html data-ui="2"> (the default; NEXT_PUBLIC_UI=1 brings the first back).
+   Dark unless the batter picks the daylight theme. Contrast is held by tests/design-tokens.test.ts. */
+:root[data-ui="2"] {
+  --paper: #050505;
+  --ink: #f4f1e8;
+  --bg: var(--paper);
+  --surface: #121212;
+  --raised: #1a1a1a;
+  --sunken: rgb(244 241 232 / 0.04);
+  --tint: rgb(244 241 232 / 0.07);
+  --line: #2a2a28;
+  --line-strong: #4a4944;
+  --fg: var(--ink);
+  --fg-muted: #c9c5bb;
+  --fg-subtle: #a9a59d;
+  --brand: #ff6a00;
+  --brand-hover: #ff8a35;
+  --brand-fg: #050505;
+  --brand-soft: rgb(255 106 0 / 0.14);
+  --ok: #7fb89a;
+  --bad: #e8736a;
+  --warn: #e0b354;
+  --neutral: #a9a59d;
+  --data: #b9c6d6;
+  --band: #1a1a1a;
+  --band-fg: #f4f1e8;
+  --band-muted: #a9a59d;
+  --stage: #000000;
+  --ill-paper: #121212;
+  --ill-ink: #f4f1e8;
+  --ill-chalk: #f4f1e8;
+  --ill-accent: #2a2a28;
+  --shadow-card: none;
+  --shadow-pop: 0 0 0 1px #4a4944;
+  color-scheme: dark;
+}
+:root[data-ui="2"][data-theme="light"] {
+  --paper: #f4f1e8;
+  --ink: #050505;
+  --surface: #f4f1e8;
+  --raised: #ebe7da;
+  --sunken: rgb(5 5 5 / 0.04);
+  --tint: rgb(5 5 5 / 0.06);
+  --line: rgb(5 5 5 / 0.16);
+  --line-strong: rgb(5 5 5 / 0.36);
+  --fg-muted: #33322f;
+  --fg-subtle: #55534e;
+  --brand: #b54700;
+  --brand-hover: #9a3c00;
+  --brand-fg: #ffffff;
+  --brand-soft: rgb(181 71 0 / 0.1);
+  --ok: #0b6b4f;
+  --bad: #b02e25;
+  --warn: #855000;
+  --neutral: #4f524e;
+  --data: #3a5a80;
+  --band: #050505;
+  --band-fg: #f4f1e8;
+  --band-muted: #c9c5bb;
+  --ill-paper: #f4f1e8;
+  --ill-ink: #050505;
+  --ill-chalk: #050505;
+  --ill-accent: #dedacd;
+  --shadow-pop: 0 0 0 1px rgb(5 5 5 / 0.36);
+  color-scheme: light;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -128,7 +198,7 @@
   --color-band-muted: var(--band-muted);
   --color-stage: var(--stage);
 
-  --font-display: var(--font-geist), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-archivo), var(--font-geist), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: var(--font-geist), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
 }
@@ -594,7 +664,10 @@
 }
 /* The page's fade-in (template.tsx) would show the page, then grey, before the black curtain:
    a page that opens with the curtain starts on it. */
-.page-in:has(.intro) {
+.page-in:has(.intro),
+.page-in:has(.landing) {
+  /* The landing paints its headline at once: a fade from nothing delays the first content and
+     hides it from the largest-paint measure. */
   animation: none;
 }
 /* The curtain: twelve black slats, seamless while closed (each overlaps the next by a pixel),
@@ -799,4 +872,51 @@
     width: 100%;
     opacity: 0.4;
   }
+}
+
+/* The second design's display type: wide and heavy, for headlines and big numbers only. */
+:root[data-ui="2"] .display {
+  font-weight: 760;
+  font-stretch: 116%;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+:root[data-ui="2"] .card {
+  border-radius: 8px;
+}
+:root[data-ui="2"] .btn {
+  border-radius: 6px;
+  transition: background-color 140ms ease, opacity 140ms ease, border-color 140ms ease;
+}
+:root[data-ui="2"] .btn-primary:hover:not(:disabled) {
+  opacity: 1;
+  background: var(--brand-hover);
+}
+:root[data-ui="2"] :focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Landing: lanes separated by crease-like rules, not cards. */
+.lane {
+  border-top: 1px solid var(--line);
+}
+.hero-figure canvas,
+.hero-figure svg {
+  pointer-events: none;
+}
+.hero-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  color: var(--fg);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  pointer-events: none;
+  will-change: transform, opacity;
 }

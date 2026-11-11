@@ -16,6 +16,14 @@ Three things to know before reading:
 - **The brief contradicts five standing project rules** (`CLAUDE.md`). They are listed in
   section 16 as decisions, not assumed away.
 
+## Status
+
+| Batch | State |
+|---|---|
+| 0 Plan | Approved 2026-11-11 |
+| 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
+| 2–8 | Not started |
+
 ## 1. Diagnosis
 
 Measured on the production build, phone width (390 px), 4× CPU slowdown:
@@ -405,3 +413,40 @@ Supabase), 12 (PDF from a print layout), 13 (legal sign-off on minors).
 13. **Minors**: who gives legal sign-off on consent before the coach workspace ships?
 14. **Typeface**: Archivo for display, Geist for text. Confirm or name an alternative.
 15. **Draft PRs, no automatic merge** for this programme, overriding standing rule 6 ("ship it").
+
+## Batch 1 as built (2026-11-11)
+
+**Built**: the second design's tokens under `:root[data-ui="2"]` (dark, and daylight on
+`data-theme="light"`); Archivo for display; the new landing (`src/app/page.tsx`) with one
+primary action, three steps, a sample made by the engine from a generated example, levels,
+players and coaches, "what is true today"; the figure (`hero-figure.tsx`, `hero-geometry.ts`)
+in Canvas 2D over a server-drawn still; navigation says "Check your shot" (one link instead of
+two per-shot ones). No file under `src/engine` changed; verdicts and reasons are identical on
+the 156 golden cases.
+
+**Measured**, production build, phone width, 4× CPU slowdown:
+
+| | Before | After | Budget |
+|---|---|---|---|
+| Largest paint | 0.44 s | 0.21 s | ≤ 0.8 s |
+| JavaScript | 305 KB | 216 KB | ≤ 305 KB |
+| All bytes | 539 KB | 494 KB | — |
+| Blocking time | 180 ms | 131 ms | ≤ 200 ms |
+| Layout shift | 0 | 0 | ≤ 0.02 |
+| Targets under 44 px | 6 | 0 | 0 |
+| Frames drawn off-screen / under reduced motion | — | 0 / 0 | 0 |
+
+Two things found on the way: the page-entry fade started every page fully transparent, which
+delayed first content to about 1 s on a slow phone and hid the headline from the largest-paint
+measure (the landing is exempt now); and link prefetching, not the figure, was what grew the
+bundle (only the primary action is prefetched).
+
+**Not done in this batch, though planned for it**: `/science` and `/privacy` copy and the
+`/design-system` page are restyled by the tokens but not rewritten; Geist Mono and Caveat are
+still loaded (illustrations use them until Batch 3); the first-design intro curtain remains on
+`/home`. The figure has no bat or ball: the generated track carries none in 3D, and none was
+invented. Levels, reference comparison and squads are described on the landing as in
+development, because they are.
+
+**Not verified**: a real phone; Safari and Firefox; a screen reader (structure and tab order
+were checked, speech was not).

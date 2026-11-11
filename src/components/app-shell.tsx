@@ -19,13 +19,13 @@ const PRIMARY = [
 const TABS = [
   { href: "/home", label: "Home", Icon: Home },
   { href: "/sessions", label: "Sessions", Icon: List },
-  { href: "/analyse", label: "Analyse", Icon: Plus, primary: true },
+  { href: "/analyse", label: "Check", Icon: Plus, primary: true },
   { href: "/progress", label: "Progress", Icon: Trend },
   { href: "/profile", label: "Profile", Icon: User },
 ];
 
 const MORE = [
-  { href: "/guide", label: "How to analyse a shot", Icon: Info },
+  { href: "/guide", label: "How it works", Icon: Info },
   { href: "/coach", label: "Coach workspace", Icon: Users },
   { href: "/science", label: "Science and validation", Icon: Beaker },
   { href: "/privacy", label: "Privacy and data", Icon: Shield },
@@ -88,7 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <User size={16} /> Profile
             </Link>
             <Link href="/analyse" className="hidden sm:inline-flex btn btn-primary !min-h-10 !py-1.5 text-sm">
-              Analyse a defence
+              Check your shot
             </Link>
             <button
               className="lg:hidden inline-flex h-11 w-11 items-center justify-center rounded-xl border border-line-strong bg-surface"
@@ -147,8 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="space-y-2">
             <p className="font-medium">Product</p>
-            <Link href="/analyse" className="block text-fg-subtle hover:text-fg">Check front-foot defence</Link>
-            <Link href="/analyse?shot=back" className="block text-fg-subtle hover:text-fg">Check back-foot defence</Link>
+            <Link href="/analyse" className="block text-fg-subtle hover:text-fg">Check your shot</Link>
             <Link href="/guide" className="block text-fg-subtle hover:text-fg">How it works</Link>
             <Link href="/sample" className="block text-fg-subtle hover:text-fg">Sample reports</Link>
           </div>
