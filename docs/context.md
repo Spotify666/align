@@ -3,6 +3,21 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-11 · Redesign: master plan only (Phase 0), waiting for approval
+
+> Plan and execute a substantial phased redesign of Aline … First produce a complete master
+> plan … Do not begin Batch 1 until the Phase 0 plan is complete and explicitly approved.
+
+Done: `docs/13-redesign-master-plan.md` (audit with measured baseline, information
+architecture, the "line" visual direction in black and orange, hero approach, components,
+terminology, flows, data changes, risks, eight batches with acceptance criteria, Batch 1 scope,
+fifteen decisions for the owner). No code changed. Not done: the reference site
+(`pitchwolf.ai`) could not be opened from the session, so it was not reviewed; none of the six
+named design skills is installed. Batch 1 has not started.
+
+The brief contradicts standing rules (sage two-tone design, no moving canvas on a scrolling
+page, wording by age, "ship it"): listed as decisions 1, 3 and 15 in the plan, not assumed.
+
 ## 2026-11-10 · The gaps: what could be fixed without real clips, and what could not
 
 > work on these changes [the seven gaps] … commit and push
