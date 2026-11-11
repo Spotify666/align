@@ -3,6 +3,13 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-11 · Batch 2, second part: where to put the phone; body measurements
+
+Continuing "finish the rest". Shipped: a to-scale plan of the pitch showing both camera
+positions (check screen and How it works), and optional body measurements in the Profile (kept
+on the device; not used in the analysis yet, and it says so). `docs/13`, "Batch 2, second part".
+Next in Batch 2: the camera overlay and the dual-angle session screen.
+
 ## 2026-11-11 · References for the human figure; "finish the rest"; Batch 2 begun
 
 > https://youtu.be/onRylyZ0DX8 Something of this sort. Also please keep updating me on where
