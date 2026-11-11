@@ -283,7 +283,8 @@ the coach's → export. Every action lands in the audit history.
 
 Each batch: its own branch from `main`, baseline tests recorded, only its scope, tests with the
 change, desktop + phone + reduced-motion checks, before/after screenshots, performance numbers,
-`lint`, `typecheck`, `test`, `build`, a draft PR marked not ready, then stop for review.
+`lint`, `typecheck`, `test`, `build`, a PR merged after green CI and verified in production
+(decision 15), then a report before the next batch.
 
 | Batch | Scope | Main files | Engine touched |
 |---|---|---|---|
@@ -356,7 +357,27 @@ The landing must state plainly: two shots are graded today (front-foot and back-
 other shots are identified where possible and not graded; ranges are provisional; the engine is
 not yet validated on real athletes.
 
-## 16. Decisions needed from the product owner
+## 16. Decisions
+
+**Taken by the product owner, 2026-11-11**
+
+| # | Decision | Answer |
+|---|---|---|
+| 1 | Replace the sage two-tone rule and the "no moving canvas on a scrolling page" rule | **Yes.** Black and orange; the hero pauses off-screen, stops when idle, still under reduced motion |
+| 2 | Daylight (light) theme | **Keep both.** Dark by default; light for outdoor use and the PDF |
+| 3 | Level replaces age as the driver of wording | **Level decides.** Age optional; milliseconds only in Professional → Technical details |
+| 4 | Reference site not reviewed | **Proceed without it** |
+| 5 | Positioning line | "AI-assisted cricket analysis", as in the brief |
+| 6 | Hero technology | **Canvas 2D** |
+| 7 | "Check your shot" while two shots are graded | **Say it plainly** on the landing |
+| 14 | Typeface | **Archivo + Geist** |
+| 15 | How batches reach production | **Merge after green CI**, production verified, then report (standing rule 6 stays; this replaces "draft PR, no automatic merge" in the brief and in section 13) |
+
+Still open, none blocks Batch 1: 8 (who signs reference licences), 9 (left-handers never
+flipped: standing rule 7 holds unless changed), 10 ("match %" renamed), 11 (dual-angle through
+Supabase), 12 (PDF from a print layout), 13 (legal sign-off on minors).
+
+**As first asked**
 
 1. **Replace the standing design rule?** Today: two tones, sage-cream paper, flat, "never a
    continuously rendering canvas on a page that scrolls". The brief asks for black and orange and
