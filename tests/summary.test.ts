@@ -103,3 +103,30 @@ describe("the plain summary", () => {
     expect(simpleFix({ id: "bfd_back_first", value: 0.3, range: { lo: 0, hi: 0.1 } as Metric["range"], inRange: false })).toMatch(/sooner/);
   });
 });
+
+// The analysis level the batter chooses decides the wording; age only stands in when none is chosen.
+import { readingLevel as wordingFor } from "@/engine/summary";
+import { ANALYSIS_LEVELS, DEFAULT_PROFILE, FOCUS_AREAS } from "@/lib/store";
+
+describe("analysis level", () => {
+  it("decides the wording when chosen, whatever the age", () => {
+    expect(wordingFor("adult", "beginner")).toBe("simple");
+    expect(wordingFor("u13", "professional")).toBe("detailed");
+    expect(wordingFor(null, "amateur")).toBe("plain");
+  });
+
+  it("falls back to the age band when no level is chosen, exactly as before", () => {
+    expect(wordingFor("u13")).toBe("simple");
+    expect(wordingFor("adult", null)).toBe("detailed");
+    expect(wordingFor(null)).toBe("plain");
+    expect(wordingFor("13_15", undefined)).toBe("plain");
+  });
+
+  it("offers three levels and eight focus areas, none chosen by default", () => {
+    expect(ANALYSIS_LEVELS.map((l) => l.id)).toEqual(["beginner", "amateur", "professional"]);
+    expect(FOCUS_AREAS.length).toBe(8);
+    expect(new Set(FOCUS_AREAS.map((a) => a.id)).size).toBe(8);
+    expect(DEFAULT_PROFILE.level).toBeNull();
+    expect(DEFAULT_PROFILE.focusAreas).toEqual([]);
+  });
+});

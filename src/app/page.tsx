@@ -69,7 +69,7 @@ export default function Landing() {
             Upload a cricket shot. Aline identifies the movement, shows what happened and turns the evidence into coaching matched to your level.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Link href="/analyse" className="btn btn-primary w-full !px-7 text-base font-semibold sm:w-auto">Check your shot</Link>
+            <Link href="/check" className="btn btn-primary w-full !px-7 text-base font-semibold sm:w-auto">Check your shot</Link>
             <Link href="/sample/valid_ffd" prefetch={false} className="btn btn-ghost w-full !px-6 text-base sm:w-auto">View a sample analysis</Link>
           </div>
           <p className="mt-5 flex flex-wrap gap-x-2 text-sm text-fg-subtle">
@@ -141,7 +141,7 @@ export default function Landing() {
             <p className="mt-3 text-fg-muted">
               Check a shot after nets, see your line at contact, and track the change over sessions against your own baseline. Comparing with a reference player is in development.
             </p>
-            <Link href="/analyse" className="btn btn-primary mt-6">Check your shot</Link>
+            <Link href="/check" className="btn btn-primary mt-6">Check your shot</Link>
           </div>
           <div>
             <h3 className="display text-2xl sm:text-3xl">For coaches</h3>
@@ -175,7 +175,7 @@ export default function Landing() {
             </div>
           </dl>
           <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Link href="/analyse" className="btn btn-primary w-full !px-7 text-base font-semibold sm:w-auto">Check your shot</Link>
+            <Link href="/check" className="btn btn-primary w-full !px-7 text-base font-semibold sm:w-auto">Check your shot</Link>
             <Link href="/science" prefetch={false} className="inline-flex min-h-11 items-center text-sm text-fg-muted underline underline-offset-4 hover:text-fg">How the analysis works and what is validated</Link>
           </div>
         </div>

@@ -35,7 +35,7 @@ export function AnglesReport() {
   const idb = q.get("b");
   const [state, setState] = useState<State>({ kind: "loading" });
   const [details, setDetails] = useState(false);
-  const level = useSyncExternalStore(noSubscribe, () => readingLevel(loadProfile().ageBand), () => "plain" as ReadingLevel);
+  const level = useSyncExternalStore(noSubscribe, () => readingLevel(loadProfile().ageBand, loadProfile().level), () => "plain" as ReadingLevel);
 
   useEffect(() => {
     let alive = true;

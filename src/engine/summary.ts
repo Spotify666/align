@@ -110,7 +110,14 @@ export function simpleFix(m: Pick<Metric, "id" | "axis" | "value" | "range" | "i
  * the number and its target next to the fix as well.
  */
 export type ReadingLevel = "simple" | "plain" | "detailed";
-export function readingLevel(ageBand: string | null | undefined): ReadingLevel {
+/**
+ * The analysis level the batter chose (docs/13, decision 3). It decides the wording; age only
+ * stands in when no level has been chosen. The measurement is the same at every level.
+ */
+export type AnalysisLevel = "beginner" | "amateur" | "professional";
+const LEVEL_WORDING: Record<AnalysisLevel, ReadingLevel> = { beginner: "simple", amateur: "plain", professional: "detailed" };
+export function readingLevel(ageBand: string | null | undefined, level?: AnalysisLevel | null): ReadingLevel {
+  if (level) return LEVEL_WORDING[level];
   if (ageBand === "u13") return "simple";
   if (ageBand === "adult" || ageBand === "masters") return "detailed";
   return "plain";

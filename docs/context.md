@@ -3,6 +3,38 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-11 · References for the human figure; "finish the rest"; Batch 2 begun
+
+> https://youtu.be/onRylyZ0DX8 Something of this sort. Also please keep updating me on where
+> are we with shipping complete changes.
+
+> I have uploaded few videos earlier, you can take reference of them. Batsman, you can
+> consider Sachin, Virat. Scout from internet for their defence shots and apply the logic. And
+> then coach videos I'll upload later. And continue working and finish for the rest.
+
+- The YouTube link and any footage of professionals could not be opened: the session has no
+  access to video sites, and the earlier uploads are not in this session's storage (only the
+  one screenshot is). Told the athlete; asked for a clip file or screenshots in the chat.
+- Professionals' footage: usable as private reference for how a defence moves; showing their
+  clips, names or faces on the site needs rights (the athlete's own rule in the redesign brief).
+- Batch 2, first part, shipped: `/check`, the new capture terms, the analysis level (changes
+  the wording now) and focus areas (saved). `docs/13`, "Batch 2, first part, as built".
+- A status table goes in every report from now on.
+
+## 2026-11-11 · A human in the landing figure: asked for, not delivered yet
+
+> Why can't you use human for action and illustration?
+
+> See human illustration playing a cricketing [shot].
+
+Tried: a figure with a body's proportions driven by a real batter's movement (the pose track of
+a phone clip at the nets already in `tests/assets/real`, which turned out to be filmed from the
+bowler's end). Not shipped: seventeen tracked points and no tracked bat still draw a mannequin,
+not a person, and the bat had to be guessed from the hands. The instrument view (PR #48) stays
+live. What would work: a real clip or photo the athlete has the rights to (their own, or
+licensed stock) shown with Aline's real overlay, or a finished illustration or animation from an
+illustrator. Waiting on the athlete for one of those.
+
 ## 2026-11-11 · The landing figure: not a drawn batter
 
 > This illustration is nowhere close to what human biomechanics show a cricket shot. It looks
