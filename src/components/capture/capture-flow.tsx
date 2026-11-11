@@ -51,6 +51,7 @@ import type { AnyCanvas } from "@/lib/capture/canvas";
 import { canvasBlob, loadPhotos, type PhotoLoad } from "@/lib/capture/photos";
 import { feetHandedness, gripHandedness } from "@/lib/capture/grip";
 import { buildObservation, EMPTY_MARKS, type Marks, type TrackingResult } from "@/lib/capture/build-observation";
+import { AnalysisOptions } from "./analysis-options";
 import { getAnalysis, getTracks, loadProfile, saveAnalysis, saveProfile, updateAnalysis, type LocalProfile } from "@/lib/store";
 import { angleFamily, otherAngleView, type AngleFamily } from "@/engine/angles";
 import { handsHeight, sameBall, sameBallTwoVideos, shotTime, type Movement } from "@/engine/same-ball";
@@ -1197,7 +1198,7 @@ export function CaptureFlow() {
       const name = f?.name?.replace(/\.[^.]+$/, "");
       const title = remark?.title ?? (tr.kind === "photo" ? (tr.body.length > 1 ? `${tr.body.length} photos` : (name ?? "Photo")) : (name ?? SHOT_TITLE[target]));
       const recordedAt = remark?.recordedAt ?? (f?.lastModified ? new Date(f.lastModified).toISOString() : createdAt);
-      await saveAnalysis({ id, createdAt, recordedAt, payload, title, notes: "", tags: [], representative: false, cloud: null }, gz, keyframes);
+      await saveAnalysis({ id, createdAt, recordedAt, payload, title, notes: "", tags: [], representative: false, cloud: null, session: { level: profile.level, focusAreas: profile.focusAreas } }, gz, keyframes);
       if (clipUrl && tr.kind === "video") {
         sessionMedia.set(id, { url: clipUrl, mediaTimes: mediaTimesRef.current });
         sessionCapture.set(id, { tracking: tr, view: finalMarks.view === "front_on" || finalMarks.view === "behind" ? finalMarks.view : "side_on", bowlerSide: finalMarks.bowlerSide, title, createdAt, recordedAt, target });
@@ -1291,9 +1292,16 @@ export function CaptureFlow() {
               <>
                 <div>
                   <p className="eyebrow">{SHOT_TITLE[shot]}</p>
-                  <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Add your shot</h1>
-                  <p className="mt-2 text-fg-muted">A video or a few photos. Film from the side if you can.</p>
+                  <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Check your shot</h1>
+                  <p className="mt-2 text-fg-muted">Upload a video for a movement analysis, or photos for a per-frame form check. Film from the side if you can.</p>
                 </div>
+                <AnalysisOptions
+                  profile={profile}
+                  onChange={(next) => {
+                    setProfile(next);
+                    saveProfile(next);
+                  }}
+                />
                 {paired && (
                   <p className="rounded-xl border border-line-strong px-4 py-3 text-sm">
                     <span className="font-semibold">This ball already has both angles.</span>{" "}
@@ -1403,19 +1411,19 @@ export function CaptureFlow() {
                 >
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Upload size={26} className="text-brand" />
-                    <span className="font-semibold">Choose a video</span>
-                    <span className="text-xs text-fg-subtle">1 video</span>
+                    <span className="font-semibold">Upload a video</span>
+                    <span className="text-xs text-fg-subtle">Movement analysis · 1 video</span>
                     <input type="file" disabled={!consented} accept={VIDEO_ACCEPT} className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <Target size={26} className="text-data" />
-                    <span className="font-semibold">Choose photos</span>
-                    <span className="text-xs text-fg-subtle">Up to 12</span>
+                    <span className="font-semibold">Per-frame form check</span>
+                    <span className="text-xs text-fg-subtle">Photos, up to 12 · position only</span>
                     <input type="file" disabled={!consented} accept="image/*,.heic,.heif" multiple className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                   <label className={`card card-hover p-5 flex flex-col items-center gap-2 text-center ${consented ? "cursor-pointer" : "pointer-events-none"}`}>
                     <RecordIcon size={26} className="text-bad" />
-                    <span className="font-semibold">Record a video</span>
+                    <span className="font-semibold">Record a shot</span>
                     <span className="text-xs text-fg-subtle">Opens your camera</span>
                     <input type="file" disabled={!consented} accept="video/*" capture="environment" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
@@ -1456,8 +1464,8 @@ export function CaptureFlow() {
                         <Upload size={22} className="text-brand" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold">Two angles of one ball</span>
-                        <span className="block text-sm text-fg-muted">2 videos max: the same ball, filmed from the side and the front at the same time</span>
+                        <span className="block font-semibold">Dual-angle capture</span>
+                        <span className="block text-sm text-fg-muted">2 videos of the same ball, filmed from the side and the front at the same time</span>
                       </span>
                       <Chevron size={18} className="shrink-0 text-fg-muted" />
                     </button>

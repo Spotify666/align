@@ -64,7 +64,8 @@ export function duration(ms: number): string {
 const PAGE_NAMES: Record<string, string> = {
   "/": "Opening page",
   "/home": "Home",
-  "/analyse": "Analyse",
+  "/analyse": "Check your shot",
+  "/check": "Check your shot",
   "/report/…": "A report",
   "/angles": "Two-angle report",
   "/sessions": "Sessions",

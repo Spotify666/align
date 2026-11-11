@@ -61,7 +61,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
   // Everything beyond the summary is drawn only when the batter turns "Details" on.
   const [details, setDetails] = useState(false);
   // Worded for the batter's age (profile); pages rendered ahead of time start from "plain".
-  const level = useSyncExternalStore(noSubscribe, () => readingLevel(loadProfile().ageBand), () => "plain" as ReadingLevel);
+  const level = useSyncExternalStore(noSubscribe, () => readingLevel(loadProfile().ageBand, loadProfile().level), () => "plain" as ReadingLevel);
   const shot = shotOf(p);
   const shotName = SHOT_NAME[shot];
   const observedLabel = p.observed_shot?.label;

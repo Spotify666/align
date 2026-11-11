@@ -19,7 +19,7 @@ const PRIMARY = [
 const TABS = [
   { href: "/home", label: "Home", Icon: Home },
   { href: "/sessions", label: "Sessions", Icon: List },
-  { href: "/analyse", label: "Check", Icon: Plus, primary: true },
+  { href: "/check", label: "Check", Icon: Plus, primary: true },
   { href: "/progress", label: "Progress", Icon: Trend },
   { href: "/profile", label: "Profile", Icon: User },
 ];
@@ -87,7 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/profile" className="hidden lg:inline-flex btn btn-quiet !min-h-9 !px-3 !py-1.5 text-sm">
               <User size={16} /> Profile
             </Link>
-            <Link href="/analyse" className="hidden sm:inline-flex btn btn-primary !min-h-10 !py-1.5 text-sm">
+            <Link href="/check" className="hidden sm:inline-flex btn btn-primary !min-h-10 !py-1.5 text-sm">
               Check your shot
             </Link>
             <button
@@ -147,7 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="space-y-2">
             <p className="font-medium">Product</p>
-            <Link href="/analyse" className="block text-fg-subtle hover:text-fg">Check your shot</Link>
+            <Link href="/check" className="block text-fg-subtle hover:text-fg">Check your shot</Link>
             <Link href="/guide" className="block text-fg-subtle hover:text-fg">How it works</Link>
             <Link href="/sample" className="block text-fg-subtle hover:text-fg">Sample reports</Link>
           </div>

@@ -22,7 +22,8 @@ Three things to know before reading:
 |---|---|
 | 0 Plan | Approved 2026-11-11 |
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
-| 2–8 | Not started |
+| 2 Analysis interaction | **In progress.** Shipped: "Check your shot" screen and `/check`, the new capture terms, the analysis level (decides the wording now) and focus areas (saved with the analysis). Not yet: capture-position guide, camera overlay, body measurements, dual-angle session shell, splitting the capture flow, one entry without choosing the shot |
+| 3–8 | Not started |
 
 ## 1. Diagnosis
 
@@ -467,3 +468,23 @@ the line, the same finding as the sample report). No person is depicted.
 
 **Still the better hero, and not possible yet**: a real clip of a real batter with the engine's
 real overlay. It needs one clip the owner has the rights to.
+
+## Batch 2, first part, as built (2026-11-11)
+
+- `/check` is the way in ("Check your shot"); `/analyse` still works for older links.
+- Capture terms: Upload a video (Movement analysis), Per-frame form check, Record a shot,
+  Dual-angle capture.
+- **Analysis level** (`components/capture/analysis-options.tsx`, `LocalProfile.level`): Beginner,
+  Amateur, Professional. It decides the report's wording now (`readingLevel(ageBand, level)`):
+  the same sample reads "Get your head over your front foot" at Beginner and adds the value
+  and its target at Professional. Age only stands in when no level is chosen. Nothing measured
+  changes.
+- **Focus areas**: eight, optional, saved with the profile and with each analysis
+  (`StoredAnalysis.session`). They do not reorder the report yet, and the screen says so.
+- Not touched: `src/engine` apart from `readingLevel`'s extra argument (wording only).
+
+**The landing hero** stays the instrument view. A human figure driven by a real batter's pose
+track was built and not shipped (it read as a mannequin). The owner pointed to a YouTube video
+and to professionals' defences as reference; neither could be opened from the session (no
+access to video sites), and no video file was in the session's storage. Open: needs a clip
+file, or screenshots of the reference, sent in the chat.

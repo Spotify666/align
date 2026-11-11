@@ -2,6 +2,7 @@
 // On-device store (IndexedDB). Analyses work fully offline and signed-out; cloud
 // sync is an explicit, consented action. Raw video is never written here.
 
+import type { AnalysisLevel } from "@/engine/summary";
 import type { AnalysisPayload } from "@/engine/types";
 
 export interface StoredAnalysis {
@@ -18,7 +19,27 @@ export interface StoredAnalysis {
   sharedProfileId?: string | null;
   /** The same ball filmed from the other angle (side / front), when the batter added it. */
   otherAngle?: string | null;
+  /** What the batter chose before this analysis, so the report can be reproduced: level and focus areas. */
+  session?: { level: AnalysisLevel | null; focusAreas: FocusAreaId[] };
 }
+
+/** The areas a batter can ask a report to lead with. Choosing none means the level's default. */
+export const FOCUS_AREAS = [
+  { id: "alignment", label: "Head and body alignment" },
+  { id: "footwork", label: "Footwork and base" },
+  { id: "balance", label: "Balance and weight transfer" },
+  { id: "bat_contact", label: "Bat path and contact" },
+  { id: "hands", label: "Hands, wrists and elbows" },
+  { id: "timing", label: "Timing and movement sequence" },
+  { id: "outcome", label: "Shot outcome" },
+  { id: "reference", label: "Compare with a reference" },
+] as const;
+export type FocusAreaId = (typeof FOCUS_AREAS)[number]["id"];
+export const ANALYSIS_LEVELS: ReadonlyArray<{ id: AnalysisLevel; label: string; says: string }> = [
+  { id: "beginner", label: "Beginner", says: "Plain words. One thing that was good, one thing to fix, no numbers." },
+  { id: "amateur", label: "Amateur", says: "Cricket terms, with values where they help." },
+  { id: "professional", label: "Professional", says: "The value and its target beside every fix." },
+];
 
 const DB = "align";
 const VERSION = 1;
@@ -133,6 +154,9 @@ export interface LocalProfile {
   heightCm: number | null;
   ageBand: "u13" | "13_15" | "16_18" | "adult" | "masters" | null;
   skill: "beginner" | "club" | "academy" | "elite" | null;
+  /** The analysis level the batter chose; null until they choose (wording then follows the age band). */
+  level: AnalysisLevel | null;
+  focusAreas: FocusAreaId[];
   displayName: string;
   consentProcessing: boolean;
   retentionDays: number;
@@ -147,6 +171,8 @@ export const DEFAULT_PROFILE: LocalProfile = {
   displayName: "",
   consentProcessing: false,
   retentionDays: 14,
+  level: null,
+  focusAreas: [],
 };
 
 export function loadProfile(): LocalProfile {
