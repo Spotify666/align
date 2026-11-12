@@ -95,7 +95,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Coaching and drill ladders | `coaching.ts`, `scoring.ts` (`buildPlan`) |
 | Back-foot defence (measures, ranges, coaching, gate) | `backfoot.ts`, `backfoot-defs.ts`, `backfoot-coaching.ts`, `analyze.ts` (`analyzeBackFoot`), report `back-foot-panel.tsx`, guide `back-foot-guide.tsx` |
 | Shot signature and match % | `signature.ts`, `src/lib/compare.ts`, Supabase `shot_profiles` |
-| Capture (scan, pick batter, gate, track) | `src/components/capture/capture-flow.tsx`, `src/lib/capture/*` |
+| Capture (scan, pick batter, gate, track) | `src/components/capture/capture-flow.tsx`, `src/lib/capture/*`; lining the phone up before recording (live picture, guides, level; guidance, not a gate) `camera-line-up.tsx`, `src/lib/capture/line-up.ts`; where to stand `pitch-guide.tsx` |
 | Parallel model work (workers; must give the page's exact results) | `src/lib/capture/vision.worker.ts`, `vision-pool.ts` |
 | Landing (one action, a line-art batter that stops on four moments, the engine's measured example beside the sample, what is true today) | `src/app/page.tsx`, `src/components/landing/batter-figure.tsx`, `src/lib/batter-art.ts` (key poses; `tests/batter-art.test.ts`), `hero-figure.tsx`, `src/lib/hero-geometry.ts` (the measured line); redesign plan and batches @docs/13-redesign-master-plan.md |
 | Brand (mark geometry, flat and 3D logo, icons) | `src/components/brand/*`, `scripts/brand-icons.mjs` |

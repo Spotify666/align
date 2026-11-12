@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { CameraPlacementDiagram } from "@/components/capture/setup-guide";
+import { PitchGuide } from "@/components/capture/pitch-guide";
 import { MarkHint } from "@/components/guide/mark-illustrations";
 import { Reveal } from "@/components/common/reveal";
 import { Check, Cross } from "@/components/icons";
@@ -77,7 +77,7 @@ export default function GuidePage() {
               </ol>
             </div>
           </div>
-          <CameraPlacementDiagram />
+          <PitchGuide />
           <p className="rounded-xl bg-tint p-3 text-sm text-fg-muted">
             Only able to film from behind the bowler? That works too — Aline recognises the camera position. Some distances become estimates and bounce, bat speed and ball speed aren&apos;t measured.
           </p>

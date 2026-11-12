@@ -4,7 +4,8 @@ import { useState } from "react";
 
 type View = "side" | "end";
 
-const STEPS: Record<View, { title: string; steps: string[]; alt: string }> = {
+/** What each camera position asks for, in order. Also read by the line-up screen. */
+export const CAMERA_STEPS: Record<View, { title: string; steps: string[]; alt: string }> = {
   side: {
     title: "From the side",
     alt: "Plan of the pitch. The phone is square of the batter, level with the crease, 6 to 8 metres away on the off side.",
@@ -43,7 +44,7 @@ const CREASE = BAT + 12.2;
  */
 export function PitchGuide() {
   const [view, setView] = useState<View>("side");
-  const g = STEPS[view];
+  const g = CAMERA_STEPS[view];
   const cam = view === "side" ? { x: CREASE, y: CY + 70 } : { x: BOWL + 24, y: CY };
   const zone = view === "side" ? { x: CREASE - 15, y: CY + 60, w: 30, h: 20 } : { x: BOWL + 14, y: CY - 8, w: 22, h: 16 };
   const other = view === "side" ? { x: BOWL + 24, y: CY } : { x: CREASE, y: CY + 70 };
@@ -61,7 +62,7 @@ export function PitchGuide() {
             onClick={() => setView(v)}
             className={`min-h-11 rounded-md border px-2 text-sm font-medium transition-colors duration-150 ${view === v ? "border-brand bg-brand-soft text-fg" : "border-line-strong text-fg-muted hover:text-fg"}`}
           >
-            {STEPS[v].title}
+            {CAMERA_STEPS[v].title}
           </button>
         ))}
       </div>
