@@ -3,6 +3,37 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-11 · "UI feel like cricshot"; a line-art batter where every arm action is clear
+
+> UI feel should be similar to this https://cricshot.vercel.app/ The illustration is still bad
+> https://youtu.be/onRylyZ0DX8 Need it similar to this YouTube video where every arm action is
+> clearly understandble with movement
+
+Both references were opened this time (a cloud environment "align" now allows those hosts;
+cricshot was only looked at, never touched). cricshot: sentence-case headline with one accented
+phrase, a small pill label, pill buttons, a row of plain numbers, rounded panels. The video: a
+black line drawing of a batter traced from footage (Green Screen Fx); its licence could not be
+read, so nothing was taken from it.
+
+Shipped:
+- **Feel**: the landing and the controls follow cricshot's feel, in Aline's own black and orange
+  (the colours approved the same day): pill buttons app-wide, rounded panels, a friendlier
+  display type, "Every shot, explained." with the last word in orange, three plain numbers (17
+  body points tracked, 2 shots graded today, 0 videos uploaded). Navy and blue were **not**
+  taken; asked the athlete whether they want those too.
+- **The batter** (`src/lib/batter-art.ts`, `components/landing/batter-figure.tsx`): a line
+  drawing of a kitted batter (helmet, pads, gloves, bat) playing a front-foot defence, seen from
+  the off side so both arms and the bat are in view the whole way. It plays slowly and stops on
+  four moments (Stance, Backlift, Stride, Contact), each with what the hands, elbows and head are
+  doing; the orange line appears at contact. Hands are named by role (top hand, bottom hand).
+  It is drawn from hand-made key poses, not traced from a person and not a result, and the
+  page says "Illustration" and "Not a recording". `tests/batter-art.test.ts` holds it to a human
+  body (bone lengths, planted feet, the bat coming down from behind, the contact position).
+- The measured example (the line with the engine's ranges) moved down beside the sample result.
+
+Still open: a figure traced from a real batter (the look of the reference) needs a clip the
+athlete has the rights to, sent as a file in the chat.
+
 ## 2026-11-11 · Batch 2, second part: where to put the phone; body measurements
 
 Continuing "finish the rest". Shipped: a to-scale plan of the pitch showing both camera

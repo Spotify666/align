@@ -500,3 +500,27 @@ file, or screenshots of the reference, sent in the chat.
   forearm, leg length. All optional, each "not provided" until given, kept on the device, with
   why each would help. **Not used in the analysis yet**, and the page says so (Batch 4).
 - The analysis level can also be set from the Profile page.
+
+
+## The landing, changed again (2026-11-11, owner's feedback)
+
+"UI feel should be similar to cricshot… the illustration is still bad… similar to this YouTube
+video where every arm action is clearly understandable with movement."
+
+- **Feel**: cricshot's (sentence-case headline with one accented word, a pill label, pill
+  buttons, a row of plain numbers, rounded panels) in the colours decided in section 16. This
+  replaces "lanes, not cards" and the wide scoreboard display type of section 4; orange is still
+  never a surface. Pill buttons and the display type apply app-wide (two CSS rules under
+  `[data-ui="2"]`); the other pages are otherwise unchanged.
+- **Hero**: a line drawing of a batter (`batter-art.ts`) instead of the instrument view, which
+  moved down beside the sample result. Key poses drawn by hand (stance, backlift, mid-stride,
+  hands down, plant, contact), joined by a monotone cubic so planted feet stay planted; kit
+  drawn as outlined silhouettes that hide what is behind them; both hands on the handle by
+  construction. Canvas 2D (`Path2D`) over a server-drawn SVG still; four moments to stop on.
+- **Honest limits**: it is an illustration and labelled as one. It is not traced from footage,
+  so it has the clean look of a diagram, not the hand-drawn look of the reference. One batter,
+  right-handed; a left-hander's own drawing is not made yet (it must be drawn, not mirrored).
+
+Measured, production build, phone width, 4× CPU slowdown: largest paint 0.23 s, blocking
+160 ms, JavaScript 222 KB, all bytes 507 KB, layout shift 0, targets under 44 px 0, frames
+drawn off-screen, while held on a moment, or under reduced motion 0.
