@@ -6,14 +6,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { analyze, TARGET_NAME } from "@/engine/analyze";
+import { analyze } from "@/engine/analyze";
+import { analyzeUnchosen } from "@/engine/identify";
 import { assessCapture } from "@/engine/quality";
 import { encodeTracks, quantise } from "@/engine/tracks-codec";
-import { J, type AnalysisPayload, type CameraPoint, type CaptureObservation, type CaptureQuality, type FrameQuality, type ImgPoint, type TargetShot, type Tier } from "@/engine/types";
-import { readVideoTrack, type VideoTrackInfo } from "@/lib/capture/mp4";
+import { type CameraPoint, type CaptureObservation, type CaptureQuality, type FrameQuality, type ImgPoint, type TargetShot, type Tier } from "@/engine/types";
+import { readVideoTrack } from "@/lib/capture/mp4";
 import { FrameQualitySampler } from "@/lib/capture/frame-quality";
 import {
-  batterLikeness,
   bodyBox,
   detectFrame,
   detectPeople,
@@ -44,7 +44,6 @@ import { strokeSegment } from "@/lib/capture/segments";
 import { linkBack } from "@/lib/capture/link";
 import { LumaTrack } from "@/lib/capture/picture-cuts";
 import { CameraMotion } from "@/lib/capture/camera-motion";
-import { findPictureArea } from "@/lib/capture/bars";
 import { playFrames } from "@/lib/capture/frames";
 import { openDecoded, type DecodedVideo } from "@/lib/capture/decoder";
 import type { AnyCanvas } from "@/lib/capture/canvas";
@@ -62,12 +61,37 @@ import { isSessionUrl, sessionCapture, sessionMedia } from "@/lib/session-media"
 import { CaptureChecklist } from "../report/panels";
 import { PitchGuide } from "./pitch-guide";
 import { CameraLineUp } from "./camera-line-up";
+import { ShotChooser } from "./shot-chooser";
 import { MarkEvidence } from "./mark-evidence";
 import { MomentPicker } from "./moment-picker";
 import { BatterPicker } from "./batter-picker";
 import { ViewPicker } from "./view-picker";
 import { Camera, Check, Chevron, Upload, Record as RecordIcon, Target } from "../icons";
 import { timeEnd, timeFlush, timeStart } from "@/lib/capture/timing";
+import {
+  GATE_SAMPLES,
+  MAX_AUTO_TRIES,
+  SHOT_TITLE,
+  VIDEO_EXT,
+  WINDOW_SEC,
+  bestWindow,
+  cropFor,
+  decodeMessage,
+  estimatePlaybackFps,
+  fmtTime,
+  grabKeyframes,
+  loaded,
+  pictureAreaOf,
+  rank,
+  resultWords,
+  shotNote,
+  snapshot,
+  trackPlan,
+  verifyCandidates,
+  type Attempt,
+  type Meta,
+  type Win,
+} from "./flow-helpers";
 import { track as logVisit } from "@/lib/visit";
 
 // One screen to add a clip; everything after that runs on its own. Each automatic
@@ -95,95 +119,7 @@ const PHOTO_STAGES: Array<[StageKey, string]> = [
 ];
 const VIEW_TEXT: Record<ViewChoice, string> = { side_on: "side-on", front_on: "bowler's end", behind: "behind the batter" };
 
-interface Meta {
-  width: number;
-  height: number;
-  containerFps: number | null;
-  fpsSource: CaptureObservation["media"]["fpsSource"];
-  durationSec: number;
-}
-interface Attempt {
-  obs: CaptureObservation;
-  payload: AnalysisPayload;
-  tr: TrackingResult;
-  marks: Marks;
-  times: number[];
-}
-
-/** Clearest result first: a confirmed defence, then a confirmed different shot, then the most like the shot asked for. */
-function rank(p: AnalysisPayload): number {
-  const base = { valid: 3, invalid_for_requested_analysis: 2, uncertain_shot: 1, capture_failed: 0 }[p.analysis_status] ?? 0;
-  return base + (p.shot_probabilities?.[p.requested_shot ?? "front_foot_defence"] ?? 0) * 0.5;
-}
-
-const SHOT_TITLE: Record<TargetShot, string> = { front_foot_defence: "Front-foot defence", back_foot_defence: "Back-foot defence" };
-const SHOT_CHOICES: Array<{ id: TargetShot; title: string; note: string }> = [
-  { id: "front_foot_defence", title: "Front-foot defence", note: "Full ball: step forward" },
-  { id: "back_foot_defence", title: "Back-foot defence", note: "Short ball: step back" },
-];
-
-interface Win {
-  start: number;
-  end: number;
-  peak: number;
-}
-
-const MAX_FRAMES = 300;
-const WINDOW_SEC = 3.4;
-
-/**
- * The frames tracked for a shot window, and the ones (every 0.08 s up to the stroke) on
- * which the batter is linked back from the stroke through the person detector.
- */
-function trackPlan(w: Win, m: Meta, slow: number) {
-  const cFps = m.containerFps ?? 30;
-  const rFps = cFps * slow;
-  const windowLen = Math.min(m.durationSec - w.start, w.end - w.start);
-  const containerFrames = Math.max(2, Math.floor(windowLen * cFps));
-  const stride = Math.max(1, Math.ceil(containerFrames / MAX_FRAMES));
-  const count = Math.floor(containerFrames / stride);
-  const times = Array.from({ length: count }, (_, i) => w.start + (i * stride + 0.5) / cFps);
-  // The stroke: the frame the batter was identified on.
-  const key = times.reduce((best, t, i) => (Math.abs(t - w.peak) < Math.abs(times[best]! - w.peak) ? i : best), 0);
-  const every = Math.max(1, Math.round((0.08 * rFps) / stride));
-  const idx = times.slice(0, key + 1).map((_, i) => i).filter((i) => i % every === 0 || i === key);
-  return { cFps, rFps, windowLen, stride, count, times, key, every, idx, pre: idx.map((i) => times[i]!) };
-}
-const GATE_SAMPLES = 12;
-const MAX_AUTO_TRIES = 3;
-const VIDEO_EXT = /\.(mp4|m4v|mov|webm|mkv|3gp|3g2|avi|wmv|flv|mts|m2ts|ts)$/i;
-// How a result reads in the visit log.
-const RESULT_WORDS: Record<AnalysisPayload["analysis_status"], string> = {
-  valid: "graded",
-  invalid_for_requested_analysis: "not a front-foot defence",
-  uncertain_shot: "shot unclear",
-  capture_failed: "capture not usable",
-};
-const resultWords = (p: AnalysisPayload) => {
-  const shot = p.requested_shot ?? "front_foot_defence";
-  const words = p.analysis_status === "invalid_for_requested_analysis" ? `not a ${TARGET_NAME[shot]}` : RESULT_WORDS[p.analysis_status];
-  return shot === "front_foot_defence" ? words : `${SHOT_TITLE[shot].toLowerCase()}: ${words}`;
-};
-const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-
-/** The picture area inside black bars, from four small frames spread over the clip. */
-async function pictureAreaOf(v: HTMLVideoElement): Promise<Roi | null> {
-  const a = v.videoWidth / Math.max(1, v.videoHeight);
-  const w = 160;
-  const h = Math.max(16, Math.round(w / a));
-  const c = Object.assign(document.createElement("canvas"), { width: w, height: h });
-  const ctx = c.getContext("2d", { willReadFrequently: true })!;
-  const frames: Float32Array[] = [];
-  for (const f of [0.2, 0.4, 0.6, 0.8]) {
-    await seek(v, v.duration * f);
-    ctx.drawImage(v, 0, 0, w, h);
-    const px = ctx.getImageData(0, 0, w, h).data;
-    const g = new Float32Array(w * h);
-    for (let k = 0; k < g.length; k++) g[k] = (0.299 * px[k * 4]! + 0.587 * px[k * 4 + 1]! + 0.114 * px[k * 4 + 2]!) / 255;
-    frames.push(g);
-  }
-  return findPictureArea(frames, w, h);
-}
+// Types, limits and video helpers live in flow-helpers.ts.
 
 export function CaptureFlow() {
   const router = useRouter();
@@ -201,12 +137,17 @@ export function CaptureFlow() {
   // The shot to analyse: the back-foot defence when opened with ?shot=back, else the front-foot
   // defence. Follows the address when a link changes it while the page stays open.
   const params = useSearchParams();
-  const urlShot: TargetShot = params.get("shot") === "back" ? "back_foot_defence" : "front_foot_defence";
+  const urlParam = params.get("shot");
+  const urlShot: TargetShot = urlParam === "back" ? "back_foot_defence" : "front_foot_defence";
   const [shot, setShotState] = useState<TargetShot>(urlShot);
-  const [seenUrlShot, setSeenUrlShot] = useState<TargetShot>(urlShot);
-  if (urlShot !== seenUrlShot) {
-    setSeenUrlShot(urlShot);
+  // Whether the batter said which shot it is. Left unsaid, Aline tells (engine/identify.ts): it
+  // checks for a front-foot defence, and for a back-foot one when the first result points there.
+  const [chosen, setChosen] = useState(urlParam === "back" || urlParam === "front");
+  const [seenUrlShot, setSeenUrlShot] = useState(urlParam);
+  if (urlParam !== seenUrlShot) {
+    setSeenUrlShot(urlParam);
     setShotState(urlShot);
+    setChosen(urlParam === "back" || urlParam === "front");
   }
   const [profile, setProfile] = useState<LocalProfile>(() => loadProfile());
   const [tier] = useState<Tier>("quick");
@@ -277,12 +218,16 @@ export function CaptureFlow() {
     hand: null as "right" | "left" | null,
     /** The shot asked for, fixed when a clip or photos are chosen. */
     target: "front_foot_defence" as TargetShot,
+    /** The batter didn't say which shot: Aline tells, starting from the front-foot defence. */
+    unchosen: false,
   });
-  const setShot = (t: TargetShot) => {
-    setShotState(t);
+  const setShot = (t: TargetShot | null) => {
+    setShotState(t ?? "front_foot_defence");
+    setChosen(t !== null);
     // Keep the choice in the address, so a reload or a shared link opens the same shot.
     const u = new URL(window.location.href);
     if (t === "back_foot_defence") u.searchParams.set("shot", "back");
+    else if (t === "front_foot_defence") u.searchParams.set("shot", "front");
     else u.searchParams.delete("shot");
     window.history.replaceState(window.history.state, "", u);
   };
@@ -342,6 +287,7 @@ export function CaptureFlow() {
     setTwoFiles(first ? [first, f] : null);
     triedAt.current = performance.now();
     job.current.target = shot;
+    job.current.unchosen = !chosen;
     logVisit("analyse", `video, ${(f.size / 1e6).toFixed(1)} MB`);
     void startVideo(f);
   };
@@ -386,6 +332,7 @@ export function CaptureFlow() {
       setView(cap.view);
       setBowlerSide(cap.bowlerSide);
       job.current.target = cap.target ?? "front_foot_defence";
+      job.current.unchosen = false;
       setShotState(cap.target ?? "front_foot_defence");
       setRemark({ id, title: cap.title, createdAt: cap.createdAt, recordedAt: cap.recordedAt });
       setPhase("mark");
@@ -444,7 +391,7 @@ export function CaptureFlow() {
     nextReport.current = null;
     run.current++;
     job.current.src?.close();
-    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, viewConfident: false, viewTwo: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null, target: job.current.target };
+    job.current = { meta: null, scan: null, win: null, cands: [], batter: 0, view: "side_on", bowlerSide: "right", viewChosen: false, viewConfident: false, viewTwo: false, shotChosen: false, slow: 1, tried: [], attempts: [], src: null, hand: null, target: job.current.target, unchosen: job.current.unchosen };
     setScan(null);
     setScanProgress(0);
     setWin(null);
@@ -1127,11 +1074,14 @@ export function CaptureFlow() {
     timeStart("report");
     try {
       const id = remark?.id ?? reportId();
-      const target = job.current.target;
-      const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: tr.handedness ?? profile.handedness, heightCm: profile.heightCm, target });
-      const obs = quantise(raw);
+      const unchosen = job.current.unchosen && !remark;
+      const raw = buildObservation({ id, tracking: tr, marks: finalMarks, tier, handedness: tr.handedness ?? profile.handedness, heightCm: profile.heightCm, target: job.current.target });
       const createdAt = remark?.createdAt ?? new Date().toISOString();
-      let payload = analyze(obs, { analysisId: id, createdAt });
+      // Left unsaid, the shot is told by Aline: the front-foot analysis, or the back-foot one
+      // when the first result itself points there (the report's own hand-off, done for the batter).
+      const told = unchosen ? analyzeUnchosen(quantise(raw), { analysisId: id, createdAt }) : null;
+      const obs = told ? told.obs : quantise(raw);
+      let payload = told ? told.payload : analyze(obs, { analysisId: id, createdAt });
       let attempt: Attempt = { obs, payload, tr, marks: finalMarks, times: [...mediaTimesRef.current] };
 
       // A clip with several shots: if this one couldn't be confirmed either way (or the
@@ -1198,9 +1148,11 @@ export function CaptureFlow() {
       const f = fileRef.current;
       const clipUrl = urlRef.current;
       const name = f?.name?.replace(/\.[^.]+$/, "");
+      // The shot the result is for (Aline's own answer when the batter didn't choose).
+      const target: TargetShot = payload.requested_shot ?? "front_foot_defence";
       const title = remark?.title ?? (tr.kind === "photo" ? (tr.body.length > 1 ? `${tr.body.length} photos` : (name ?? "Photo")) : (name ?? SHOT_TITLE[target]));
       const recordedAt = remark?.recordedAt ?? (f?.lastModified ? new Date(f.lastModified).toISOString() : createdAt);
-      await saveAnalysis({ id, createdAt, recordedAt, payload, title, notes: "", tags: [], representative: false, cloud: null, session: { level: profile.level, focusAreas: profile.focusAreas } }, gz, keyframes);
+      await saveAnalysis({ id, createdAt, recordedAt, payload, title, notes: "", tags: [], representative: false, cloud: null, session: { level: profile.level, focusAreas: profile.focusAreas, intended: unchosen ? null : target } }, gz, keyframes);
       if (clipUrl && tr.kind === "video") {
         sessionMedia.set(id, { url: clipUrl, mediaTimes: mediaTimesRef.current });
         sessionCapture.set(id, { tracking: tr, view: finalMarks.view === "front_on" || finalMarks.view === "behind" ? finalMarks.view : "side_on", bowlerSide: finalMarks.bowlerSide, title, createdAt, recordedAt, target });
@@ -1220,6 +1172,11 @@ export function CaptureFlow() {
         firstRef.current = { id, media: fileRef.current, shot: shotTime(payload, attempt.obs), move: handsHeight(attempt.obs) };
         const second = twoRef.current.second;
         twoRef.current = { second: null };
+        // The second video is the same ball: it is checked as the shot the first was.
+        job.current.target = target;
+        job.current.unchosen = false;
+        setShotState(target);
+        setChosen(true);
         setTwoStep(2);
         void startVideo(second);
         return;
@@ -1254,6 +1211,7 @@ export function CaptureFlow() {
     setTwoFiles(videos.length === 2 ? [videos[0]!, videos[1]!] : null);
     triedAt.current = performance.now();
     job.current.target = shot;
+    job.current.unchosen = !chosen;
     logVisit("analyse", vid ? `video, ${(vid.size / 1e6).toFixed(1)} MB` : images.length ? `${images.length} photo${images.length === 1 ? "" : "s"}` : "unsupported file");
     if (vid) return startVideo(vid);
     if (images.length) return startPhotos(images);
@@ -1293,7 +1251,7 @@ export function CaptureFlow() {
             {phase === "add" && (
               <>
                 <div>
-                  <p className="eyebrow">{SHOT_TITLE[shot]}</p>
+                  <p className="eyebrow">{chosen ? SHOT_TITLE[shot] : "Front-foot or back-foot defence"}</p>
                   <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Check your shot</h1>
                   <p className="mt-2 text-fg-muted">Upload a video for a movement analysis, or photos for a per-frame form check. Film from the side if you can.</p>
                 </div>
@@ -1316,29 +1274,7 @@ export function CaptureFlow() {
                   </p>
                 )}
 
-                <fieldset>
-                  <legend className="text-sm font-semibold">Which shot?</legend>
-                  <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Shot to analyse">
-                    {SHOT_CHOICES.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        role="radio"
-                        aria-checked={shot === c.id}
-                        onClick={() => setShot(c.id)}
-                        className={`rounded-2xl border p-3 text-left transition-colors ${shot === c.id ? "border-brand bg-brand/10" : "border-line hover:border-line-strong"}`}
-                      >
-                        <span className="flex items-center gap-2 font-semibold">
-                          <span aria-hidden className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${shot === c.id ? "border-brand" : "border-line-strong"}`}>
-                            {shot === c.id && <span className="h-2 w-2 rounded-full bg-brand" />}
-                          </span>
-                          {c.title}
-                        </span>
-                        <span className="mt-1 block text-xs text-fg-subtle">{c.note}</span>
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
+                <ShotChooser value={chosen ? shot : null} onChange={setShot} />
 
                 <label className="flex items-center justify-between gap-4">
                   <span>
@@ -1741,172 +1677,4 @@ function SlowExport({ slow, onChange }: { slow: number; onChange: (s: number) =>
       </select>
     </label>
   );
-}
-
-/** The best shot not tried yet: verified first, then by score. -1 when none is left. */
-function bestWindow(res: ScanResult, tried: number[]): number {
-  let best = -1;
-  res.windows.forEach((w, i) => {
-    if (tried.includes(i)) return;
-    const b = res.windows[best];
-    if (!b || Number(!!w.verified) > Number(!!b.verified) || (!!w.verified === !!b.verified && w.score > b.score)) best = i;
-  });
-  return best;
-}
-
-function shotNote(res: ScanResult, i: number): string {
-  const w = res.windows[i];
-  if (!w) return "Using the whole clip";
-  const n = res.windows.length;
-  return n > 1 ? `Shot at ${fmtTime(w.peak)} — best of ${n} found` : `Shot at ${fmtTime(w.peak)}`;
-}
-
-/** Crop around the batter at media time `t`: where the scan saw them then, else their extent. */
-function cropFor(c: BatterCandidate | undefined, t: number, m: Meta): Roi {
-  if (!c) return { x: 0, y: 0, w: 1, h: 1 };
-  const b: Box | Roi = boxAt(c, t) ?? c.extent;
-  return roiAround(b, m.width / m.height, 0.32);
-}
-
-/**
- * Rank the people who could be the batter. Pose must find a real, whole person (stumps,
- * nets or a hand at the frame edge drop out). Then the one who looks like batting wins:
- * both hands together on a handle, not crouched like the keeper, a bat seen at the hands,
- * in view through the shot.
- */
-async function verifyCandidates(v: HTMLVideoElement, cs: BatterCandidate[], win: Win, at: number, aspect: number): Promise<BatterCandidate[]> {
-  if (!cs.length) return cs;
-  const stillPose = await loadStillPose();
-  const KEY = [J.nose, J.left_shoulder, J.right_shoulder, J.left_hip, J.right_hip, J.left_knee, J.right_knee, J.left_ankle, J.right_ankle];
-  const top = cs.slice(0, 6);
-  const quality = top.map(() => 0);
-  const likeness = top.map(() => 0);
-  for (const t of [at, win.start + (win.end - win.start) * 0.12, win.start + (win.end - win.start) * 0.5]) {
-    await seek(v, t);
-    top.forEach((c, i) => {
-      const b = boxAt(c, t);
-      if (!b) return;
-      const p = detectStill(stillPose, v, roiAround(b, aspect, 0.3));
-      const vis = KEY.reduce((s, k) => s + (p.body[k]?.[2] ?? 0), 0) / KEY.length;
-      const hip = p.hip;
-      const inside = !!hip && hip[0] >= b.x - b.w * 0.15 && hip[0] <= b.x + b.w * 1.15 && hip[1] >= b.y && hip[1] <= b.y + b.h;
-      quality[i] = Math.max(quality[i]!, inside ? vis : vis * 0.3);
-      if (inside && vis >= 0.5) likeness[i] = Math.max(likeness[i]!, batterLikeness(p.body, aspect));
-    });
-  }
-  const score = (i: number) => {
-    const c = top[i]!;
-    return quality[i]! * Math.sqrt(c.box.h) * (0.5 + c.persistence) * (0.25 + likeness[i]!) * (1 + 1.5 * c.bat);
-  };
-  const ranked = top
-    .map((c, i) => ({ c, i }))
-    .filter((x) => quality[x.i]! >= 0.55)
-    .sort((a, b) => score(b.i) - score(a.i))
-    .map((x) => x.c);
-  return ranked.length ? ranked : cs;
-}
-
-/** Resolve when the first frame is decodable; reject on a decode error or a stall. */
-function loaded(v: HTMLVideoElement): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      window.clearTimeout(timer);
-      v.removeEventListener("loadeddata", ok);
-      v.removeEventListener("error", bad);
-    };
-    const ok = () => {
-      cleanup();
-      resolve();
-    };
-    const bad = () => {
-      cleanup();
-      reject(new Error("decode"));
-    };
-    const timer = window.setTimeout(() => {
-      cleanup();
-      reject(new Error("timeout"));
-    }, 20000);
-    v.addEventListener("loadeddata", ok);
-    v.addEventListener("error", bad);
-    v.load();
-  });
-}
-
-/** A specific, fixable explanation for a clip this browser can't decode. */
-export function decodeMessage(f: File, track: VideoTrackInfo | null): { title: string; body: string } {
-  const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
-  const codec = track?.codec ?? "";
-  if (/^(hvc1|hev1|dvh1|dvhe)$/.test(codec))
-    return {
-      title: "This browser can't play HEVC video",
-      body:
-        "The clip is HEVC (H.265), the default on many iPhones and newer Android phones.\n\n" +
-        "Any of these fixes it:\n• Open Aline in Safari (iPhone, iPad, Mac) or recent Chrome / Edge.\n" +
-        "• iPhone: Settings → Camera → Formats → Most Compatible, then record again.\n" +
-        "• Send the clip to yourself on WhatsApp or save it from Google Photos — that converts it to H.264.",
-    };
-  if (codec === "av01") return { title: "This device can't play AV1 video", body: "Re-export the clip as MP4 (H.264), or open Aline in a recent Chrome or Edge." };
-  if (["avi", "wmv", "flv", "mts", "m2ts", "ts"].includes(ext))
-    return { title: `.${ext.toUpperCase()} files can't be played in a browser`, body: "Convert the clip to MP4 (H.264) — most phones and free converters can — then add it again." };
-  if (ext === "mkv") return { title: "This MKV file can't be played here", body: "Re-save it as MP4 (H.264) and add it again. MP4 and MOV work on every phone and computer." };
-  return {
-    title: "This video can't be opened on this device",
-    body: `The format${codec ? ` (${codec})` : f.type ? ` (${f.type})` : ""} isn't supported by this browser, or the file is incomplete.\n\nMP4 (H.264) and MOV work everywhere. Try the original clip from your camera roll, or send it to yourself on WhatsApp to convert it.`,
-  };
-}
-
-function snapshot(v: HTMLVideoElement): string {
-  const c = document.createElement("canvas");
-  const s = Math.min(1, 960 / Math.max(v.videoWidth, v.videoHeight));
-  c.width = Math.round(v.videoWidth * s);
-  c.height = Math.round(v.videoHeight * s);
-  c.getContext("2d")!.drawImage(v, 0, 0, c.width, c.height);
-  return c.toDataURL("image/jpeg", 0.82);
-}
-
-async function estimatePlaybackFps(v: HTMLVideoElement): Promise<number | null> {
-  type RVFC = (cb: (now: number, meta: { mediaTime: number; presentedFrames: number }) => void) => number;
-  const rvfc = (v as unknown as { requestVideoFrameCallback?: RVFC }).requestVideoFrameCallback?.bind(v);
-  if (!rvfc) return null;
-  const samples: number[] = [];
-  return new Promise((resolve) => {
-    let last: { t: number; n: number } | null = null;
-    let finished = false;
-    const done = () => {
-      if (finished) return;
-      finished = true;
-      v.pause();
-      v.currentTime = 0;
-      samples.sort((a, b) => a - b);
-      resolve(samples.length > 5 ? Math.round(1 / samples[Math.floor(samples.length / 2)]!) : null);
-    };
-    const cb = (_: number, m: { mediaTime: number; presentedFrames: number }) => {
-      if (finished) return;
-      if (last && m.presentedFrames - last.n === 1 && m.mediaTime > last.t) samples.push(m.mediaTime - last.t);
-      last = { t: m.mediaTime, n: m.presentedFrames };
-      if (samples.length >= 20) return done();
-      rvfc(cb);
-    };
-    rvfc(cb);
-    v.playbackRate = 0.25;
-    v.play().catch(() => done());
-    setTimeout(done, 4000);
-  });
-}
-
-async function grabKeyframes(video: HTMLVideoElement, mediaTimes: number[], frames: number[]): Promise<Record<number, Blob>> {
-  const out: Record<number, Blob> = {};
-  const canvas = document.createElement("canvas");
-  canvas.width = 480;
-  canvas.height = Math.round((480 * video.videoHeight) / Math.max(1, video.videoWidth));
-  const ctx = canvas.getContext("2d")!;
-  for (const f of frames.slice(0, 8)) {
-    const t = mediaTimes[f];
-    if (t === undefined) continue;
-    await seek(video, t);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.72));
-    if (blob) out[f] = blob;
-  }
-  return out;
 }

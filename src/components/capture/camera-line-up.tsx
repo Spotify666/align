@@ -34,12 +34,12 @@ function Row({ state, children }: { state: State; children: React.ReactNode }) {
  * written steps; without a motion sensor it says so and leaves the level to the eye. It is
  * guidance: the recording itself is still checked before it is analysed.
  */
-export function CameraLineUp({ onClose, onFiles }: { onClose: () => void; onFiles: (files: FileList | null) => void }) {
+export function CameraLineUp({ onClose, onFiles, initialView = "side" }: { onClose: () => void; onFiles: (files: FileList | null) => void; initialView?: LineUpView }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
-  const [view, setView] = useState<LineUpView>("side");
-  const viewRef = useRef<LineUpView>("side");
+  const [view, setView] = useState<LineUpView>(initialView);
+  const viewRef = useRef<LineUpView>(initialView);
   const [cam, setCam] = useState<Cam>("starting");
   const [attempt, setAttempt] = useState(0);
   const [picture, setPicture] = useState<{ w: number; h: number } | null>(null);

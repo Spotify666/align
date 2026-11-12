@@ -143,6 +143,7 @@ export function LocalReport({ id }: { id: string }) {
       title={state.stored.title}
       analysisId={state.remote ? undefined : id}
       onAnalyseAs={state.remote ? undefined : analyseAs}
+      unchosen={state.stored.session?.intended === null}
       markHref={canMark ? `/analyse?mark=${id}` : null}
       notice={
         canMark ? (

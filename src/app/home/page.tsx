@@ -21,7 +21,7 @@ export default function AppHome() {
               <p className="mt-3 max-w-md text-lg text-fg-muted">Get a few simple lines: what was good, and what to fix.</p>
             </div>
             <div className="flex shrink-0 flex-col gap-2.5 sm:w-60">
-              <Link href="/analyse" className="btn btn-primary text-base">Check front-foot defence</Link>
+              <Link href="/check?shot=front" className="btn btn-primary text-base">Check front-foot defence</Link>
               <Link href="/analyse?shot=back" className="btn btn-ghost text-base">Check back-foot defence</Link>
               <Link href="/guide" className="btn btn-quiet text-sm">How to film</Link>
             </div>

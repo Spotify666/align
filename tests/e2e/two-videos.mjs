@@ -1,5 +1,5 @@
 // End-to-end check of two videos of one ball (from the side and the front), chosen through
-// "Two angles of one ball": a side slot and a front slot, each taking exactly one video (no
+// "Dual-angle capture": a side slot and a front slot, each taking exactly one video (no
 // picker on the page takes several videos, so a third can't be chosen). Aline sorts them by the
 // camera angle it detects, checks they are the same ball from their sound, and shows them
 // together; anything else is refused with the reason.
@@ -22,8 +22,8 @@ const step = (s) => console.log(`${((Date.now() - t0) / 1000).toFixed(1)}s ${s}`
 await page.goto(`${base}/analyse${process.env.SHOT === "back" ? "?shot=back" : ""}`, { waitUntil: "load" });
 await page.getByLabel(/Analyse my movement on this device/).check();
 {
-  step(`limit shown: ${(await page.getByRole("button", { name: /Two angles of one ball/ }).innerText()).replace(/\s+/g, " ")}`);
-  await page.getByRole("button", { name: /Two angles of one ball/ }).click();
+  step(`limit shown: ${(await page.getByRole("button", { name: /Dual-angle capture/ }).innerText()).replace(/\s+/g, " ")}`);
+  await page.getByRole("button", { name: /Dual-angle capture/ }).click();
   const many = await page.locator("input[type=file][multiple]").evaluateAll((els) => els.map((e) => e.accept));
   step(`inputs taking several files: ${many.join(" | ") || "none"}`);
   if (many.some((a) => /video/.test(a))) throw new Error("a video input takes several files");

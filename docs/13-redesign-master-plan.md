@@ -22,7 +22,7 @@ Three things to know before reading:
 |---|---|
 | 0 Plan | Approved 2026-11-11 |
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
-| 2 Analysis interaction | **In progress.** Shipped: "Check your shot" screen and `/check`, the new capture terms, the analysis level (decides the wording now), focus areas (saved with the analysis), the capture-position guide (plan of the pitch, to scale, both camera positions), optional body measurements in the profile (stored, not used yet), the camera line-up screen (live picture, guides, level, then record). Not yet: dual-angle session shell, splitting the capture flow, one entry without choosing the shot |
+| 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
 | 3–8 | Not started |
 
 ## 1. Diagnosis
@@ -544,6 +544,29 @@ drawn off-screen, while held on a moment, or under reduced motion 0.
 
 **Not verified**: a real phone's camera and motion sensor (tested with Chromium's stand-in
 camera and injected motion readings), iOS Safari's motion permission, a screen reader.
+
+## Batch 2, fourth part, as built (2026-11-12)
+
+- **One entry without choosing the shot** (`src/engine/identify.ts`, `shot-chooser.tsx`):
+  "Which shot?" is optional; "Aline tells" is the default. `analyzeUnchosen` runs the front-foot
+  analysis and, only when its result points to the other shot (`pointsTo`: "looks like a
+  back-foot defence", or named one), that shot's analysis on the same tracks. A result that is
+  accepted when asked is never changed; a shot neither analysis accepts is not accepted
+  (`tests/identify.test.ts`: fixtures, the evaluation set, the population, the real tracks).
+  The report's own switch now reads the same rule. `StoredAnalysis.session.intended` records
+  what the batter named (null: left to Aline). Section 9's fuller version (each category's gate
+  tried in the engine) stays in Batch 4.
+- **Wording**: an unconfirmed result for an unnamed shot says "Aline can't tell which shot this
+  is" / "Aline doesn't grade this shot yet" (`plainSummary`, `unchosen`).
+- **Dual-angle session** (`two-videos.tsx`, `DualPlan` in `pitch-guide.tsx`): the steps, a plan
+  with both phones, the two slots, "Record here" (the line-up screen opened for that position).
+  No live pairing: said on the screen.
+- **Capture flow**: `flow-helpers.ts` (types, limits, video helpers) and `shot-chooser.tsx`
+  moved out of `capture-flow.tsx` (1,936 → 1,680 lines). The processing state machine is not
+  split.
+
+**Not verified**: real clips through the new default (none available); the limit noted in
+`docs/context.md` for a back-foot stroke in a long clip when no shot is named.
 
 ## The landing batter is still not right (2026-11-12, owner's feedback)
 

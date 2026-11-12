@@ -59,8 +59,8 @@ export function SessionsPage() {
           <h1 className="display text-5xl mt-2">Your shot library.</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/analyse" className="btn btn-primary">Front-foot defence</Link>
-          <Link href="/analyse?shot=back" className="btn btn-ghost">Back-foot defence</Link>
+          <Link href="/check?shot=front" className="btn btn-primary">Front-foot defence</Link>
+          <Link href="/check?shot=back" className="btn btn-ghost">Back-foot defence</Link>
         </div>
       </header>
 
@@ -79,7 +79,7 @@ export function SessionsPage() {
           <p className="display text-3xl">Nothing recorded yet</p>
           <p className="text-fg-muted">Your analyses stay on this device. Sample reports show every outcome.</p>
           <div className="flex justify-center gap-3 flex-wrap">
-            <Link href="/analyse" className="btn btn-primary">Record your first shot</Link>
+            <Link href="/check" className="btn btn-primary">Record your first shot</Link>
             <Link href="/sample" className="btn btn-ghost">Sample reports</Link>
           </div>
         </div>

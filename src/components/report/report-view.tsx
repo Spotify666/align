@@ -11,6 +11,7 @@ import { DOMAIN_LABELS, THRESHOLDS } from "@/engine/registry";
 import { type CompareReference, EvidenceViewer, type EvidenceViewerHandle } from "./evidence-viewer";
 import { ResultPanel } from "./result-panel";
 import { buildResult } from "@/engine/result";
+import { pointsTo } from "@/engine/identify";
 import { timeEnd, timeStart } from "@/lib/capture/timing";
 import { MetricCard } from "./metric-card";
 import { CaptureChecklist, DomainGrid, Limitations, PriorityPlan, ShotProbabilityPanel, Versions } from "./panels";
@@ -46,6 +47,8 @@ interface Props {
   analysisId?: string;
   /** Re-run the same tracks as another shot Aline analyses (offered when the shot was named as one). */
   onAnalyseAs?: (target: TargetShot) => Promise<void>;
+  /** The batter left the shot to Aline: an unconfirmed result is worded without "is this a …". */
+  unchosen?: boolean;
 }
 
 const noSubscribe = () => () => {};
@@ -53,7 +56,7 @@ const noSubscribe = () => () => {};
 const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, title, analysisId, onAnalyseAs }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, title, analysisId, onAnalyseAs, unchosen }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [switching, setSwitching] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -66,12 +69,10 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
   const shotName = SHOT_NAME[shot];
   const observedLabel = p.observed_shot?.label;
   const otherTarget = observedLabel && observedLabel !== shot && (TARGET_SHOTS as readonly string[]).includes(observedLabel) ? (observedLabel as TargetShot) : null;
-  // A front-foot analysis that saw the back-foot defence's whole definition offers that shot.
-  const looksBack = shot === "front_foot_defence" && p.status_reason === "looks_back_foot";
-  // The other defence the same tracks can be checked as, when Aline named or saw it.
-  const switchTo: TargetShot | null = looksBack ? "back_foot_defence" : p.analysis_status === "invalid_for_requested_analysis" ? otherTarget : null;
-  const sum = useMemo(() => plainSummary(p, { mediaKind: obs.media.kind, otherShot: onAnalyseAs ? switchTo : null, level }), [p, obs.media.kind, onAnalyseAs, switchTo, level]);
-  const recordHref = shot === "back_foot_defence" ? "/analyse?shot=back" : "/analyse";
+  // The other defence the same tracks can be checked as, when this result itself points to it.
+  const switchTo: TargetShot | null = pointsTo(p);
+  const sum = useMemo(() => plainSummary(p, { mediaKind: obs.media.kind, otherShot: onAnalyseAs ? switchTo : null, level, unchosen }), [p, obs.media.kind, onAnalyseAs, switchTo, level, unchosen]);
+  const recordHref = shot === "back_foot_defence" ? "/check?shot=back" : "/check?shot=front";
   const [aiReport, setAiReport] = useState<Report | null>(null);
   const [aiState, setAiState] = useState<"idle" | "loading" | "unavailable" | "fallback">("idle");
   const report = useMemo(() => aiReport ?? narrative ?? templateReport(p), [aiReport, narrative, p]);
@@ -262,7 +263,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           <SectionHead id="plan-h" eyebrow="Coaching plan" title="One priority, step by step to match speed" />
           <PriorityPlan plan={p.plan} />
           <div className="flex flex-wrap items-center gap-3">
-            <Link href={shot === "back_foot_defence" ? "/analyse?shot=back" : "/analyse"} className="btn btn-primary">
+            <Link href={shot === "back_foot_defence" ? "/check?shot=back" : "/check?shot=front"} className="btn btn-primary">
               <RecordIcon size={16} /> Record next attempt
             </Link>
             <span className="text-sm text-fg-muted">The next report shows the change against this one and your baseline.</span>

@@ -133,3 +133,27 @@ describe("analysis level", () => {
     expect(BODY_MEASUREMENTS.map((m) => m.id).sort()).toEqual(Object.keys(DEFAULT_PROFILE.body).sort());
   });
 });
+
+describe("a shot the batter didn't name", () => {
+  it("says what Aline grades instead of what the shot isn't", () => {
+    const pull = analyze(fixture("pull"), opts);
+    expect(pull.analysis_status).toBe("invalid_for_requested_analysis");
+    expect(plainSummary(pull).verdict).toBe("This is not a front-foot defence.");
+    const s = plainSummary(pull, { unchosen: true });
+    expect(s.verdict).toBe("Aline doesn't grade this shot yet.");
+    expect(s.lines.some((l) => /front-foot and the back-foot defence/.test(l.text))).toBe(true);
+    expect(s.lines.some((l) => /record one and try again/.test(l.text))).toBe(false);
+    expect(s.lines.length).toBeLessThanOrEqual(5);
+  });
+
+  it("doesn't ask \"is this a front-foot defence\" of a shot it can't tell", () => {
+    const p = { ...analyze(fixture("valid_ffd"), opts), analysis_status: "uncertain_shot" as const, status_reason: "body_inconclusive" };
+    expect(plainSummary(p).verdict).toBe("Aline can't tell if this is a front-foot defence.");
+    expect(plainSummary(p, { unchosen: true }).verdict).toBe("Aline can't tell which shot this is.");
+  });
+
+  it("words a confirmed shot the same either way", () => {
+    const p = analyze(fixture("valid_ffd"), opts);
+    expect(plainSummary(p, { unchosen: true })).toEqual(plainSummary(p));
+  });
+});

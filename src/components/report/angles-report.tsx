@@ -65,7 +65,7 @@ export function AnglesReport() {
   const sideId = idOf(c.side);
   const endId = idOf(c.end);
   const endWord = c.end?.camera_view === "behind" ? "back" : "front";
-  const recordHref = c.shot === "back_foot_defence" ? "/analyse?shot=back" : "/analyse";
+  const recordHref = c.shot === "back_foot_defence" ? "/check?shot=back" : "/check?shot=front";
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">

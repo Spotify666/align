@@ -266,7 +266,7 @@ const cap = (lines: SummaryLine[]) => {
  * the one thing to fix, what to remember or do next). Every sentence is plain words, no numbers
  * beyond counting, no units.
  */
-export function plainSummary(p: AnalysisPayload, opts: { mediaKind?: "video" | "photo"; otherShot?: TargetShot | null; level?: ReadingLevel } = {}): PlainSummary {
+export function plainSummary(p: AnalysisPayload, opts: { mediaKind?: "video" | "photo"; otherShot?: TargetShot | null; level?: ReadingLevel; unchosen?: boolean } = {}): PlainSummary {
   const level = opts.level ?? "plain";
   const shot: TargetShot = p.requested_shot ?? "front_foot_defence";
   const name = SHOT_NAME[shot];
@@ -332,6 +332,11 @@ export function plainSummary(p: AnalysisPayload, opts: { mediaKind?: "video" | "
     if (seen && seen.label !== "unknown") lines.push({ kind: "info", text: `It looks more like a ${lower(SHOT_DISPLAY[seen.label])}.` });
     if (REASON[p.status_reason]) lines.push({ kind: "info", text: REASON[p.status_reason]! });
     if (opts.otherShot) lines.push({ kind: "tip", text: `Tap “Check as ${SHOT_NAME[opts.otherShot]}” to get feedback on it.` });
+    // The batter didn't say which shot it was: say what Aline grades, not what it "isn't".
+    if (opts.unchosen) {
+      lines.push({ kind: "tip", text: "Aline grades the front-foot and the back-foot defence today." });
+      return { verdict: "Aline doesn't grade this shot yet.", tone: "bad", lines: cap(lines), angle };
+    }
     lines.push({ kind: "tip", text: `To check a ${name}, record one and try again.` });
     return { verdict: `This is not a ${name}.`, tone: "bad", lines: cap(lines), angle };
   }
@@ -342,7 +347,7 @@ export function plainSummary(p: AnalysisPayload, opts: { mediaKind?: "video" | "
     lines.push({ kind: "info", text: REASON[p.status_reason] ?? problem ?? "Aline couldn't see enough of the shot." });
     if (problem && REASON[p.status_reason]) lines.push({ kind: "info", text: problem });
     for (const t of tips.slice(0, 2)) lines.push({ kind: "tip", text: t });
-    return { verdict: `Aline can't tell if this is a ${name}.`, tone: "warn", lines: cap(lines), angle };
+    return { verdict: opts.unchosen ? "Aline can't tell which shot this is." : `Aline can't tell if this is a ${name}.`, tone: "warn", lines: cap(lines), angle };
   }
 
   // Valid: the shot is confirmed. What went well, the one fix, what to remember.
