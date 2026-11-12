@@ -3,6 +3,32 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-12 · "Continue with the rest of Batch 2"
+
+Shipped:
+- **One way in, without choosing the shot.** "Which shot?" is optional and starts on "Aline
+  tells": the recording is checked as a front-foot defence, as before, and when that result
+  itself points to the back-foot defence, the same tracks are checked as one, by that shot's
+  own gate (`src/engine/identify.ts`). This is the report's "Check as back-foot defence"
+  button pressed for the batter: no new rule, no threshold. Measured on generated movement
+  (`scripts/eval/unchosen.probe.ts`): front-foot results unchanged (14 of 14, 95 of 120, the
+  same as asked); every back-foot defence accepted when asked is reached without asking (11 of
+  11, 17 of 17); drives, pulls and cuts accepted: 0 of 282. The three real tracks: unchanged.
+  An unconfirmed result for an unnamed shot reads "Aline can't tell which shot this is" or
+  "Aline doesn't grade this shot yet", not "This is not a front-foot defence".
+- **Dual-angle capture as a session** (`two-videos.tsx`): three steps, a plan of the pitch with
+  both phones on it, the two slots, and "Record here" on each, which opens the line-up screen
+  for that camera position. The second phone's video is still shared to this phone; linking
+  two phones live is Batch 7 and the screen says it isn't built.
+- **The capture file split**: its stateless helpers (`flow-helpers.ts`) and the shot chooser
+  (`shot-chooser.tsx`) moved out; 1,936 → 1,680 lines. The processing steps themselves are
+  still one component: taking that apart safely needs real clips to run end to end.
+
+Not verified: any of this on real clips (none are available here). In particular a back-foot
+defence in a long clip with several balls: with no shot named, the stroke is looked for the
+front-foot way (the head going down), which can miss a back-foot stroke. Naming the shot
+("Back foot") still looks for it the back-foot way.
+
 ## 2026-11-12 · "Still TED-Ed style… not conveying the motion of a human"; Batch 2: line up the camera
 
 > I mentioned you to use different illustration style. Why are you still using Ted ed ref style

@@ -117,3 +117,39 @@ export function PitchGuide() {
     </figure>
   );
 }
+
+/**
+ * The same plan with both phones on it, for filming one ball from two angles at once: one
+ * square of the crease, one straight behind the bowler's stumps. To scale.
+ */
+export function DualPlan() {
+  const side = { x: CREASE, y: CY + 70 };
+  const end = { x: BOWL + 24, y: CY };
+  return (
+    <svg
+      viewBox="0 0 280 126"
+      className="w-full"
+      role="img"
+      aria-label="Plan of the pitch with two phones: one square of the batter, level with the crease, 6 to 8 metres away; one straight behind the bowler's stumps."
+    >
+      <rect x={BAT - 12} y={CY - 15.25} width={BOWL - BAT + 24} height="30.5" fill="var(--tint)" stroke="var(--line-strong)" strokeWidth="0.6" />
+      {[CREASE, BOWL - 12.2].map((x) => (
+        <line key={x} x1={x} y1={CY - 15.25} x2={x} y2={CY + 15.25} stroke="var(--fg-subtle)" strokeWidth="0.6" />
+      ))}
+      {[BAT, BOWL].map((x) => (
+        <line key={x} x1={x} y1={CY - 1.2} x2={x} y2={CY + 1.2} stroke="var(--fg)" strokeWidth="1.6" />
+      ))}
+      <circle cx={CREASE - 3} cy={CY} r="3.2" fill="var(--fg)" />
+      <text x={CREASE - 3} y={CY - 19} textAnchor="middle" fontSize="7" fill="var(--fg-muted)">batter</text>
+      <text x={BOWL} y={CY - 19} textAnchor="middle" fontSize="7" fill="var(--fg-muted)">bowler</text>
+      {[side, end].map((c, i) => (
+        <g key={i}>
+          <line x1={c.x} y1={c.y} x2={CREASE - 3} y2={CY} stroke="var(--brand)" strokeWidth="0.7" strokeDasharray="2.5 2.5" />
+          <rect x={c.x - 4.5} y={c.y - 2.8} width="9" height="5.6" rx="1.2" fill="var(--brand)" />
+        </g>
+      ))}
+      <text x={side.x + 9} y={side.y + 2.5} fontSize="7" fill="var(--fg)">side phone · 6–8 m</text>
+      <text x={end.x} y={end.y + 14} textAnchor="middle" fontSize="7" fill="var(--fg)">front phone</text>
+    </svg>
+  );
+}

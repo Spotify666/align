@@ -3,7 +3,7 @@
 // sync is an explicit, consented action. Raw video is never written here.
 
 import type { AnalysisLevel } from "@/engine/summary";
-import type { AnalysisPayload } from "@/engine/types";
+import type { AnalysisPayload, TargetShot } from "@/engine/types";
 
 export interface StoredAnalysis {
   id: string;
@@ -20,7 +20,8 @@ export interface StoredAnalysis {
   /** The same ball filmed from the other angle (side / front), when the batter added it. */
   otherAngle?: string | null;
   /** What the batter chose before this analysis, so the report can be reproduced: level and focus areas. */
-  session?: { level: AnalysisLevel | null; focusAreas: FocusAreaId[] };
+  /** What the batter set for this check. `intended`: the shot they said it was; null when they left it to Aline; absent on analyses saved before the choice was optional. */
+  session?: { level: AnalysisLevel | null; focusAreas: FocusAreaId[]; intended?: TargetShot | null };
 }
 
 /** The areas a batter can ask a report to lead with. Choosing none means the level's default. */

@@ -79,7 +79,7 @@ export function ProgressPage() {
           <p className="display text-3xl">No {shotInfo.plural} yet</p>
           <p className="text-fg-muted">Record your first shot. Trends appear after two valid defences; your baseline after {th("baseline.min_deliveries")}.</p>
           <div className="flex justify-center gap-3 flex-wrap">
-            <Link href={shot === "back_foot_defence" ? "/analyse?shot=back" : "/analyse"} className="btn btn-primary">Analyse {shotInfo.label.toLowerCase()}</Link>
+            <Link href={shot === "back_foot_defence" ? "/check?shot=back" : "/check?shot=front"} className="btn btn-primary">Analyse {shotInfo.label.toLowerCase()}</Link>
             {shot === "front_foot_defence" && <button className="btn btn-ghost" onClick={() => setDemo(true)}>See a demo athlete</button>}
           </div>
         </div>

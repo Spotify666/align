@@ -1,6 +1,8 @@
 "use client";
 
-// Two angles of one ball, chosen one slot at a time: a side video and a front video, each shown
+// Dual-angle capture: one ball filmed by two phones at once. A short plan of the session (where
+// the phones go, what to do, how the videos get here), then the two videos, one slot at a time:
+// a side video and a front video, each shown
 // (its picture, name and length, with a tick) as soon as it is chosen, so the batter sees both
 // were taken before anything starts. Two videos at most, and said before anything is chosen:
 // each slot's picker takes exactly one video, so a third can't even be picked (no picker that
@@ -8,7 +10,9 @@
 // angle itself and puts them right.
 
 import { useEffect, useState } from "react";
-import { Check, Upload } from "../icons";
+import { Camera, Check, Upload } from "../icons";
+import { CameraLineUp } from "./camera-line-up";
+import { DualPlan } from "./pitch-guide";
 
 export const VIDEO_ACCEPT = "video/*,.mp4,.mov,.m4v,.webm,.mkv,.3gp";
 
@@ -17,6 +21,13 @@ type Slot = keyof TwoSlots;
 
 const SLOT_NAME: Record<Slot, string> = { side: "Side video", front: "Front video" };
 const SLOT_HINT: Record<Slot, string> = { side: "Filmed from the side", front: "Filmed from the bowler's end" };
+
+/** The session, in order. Short on purpose: the plan below shows where the phones go. */
+const SESSION_STEPS = [
+  "Put one phone side-on and one straight behind the bowler's stumps.",
+  "Start both recordings, then play one ball. Keep the sound on: Aline matches the two videos by your movement and the sound.",
+  "Share the other phone's video to this phone, then add both here.",
+];
 
 const seconds = (s: number) => (Number.isFinite(s) && s > 0 ? `${s < 10 ? s.toFixed(1) : Math.round(s)} s` : "");
 
@@ -188,6 +199,8 @@ export function TwoVideoPicker({
   onStartAgain?: () => void;
 }) {
   const [next, setNext] = useState<File | null>(null);
+  // Recording one angle with this phone: the line-up screen, opened for that camera position.
+  const [recording, setRecording] = useState<Slot | null>(null);
   if (done) {
     const other: Slot = done.slot === "side" ? "front" : "side";
     const pickNext = (files: File[]) => setNext(files.find((f) => f.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(f.name)) ?? null);
@@ -196,10 +209,10 @@ export function TwoVideoPicker({
       <section aria-labelledby="two-h" className="card space-y-4 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 id="two-h" className="text-lg font-semibold">Two angles of one ball</h2>
+            <h2 id="two-h" className="text-lg font-semibold">Dual-angle capture</h2>
             <p className="mt-1 text-sm text-fg-muted">2 videos only: the same ball, filmed at the same time, one from the side and one from the front.</p>
           </div>
-          <button type="button" onClick={onStartAgain} className="shrink-0 text-sm font-medium text-fg-muted hover:text-fg hover:underline">
+          <button type="button" onClick={onStartAgain} className="-my-2 inline-flex min-h-11 shrink-0 items-center text-sm font-medium text-fg-muted hover:text-fg hover:underline">
             Start again
           </button>
         </div>
@@ -227,17 +240,40 @@ export function TwoVideoPicker({
     <section aria-labelledby="two-h" className="card space-y-4 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 id="two-h" className="text-lg font-semibold">Two angles of one ball</h2>
-          <p className="mt-1 text-sm text-fg-muted">2 videos only: the same ball, filmed at the same time, one from the side and one from the front.</p>
+          <h2 id="two-h" className="text-lg font-semibold">Dual-angle capture</h2>
+          <p className="mt-1 text-sm text-fg-muted">One ball, two phones filming at the same time: one from the side, one from the front.</p>
         </div>
-        <button type="button" onClick={onClose} className="shrink-0 text-sm font-medium text-fg-muted hover:text-fg hover:underline">
+        <button type="button" onClick={onClose} className="-my-2 inline-flex min-h-11 shrink-0 items-center text-sm font-medium text-fg-muted hover:text-fg hover:underline">
           Close
         </button>
       </div>
+      <ol className="grid gap-2 text-sm text-fg-muted">
+        {SESSION_STEPS.map((t, i) => (
+          <li key={t} className="flex gap-2.5">
+            <span className="num w-4 shrink-0 text-fg-subtle">{i + 1}</span>
+            <span>{t}</span>
+          </li>
+        ))}
+      </ol>
+      <DualPlan />
       <div className="grid grid-cols-2 gap-3">
-        <SlotCard slot="side" file={slots.side} disabled={disabled} onPick={pick("side")} />
-        <SlotCard slot="front" file={slots.front} disabled={disabled} onPick={pick("front")} />
+        {(["side", "front"] as const).map((slot) => (
+          <div key={slot} className="flex min-w-0 flex-col gap-1.5">
+            <SlotCard slot={slot} file={slots[slot]} disabled={disabled} onPick={pick(slot)} />
+            <button type="button" disabled={disabled} onClick={() => setRecording(slot)} aria-label={`Record the ${slot} video with this phone`} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-line-strong px-2 text-sm font-medium text-fg-muted hover:text-fg">
+              <Camera size={16} />
+              Record here
+            </button>
+          </div>
+        ))}
       </div>
+      {recording && (
+        <CameraLineUp
+          initialView={recording === "side" ? "side" : "end"}
+          onClose={() => setRecording(null)}
+          onFiles={(files) => pick(recording)(Array.from(files ?? []))}
+        />
+      )}
       <p className="text-sm" aria-live="polite">
         {both ? (
           <span className="font-medium">2 of 2 videos chosen.</span>
@@ -250,6 +286,7 @@ export function TwoVideoPicker({
       <button type="button" className="btn btn-primary w-full" disabled={!both || disabled} onClick={() => both && onStart([slots.side!, slots.front!])}>
         Check both videos
       </button>
+      <p className="text-xs text-fg-subtle">2 videos only. Linking the two phones live, with one countdown for both, isn&apos;t built yet: for now the second video is shared to this phone.</p>
     </section>
   );
 }

@@ -40,7 +40,7 @@ export default function GuidePage() {
         <h1 className="display mt-3 text-4xl sm:text-6xl">How to analyse your defence</h1>
         <p className="mt-4 text-lg text-fg-muted">The front-foot defence, and now the <a href="#back-foot" className="underline">back-foot defence</a>. You film and upload. Aline finds the shot, the batter and the camera angle, checks the recording and tracks the body on your phone — no setup screens.</p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/analyse" className="btn btn-primary">Start now</Link>
+          <Link href="/check" className="btn btn-primary">Start now</Link>
           <Link href="/sample/valid_ffd" className="btn btn-ghost">See what you&apos;ll get</Link>
         </div>
         <ol className="mt-8 flex flex-wrap gap-2 text-sm">
@@ -114,7 +114,7 @@ export default function GuidePage() {
             <li><strong>Re-record.</strong> <span className="text-fg-muted">Your next report compares against this one and your baseline.</span></li>
           </ol>
           <div className="flex flex-wrap gap-3 pt-2">
-            <Link href="/analyse" className="btn btn-primary">Check front-foot defence</Link>
+            <Link href="/check?shot=front" className="btn btn-primary">Check front-foot defence</Link>
             <Link href="/analyse?shot=back" className="btn btn-ghost">Check back-foot defence</Link>
             <Link href="/sample" className="btn btn-ghost">All sample reports</Link>
           </div>
