@@ -22,7 +22,7 @@ Three things to know before reading:
 |---|---|
 | 0 Plan | Approved 2026-11-11 |
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
-| 2 Analysis interaction | **In progress.** Shipped: "Check your shot" screen and `/check`, the new capture terms, the analysis level (decides the wording now), focus areas (saved with the analysis), the capture-position guide (plan of the pitch, to scale, both camera positions), optional body measurements in the profile (stored, not used yet). Not yet: camera overlay, dual-angle session shell, splitting the capture flow, one entry without choosing the shot |
+| 2 Analysis interaction | **In progress.** Shipped: "Check your shot" screen and `/check`, the new capture terms, the analysis level (decides the wording now), focus areas (saved with the analysis), the capture-position guide (plan of the pitch, to scale, both camera positions), optional body measurements in the profile (stored, not used yet), the camera line-up screen (live picture, guides, level, then record). Not yet: dual-angle session shell, splitting the capture flow, one entry without choosing the shot |
 | 3–8 | Not started |
 
 ## 1. Diagnosis
@@ -524,3 +524,31 @@ video where every arm action is clearly understandable with movement."
 Measured, production build, phone width, 4× CPU slowdown: largest paint 0.23 s, blocking
 160 ms, JavaScript 222 KB, all bytes 507 KB, layout shift 0, targets under 44 px 0, frames
 drawn off-screen, while held on a moment, or under reduced motion 0.
+
+## Batch 2, third part, as built (2026-11-12)
+
+- **Line up the camera** (`components/capture/camera-line-up.tsx`, `lib/capture/line-up.ts`,
+  `tests/line-up.test.ts`): a full-screen dialog from "Check your shot". The phone's live
+  picture with a frame for the batter and a line for the feet; what the picture shows, read by
+  the same pose model the analysis uses (whole batter in the picture, a usable size, one person,
+  phone turned the right way for the chosen camera position); a level from gravity
+  (`devicemotion`), in portrait or landscape. "Record now" then opens the phone's own camera:
+  a web page records at a lower frame rate and quality than the camera app, and the analysis
+  needs the better recording, so the overlay lines the phone up and the camera app records.
+- **Degrades**: no camera or permission refused → the same frame and the written steps; no
+  tilt sensor → it says so; iPhones ask before giving motion ("Turn on the level"); the pose
+  model failing to load → the frame only.
+- Guidance, not a gate: the recording is still checked before it is analysed. Its sizes are the
+  capture guide's words, not engine thresholds. Nothing is recorded, saved or sent.
+- The old small framing check under "How to film" (first design, a stick figure) is removed.
+
+**Not verified**: a real phone's camera and motion sensor (tested with Chromium's stand-in
+camera and injected motion readings), iOS Safari's motion permission, a screen reader.
+
+## The landing batter is still not right (2026-11-12, owner's feedback)
+
+"Still TED-Ed style… not conveying the motion of a human." Agreed: key poses with smooth
+in-betweens move like a diagram. The reference is traced frame by frame from film. Plan: trace
+real footage (a clip the owner sends, or a freely licensed one) into line art, per frame, and
+replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/context.md`.
+

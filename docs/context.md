@@ -3,6 +3,35 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-12 · "Still TED-Ed style… not conveying the motion of a human"; Batch 2: line up the camera
+
+> I mentioned you to use different illustration style. Why are you still using Ted ed ref style
+> for motion, it's not at all conveying the motion of human
+
+Right. The batter shipped on 2026-11-11 is key poses with smooth in-betweens: it moves like an
+animated diagram. The reference looks human because it is traced frame by frame from film of a
+real batter. That needs real footage; nothing drawn from poses will get there.
+
+- The athlete's earlier videos are not reachable: not in the session, the repo or Supabase
+  (storage buckets and tables are empty).
+- With the athlete's approval the session may now reach Wikimedia Commons, Pexels and Mixkit
+  to find a freely licensed clip. Found on Commons: "Hatfield Heath CC v Potter Street & Church
+  Langley CC Video 5 forward defensive on side push shot" (Acabashi, CC BY-SA 4.0, 1080p, 10 s).
+  Commons refused the download from this session (too many requests); going around that was
+  not done. Pexels refuses automated visits; Mixkit has no batting clip.
+- **Open**: the clip itself. Either the Commons download succeeds on a later try, or the
+  athlete sends a clip file in the chat (their own nets video is the best source). Then: trace
+  it frame by frame into line art and replace the drawn batter. A CC BY-SA source means the
+  traced animation carries the author's credit on the page.
+
+Shipped meanwhile (Batch 2): **Line up the camera** (`components/capture/camera-line-up.tsx`,
+`lib/capture/line-up.ts`): from "Check your shot", the phone's live picture with a frame for
+the batter and a line for the feet, a check of what the picture shows (whole batter, size, one
+person, phone turned the right way), and a level from the phone's motion sensor; then "Record
+now" opens the phone's own camera. Nothing is recorded or sent from that screen. Without a
+camera: the same frame and the written steps. Without a tilt sensor: it says so. It replaces
+the small framing check that sat under "How to film".
+
 ## 2026-11-11 · "UI feel like cricshot"; a line-art batter where every arm action is clear
 
 > UI feel should be similar to this https://cricshot.vercel.app/ The illustration is still bad

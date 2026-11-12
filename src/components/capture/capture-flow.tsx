@@ -60,7 +60,8 @@ import { holdUpdates } from "@/lib/fresh";
 import { decodeTracks } from "@/engine/tracks-codec";
 import { isSessionUrl, sessionCapture, sessionMedia } from "@/lib/session-media";
 import { CaptureChecklist } from "../report/panels";
-import { CameraPlacementDiagram, LiveFramingCheck } from "./setup-guide";
+import { PitchGuide } from "./pitch-guide";
+import { CameraLineUp } from "./camera-line-up";
 import { MarkEvidence } from "./mark-evidence";
 import { MomentPicker } from "./moment-picker";
 import { BatterPicker } from "./batter-picker";
@@ -236,6 +237,7 @@ export function CaptureFlow() {
   const [notes, setNotes] = useState<Partial<Record<StageKey, string>>>({});
   const [error, setError] = useState<{ title: string; body: string } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [lineUp, setLineUp] = useState(false);
   const [remark, setRemark] = useState<{ id: string; title: string; createdAt: string; recordedAt: string } | null>(null);
   const video = useRef<HTMLVideoElement | null>(null);
   const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
@@ -1434,6 +1436,20 @@ export function CaptureFlow() {
                     <input type="file" disabled={!consented} accept="image/*" capture="environment" className="sr-only" onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
                   </label>
                 </div>
+                <button
+                  type="button"
+                  disabled={!consented}
+                  onClick={() => setLineUp(true)}
+                  className={`card card-hover flex w-full items-center gap-3 p-4 text-left ${consented ? "" : "pointer-events-none opacity-50"}`}
+                >
+                  <Camera size={22} className="shrink-0 text-brand" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">Line up the camera first</span>
+                    <span className="block text-sm text-fg-muted">See the picture with guides and a level, then record. Nothing is saved until you record.</span>
+                  </span>
+                  <Chevron size={18} className="shrink-0 text-fg-muted" />
+                </button>
+                {lineUp && <CameraLineUp onClose={() => setLineUp(false)} onFiles={(f) => onFiles(f)} />}
                 {twoPair && pair ? (
                   <TwoVideoPicker
                     slots={slots}
@@ -1478,7 +1494,7 @@ export function CaptureFlow() {
                     <Chevron size={18} className="transition-transform group-open:rotate-90" />
                   </summary>
                   <div className="mt-4 space-y-4">
-                    <CameraPlacementDiagram />
+                    <PitchGuide />
                     <ul className="grid gap-2 text-sm">
                       {[
                         "From the side, level with your hips, 6–8 m away",
@@ -1489,7 +1505,6 @@ export function CaptureFlow() {
                         <li key={t} className="flex gap-2"><Check size={16} className="text-brand mt-0.5 shrink-0" /> {t}</li>
                       ))}
                     </ul>
-                    <LiveFramingCheck />
                   </div>
                 </details>
 
