@@ -874,19 +874,27 @@
   }
 }
 
-/* The second design's display type: wide and heavy, for headlines and big numbers only. */
+/* The second design's display type. Sentence case, normal width, tight: friendly rather than
+   scoreboard (the owner's reference for the feel, 2026-11-11). Headlines and big numbers only. */
 :root[data-ui="2"] .display {
-  font-weight: 760;
-  font-stretch: 116%;
-  letter-spacing: -0.02em;
-  line-height: 1.02;
+  font-weight: 650;
+  font-stretch: 100%;
+  letter-spacing: -0.03em;
+  line-height: 1.06;
 }
 :root[data-ui="2"] .card {
-  border-radius: 8px;
+  border-radius: 16px;
 }
+/* Controls are pills; things that hold content are rounded panels. */
 :root[data-ui="2"] .btn {
-  border-radius: 6px;
+  border-radius: 999px;
+  padding-inline: 1.25rem;
   transition: background-color 140ms ease, opacity 140ms ease, border-color 140ms ease;
+}
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
 }
 :root[data-ui="2"] .btn-primary:hover:not(:disabled) {
   opacity: 1;
@@ -902,7 +910,9 @@
   border-top: 1px solid var(--line);
 }
 .hero-figure canvas,
-.hero-figure svg {
+.hero-figure svg,
+.batter-figure canvas,
+.batter-figure svg {
   pointer-events: none;
 }
 .hero-label {
