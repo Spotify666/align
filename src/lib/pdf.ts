@@ -80,7 +80,7 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(...ink);
-  doc.text("ALIGN", M, y + 14);
+  doc.text("ALINE", M, y + 14);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...muted);
@@ -91,7 +91,7 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
   if (opts.title) text(opts.title, 10, muted, "normal", 2);
 
   // Verdict first
-  text(p.mode === "posture_screen" && p.analysis_status !== "capture_failed" ? "Photo check" : p.analysis_status === "valid" ? `Valid ${shot}` : (STATUS[p.analysis_status] ?? ""), 11, gold, "bold", 2);
+  text(p.mode === "posture_screen" && p.analysis_status !== "capture_failed" ? "Photo check" : p.analysis_status === "valid" ? `Shot identified: ${shot}` : (STATUS[p.analysis_status] ?? ""), 11, gold, "bold", 2);
   text(p.headline, 17, ink, "bold", 4);
   if (p.analysis_status !== "valid" && p.mode !== "posture_screen") text(`No technique score: a score is only given to a confirmed ${shot}.`, 10, ink, "bold");
   if (p.technique_index) text(`Technique score ${p.technique_index.value} / 100`, 10, muted);
@@ -189,10 +189,10 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(...muted);
-    doc.text(`align · page ${i} of ${pages}`, W / 2, H - 20, { align: "center" });
+    doc.text(`Aline · page ${i} of ${pages}`, W / 2, H - 20, { align: "center" });
   }
 
-  const name = `align-${shot.replaceAll(" ", "-")}-${p.created_at.slice(0, 10)}-${p.analysis_status.replaceAll("_", "-")}.pdf`;
+  const name = `aline-${shot.replaceAll(" ", "-")}-${p.created_at.slice(0, 10)}-${p.analysis_status.replaceAll("_", "-")}.pdf`;
   const blob = doc.output("blob");
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

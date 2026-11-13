@@ -52,8 +52,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", close);
   }, [open]);
 
-  // The landing page stands on its own, without the app's header, tabs or footer.
-  if (path === "/") return <>{children}</>;
+  // The landing page and the printed reports stand on their own, without the app's header, tabs or footer.
+  if (path === "/" || path.endsWith("/print")) return <>{children}</>;
 
   return (
     <div className="min-h-dvh flex flex-col">

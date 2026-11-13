@@ -930,3 +930,29 @@
   pointer-events: none;
   will-change: transform, opacity;
 }
+
+/* The printed report (Save as PDF): A4, nothing but the report, sections kept whole. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  .no-print {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .print-report {
+    max-width: none;
+    padding: 0;
+    background: #fff !important;
+  }
+  .print-keep {
+    break-inside: avoid;
+  }
+  .page-in {
+    animation: none !important;
+  }
+}

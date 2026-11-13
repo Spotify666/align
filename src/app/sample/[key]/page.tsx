@@ -25,6 +25,7 @@ export default async function SamplePage({ params }: { params: Promise<{ key: st
       baseline={withBaseline ? s.comparisons : undefined}
       reference={withBaseline ? s.reference : null}
       title={`Sample · ${s.spec.title}`}
+      printHref={`/sample/${key}/print`}
     />
   );
 }
