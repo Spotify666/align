@@ -356,7 +356,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       {/* Training: the one priority, its drills, and the report in words. */}
       {section === "training" && (
         <>
-        <Lesson payload={p} obs={obs} />
+        <Lesson payload={p} obs={obs} level={level} />
 
         {p.plan && (
           <section id="plan" aria-labelledby="plan-h" className="space-y-4 scroll-mt-20">

@@ -23,7 +23,7 @@ Three things to know before reading:
 | 0 Plan | Approved 2026-11-11 |
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
 | 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
-| 3 Report, evidence, 3D, PDF | **In progress.** Shipped: the report in six sections (Summary, then Evidence, Training, Comparison, Progress, Technical details, each closed until opened); the PDF from a print layout. Not yet: landmark figures, the viewers rebuilt on the result contract, comparison UI on fixtures |
+| 3 Report, evidence, 3D, PDF | **In progress.** Shipped: the report in six sections (Summary, then Evidence, Training, Comparison, Progress, Technical details, each closed until opened); the PDF from a print layout; landmark figures in the lesson. Not yet: the viewers rebuilt on the result contract, comparison UI on fixtures |
 | 4–8 | Not started |
 
 ## 1. Diagnosis
@@ -601,6 +601,19 @@ camera and injected motion readings), iOS Safari's motion permission, a screen r
 
 **Not verified**: a phone's own "Save as PDF" (tested with Chromium's PDF output); the account
 copy of a report (the cloud path is wired, not exercised).
+
+## Batch 3, third part, as built (2026-11-13)
+
+- **Landmark figures** (`components/lesson/figure.tsx`, `LandmarkFigure`): the lesson draws the
+  batter as tracked, points and bones only. `figurePose` now carries each point's tracker
+  confidence (`FigurePose.seen`, 0 where it placed a point by guess); a bone is drawn when both
+  ends were seen (≥ 0.2), solid from 0.5, faint and dotted below; the bat only where tracked.
+  The filled silhouette and its helpers are deleted (369 → 100 lines). Acceptance criterion 3's
+  "nothing drawn for unseen joints" holds for the lesson (`tests/landmark-figure.test.ts`).
+- The lesson's numbers use the report's everyday wording (`friendlyValue`, `friendlyRange`),
+  which never shows a minus sign, and are left out at the simple reading level.
+- Caveat (the lesson labels' hand lettering) is still loaded; Geist Mono still sets
+  `--font-mono`. Dropping them is a separate change.
 
 ## The landing batter, traced from a real clip (2026-11-13)
 

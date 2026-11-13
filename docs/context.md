@@ -3,6 +3,16 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-13 · Batch 3: landmark figures instead of silhouettes
+
+The report's lesson (Training) drew the batter as a filled body, with joints the tracker never
+saw put in by guess and a bat always drawn. It now draws only what was tracked: points and
+bones, solid where the tracker was sure, faint and dotted where it was unsure, nothing where
+it saw nothing; the bat only where it was tracked. The textbook outline stays dashed. The
+lesson's numbers are now in everyday words without minus signs ("6% of your height behind ·
+aim 3% behind to 16% ahead"), and none at the youngest reading level. Checked on the athlete's
+own clip and three samples.
+
 ## 2026-11-13 · "Continue": Batch 3, the PDF from a print layout
 
 Taken as a yes to the print-layout PDF (decision 12), which was proposed just before.

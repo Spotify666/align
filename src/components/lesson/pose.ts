@@ -14,7 +14,14 @@ export interface FigurePose {
   batH?: Pt; batT?: Pt;
   /** The ball, when it is in this frame; the base of the batter's stumps. */
   ball?: Pt; stumps?: Pt;
+  /** How sure the tracker was of each point (0 when it wasn't seen and the point was placed by guess). */
+  seen?: FigureSeen;
 }
+
+export type FigureJoint = "head" | "fs" | "bs" | "fe" | "be" | "fw" | "bw" | "fh" | "bh" | "fk" | "bk" | "fa" | "ba" | "fheel" | "bheel" | "ftoe" | "btoe";
+export type FigureSeen = Partial<Record<FigureJoint, number>>;
+/** The points of a pose (not its confidences), for framing and moving it. */
+export const posePoints = (p: FigurePose): Pt[] => (Object.entries(p) as Array<[string, unknown]>).filter(([k, v]) => k !== "seen" && Array.isArray(v)).map(([, v]) => v as Pt);
 
 /**
  * Where the figure's camera sits: the picture point between the feet, the ground line, the
@@ -100,7 +107,17 @@ export function figurePose(
   const [bheel, btoe] = foot(`${B}_heel`, `${B}_foot`, baT);
   // The head's centre sits a little behind and above the nose.
   const head: Pt = [nose[0] - 3.2, nose[1] - 1.6];
-  const out: FigurePose = { head, fs, bs, fe, be, fw, bw, fh, bh, fk, bk, fa: faT, ba: baT, fheel, bheel, ftoe, btoe };
+  const conf = (name: string) => {
+    const q = body[J[name as keyof typeof J]];
+    return q && q[2] >= 0.2 ? q[2] : 0;
+  };
+  const seen: FigureSeen = {
+    head: conf("nose"),
+    fs: conf(`${F}_shoulder`), bs: conf(`${B}_shoulder`), fe: conf(`${F}_elbow`), be: conf(`${B}_elbow`), fw: conf(`${F}_wrist`), bw: conf(`${B}_wrist`),
+    fh: conf(`${F}_hip`), bh: conf(`${B}_hip`), fk: conf(`${F}_knee`), bk: conf(`${B}_knee`), fa: conf(`${F}_ankle`), ba: conf(`${B}_ankle`),
+    fheel: conf(`${F}_heel`), bheel: conf(`${B}_heel`), ftoe: conf(`${F}_foot`), btoe: conf(`${B}_foot`),
+  };
+  const out: FigurePose = { head, fs, bs, fe, be, fw, bw, fh, bh, fk, bk, fa: faT, ba: baT, fheel, bheel, ftoe, btoe, seen };
   const [bh0, bt0] = bat ?? [];
   if (bh0 && bt0 && bh0[2] >= 0.2 && bt0[2] >= 0.2) {
     out.batH = T([bh0[0] * aspect, bh0[1]]);
@@ -115,8 +132,8 @@ export function figurePose(
 export function alignAt(p: FigurePose, at: Pt): FigurePose {
   const dx = at[0] - p.fa[0];
   const dy = at[1] - p.fa[1];
-  const out = {} as FigurePose;
-  for (const [k, v] of Object.entries(p) as Array<[keyof FigurePose, Pt]>) out[k] = [v[0] + dx, v[1] + dy];
+  const out = { ...p } as FigurePose;
+  for (const [k, v] of Object.entries(p)) if (k !== "seen" && Array.isArray(v)) (out as unknown as Record<string, Pt>)[k] = [v[0] + dx, v[1] + dy];
   return out;
 }
 
