@@ -3,6 +3,25 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-13 · The athlete sent four clips: the landing batter is now traced from one
+
+Four videos attached in the chat (three different: a side-on front-foot defence, a side-on
+back-foot defence, one from the bowler's end in a net; two files are the same clip).
+
+- **The landing batter is traced from the side-on front-foot clip**, frame by frame, the way
+  the reference video is: the body's outline from the pose model, the bat found from the hands,
+  the borders of skin, shoes, hair and kit inside (`scripts/trace/trace.py`, 41 frames, 70 KB
+  compressed, `public/art/front-foot-defence.json`). It plays at under half speed, stops on
+  four moments, and shows the line at contact through the joints read on that frame. The clip
+  itself is not in the repository. The key-pose drawing (`batter-art.ts`) is deleted.
+- Assumed: the clips are the athlete's own to use. Said so to them; a different clip can be
+  traced with the same tool.
+- **First real-media run of Batch 2's changes**: the three clips through the app with no shot
+  named. Side-on front-foot → "This is a front-foot defence"; side-on back-foot → "This is a
+  back-foot defence" (the automatic hand-off); bowler's end in the net → "This is a back-foot
+  defence". Each in about 20 s on this machine. Three clips, one batter: a check, not a
+  validation.
+
 ## 2026-11-13 · Batch 3 begun: the report in six sections
 
 "Resume" (continuing "finish the rest"). Shipped, first part of Batch 3:

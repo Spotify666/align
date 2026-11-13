@@ -55,8 +55,9 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
   UI work and check the result in a browser with the `webapp-testing` skill (phone viewport,
   both themes, 4× CPU slowdown for performance). A moving canvas must draw nothing off-screen,
   in a hidden tab, once left alone, or under reduced motion, and must show a still first (the
-  landing batter, `components/landing/batter-figure.tsx`, is the pattern). A drawing that is not
-  a result says so on the page ("Illustration").
+  landing batter, `components/landing/batter-figure.tsx`, is the pattern). A picture says what it
+  is on the page (the landing batter: "Traced from a real clip"); a drawing that is not from a
+  recording says "Illustration". Only clips the owner may use are traced; never mirrored.
 
 - The BFD runs only when the observation carries `target: "back_foot_defence"`; without it every
   result must stay byte-identical to the FFD build (check with `scripts/eval/verdicts.probe.ts`
@@ -99,7 +100,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Shot signature and match % | `signature.ts`, `src/lib/compare.ts`, Supabase `shot_profiles` |
 | Capture (scan, pick batter, gate, track) | `src/components/capture/capture-flow.tsx` (its stateless helpers: `flow-helpers.ts`), `src/lib/capture/*`; lining the phone up before recording (live picture, guides, level; guidance, not a gate) `camera-line-up.tsx`, `src/lib/capture/line-up.ts`; where to stand `pitch-guide.tsx` |
 | Parallel model work (workers; must give the page's exact results) | `src/lib/capture/vision.worker.ts`, `vision-pool.ts` |
-| Landing (one action, a line-art batter that stops on four moments, the engine's measured example beside the sample, what is true today) | `src/app/page.tsx`, `src/components/landing/batter-figure.tsx`, `src/lib/batter-art.ts` (key poses; `tests/batter-art.test.ts`), `hero-figure.tsx`, `src/lib/hero-geometry.ts` (the measured line); redesign plan and batches @docs/13-redesign-master-plan.md |
+| Landing (one action, a real batter traced frame by frame from a clip and stopped on four moments, the engine's measured example beside the sample, what is true today) | `src/app/page.tsx`, `src/components/landing/batter-figure.tsx`, `src/lib/traced-batter.ts` (generated), `public/art/front-foot-defence.json`, tracer `scripts/trace/` (`tests/traced-batter.test.ts`), `hero-figure.tsx`, `src/lib/hero-geometry.ts` (the measured line); redesign plan and batches @docs/13-redesign-master-plan.md |
 | Brand (mark geometry, flat and 3D logo, icons) | `src/components/brand/*`, `scripts/brand-icons.mjs` |
 | Fresh pages after a release (build id, reload when a new one is live, held while busy) | `src/lib/fresh.ts` (`VersionWatch`, `holdUpdates`), `src/app/api/version`, `next.config.ts` |
 | Visitor log (tracker, bot filter, public totals page) | `src/lib/visit.ts`, `visit-shared.ts`, `src/app/api/visit`, `src/components/visitors.tsx`, Supabase `visits`, `visits_overview()` |
