@@ -585,6 +585,17 @@ camera and injected motion readings), iOS Safari's motion permission, a screen r
   section opens and closes, no page errors, no control under 44 px in the section row, no
   sideways scroll; "Show me" on a measure opens Evidence at its frame.
 
+## The landing batter, traced from a real clip (2026-11-13)
+
+The owner sent their clips. The hero is now a tracing of the side-on front-foot defence
+(`scripts/trace/`, `public/art/front-foot-defence.json`, `src/lib/traced-batter.ts`,
+`components/landing/batter-figure.tsx`): 41 frames stored as filled shapes, fetched when the
+page is idle; the contact frame is the server-drawn still. Same rules as before: nothing drawn
+off-screen, in a hidden tab, while held or once left alone; stills only under reduced motion.
+The caption says what it is and what Aline read on that clip. Measured (production build, phone
+width, 4× slowdown): largest paint 0.20 s, blocking 130 ms, JavaScript 222 KB, all bytes
+575 KB, layout shift 0. The section below is what it replaced.
+
 ## The landing batter is still not right (2026-11-12, owner's feedback)
 
 "Still TED-Ed style… not conveying the motion of a human." Agreed: key poses with smooth
