@@ -1,18 +1,19 @@
 "use client";
 // "Your lesson": each graded check as an illustrated chapter, like an animated explainer.
-// The batter is redrawn from this shot's own pose, the textbook position sits behind as a
-// dashed outline, and the one thing the check is about draws itself on as it scrolls into
+// The batter is drawn as tracked in this shot (points and bones, only what was seen), the
+// textbook position sits behind as a dashed outline, and the one thing the check is about draws itself on as it scrolls into
 // view, with two plain sentences underneath.
 
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import type { AnalysisPayload, CaptureObservation, Metric } from "@/engine/types";
 import { coachingFor } from "@/engine/coaching";
-import { plainReading, plainValue } from "@/engine/plain";
+import { plainReading } from "@/engine/plain";
+import { friendlyRange, friendlyValue, type ReadingLevel } from "@/engine/summary";
 import { generate } from "@/engine/fixtures/generate";
 import { FIXTURE_SPECS } from "@/engine/fixtures";
 import { ffdScript } from "@/engine/fixtures/index";
-import { alignAt, BatterFigure, figurePose, GhostFigure, GOOD, INK, mid, OFF, PAPER, type FigurePose, type GhostPart, type Pt } from "./figure";
+import { alignAt, figurePose, GhostFigure, GOOD, INK, LandmarkFigure, mid, OFF, PAPER, posePoints, type FigurePose, type GhostPart, type Pt } from "./figure";
 
 const ORDER = ["line_head", "line_shoulder", "line_knee", "front_knee_flexion", "foot_spread", "stride_length", "trunk_inclination", "weight_forward", "hands_ahead_of_knee", "back_knee_extension"];
 
@@ -59,7 +60,7 @@ const frameOf = (m: Metric) => {
   return f !== undefined ? Number(f) : null;
 };
 
-export function Lesson({ payload: p, obs }: { payload: AnalysisPayload; obs: CaptureObservation }) {
+export function Lesson({ payload: p, obs, level = "plain" }: { payload: AnalysisPayload; obs: CaptureObservation; level?: ReadingLevel }) {
   const hand = p.handedness ?? obs.athlete.handedness;
   const aspect = obs.media.width / obs.media.height;
   const side = p.camera_view !== "front_on" && p.camera_view !== "behind";
@@ -84,13 +85,13 @@ export function Lesson({ payload: p, obs }: { payload: AnalysisPayload; obs: Cap
         <p className="eyebrow">Your lesson</p>
         <h2 id="lesson-h" className="display text-[1.75rem] sm:text-4xl">What this shot teaches you</h2>
         <p className="text-sm text-fg-subtle max-w-3xl">
-          You, drawn from your {p.mode === "posture_screen" ? "photo" : "clip"}. Dashed outline: where the textbook defence puts it.
+          You, as Aline tracked you in your {p.mode === "posture_screen" ? "photo" : "clip"}: solid where it was sure, dotted where it was unsure; what it didn&apos;t see isn&apos;t drawn. Dashed outline: where the textbook defence puts it.
         </p>
       </header>
       <ol className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 xl:grid-cols-3">
         {chapters.map(({ m, pose }, i) => (
           <li key={m.id} className="w-[86%] shrink-0 snap-center sm:w-auto">
-            <Chapter n={i + 1} of={chapters.length} m={m} pose={pose} ghost={ghost} />
+            <Chapter n={i + 1} of={chapters.length} m={m} pose={pose} ghost={ghost} numbers={level !== "simple"} />
           </li>
         ))}
       </ol>
@@ -98,15 +99,14 @@ export function Lesson({ payload: p, obs }: { payload: AnalysisPayload; obs: Cap
   );
 }
 
-function Chapter({ n, of, m, pose, ghost }: { n: number; of: number; m: Metric; pose: FigurePose; ghost: FigurePose | null }) {
+function Chapter({ n, of, m, pose, ghost, numbers }: { n: number; of: number; m: Metric; pose: FigurePose; ghost: FigurePose | null; numbers: boolean }) {
   const ok = m.inRange === true;
   const entry = coachingFor(m.id);
   const side = m.range && m.value !== null ? (m.value < m.range.lo ? "low" : "high") : null;
   const cue = !ok && side && entry ? entry[side].cue : null;
   const g = ghost ? alignAt(ghost, pose.fa) : null;
-  const id = `lesson-${m.id}`;
   // Frame the figure, the outline and room for labels.
-  const pts = Object.values(pose).concat(g && (GHOST[m.id] ?? []).length ? Object.values(g) : []);
+  const pts = posePoints(pose).concat(g && (GHOST[m.id] ?? []).length ? posePoints(g) : []);
   // Labels sit mostly on the bowler's side (right): leave more room there.
   const x0 = Math.min(...pts.map((q) => q[0])) - 16;
   const x1 = Math.max(...pts.map((q) => q[0])) + 30;
@@ -121,16 +121,17 @@ function Chapter({ n, of, m, pose, ghost }: { n: number; of: number; m: Metric; 
         <span className={`chip ${ok ? "border-ok/50 text-ok" : "border-bad/50 text-bad"}`}>{ok ? "✓ In range" : "To work on"}</span>
       </div>
       <h3 className="px-4 pt-1 text-xl font-semibold tracking-tight">{plainReading(m)}</h3>
-      <svg viewBox={`${x0} ${y0} ${x1 - x0} ${y1 - y0}`} className="mt-2 block w-full" role="img" aria-label={`${m.name}: ${plainValue(m)}`}>
+      <svg viewBox={`${x0} ${y0} ${x1 - x0} ${y1 - y0}`} className="mt-2 block w-full" role="img" aria-label={numbers ? `${m.name}: ${friendlyValue(m)}` : m.name}>
         <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill={PAPER} />
-        <BatterFigure p={pose} id={id} />
+        <LandmarkFigure p={pose} />
         {g && <GhostFigure p={g} parts={GHOST[m.id] ?? []} />}
         <Annotation m={m} p={pose} />
       </svg>
       <div className="space-y-1.5 px-4 pb-4 pt-3 text-sm">
         <p>
-          <span className="font-semibold">{m.name}: {plainValue(m)}</span>
-          {m.range && <span className="text-fg-subtle"> · aim {rangeText(m)}</span>}
+          {/* Numbers in everyday words (no minus signs), and none for the youngest readers. */}
+          <span className="font-semibold">{numbers ? `${m.name}: ${friendlyValue(m)}` : m.name}</span>
+          {numbers && m.range && <span className="text-fg-subtle"> · aim {friendlyRange(m)}</span>}
         </p>
         <p className="text-fg-muted">{m.relevance}</p>
         {cue && <p className="font-medium text-brand">Try: “{cue}”</p>}
@@ -139,14 +140,9 @@ function Chapter({ n, of, m, pose, ghost }: { n: number; of: number; m: Metric; 
   );
 }
 
-const rangeText = (m: Metric) => {
-  const f = (v: number) => (m.unit === "× stature" || m.unit === "0–1" ? `${Math.round(v * 100)}%` : `${Math.round(v)}°`);
-  return m.range ? `${f(m.range.lo)}–${f(m.range.hi)}` : "";
-};
-
 /* ---------- annotations: what each check is about, drawn on ---------- */
 
-/** A line that draws itself on: ink over a thin paper halo, so it reads across the silhouette too. */
+/** A line that draws itself on: ink over a thin paper halo, so it reads across the figure too. */
 export function Draw({ d, color, w = 1.4, delay = 0.35, dash }: { d: string; color: string; w?: number; delay?: number; dash?: string }) {
   const still = useReducedMotion();
   const anim = {
