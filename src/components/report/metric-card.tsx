@@ -75,7 +75,7 @@ export function MetricCard({
         )}
       </details>
       {frame && onEvidence && m.status !== "not_measured" && (
-        <button onClick={() => onEvidence(Number(frame), m.id)} className="self-start chip border-brand/50 text-brand min-h-9">
+        <button onClick={() => onEvidence(Number(frame), m.id)} className="self-start chip border-brand/50 text-brand min-h-11">
           <Target size={14} /> Show me
         </button>
       )}

@@ -52,7 +52,7 @@ await analyse(second, /\/angles\?/);
 await page.locator("#verdict").waitFor();
 step(`combined: ${await page.locator("#verdict").innerText()} | ${(await page.getByRole("list", { name: "Summary" }).innerText().catch(() => "")).replace(/\s+/g, " ")}`);
 await shot("combined");
-await page.getByRole("switch", { name: "Details" }).click();
+await page.getByRole("button", { name: "Evidence" }).click();
 await page.waitForTimeout(500);
 step(`checks: ${(await page.getByRole("list", { name: /Each check/ }).innerText().catch(() => "none")).replace(/\s+/g, " ").slice(0, 700)}`);
 await page.locator("#report-details").screenshot({ path: `${out}_combined_details.png` });

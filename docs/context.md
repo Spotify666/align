@@ -3,6 +3,21 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-13 · Batch 3 begun: the report in six sections
+
+"Resume" (continuing "finish the rest"). Shipped, first part of Batch 3:
+- The report opens on the **Summary** (unchanged: at most five plain sentences), then five
+  sections that stay closed until opened: **Evidence** (what was seen, the line, the frames),
+  **Training** (the lesson, the one priority and its drills, the report in words),
+  **Comparison** (this shot beside other profiles), **Progress** (this shot against the batter's
+  own usual; new), **Technical details** (how sure each part is, every measure, how the result
+  was reached, versions). It replaces the single "Details" switch. Nothing a section shows was
+  changed, only where it sits; "Show me" on a measure still jumps to its frame in Evidence.
+- "% prototype confidence" no longer shows in Evidence (it is in Technical details); a confirmed
+  back-foot defence reads "Shot identified: back-foot defence".
+- Still to do in Batch 3: landmark figures in place of solid silhouettes, the evidence and 3D
+  viewers on the result contract, comparison on fixtures, the PDF from a print layout.
+
 ## 2026-11-12 · "Continue with the rest of Batch 2"
 
 Shipped:
