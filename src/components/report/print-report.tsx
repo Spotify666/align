@@ -8,7 +8,7 @@ import { buildScene, semanticToJoint } from "@/engine/scene";
 import { templateReport } from "@/engine/report";
 import { plainSummary, readingLevel, friendlyRange, friendlyValue, type ReadingLevel, type SummaryKind } from "@/engine/summary";
 import { plainReading } from "@/engine/plain";
-import { BONES } from "@/lib/viz";
+import { BONES, SEEN_MIN, SURE_MIN } from "@/lib/viz";
 import { loadProfile } from "@/lib/store";
 import { downloadReportPdf } from "@/lib/pdf";
 
@@ -113,7 +113,8 @@ function PrintFrame({ obs, frame, image, mark, front }: { obs: CaptureObservatio
         const pa = fr[J[a]];
         const pb = fr[J[b]];
         if (!pa || !pb) continue;
-        const low = Math.min(pa[2], pb[2]) < 0.5;
+        if (Math.min(pa[2], pb[2]) < SEEN_MIN) continue;
+        const low = Math.min(pa[2], pb[2]) < SURE_MIN;
         ctx.setLineDash(low ? [2, 4] : []);
         ctx.strokeStyle = photo ? "rgba(255,255,255,0.92)" : ink;
         ctx.lineWidth = low ? 1.2 : 2;

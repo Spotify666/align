@@ -23,7 +23,7 @@ Three things to know before reading:
 | 0 Plan | Approved 2026-11-11 |
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
 | 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
-| 3 Report, evidence, 3D, PDF | **In progress.** Shipped: the report in six sections (Summary, then Evidence, Training, Comparison, Progress, Technical details, each closed until opened); the PDF from a print layout; landmark figures in the lesson. Not yet: the viewers rebuilt on the result contract, comparison UI on fixtures |
+| 3 Report, evidence, 3D, PDF | **In progress.** Shipped: the report in six sections (Summary, then Evidence, Training, Comparison, Progress, Technical details, each closed until opened); the PDF from a print layout; landmark figures in the lesson; one drawing rule for the body in every view, and the 3D view in words. Not yet: comparison UI on fixtures (and the two-angle report folded into it) |
 | 4–8 | Not started |
 
 ## 1. Diagnosis
@@ -614,6 +614,18 @@ copy of a report (the cloud path is wired, not exercised).
   which never shows a minus sign, and are left out at the simple reading level.
 - Caveat (the lesson labels' hand lettering) is still loaded; Geist Mono still sets
   `--font-mono`. Dropping them is a separate change.
+
+## Batch 3, fourth part, as built (2026-11-13)
+
+- **One drawing rule** (`lib/viz.ts`: `SEEN_MIN` 0.2, `SURE_MIN` = `tracking.joint_min_conf`):
+  not drawn below `SEEN_MIN`, faint and dotted below `SURE_MIN`, solid above. Used by the 2D
+  evidence viewer (which drew every point before), the lesson and the print layout. The 3D view
+  already leaves out points under the engine's cut-off (`buildScene`) and keeps gaps as gaps.
+  Acceptance criterion 3 ("nothing drawn for unseen joints") now holds in every view.
+- **Text alternative for 3D** (`SceneInWords` in `evidence-viewer.tsx`): a table, per moment of
+  the shot, of which parts, bat and ball were seen. Shown under the 3D and Compare views.
+- Not done, and not needed for the criterion: the viewers were not rebuilt from scratch on the
+  result contract; the evidence viewer already reads it for its timeline.
 
 ## The landing batter, traced from a real clip (2026-11-13)
 

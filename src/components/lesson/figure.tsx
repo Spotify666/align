@@ -5,6 +5,7 @@
 // in figure units (see ./pose).
 
 import { mid, type FigureJoint, type FigurePose, type Pt } from "./pose";
+import { SEEN_MIN, SURE_MIN } from "@/lib/viz";
 
 export { alignAt, figurePose, mid, posePoints, type FigurePose, type Pt } from "./pose";
 
@@ -35,9 +36,9 @@ const LANDMARK_BONES: Array<[FigureJoint, FigureJoint]> = [
   ["bh", "bk"], ["bk", "ba"], ["fh", "fk"], ["fk", "fa"],
   ["ba", "bheel"], ["bheel", "btoe"], ["ba", "btoe"], ["fa", "fheel"], ["fheel", "ftoe"], ["fa", "ftoe"],
 ];
-/** Below this the tracker didn't see the point: it isn't drawn. Below SURE it is drawn faint and dotted. */
-const SEEN = 0.2;
-const SURE = 0.5;
+/** The shared rule (lib/viz): not drawn below SEEN, faint and dotted below SURE. */
+const SEEN = SEEN_MIN;
+const SURE = SURE_MIN;
 
 /**
  * The batter as the tracker saw them: points and bones, no filled body. A point the tracker

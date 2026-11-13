@@ -1,6 +1,16 @@
 // Shared geometry for the 2D evidence viewer and the 3D replay.
 import { buildScene, bodyCentre, type Scene } from "@/engine/scene";
 import { J, JOINTS, type CaptureObservation, type Joint } from "@/engine/types";
+import { th } from "@/engine/registry";
+
+/**
+ * How sure the tracker must be of a point to draw it. Below SEEN_MIN it wasn't seen and is not
+ * drawn at all; between SEEN_MIN and SURE_MIN it is drawn faint and dotted; from SURE_MIN (the
+ * engine's own cut-off, below which a point is not used in any measure) it is drawn solid.
+ * Every picture of the body (evidence viewer, 3D, lesson, print) follows the same rule.
+ */
+export const SEEN_MIN = 0.2;
+export const SURE_MIN = th("tracking.joint_min_conf");
 
 export type V3 = [number, number, number];
 
