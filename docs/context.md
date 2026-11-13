@@ -3,6 +3,19 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-13 · Batch 3: one rule for drawing the body; the 3D view in words
+
+- Every picture of the body (the evidence viewer's tracked view, the lesson, the printed
+  report; the 3D view already did) now follows one rule (`lib/viz.ts`): a point the tracker
+  didn't see (confidence under 0.2) is not drawn at all; an unsure one (under 0.5, the engine's
+  own cut-off, so not used in any measure) is faint and dotted; the rest solid. The evidence
+  viewer used to draw every point, however unsure.
+- Under the 3D view, "The 3D view in words": a table of the shot's moments and whether the head,
+  front shoulder, front knee, front foot, hands, bat and ball were seen at each. On the
+  athlete's clip: the body seen throughout, bat and ball not seen.
+- Not verified: the 3D picture itself in the test browser (it has no graphics card and draws
+  black; the 3D code was not changed).
+
 ## 2026-11-13 · Batch 3: landmark figures instead of silhouettes
 
 The report's lesson (Training) drew the batter as a filled body, with joints the tracker never

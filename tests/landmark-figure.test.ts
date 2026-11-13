@@ -43,3 +43,14 @@ describe("the lesson's landmark figure", () => {
     expect(pts.length).toBe(17);
   });
 });
+
+import { SEEN_MIN, SURE_MIN } from "@/lib/viz";
+import { th } from "@/engine/registry";
+
+describe("one rule for drawing the body, everywhere", () => {
+  it("draws solid only what the engine itself uses, and nothing it didn't see", () => {
+    expect(SURE_MIN).toBe(th("tracking.joint_min_conf"));
+    expect(SEEN_MIN).toBeGreaterThan(0);
+    expect(SEEN_MIN).toBeLessThan(SURE_MIN);
+  });
+});

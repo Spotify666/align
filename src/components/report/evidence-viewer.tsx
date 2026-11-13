@@ -6,7 +6,7 @@ import type { AnalysisPayload, CaptureObservation, ImgPoint } from "@/engine/typ
 import { J } from "@/engine/types";
 import { bodyCentre, buildScene, semanticToJoint } from "@/engine/scene";
 import { angleAt } from "@/engine/math";
-import { BONES } from "@/lib/viz";
+import { BONES, EVENT_LABEL, SEEN_MIN, SURE_MIN } from "@/lib/viz";
 import { PhaseTimeline } from "./phase-timeline";
 import { buildResult, type AnalysisResult } from "@/engine/result";
 import { Pause, Play } from "../icons";
@@ -251,14 +251,14 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
       }
     }
 
-    // Body: confident bones solid, low-confidence bones dotted grey.
+    // Body: sure bones solid, unsure ones faint and dotted, unseen ones not drawn at all.
     if (layers.body) {
       const fr = obs.body[frame] ?? [];
       for (const [a, b] of BONES) {
         const pa = pt(fr[J[a]] ?? undefined);
         const pb = pt(fr[J[b]] ?? undefined);
-        if (!pa || !pb) continue;
-        const low = Math.min(pa[2], pb[2]) < 0.5;
+        if (!pa || !pb || Math.min(pa[2], pb[2]) < SEEN_MIN) continue;
+        const low = Math.min(pa[2], pb[2]) < SURE_MIN;
         ctx.setLineDash(low ? [2, 4] : []);
         ctx.strokeStyle = low ? COL.low : COL.body;
         ctx.lineWidth = low ? 1.5 : 2.5;
@@ -270,19 +270,21 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
       ctx.setLineDash([]);
       fr.forEach((p) => {
         const q = pt(p ?? undefined);
-        if (!q) return;
-        ctx.fillStyle = q[2] < 0.5 ? COL.low : COL.text;
+        if (!q || q[2] < SEEN_MIN) return;
+        ctx.fillStyle = q[2] < SURE_MIN ? COL.low : COL.text;
         ctx.beginPath();
         ctx.arc(q[0], q[1], 2.6, 0, Math.PI * 2);
         ctx.fill();
       });
       const nose = pt(fr[J.nose] ?? undefined);
-      if (nose) {
-        ctx.strokeStyle = COL.body;
+      if (nose && nose[2] >= SEEN_MIN) {
+        ctx.setLineDash(nose[2] < SURE_MIN ? [2, 4] : []);
+        ctx.strokeStyle = nose[2] < SURE_MIN ? COL.low : COL.body;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(nose[0], nose[1], Math.max(8, W * 0.012), 0, Math.PI * 2);
         ctx.stroke();
+        ctx.setLineDash([]);
       }
     }
 
@@ -551,6 +553,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
         )}
       </div>
 
+      {(mode === "3d" || mode === "compare") && <SceneInWords obs={obs} payload={payload} front={scene.front} />}
       {mode === "3d" && (
         <div className="flex flex-wrap items-center gap-2 px-3 pt-2.5 text-sm">
           <button className={`chip min-h-9 ${sideView ? "border-brand/60 bg-brand-soft text-fg" : "text-fg-muted"}`} aria-pressed={sideView} onClick={() => setSideView((v) => !v)}>
@@ -720,3 +723,65 @@ function CompareNote({ payload, reference }: { payload: AnalysisPayload; referen
   );
 }
 
+type Seen = "yes" | "unsure" | "no";
+const SEEN_WORD: Record<Seen, string> = { yes: "Seen", unsure: "Unsure", no: "Not seen" };
+
+/**
+ * The 3D view in words: at each moment of the shot, which parts the tracker saw. The 3D view
+ * shows only what was seen; unsure parts are left out of it and of every measure. A table, so a
+ * screen reader (or anyone) gets the same as the picture.
+ */
+function SceneInWords({ obs, payload, front }: { obs: CaptureObservation; payload: AnalysisPayload; front: "left" | "right" }) {
+  const t0 = obs.t[0] ?? 0;
+  const moments = payload.events.filter((e) => EVENT_LABEL[e.type]).sort((a, b) => a.frame - b.frame);
+  if (!moments.length) return null;
+  const conf = (f: number, j: keyof typeof J) => obs.body[f]?.[J[j]]?.[2] ?? 0;
+  const word = (c: number): Seen => (c >= SURE_MIN ? "yes" : c >= SEEN_MIN ? "unsure" : "no");
+  const side = (part: string) => `${front}_${part}` as keyof typeof J;
+  const other = front === "left" ? "right" : "left";
+  const cols: Array<{ name: string; at: (f: number) => Seen }> = [
+    { name: "Head", at: (f) => word(conf(f, "nose")) },
+    { name: "Front shoulder", at: (f) => word(conf(f, side("shoulder"))) },
+    { name: "Front knee", at: (f) => word(conf(f, side("knee"))) },
+    { name: "Front foot", at: (f) => word(conf(f, side("ankle"))) },
+    { name: "Hands", at: (f) => word(Math.min(conf(f, side("wrist")), conf(f, `${other}_wrist` as keyof typeof J))) },
+    { name: "Bat", at: (f) => (obs.bat.handle[f] && obs.bat.toe[f] ? "yes" : "no") },
+    { name: "Ball", at: (f) => (obs.ball.points[f] ? "yes" : "no") },
+  ];
+  return (
+    <details className="group mx-3 mt-2.5 text-sm">
+      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 font-medium text-fg-muted hover:text-fg">
+        The 3D view in words <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
+      </summary>
+      <p id="scene-words-note" className="pb-1.5 text-xs text-fg-subtle">What the tracker saw at each moment. Unsure parts are left out of the 3D view and of every measure.</p>
+      <div className="overflow-x-auto">
+        <table aria-describedby="scene-words-note" className="w-full min-w-[34rem] border-collapse text-left text-xs">
+          <caption className="sr-only">The 3D view in words</caption>
+          <thead>
+            <tr className="border-b border-line-strong text-fg-muted">
+              <th scope="col" className="py-1 pr-2 font-medium">Moment</th>
+              {cols.map((c) => (
+                <th key={c.name} scope="col" className="py-1 pr-2 font-medium">{c.name}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {moments.map((e) => (
+              <tr key={e.id} className="border-b border-line">
+                <th scope="row" className="py-1 pr-2 font-medium">
+                  {EVENT_LABEL[e.type]} <span className="num font-normal text-fg-subtle">{(((obs.t[e.frame] ?? t0) - t0) / 1000).toFixed(2)} s</span>
+                </th>
+                {cols.map((c) => {
+                  const v = c.at(e.frame);
+                  return (
+                    <td key={c.name} className={`py-1 pr-2 ${v === "yes" ? "" : "text-fg-subtle"}`}>{SEEN_WORD[v]}</td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
