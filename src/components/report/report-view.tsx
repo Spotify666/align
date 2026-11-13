@@ -49,6 +49,8 @@ interface Props {
   onAnalyseAs?: (target: TargetShot) => Promise<void>;
   /** The batter left the shot to Aline: an unconfirmed result is worded without "is this a …". */
   unchosen?: boolean;
+  /** The printed layout of this report (Save as PDF); without it the button makes the simple PDF. */
+  printHref?: string;
 }
 
 const noSubscribe = () => () => {};
@@ -56,7 +58,7 @@ const noSubscribe = () => () => {};
 const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, title, analysisId, onAnalyseAs, unchosen }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, title, analysisId, onAnalyseAs, unchosen, printHref }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [switching, setSwitching] = useState(false);
   // The report opens on the summary; each section beyond it is drawn only when the batter opens it.
@@ -138,7 +140,13 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
         <span className="text-fg-muted">{title ?? p.label ?? "Analysis"}</span>
         <DemoBadge show={p.demo} />
         <span className="ml-auto flex flex-wrap gap-2">
-          <PdfButton onClick={() => downloadReportPdf(p, { title: title ?? p.label, evidenceImage: viewer.current?.snapshot() ?? null })} />
+          {printHref ? (
+            <Link href={printHref} prefetch={false} className="btn btn-ghost !min-h-11 !py-1.5 text-sm">
+              <Download size={16} /> PDF
+            </Link>
+          ) : (
+            <PdfButton onClick={() => downloadReportPdf(p, { title: title ?? p.label, evidenceImage: viewer.current?.snapshot() ?? null })} />
+          )}
           {actions}
         </span>
       </div>
@@ -736,7 +744,7 @@ function PdfButton({ onClick }: { onClick: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   return (
     <button
-      className="btn btn-ghost !min-h-9 !py-1.5 text-sm"
+      className="btn btn-ghost !min-h-11 !py-1.5 text-sm"
       disabled={busy}
       onClick={async () => {
         setBusy(true);

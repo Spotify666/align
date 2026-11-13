@@ -23,7 +23,7 @@ Three things to know before reading:
 | 0 Plan | Approved 2026-11-11 |
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
 | 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
-| 3 Report, evidence, 3D, PDF | **In progress.** Shipped: the report in six sections (Summary, then Evidence, Training, Comparison, Progress, Technical details, each closed until opened). Not yet: landmark figures, the viewers rebuilt on the result contract, comparison UI on fixtures, the print PDF |
+| 3 Report, evidence, 3D, PDF | **In progress.** Shipped: the report in six sections (Summary, then Evidence, Training, Comparison, Progress, Technical details, each closed until opened); the PDF from a print layout. Not yet: landmark figures, the viewers rebuilt on the result contract, comparison UI on fixtures |
 | 4–8 | Not started |
 
 ## 1. Diagnosis
@@ -385,7 +385,7 @@ not yet validated on real athletes.
 
 Still open, none blocks Batch 1: 8 (who signs reference licences), 9 (left-handers never
 flipped: standing rule 7 holds unless changed), 10 ("match %" renamed), 11 (dual-angle through
-Supabase), 12 (PDF from a print layout), 13 (legal sign-off on minors).
+Supabase), 13 (legal sign-off on minors). 12 (PDF from a print layout): yes, 2026-11-13 ("Continue" after it was proposed).
 
 **As first asked**
 
@@ -584,6 +584,23 @@ camera and injected motion readings), iOS Safari's motion permission, a screen r
 - Checked on five sample reports (accepted, another shot, unreadable, no bat, photo): every
   section opens and closes, no page errors, no control under 44 px in the section row, no
   sideways scroll; "Show me" on a measure opens Evidence at its frame.
+
+## Batch 3, second part, as built (2026-11-13)
+
+- **Print layout** (`components/report/print-report.tsx`; routes `/report/[id]/print` via
+  `local-print.tsx`, and `/sample/[key]/print`): outside the app shell, daylight theme set
+  before anything draws, A4 print styles (`globals.css`, `@media print`). The report's "PDF"
+  button links to it; the jsPDF text PDF stays as "Simple PDF" (and where no print page exists).
+- **Frames**: the three moments (backlift, foot down, contact; a photo's one position), each the
+  kept picture cropped to the batter, the tracked body (dotted where unsure) and the line in the
+  accent; a ring on the plan's own part when it is a line part out of its range
+  (`line_head`/`line_shoulder`/`line_knee`), its words under the picture. Without a kept picture:
+  the body drawn on paper, and it says so. Pictures are JPEG (a real clip's PDF: 317 KB).
+- **Greyscale**: every state is a word or a mark ("Good:", "Fix:", "!" on out-of-range checks,
+  the dashed ring).
+
+**Not verified**: a phone's own "Save as PDF" (tested with Chromium's PDF output); the account
+copy of a report (the cloud path is wired, not exercised).
 
 ## The landing batter, traced from a real clip (2026-11-13)
 

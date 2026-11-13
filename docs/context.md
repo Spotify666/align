@@ -3,6 +3,23 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-13 · "Continue": Batch 3, the PDF from a print layout
+
+Taken as a yes to the print-layout PDF (decision 12), which was proposed just before.
+
+- The report's **PDF** button now opens the report laid out for paper (`/report/<id>/print`,
+  `/sample/<key>/print`, `components/report/print-report.tsx`): the plain summary, three moments
+  of the clip (backlift, foot down, contact) as the recording's own pictures with the tracked
+  body and the line drawn on them, the training plan, every check (out-of-range ones marked
+  "!"), the report in words, and the limits. Daylight theme, readable in greyscale. "Save as
+  PDF or print" uses the phone's own print screen; "Simple PDF" is the old text PDF, kept.
+- On the contact frame a ring marks the part the plan asks to fix, only when that fix is a part
+  of the line out of its range, with the words under the picture (so the page says what the
+  summary says). The athlete's own clip: no ring (its fix is the timing of foot, knee and
+  shoulder).
+- Checked: the real clip's saved report (3 pages, 317 KB) and four samples (accepted, another
+  shot, photo, unreadable), no page errors; the batter's own theme comes back after.
+
 ## 2026-11-13 · The athlete sent four clips: the landing batter is now traced from one
 
 Four videos attached in the chat (three different: a side-on front-foot defence, a side-on
