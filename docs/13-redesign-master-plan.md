@@ -23,7 +23,8 @@ Three things to know before reading:
 | 0 Plan | Approved 2026-11-11 |
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
 | 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
-| 3–8 | Not started |
+| 3 Report, evidence, 3D, PDF | **In progress.** Shipped: the report in six sections (Summary, then Evidence, Training, Comparison, Progress, Technical details, each closed until opened). Not yet: landmark figures, the viewers rebuilt on the result contract, comparison UI on fixtures, the print PDF |
+| 4–8 | Not started |
 
 ## 1. Diagnosis
 
@@ -567,6 +568,22 @@ camera and injected motion readings), iOS Safari's motion permission, a screen r
 
 **Not verified**: real clips through the new default (none available); the limit noted in
 `docs/context.md` for a back-foot stroke in a long clip when no shot is named.
+
+## Batch 3, first part, as built (2026-11-13)
+
+- **Six sections** (`report-view.tsx`): the Summary card, then a row of five sections
+  (`SectionTabs`), none open to begin with; opening one draws it and brings it into view, tapping
+  it again closes it. Evidence: the full verdict, key checks, the line, the back-foot panel, the
+  evidence viewer, the delivery, the position check, ungraded observations. Training: the
+  lesson, the plan, the written report. Comparison: the match with other profiles. Progress
+  (new, `ProgressSection`): each measure against the batter's own baseline, changed ones first,
+  in words; numbers only above the simple reading level. Technical details: how sure each part
+  is, the domains, every measure, why this result, capture checks, limits, versions.
+- The blocks themselves are unchanged; only their place is. The "Details" switch remains on
+  the two-angle report (`angles-report.tsx`) until that folds into Comparison.
+- Checked on five sample reports (accepted, another shot, unreadable, no bat, photo): every
+  section opens and closes, no page errors, no control under 44 px in the section row, no
+  sideways scroll; "Show me" on a measure opens Evidence at its frame.
 
 ## The landing batter is still not right (2026-11-12, owner's feedback)
 
