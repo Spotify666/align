@@ -23,7 +23,7 @@ Three things to know before reading:
 | 0 Plan | Approved 2026-11-11 |
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
 | 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
-| 3 Report, evidence, 3D, PDF | **In progress.** Shipped: the report in six sections (Summary, then Evidence, Training, Comparison, Progress, Technical details, each closed until opened); the PDF from a print layout; landmark figures in the lesson; one drawing rule for the body in every view, and the 3D view in words. Not yet: comparison UI on fixtures (and the two-angle report folded into it) |
+| 3 Report, evidence, 3D, PDF | **Shipped 2026-11-14**, in five parts (see "Batch 3 … as built"): the report in six sections, the PDF from a print layout, landmark figures, one drawing rule and the 3D view in words, the Comparison section (with the two-angle report folded in) |
 | 4–8 | Not started |
 
 ## 1. Diagnosis
@@ -645,3 +645,23 @@ in-betweens move like a diagram. The reference is traced frame by frame from fil
 real footage (a clip the owner sends, or a freely licensed one) into line art, per frame, and
 replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/context.md`.
 
+
+## Batch 3, fifth part, as built (2026-11-14)
+
+- **Comparison section** (`compare-panel.tsx`, `side-by-side.tsx`, `lib/compare.ts`):
+  - every reference says whether it is comparable ("Same camera position · n measures in
+    common") or why not and what would make it so; non-comparable ones stay listed;
+  - a match opens on a breakdown by part of the body (`domainsOf`: the line, timing, footwork
+    and base, balance, hands and bat), each with the measures it rests on or "Not compared";
+    words instead of numbers at the simple reading level; the measure table in everyday units;
+  - **side by side** at three matched moments (each clip's own events), points and bones only,
+    against the last attempt (same position and hand) or the generated textbook defence
+    (labelled an illustration).
+- **Two-angle report folded in**: each clip's Comparison shows the combined answer and each
+  check (`BothAngles`, `AngleChecks` in `angles-report.tsx`); `/angles` stays, with an "Each
+  check" button instead of the Details switch, which is deleted.
+- Per-part scores are a presentation of the existing match, not the planned
+  `aline.similarity/1` (Batch 5): no confidence per part beyond the count of measures.
+- Checked: samples (accepted, no bat, another shot, back-foot), the owner's real side-on clip
+  against an earlier attempt, a two-clip pair (different balls: "Not combined"); no sideways
+  scroll, no page errors. Not verified: a real same-ball pair; a real phone.

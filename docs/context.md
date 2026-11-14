@@ -3,6 +3,29 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · Batch 3 finished: the Comparison section
+
+- **Each match broken down by part of the body** (`domainsOf` in `lib/compare.ts`): the line,
+  timing, footwork and base, balance, hands and bat; each the mean likeness of the measures it
+  rests on, with how many, or "Not compared" when the two shots share none. At the simple
+  reading level, words ("close", "some way off", "far off") instead of numbers.
+- **Comparability, said for every reference**: "Same camera position · 11 measures in common",
+  or "Not comparable" with the reason and what would make it comparable (`notComparable`).
+  References that can't be compared stay listed instead of being hidden.
+- **Side by side** (`report/side-by-side.tsx`): backlift, foot down and contact, each found in
+  its own clip, drawn from tracked points only (the lesson's rule), against the batter's last
+  attempt from the same position and hand, or the textbook defence played by the test
+  generator for their hand (labelled an illustration, not a real player). Side-on, confirmed
+  front-foot defences.
+- **Both angles of one ball** now also show in each clip's report, under Comparison: the
+  combined answer and each check with the angle that read it. `/angles` keeps working; its
+  "Details" switch is now an "Each check" button like the report's sections.
+- The measure table no longer shows minus signs or milliseconds (standing rule 8).
+- Not changed: the match itself (`signature.ts`) and anything under `src/engine`. The fuller
+  similarity (`aline.similarity/1`, with confidence per part) is Batch 5.
+- Not verified: two clips of the same ball (none in the session; tested with two different
+  balls, which reads "Not combined"); a real phone.
+
 ## 2026-11-13 · Batch 3: one rule for drawing the body; the 3D view in words
 
 - Every picture of the body (the evidence viewer's tracked view, the lesson, the printed

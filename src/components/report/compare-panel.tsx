@@ -6,10 +6,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { AnalysisPayload } from "@/engine/types";
+import type { AnalysisPayload, Metric } from "@/engine/types";
 import { matchSignatures, signatureOf, type Match, type ShotSignature } from "@/engine/signature";
-import { plainNumber, plainUnit } from "@/engine/plain";
-import { builtInReferences, type Reference } from "@/lib/compare";
+import { friendlyValue } from "@/engine/summary";
+import { METRICS } from "@/engine/registry";
+import { FRONTAL_METRICS } from "@/engine/frontal";
+import { builtInReferences, domainsOf, likeness, notComparable, type Reference } from "@/lib/compare";
 import { currentUser, listShotProfiles, shareShotProfile, unshareShotProfile, type SharedProfile } from "@/lib/cloud";
 import { getAnalysis, listAnalyses, loadProfile, updateAnalysis } from "@/lib/store";
 
@@ -19,7 +21,7 @@ interface Row extends Reference {
 
 const VIEW = (s: ShotSignature) => (s.axis === "sideways" ? "from either end" : s.axis === "forward" ? "side-on" : "");
 
-export function ComparePanel({ payload, fps, analysisId }: { payload: AnalysisPayload; fps: number | null; analysisId?: string }) {
+export function ComparePanel({ payload, fps, analysisId, numbers = true }: { payload: AnalysisPayload; fps: number | null; analysisId?: string; numbers?: boolean }) {
   const mine = useMemo(() => signatureOf(payload, fps), [payload, fps]);
   const [refs, setRefs] = useState<Reference[] | null>(null);
   const [own, setOwn] = useState<Reference[]>([]);
@@ -76,9 +78,11 @@ export function ComparePanel({ payload, fps, analysisId }: { payload: AnalysisPa
 
   const rows = (xs: Reference[]): Row[] => xs.map((r) => ({ ...r, match: matchSignatures(mine, r.signature) }));
   const allBuiltIn = rows(refs ?? []);
-  const builtIn = allBuiltIn.filter((r) => r.match.score !== null);
-  const proOther = allBuiltIn.some((r) => r.kind === "pro" && r.match.score === null);
-  const yours = rows(own).filter((r) => r.match.score !== null);
+  // Comparable references first; the others stay listed, with why and what would make them comparable.
+  const builtIn = [...allBuiltIn].sort((a, b) => Number(b.match.score !== null) - Number(a.match.score !== null));
+  const allYours = rows(own);
+  const yours = allYours.filter((r) => r.match.score !== null);
+  const yoursApart = allYours.length - yours.length;
   const bestYours = [...yours].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0)).slice(0, 1);
   const latestYours = yours.slice(0, 2).filter((r) => !bestYours.includes(r));
   const others = rows(players)
@@ -99,20 +103,20 @@ export function ComparePanel({ payload, fps, analysisId }: { payload: AnalysisPa
       <Group title="References">
         {refs === null && <p className="text-sm text-fg-subtle">Building the textbook model…</p>}
         {builtIn.map((r) => (
-          <MatchRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} mineAxis={mine.axis} />
+          <MatchRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} mine={mine} numbers={numbers} />
         ))}
-        {refs !== null && proOther && (
-          <li className="text-xs text-fg-subtle">
-            International batters&apos; line is measured from either end of the pitch: film from the bowler&apos;s end to compare with it.
-          </li>
-        )}
       </Group>
 
       {(bestYours.length > 0 || latestYours.length > 0) && (
         <Group title="Your other shots">
           {[...bestYours.map((r) => ({ ...r, note: `Closest of your shots · ${r.note}` })), ...latestYours].map((r) => (
-            <MatchRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} mineAxis={mine.axis} />
+            <MatchRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} mine={mine} numbers={numbers} />
           ))}
+          {yoursApart > 0 && (
+            <li className="text-xs text-fg-subtle">
+              {yoursApart === 1 ? "One of your shots was" : `${yoursApart} of your shots were`} filmed another way or show too little, so {yoursApart === 1 ? "it isn't" : "they aren't"} compared.
+            </li>
+          )}
         </Group>
       )}
 
@@ -127,7 +131,7 @@ export function ComparePanel({ payload, fps, analysisId }: { payload: AnalysisPa
         )}
         {signedIn && others.length === 0 && <p className="text-sm text-fg-subtle">No shared shots from the same camera position yet.</p>}
         {others.slice(0, 8).map((r) => (
-          <MatchRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} mineAxis={mine.axis} />
+          <MatchRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} mine={mine} numbers={numbers} />
         ))}
         {signedIn && analysisId && <ShareShot analysisId={analysisId} signature={mine} payload={payload} sharedId={sharedId} onChange={setSharedId} />}
       </Group>
@@ -144,16 +148,19 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function MatchRow({ row, open, onToggle, mineAxis }: { row: Row; open: boolean; onToggle: () => void; mineAxis: ShotSignature["axis"] }) {
+function MatchRow({ row, open, onToggle, mine, numbers }: { row: Row; open: boolean; onToggle: () => void; mine: ShotSignature; numbers: boolean }) {
   const s = row.match.score;
   const tone = s === null ? "bg-line" : s >= 85 ? "bg-ok" : s >= 65 ? "bg-brand" : "bg-bad";
-  const why = s === null ? (row.signature.axis && row.signature.axis !== mineAxis ? `Filmed ${VIEW(row.signature)}: compare with a clip filmed the same way.` : "Too few measures in common.") : null;
+  const why = notComparable(mine, row.signature, row.match);
+  // The comparability check, in words: what the two have in common.
+  const basis = s === null ? null : `Same camera position · ${row.match.parts.length} measures in common`;
   return (
     <li className="rounded-xl border border-line">
-      <button className="flex w-full items-center gap-3 px-3.5 py-3 text-left" onClick={onToggle} aria-expanded={open} disabled={s === null}>
+      <button className="flex min-h-11 w-full items-center gap-3 px-3.5 py-3 text-left" onClick={onToggle} aria-expanded={open} disabled={s === null}>
         <span className="min-w-0 flex-1">
           <span className="block font-medium">{row.name}</span>
-          <span className="block text-xs text-fg-subtle">{why ?? row.note}</span>
+          <span className="block text-xs text-fg-subtle">{row.note}</span>
+          <span className={`block text-xs ${why ? "text-fg-muted" : "text-fg-subtle"}`}>{why ? `Not comparable. ${why}` : basis}</span>
           {s !== null && (
             <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
               <span className={`block h-full rounded-full ${tone}`} style={{ width: `${s}%` }} />
@@ -162,17 +169,34 @@ function MatchRow({ row, open, onToggle, mineAxis }: { row: Row; open: boolean; 
         </span>
         <span className="num shrink-0 text-2xl font-semibold">{s === null ? "—" : `${s}%`}</span>
       </button>
-      {open && s !== null && <MatchDetail match={row.match} name={row.name} />}
+      {open && s !== null && <MatchDetail match={row.match} name={row.name} numbers={numbers} axis={mine.axis} />}
     </li>
   );
 }
 
-const fmt = (v: number, unit: string, decimals: number) => `${plainNumber({ unit, decimals }, v)} ${plainUnit({ unit })}`.trim();
+// Everyday units, never a minus sign or milliseconds (the report's rule); "height" is each batter's own.
+const def = (id: string) => METRICS.find((d) => d.id === id) ?? FRONTAL_METRICS.find((d) => d.id === id);
+const fmt = (id: string, v: number, unit: string, decimals: number, axis: ShotSignature["axis"]) =>
+  friendlyValue({ id, unit, decimals, value: v, range: (def(id)?.range ?? null) as Metric["range"], inRange: null, ...(axis ? { axis } : {}) }).replace("of your height", "of height");
 
-function MatchDetail({ match, name }: { match: Match; name: string }) {
+function MatchDetail({ match, name, numbers, axis }: { match: Match; name: string; numbers: boolean; axis: ShotSignature["axis"] }) {
+  const domains = domainsOf(match);
   return (
     <div className="border-t border-line px-3.5 py-3">
-      <table className="w-full text-sm">
+      <h4 className="text-xs text-fg-subtle">By part of the body</h4>
+      <ul className="mt-1.5 divide-y divide-line" aria-label={`Your shot against ${name}, by part of the body`}>
+        {domains.map((d) => (
+          <li key={d.id} className="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+            <span>{d.name}</span>
+            <span className={d.score === null ? "text-fg-subtle" : d.score < 65 ? "font-medium text-bad" : ""}>
+              {d.score === null ? "Not compared" : numbers ? <span className="num">{d.score}%</span> : likeness(d.score)}
+              {d.score !== null && <span className="text-xs text-fg-subtle"> · {d.measures === 1 ? "1 measure" : `${d.measures} measures`}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {numbers && (
+      <table className="mt-3 w-full text-sm">
         <caption className="sr-only">Your shot against {name}, measure by measure</caption>
         <thead>
           <tr className="text-left text-xs text-fg-subtle">
@@ -187,15 +211,16 @@ function MatchDetail({ match, name }: { match: Match; name: string }) {
               <td className="py-1.5 pr-2">
                 <span className={p.similarity < 0.6 ? "font-medium text-bad" : ""}>{p.name}</span>
               </td>
-              <td className="num py-1.5 pr-2">{fmt(p.you, p.unit, p.decimals)}</td>
-              <td className="num py-1.5">{fmt(p.them, p.unit, p.decimals)}</td>
+              <td className="num py-1.5 pr-2">{fmt(p.id, p.you, p.unit, p.decimals, axis)}</td>
+              <td className="num py-1.5">{fmt(p.id, p.them, p.unit, p.decimals, axis)}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      {match.path !== null && (
+      )}
+      {numbers && match.path !== null && (
         <p className="mt-2 text-xs text-fg-muted">
-          How the line formed in the last 300 ms before contact: <span className="num font-medium text-fg">{Math.round(match.path * 100)}%</span> alike.
+          How the line formed in the last third of a second before contact: <span className="num font-medium text-fg">{Math.round(match.path * 100)}%</span> alike.
         </p>
       )}
       {match.parts[0] && match.parts[0].similarity < 0.6 && (
