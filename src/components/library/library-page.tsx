@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { signatureOf, type ShotSignature } from "@/engine/signature";
 import { usualSignature } from "@/engine/similarity";
 import { builtInReferences, libraryProvenance, PROVENANCE, type Provenance } from "@/lib/compare";
-import { listLibraryShots, type LibraryShot } from "@/lib/cloud";
+import { isSiteAdmin, listLibraryShots, type LibraryShot } from "@/lib/cloud";
 import { listAnalyses } from "@/lib/store";
 
 interface Card {
@@ -27,6 +27,7 @@ export function LibraryPage() {
   const [yours, setYours] = useState<Card[] | null>(null);
   const [library, setLibrary] = useState<Card[] | null>(null);
   const [libraryError, setLibraryError] = useState(false);
+  const [admin, setAdmin] = useState(false);
   const builtIn: Card[] = builtInReferences().map((r) => ({
     id: r.id,
     name: r.name,
@@ -37,6 +38,7 @@ export function LibraryPage() {
 
   useEffect(() => {
     let alive = true;
+    isSiteAdmin().then((ok) => alive && setAdmin(ok)).catch(() => {});
     listAnalyses()
       .then((all) => {
         const sigs = all.map((a) => signatureOf(a.payload, null)).filter((s): s is ShotSignature => !!s);
@@ -107,6 +109,10 @@ export function LibraryPage() {
           <p className="text-sm text-fg-muted">{libraryError ? "The library couldn't be reached. Your own and Aline's references still work." : "None yet."}</p>
         )}
       </Group>
+
+      {admin && (
+        <Link href="/library/manage" className="btn btn-ghost">Record a permission</Link>
+      )}
 
       <p className="text-sm text-fg-muted">
         To compare a shot, open its report and then Comparison. Players who share a shot from their report appear there too, once you are signed in.

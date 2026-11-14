@@ -241,3 +241,80 @@ export async function listLibraryShots(limit = 60): Promise<LibraryShot[]> {
   if (error) throw error;
   return (data ?? []) as unknown as LibraryShot[];
 }
+
+/** Whether the signed-in account is a site admin (the database decides; false when signed out). */
+export async function isSiteAdmin(): Promise<boolean> {
+  const user = await currentUser().catch(() => null);
+  if (!user) return false;
+  const { data, error } = await supabase().rpc("is_site_admin");
+  if (error) return false;
+  return data === true;
+}
+
+/** A library reference with its rights, as a site admin sees it (every row, whatever its rights). */
+export interface ManagedReference extends LibraryShot {
+  rights_status: "pending" | "granted" | "revoked";
+  visibility: "private" | "public";
+  created_at: string;
+}
+
+export async function listManagedReferences(): Promise<ManagedReference[]> {
+  const { data, error } = await supabase()
+    .from("reference_shots")
+    .select("id, shot, axis, media, signature, engine_version, source, licence_ref, rights_expires_at, permitted_use, rights_status, visibility, created_at, reference_athletes(display_name, kind, handedness)")
+    .order("created_at", { ascending: false })
+    .abortSignal(AbortSignal.timeout(8000));
+  if (error) throw error;
+  return (data ?? []) as unknown as ManagedReference[];
+}
+
+export interface NewReference {
+  name: string;
+  kind: "coach_model" | "licensed_athlete";
+  handedness: "right" | "left";
+  signature: import("@/engine/signature").ShotSignature;
+  engineVersion: string;
+  source: string;
+  uses: Array<"compare" | "show_numbers" | "show_pictures" | "pdf">;
+  /** ISO date the permission ends; null: no end date. */
+  expires: string | null;
+  licence: string | null;
+  signed: boolean;
+}
+
+/** Records a reference and its permission (site admins only: the database refuses anyone else). */
+export async function addReference(r: NewReference): Promise<string> {
+  const db = supabase();
+  const { data: athlete, error: e1 } = await db.from("reference_athletes").insert({ display_name: r.name.trim(), kind: r.kind, handedness: r.handedness }).select("id").single();
+  if (e1) throw e1;
+  const { data: shot, error: e2 } = await db
+    .from("reference_shots")
+    .insert({
+      athlete_id: athlete.id,
+      shot: r.signature.shot,
+      axis: r.signature.axis,
+      media: r.signature.media,
+      signature: r.signature,
+      engine_version: r.engineVersion,
+      source: r.source.trim(),
+      rights_status: r.signed ? "granted" : "pending",
+      permitted_use: r.uses,
+      licence_ref: r.licence?.trim() || null,
+      rights_expires_at: r.expires,
+      visibility: r.signed ? "public" : "private",
+    })
+    .select("id")
+    .single();
+  if (e2) {
+    // Don't leave a player without a shot behind.
+    await db.from("reference_athletes").delete().eq("id", athlete.id);
+    throw e2;
+  }
+  return shot.id as string;
+}
+
+/** Withdraws a reference's permission: it disappears for everyone at once. */
+export async function withdrawReference(id: string) {
+  const { error } = await supabase().from("reference_shots").update({ rights_status: "revoked", visibility: "private" }).eq("id", id);
+  if (error) throw error;
+}

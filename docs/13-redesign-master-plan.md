@@ -385,7 +385,9 @@ not yet validated on real athletes.
 | 14 | Typeface | **Archivo + Geist** |
 | 15 | How batches reach production | **Merge after green CI**, production verified, then report (standing rule 6 stays; this replaces "draft PR, no automatic merge" in the brief and in section 13) |
 
-Still open, none blocks Batch 1: 8 (who signs reference licences), 9 (left-handers never
+2026-11-14: the international batters' line stays, labelled; a licence covers what, where and how long;
+first players wanted: Virat Kohli and Sachin Tendulkar, not added until their own permission and a usable
+recording exist. Still open, none blocks Batch 1: 8 (who asks players and records licences), 9 (left-handers never
 flipped: standing rule 7 holds unless changed), 10 ("match %" renamed), 11 (dual-angle through
 Supabase), 13 (legal sign-off on minors). 12 (PDF from a print layout): yes, 2026-11-13 ("Continue" after it was proposed).
 
@@ -748,3 +750,18 @@ replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/contex
   references beside the built-in ones, with their recorded rights.
 - Not done: overlays and the PDF with a reference (no reference carries a pose track or picture
   yet); adding references (an admin tool) waits on the first licence (decision 8).
+
+## Batch 5, third part, as built (2026-11-14)
+
+- **Record a permission** (`/library/manage`, `components/library/manage-references.tsx`; a
+  button on `/library` for site admins only): a player's or a coach's reference with its
+  permission. What (numbers, pictures), where (comparisons in the app, the PDF), how long (a
+  date or "no end date"), and the signed agreement. Unsigned, it is saved and shown to no one;
+  signed, it is public and in the library at once. The shot is one of the admin's own analyses
+  on the device (the player's clip analysed in Aline: its numbers are shared, never the video).
+  Recorded references are listed with their state (in the library, waiting, ended, withdrawn)
+  and can be withdrawn, which hides them for everyone at once.
+- Checks: the database refuses anyone but a site admin (local check) and accepts an admin's
+  write on production (inside a transaction, rolled back); the form tested in a browser with
+  the network faked as an admin: every required field, the licence asked only when signed, the
+  rows it sends (status, uses, expiry, visibility), withdrawal.
