@@ -21,6 +21,8 @@ import { downloadReportPdf } from "@/lib/pdf";
 import { Lesson } from "../lesson/lesson";
 import { LinePanel } from "./line-panel";
 import { ComparePanel } from "./compare-panel";
+import { BothAngles } from "./angles-report";
+import { SideBySide, sideOnFrontFoot } from "./side-by-side";
 import { BackFootPanel } from "./back-foot-panel";
 import { plainReading } from "@/engine/plain";
 import { fixSentence, friendlyRange, friendlyValue, plainSummary, readingLevel, simpleGood, type ReadingLevel, type SummaryKind } from "@/engine/summary";
@@ -42,6 +44,8 @@ interface Props {
   markHref?: string | null;
   /** Optional: add the same ball from the other angle, or see both together once added. */
   angleLink?: { href: string; label: string } | null;
+  /** The same ball from the other angle, when it is on this device: shown together under Comparison. */
+  otherAngle?: { id: string; payload: AnalysisPayload } | null;
   title?: string;
   /** The on-device analysis id, for comparing with other shots and sharing this one. */
   analysisId?: string;
@@ -58,7 +62,7 @@ const noSubscribe = () => () => {};
 const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, title, analysisId, onAnalyseAs, unchosen, printHref }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, otherAngle, title, analysisId, onAnalyseAs, unchosen, printHref }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [switching, setSwitching] = useState(false);
   // The report opens on the summary; each section beyond it is drawn only when the batter opens it.
@@ -408,8 +412,15 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       {/* Comparison: this shot beside other profiles. */}
       {section === "comparison" && (
         <>
-        <ComparePanel payload={p} fps={obs.media.fps} analysisId={analysisId} />
-          {reference && <p className="text-sm text-fg-muted">Your previous attempt from the same camera angle can be laid over this one in Evidence.</p>}
+        <ComparePanel payload={p} fps={obs.media.fps} analysisId={analysisId} numbers={level !== "simple"} />
+          {otherAngle && angleLink && <BothAngles payload={p} other={otherAngle} level={level} href={angleLink.href} />}
+          {sideOnFrontFoot(p) && (
+            <SideBySide you={{ obs, payload: p, label: title ?? "This shot" }} previous={reference ? { obs: reference.obs, payload: reference.payload, label: reference.label } : null} />
+          )}
+          {reference && <p className="text-sm text-fg-muted">Your last attempt from the same camera position can also be laid over this one, frame by frame, in Evidence.</p>}
+          {isValid && p.requested_shot === "back_foot_defence" && !otherAngle && (
+            <p className="text-fg-muted">Comparison with other shots covers the front-foot defence so far. Your back-foot defences are compared with each other under Progress.</p>
+          )}
           {!isValid && p.mode !== "posture_screen" && <p className="text-fg-muted">A shot is compared with others once it is confirmed. This one wasn&apos;t.</p>}
         </>
       )}
@@ -718,25 +729,6 @@ function ProgressSection({ baseline, metrics, numbers, valid }: { baseline?: Bas
       )}
       <Link href="/progress" className="btn btn-ghost">Open progress over time</Link>
     </section>
-  );
-}
-
-/** The switch that shows everything else: measures, illustrations, drills. Off by default. */
-export function DetailsSwitch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-controls="report-details"
-      onClick={() => onChange(!on)}
-      className="ml-auto inline-flex min-h-11 items-center gap-3 rounded-full pl-3 pr-1 text-[0.95rem] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg"
-    >
-      Details
-      <span aria-hidden className={`relative inline-block h-7 w-12 rounded-full border-2 border-fg transition-colors ${on ? "bg-fg" : "bg-transparent"}`}>
-        <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full transition-transform ${on ? "translate-x-5 bg-bg" : "translate-x-0 bg-fg"}`} />
-      </span>
-    </button>
   );
 }
 

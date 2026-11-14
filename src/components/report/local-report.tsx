@@ -30,7 +30,7 @@ type State =
       reference: CompareReference | null;
       remote?: boolean;
       /** The same ball from the other angle, when added and still on this device. */
-      other?: string | null;
+      other?: { id: string; payload: AnalysisPayload } | null;
     };
 
 export function LocalReport({ id }: { id: string }) {
@@ -54,7 +54,7 @@ export function LocalReport({ id }: { id: string }) {
       const [obs, keyframes, other] = await Promise.all([
         decodeTracks(tracks),
         getKeyframes(id, stored.payload.evidence_frames),
-        otherId ? getAnalysis(otherId).then((o) => (o ? otherId : null)) : null,
+        otherId ? getAnalysis(otherId).then((o) => (o ? { id: otherId, payload: o.payload } : null)) : null,
       ]);
       if (!alive) return;
       // The report shows now; the comparisons with earlier analyses (only under Details) follow.
@@ -125,7 +125,7 @@ export function LocalReport({ id }: { id: string }) {
     state.remote || !family || state.obs.media.kind !== "video"
       ? null
       : state.other
-        ? { href: `/angles?a=${id}&b=${state.other}`, label: "See both angles together" }
+        ? { href: `/angles?a=${id}&b=${state.other.id}`, label: "See both angles together" }
         : media
           ? { href: `/analyse?angle=${id}${p.requested_shot === "back_foot_defence" ? "&shot=back" : ""}`, label: family === "side" ? "Add the front angle of this ball" : "Add the side angle of this ball" }
           : null;
@@ -133,6 +133,7 @@ export function LocalReport({ id }: { id: string }) {
     <>
     <ReportView
       angleLink={angleLink}
+      otherAngle={state.other ?? null}
       payload={p}
       obs={state.obs}
       videoUrl={media?.url ?? null}

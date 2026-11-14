@@ -52,7 +52,7 @@ await analyse(second, /\/angles\?/);
 await page.locator("#verdict").waitFor();
 step(`combined: ${await page.locator("#verdict").innerText()} | ${(await page.getByRole("list", { name: "Summary" }).innerText().catch(() => "")).replace(/\s+/g, " ")}`);
 await shot("combined");
-await page.getByRole("button", { name: "Evidence" }).click();
+await page.getByRole("button", { name: "Each check" }).click();
 await page.waitForTimeout(500);
 step(`checks: ${(await page.getByRole("list", { name: /Each check/ }).innerText().catch(() => "none")).replace(/\s+/g, " ").slice(0, 700)}`);
 await page.locator("#report-details").screenshot({ path: `${out}_combined_details.png` });
@@ -60,6 +60,8 @@ await page.locator("#report-details").screenshot({ path: `${out}_combined_detail
 await page.goto(firstUrl, { waitUntil: "load" });
 await page.locator("#verdict").waitFor();
 step(`first report now offers: ${await page.getByRole("link", { name: /See both angles together/ }).count()}`);
+await page.getByRole("button", { name: "Comparison" }).click();
+step(`under Comparison: ${(await page.locator('section[aria-labelledby="both-h"]').innerText().catch(() => "none")).replace(/\s+/g, " ").slice(0, 300)}`);
 // Only two angles per ball: asking for a third shows that both are already there.
 const firstId = firstUrl.split("/report/")[1];
 await page.goto(`${base}/analyse?angle=${firstId}`, { waitUntil: "load" });

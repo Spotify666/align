@@ -6,17 +6,18 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { combineAngles, type AngleMeasure, type CombinedAngles } from "@/engine/angles";
 import { friendlyValue, readingLevel, type ReadingLevel } from "@/engine/summary";
+import type { AnalysisPayload } from "@/engine/types";
 import { plainReading } from "@/engine/plain";
 import { getAnalysis, loadProfile, type StoredAnalysis } from "@/lib/store";
 import { Camera, Check, Question, Record as RecordIcon } from "../icons";
 import { STATUS_META } from "./status";
-import { AngleChip, DetailsSwitch, LineIcon } from "./report-view";
+import { AngleChip, LineIcon } from "./report-view";
 
 type State = { kind: "loading" } | { kind: "missing" } | { kind: "ready"; a: StoredAnalysis; b: StoredAnalysis };
 const noSubscribe = () => () => {};
 
 /** The status chip of a combined result. */
-function metaOf(c: CombinedAngles) {
+export function metaOf(c: CombinedAngles) {
   if (c.status === "valid") return STATUS_META.valid;
   if (c.status === "invalid_for_requested_analysis") return STATUS_META.invalid_for_requested_analysis;
   if (c.status === "capture_failed") return STATUS_META.capture_failed;
@@ -26,7 +27,8 @@ function metaOf(c: CombinedAngles) {
 
 /**
  * The same ball from two angles, as one refined result: the answer and at most four plain lines,
- * labelled "Side + front angle"; each check, and which angle read it, behind "Details". Each
+ * labelled "Side + front angle"; each check, and which angle read it, behind "Each check" (and in
+ * each clip's report, under Comparison). Each
  * clip's own report is unchanged and one tap away.
  */
 export function AnglesReport() {
@@ -96,7 +98,15 @@ export function AnglesReport() {
           )}
           <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-4">
             <Link href={recordHref} className="btn btn-primary"><RecordIcon size={16} /> Record again</Link>
-            <DetailsSwitch on={details} onChange={setDetails} />
+            <button
+              type="button"
+              aria-expanded={details}
+              aria-controls="report-details"
+              onClick={() => setDetails(!details)}
+              className={`ml-auto min-h-11 rounded-full border px-4 text-sm font-medium transition-colors duration-150 ${details ? "border-fg bg-tint text-fg" : "border-line-strong text-fg-muted hover:text-fg"}`}
+            >
+              Each check
+            </button>
           </div>
         </div>
       </section>
@@ -111,15 +121,7 @@ export function AnglesReport() {
                 <span className="block text-fg-muted">{c.summary.angle.long}</span>
               </p>
             </div>
-            {c.measures.length > 0 ? (
-              <ul className="mt-4 divide-y divide-line border-y border-line" aria-label={`Each check from the side and from the ${endWord}`}>
-                {c.measures.map((m) => (
-                  <MeasureItem key={m.key} m={m} numbers={level !== "simple"} endWord={endWord} />
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-4 text-fg-muted">No checks are combined: the shot wasn&apos;t confirmed from both angles together. Each clip&apos;s own report still shows what it could see.</p>
-            )}
+            <AngleChecks c={c} numbers={level !== "simple"} />
           </section>
           <div className="flex flex-wrap gap-3">
             {sideId && <Link href={`/report/${sideId}`} className="btn btn-ghost">Open the side report</Link>}
@@ -128,6 +130,40 @@ export function AnglesReport() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Each check of the two angles together, and which angle read it. Also shown in each clip's report, under Comparison. */
+export function AngleChecks({ c, numbers }: { c: CombinedAngles; numbers: boolean }) {
+  const endWord = c.end?.camera_view === "behind" ? "back" : "front";
+  if (!c.measures.length)
+    return <p className="mt-4 text-fg-muted">No checks are combined: the shot wasn&apos;t confirmed from both angles together. Each clip&apos;s own report still shows what it could see.</p>;
+  return (
+    <ul className="mt-4 divide-y divide-line border-y border-line" aria-label={`Each check from the side and from the ${endWord}`}>
+      {c.measures.map((m) => (
+        <MeasureItem key={m.key} m={m} numbers={numbers} endWord={endWord} />
+      ))}
+    </ul>
+  );
+}
+
+/** The same ball from the other angle, inside one clip's report (Comparison): the combined answer and each check. */
+export function BothAngles({ payload, other, level, href }: { payload: AnalysisPayload; other: { id: string; payload: AnalysisPayload }; level: ReadingLevel; href: string }) {
+  const c = useMemo(() => combineAngles(payload, other.payload, level), [payload, other, level]);
+  const meta = metaOf(c);
+  return (
+    <section aria-labelledby="both-h" className="panel p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h3 id="both-h" className="text-lg font-semibold">Both angles of this ball</h3>
+        <span className={`chip ${meta.ring} ${meta.tone} text-sm`}>
+          <meta.Icon size={16} /> {meta.short}
+        </span>
+      </div>
+      <p className="mt-2 text-fg">{c.summary.verdict}</p>
+      <p className="mt-1 text-sm text-fg-muted">{c.summary.angle.long}</p>
+      <AngleChecks c={c} numbers={level !== "simple"} />
+      <Link href={href} className="btn btn-ghost mt-4">Open both angles together</Link>
+    </section>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { AnalysisPayload, CaptureObservation, EventType, ImgPoint, LinePartId, Metric } from "@/engine/types";
+import type { AnalysisPayload, CaptureObservation, ImgPoint, LinePartId, Metric } from "@/engine/types";
 import { J } from "@/engine/types";
 import { buildScene, semanticToJoint } from "@/engine/scene";
 import { templateReport } from "@/engine/report";
@@ -11,41 +11,13 @@ import { plainReading } from "@/engine/plain";
 import { BONES, SEEN_MIN, SURE_MIN } from "@/lib/viz";
 import { loadProfile } from "@/lib/store";
 import { downloadReportPdf } from "@/lib/pdf";
+import { momentsOf } from "./moments";
 
 const noSubscribe = () => () => {};
 const SHOT_NAME = { front_foot_defence: "Front-foot defence", back_foot_defence: "Back-foot defence" } as const;
 const KIND_WORD: Record<SummaryKind, string> = { good: "Good", fix: "Fix", tip: "Tip", info: "" };
 const PART_NAME: Record<LinePartId, string> = { head: "Head", shoulder: "Front shoulder", knee: "Front knee" };
 const PART_JOINT: Record<LinePartId, "head" | "front_shoulder" | "front_knee"> = { head: "head", shoulder: "front_shoulder", knee: "front_knee" };
-
-/** The moments printed, in order: the top of the backlift, the foot landing, contact. */
-const MOMENTS: Array<{ types: EventType[]; name: string }> = [
-  { types: ["backswing_top", "trigger"], name: "Backlift" },
-  { types: ["front_foot_plant", "back_foot_commit"], name: "Foot down" },
-  { types: ["contact"], name: "Contact" },
-];
-
-interface Moment {
-  name: string;
-  frame: number;
-  /** Seconds from the start of the clip. */
-  at: number;
-  contact: boolean;
-}
-
-function momentsOf(p: AnalysisPayload, obs: CaptureObservation): Moment[] {
-  if (p.mode === "posture_screen") return [{ name: "Your position", frame: p.line?.referenceFrame ?? 0, at: 0, contact: true }];
-  const t0 = obs.t[0] ?? 0;
-  const seen = new Set<number>();
-  const out: Moment[] = [];
-  for (const m of MOMENTS) {
-    const e = m.types.map((t) => p.events.find((x) => x.type === t)).find(Boolean);
-    if (!e || seen.has(e.frame)) continue;
-    seen.add(e.frame);
-    out.push({ name: m.name, frame: e.frame, at: ((obs.t[e.frame] ?? t0) - t0) / 1000, contact: e.type === "contact" });
-  }
-  return out;
-}
 
 const PRIORITY_PART: Record<string, LinePartId> = { line_head: "head", line_shoulder: "shoulder", line_knee: "knee" };
 
