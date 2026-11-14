@@ -15,6 +15,7 @@ const CONSENTS: Array<{ kind: string; label: string; help: string }> = [
   { kind: "cloud_storage", label: "Save reports to my account", help: "Tracks (~20 KB), still frames and reports. Never raw video unless you upload it." },
   { kind: "coach_sharing", label: "Share with my linked coaches", help: "Coaches you linked with an invite code can see your saved reports and add notes." },
   { kind: "model_training", label: "Use my data to improve the models", help: "Off by default. De-identified tracks only, never video. You can withdraw at any time." },
+  { kind: "guardian", label: "A parent or guardian agreed (under 18)", help: "Needed to share with a coach while you are under 18. Untick it and coaches stop seeing your reports at once." },
 ];
 
 export function ProfilePage() {
@@ -26,8 +27,11 @@ export function ProfilePage() {
   const [usage, setUsage] = useState<{ trackBytes: number; analyses: number } | null>(null);
   const [retention, setRetention] = useState(14);
   const [invite, setInvite] = useState("");
+  const [guardianOk, setGuardianOk] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [audit, setAudit] = useState<Array<{ action: string; subject_id: string | null; created_at: string }>>([]);
+
+  const minor = ["u13", "13_15", "16_18"].includes(p.ageBand ?? "");
 
   useEffect(() => {
     listAnalyses().then(setAnalyses).catch(() => setAnalyses([]));
@@ -170,7 +174,7 @@ export function ProfilePage() {
           </label>
         </div>
         {["u13", "13_15", "16_18"].includes(p.ageBand ?? "") && (
-          <p className="text-sm text-warn border-l-2 border-warn/60 pl-3">Under 18: a parent or guardian must agree before each analysis, and cloud saving needs their consent too.</p>
+          <p className="text-sm text-warn border-l-2 border-warn/60 pl-3">Under 18: a parent or guardian must agree before each analysis, and saving to an account or sharing with a coach needs their agreement too.</p>
         )}
       </section>
 
@@ -195,7 +199,7 @@ export function ProfilePage() {
           <>
             <p className="text-sm">Signed in as <strong>{user.email}</strong></p>
             <ul className="space-y-3">
-              {CONSENTS.map((c) => (
+              {CONSENTS.filter((c) => c.kind !== "guardian" || minor).map((c) => (
                 <li key={c.kind} className="flex items-start gap-3">
                   <input
                     id={`c_${c.kind}`}
@@ -234,8 +238,21 @@ export function ProfilePage() {
               className="flex flex-wrap gap-2 items-end"
               onSubmit={async (e) => {
                 e.preventDefault();
+                // Under 18: the database refuses the link until a parent or guardian's agreement is recorded.
+                if (minor) {
+                  if (!guardianOk) return setNote("Tick that a parent or guardian agreed first.");
+                  // Make sure the account knows the age band before the database checks it.
+                  await supabase().from("profiles").upsert({ id: user.id, age_band: p.ageBand, is_minor: true });
+                  await setConsent("guardian", true);
+                }
                 const { error } = await supabase().rpc("redeem_coach_invite", { invite_code: invite.trim() });
-                setNote(error ? error.message : "Coach linked. They can now see reports you save to your account.");
+                setNote(
+                  error
+                    ? error.message === "guardian_consent_required"
+                      ? "A parent or guardian must agree before you link a coach."
+                      : error.message
+                    : "Coach linked. They can now see reports you save to your account.",
+                );
                 if (!error) setConsents((x) => ({ ...x, coach_sharing: true }));
               }}
             >
@@ -243,7 +260,13 @@ export function ProfilePage() {
                 <span className="text-fg-muted">Coach invite code</span>
                 <input className="field mt-1 num" value={invite} onChange={(e) => setInvite(e.target.value)} placeholder="e.g. 3f9a1c22b7d0" />
               </label>
-              <button className="btn btn-ghost" disabled={!invite.trim()}>Link coach</button>
+              {minor && (
+                <label className="flex min-h-11 w-full items-start gap-3 text-sm">
+                  <input type="checkbox" className="mt-1 h-5 w-5 shrink-0" checked={guardianOk} onChange={(e) => setGuardianOk(e.target.checked)} />
+                  <span>A parent or guardian agreed to me sharing my reports with this coach.</span>
+                </label>
+              )}
+              <button className="btn btn-ghost" disabled={!invite.trim() || (minor && !guardianOk)}>Link coach</button>
             </form>
             {note && <p className="text-sm text-fg-muted" role="status">{note}</p>}
             <button className="btn btn-ghost" onClick={async () => { await supabase().auth.signOut(); setUser(null); }}>Sign out</button>

@@ -3,6 +3,14 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · Answers: two phones pass-through only; under 18, a parent agrees first
+
+- Two phones filming the same ball (Batch 7): "Pass-through only": the start signal, clock
+  sync and the second phone's numbers go through the server and are never stored; never video.
+- Under 18: "Ask a parent first". Built: an under-18 player ticks that a parent or guardian
+  agreed before linking a coach; without it the database refuses the link and coaches see
+  nothing; unticking it hides their reports from coaches at once.
+
 ## 2026-11-14 · Batch 6 begun: the coach workspace
 
 - Coaches: squads, a review queue (not yet reviewed first, then the least clear recordings),
