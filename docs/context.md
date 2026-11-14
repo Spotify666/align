@@ -3,6 +3,16 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · Batch 6 begun: the coach workspace
+
+- Coaches: squads, a review queue (not yet reviewed first, then the least clear recordings),
+  their own view of each shot beside Aline's result (agree or not, what to work on, notes),
+  assignments (drill, check-again date), history and an export. They can never change Aline's
+  result, and only see players who linked them and agreed to share.
+- Players: "From your coach" in the report (labelled as the coach's view), and "Mark done".
+- Open: players under 18 can link a coach today without a guardian's consent; the plan asks
+  for one, and how is a legal question (decision 13).
+
 ## 2026-11-14 · "Yes build the form": recording a permission
 
 - `/library/manage` (site admins; a button on the library page): name, who they are, batting

@@ -26,7 +26,8 @@ Three things to know before reading:
 | 3 Report, evidence, 3D, PDF | **Shipped 2026-11-14**, in five parts (see "Batch 3 … as built"): the report in six sections, the PDF from a print layout, landmark figures, one drawing rule and the 3D view in words, the Comparison section (with the two-angle report folded in) |
 | 4 Levels and parameters | **In progress.** Shipped: `present()`, focus groups and level counts, the report's checks by level and focus; the availability matrix; wrist–elbow specified and off. Not yet: body measurements used; identify-without-choice inside the engine (needs real clips: it would be a new way to accept a shot) |
 | 5 Reference library | **In progress.** Shipped: `aline.similarity/1` (comparability gate, five parts of the body with coverage, overall unchanged), provenance on every reference, the batter's usual as the fallback reference; the reference tables with rights in Supabase (row-level security: nothing readable without granted, unexpired rights), the library page. Not yet: overlays and PDF with references (nothing to overlay until a reference carries a pose track), the first licensed references (decision 8) |
-| 6–8 | Not started |
+| 6 Coach workspace | **In progress.** Shipped: squads, the review queue (unreviewed first, then the least clear recordings), the coach's own assessment beside Aline's result, assignments, the player's view of both, history, CSV export; tables with row-level security and an audit trail. Not yet: a guardian's consent before a player under 18 shares with a coach (decision 13) |
+| 7–8 | Not started |
 
 ## 1. Diagnosis
 
@@ -765,3 +766,33 @@ replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/contex
   write on production (inside a transaction, rolled back); the form tested in a browser with
   the network faked as an admin: every required field, the licence asked only when signed, the
   rows it sends (status, uses, expiry, visibility), withdrawal.
+
+## Batch 6, first part, as built (2026-11-14)
+
+- **Tables** (`supabase/migrations/20261114000200_coach_workspace.sql`, applied): `squads`,
+  `squad_members`, `coach_assessments` (whether the coach agrees with Aline's result, the main
+  focus, notes, reviewed), `assignments` (focus, drill, retest by, an optional library
+  reference, status). A coach reads and writes only for players linked to them who consented to
+  share (`private.can_view`); a coach can't touch `analyses`, so Aline's result never changes. A
+  player reads what their coaches wrote and may only mark an assignment done (a trigger refuses
+  any other change). Every insert, change and removal writes the audit log, readable by the
+  coach and the player concerned.
+- **Checked** on a local Postgres with the real core schema (`scripts/db/check-rls.sh`,
+  `coach-rls.sql`): an unlinked player can't be added, assessed or assigned; another coach sees
+  nothing; a coach's update of an analysis changes no row and its result hash is unchanged; the
+  player marks done but can't change the drill or write an assessment; the audit rows are there;
+  after the link is revoked the coach can't assign. A run with the "linked players only" rule
+  removed fails, as it should.
+- **Coach page** (`components/coach/coach-page.tsx`, `src/lib/coach.ts`): review queue in that
+  order with a squad filter; per shot, "your view of Aline's result" (agree, disagree, not sure),
+  the main thing to work on, notes, "Save and mark reviewed"; assign a drill and a retest date;
+  assignments with cancel; squads (add, add or remove linked players); invite codes; history in
+  words; "Export my assessments and assignments" (CSV, every cell quoted, formulas neutralised,
+  Aline's result in words).
+- **Player** (`components/coach/coach-feedback.tsx`, in the report of an analysis saved to the
+  account): "From your coach", labelled as the coach's own view, Aline's result unchanged; the
+  assignment with "Mark done".
+- Browser checks with the network faked as a coach and as a player (this session can't reach
+  Supabase): queue order, every write's rows, the export, the player's view and "Mark done".
+- **Open: minors** (decision 13). Today a player under 18 can link a coach with an invite code
+  like anyone else; the plan asks for a guardian's consent first, and legal sign-off on how.

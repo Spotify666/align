@@ -11,6 +11,7 @@ import type { AnalysisPayload, CaptureObservation, TargetShot } from "@/engine/t
 import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, saveAnalysis, type StoredAnalysis } from "@/lib/store";
 import { deleteFromCloud, loadCloudAnalysis } from "@/lib/cloud";
 import { Annotations } from "../coach/annotations";
+import { CoachFeedback } from "../coach/coach-feedback";
 import { sessionCapture, sessionMedia } from "@/lib/session-media";
 import { ReportView } from "./report-view";
 import type { CompareReference } from "./evidence-viewer";
@@ -183,7 +184,8 @@ export function LocalReport({ id }: { id: string }) {
       }
     />
     {state.stored.cloud && (
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 pb-10">
+      <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 pb-10">
+        <CoachFeedback analysisId={id} />
         <Annotations analysisId={id} payload={p} />
       </div>
     )}
