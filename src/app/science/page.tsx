@@ -7,6 +7,8 @@ import { FIXTURE_SPECS } from "@/engine/fixtures";
 import { MODEL_ROUTES } from "@/engine/llm/eval";
 import { BFD_METRICS, BFD_METRIC_VERSION } from "@/engine/backfoot-defs";
 import { BFD_SOURCES } from "@/components/guide/back-foot-guide";
+import { availability, SETUPS } from "@/engine/availability";
+import { PROVISIONAL_MEASURES } from "@/engine/provisional";
 
 export const metadata: Metadata = { title: "Science and validation" };
 
@@ -31,7 +33,7 @@ export default function SciencePage() {
           uses. Nothing here is a claim of accuracy on real athletes: that validation has not been done yet.
         </p>
         <nav className="flex flex-wrap gap-2 text-sm" aria-label="On this page">
-          {[["order", "Decision order"], ["ontology", "Shots"], ["metrics", "Measures"], ["index", "Index"], ["thresholds", "Thresholds"], ["validation", "Validation"], ["llm", "Language model"], ["refs", "References"]].map(([id, l]) => (
+          {[["order", "Decision order"], ["ontology", "Shots"], ["metrics", "Measures"], ["availability", "What each set-up gives"], ["index", "Index"], ["thresholds", "Thresholds"], ["validation", "Validation"], ["llm", "Language model"], ["refs", "References"]].map(([id, l]) => (
             <a key={id} href={`#${id}`} className="chip border-line-strong text-fg-muted min-h-9">{l}</a>
           ))}
         </nav>
@@ -131,6 +133,78 @@ export default function SciencePage() {
             </li>
           ))}
         </ul>
+      </Section>
+
+      <Section id="availability" eyebrow="What each set-up gives" title="Which measures a recording can give">
+        <p className="text-fg-muted max-w-3xl">
+          Worked out from each measure&apos;s prerequisites and the camera position, by the same rules the analysis follows (checked against it in the
+          tests). <strong className="font-semibold text-fg">Graded</strong>: taken and judged against its range when the body parts it rests on are seen.{" "}
+          <strong className="font-semibold text-fg">Shown</strong>: taken, not graded. <strong className="font-semibold text-fg">No</strong>: this set-up never
+          gives it, and the reason says what would.
+        </p>
+        {(["front_foot_defence", "back_foot_defence"] as const).map((shot) => {
+          const tables = SETUPS.map((s) => availability(shot, s.conditions));
+          return (
+            <details key={shot} className="panel">
+              <summary className="flex min-h-11 cursor-pointer items-center px-4 font-medium">{shot === "front_foot_defence" ? "Front-foot defence" : "Back-foot defence"}</summary>
+              <div className="overflow-x-auto border-t border-line">
+                <table className="w-full min-w-[36rem] text-sm">
+                  <caption className="sr-only">Which {shot === "front_foot_defence" ? "front-foot" : "back-foot"} defence measures each set-up gives</caption>
+                  <thead>
+                    <tr className="text-left text-xs text-fg-subtle">
+                      <th scope="col" className="px-4 py-2 font-medium">Measure</th>
+                      {SETUPS.map((s) => (
+                        <th key={s.id} scope="col" className="px-2 py-2 font-medium">{s.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {tables[0]!.map((row, i) => (
+                      <tr key={row.id}>
+                        <th scope="row" className="px-4 py-2 text-left font-normal">{row.name}</th>
+                        {tables.map((t, k) => {
+                          const a = t[i]!;
+                          return (
+                            <td key={SETUPS[k]!.id} className="px-2 py-2 align-top">
+                              <span className={a.state === "graded" ? "text-ok" : a.state === "shown" ? "text-fg" : "text-fg-subtle"}>
+                                {a.state === "graded" ? "Graded" : a.state === "shown" ? "Shown" : "No"}
+                              </span>
+                              {a.why && <span className="block text-xs text-fg-subtle">{a.why}</span>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          );
+        })}
+      </Section>
+
+      <Section id="provisional" eyebrow="Provisional · off" title="Specified, not measured">
+        <p className="text-fg-muted max-w-3xl">
+          Written down in full so it can be reviewed. It is not taken from any recording and appears in no report until it has labelled real clips and a
+          coach&apos;s review.
+        </p>
+        {PROVISIONAL_MEASURES.map((m) => (
+          <div key={m.id} className="panel space-y-2 p-5 text-sm">
+            <h3 className="text-lg font-semibold">
+              {m.name} <span className="ml-1 rounded-full border border-line-strong px-2 py-0.5 text-xs font-normal text-fg-muted">Off</span>
+            </h3>
+            <p><span className="text-fg-subtle">Why: </span>{m.rationale}</p>
+            <p><span className="text-fg-subtle">How: </span>{m.formula}</p>
+            <p><span className="text-fg-subtle">Needs: </span>{m.needs.join("; ")}.</p>
+            <p><span className="text-fg-subtle">Uncertainty: </span>{m.uncertainty}</p>
+            <p className="text-fg-subtle">Before it is turned on:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              {m.toEnable.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </Section>
 
       <Section id="index" eyebrow={INDEX_WEIGHTS_VERSION} title="The secondary technique index">

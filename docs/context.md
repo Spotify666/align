@@ -3,6 +3,17 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · Batch 4: which measures each set-up gives; wrist and elbow, specified and off
+
+- Science page, "Which measures a recording can give": for side-on video, side-on with bat and
+  ball at 60 fps, the bowler's end and a side-on photo, every measure of both defences as
+  graded, shown or not available, with what would make it available. Checked against the
+  analysis itself in the tests.
+- "Wrist and elbow together" is written down in full (why, how, what it needs, its
+  uncertainty) and stays off until labelled clips and a coach's review exist.
+- Waiting on real clips: identifying the shot without a choice inside the engine, and using
+  the body measurements from the profile.
+
 ## 2026-11-14 · Batch 4 begun: the level and focus decide what the report lists
 
 - The analysis level now decides how many checks "Your checks" lists: Beginner the 7 that
