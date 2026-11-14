@@ -385,7 +385,9 @@ not yet validated on real athletes.
 | 14 | Typeface | **Archivo + Geist** |
 | 15 | How batches reach production | **Merge after green CI**, production verified, then report (standing rule 6 stays; this replaces "draft PR, no automatic merge" in the brief and in section 13) |
 
-Still open, none blocks Batch 1: 8 (who signs reference licences), 9 (left-handers never
+2026-11-14: the international batters' line stays, labelled; a licence covers what, where and how long;
+first players wanted: Virat Kohli and Sachin Tendulkar, not added until their own permission and a usable
+recording exist. Still open, none blocks Batch 1: 8 (who asks players and records licences), 9 (left-handers never
 flipped: standing rule 7 holds unless changed), 10 ("match %" renamed), 11 (dual-angle through
 Supabase), 13 (legal sign-off on minors). 12 (PDF from a print layout): yes, 2026-11-13 ("Continue" after it was proposed).
 

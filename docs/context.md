@@ -3,6 +3,18 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · Reference decisions (owner)
+
+- "yeah it should stay": the international batters' line (KU CricShot medians) stays, labelled
+  as a research dataset whose licence isn't confirmed.
+- A licensed reference's permission covers all three: what (numbers, pictures), where
+  (comparisons, PDF) and how long. The tables already hold each (`permitted_use`,
+  `rights_expires_at`, `licence_ref`).
+- First players wanted: Virat Kohli, Sachin Tendulkar. Not added: their name, image and shots
+  need their own permission (through their management), and a recording the owner may use
+  (broadcast footage belongs to the boards and broadcasters). Until then they are not shown by
+  name; the research line covers international batters, unnamed.
+
 ## 2026-11-14 · Batch 5: the reference library
 
 - `/library` (in the menu, and from a report's Comparison): your usual, the references Aline
