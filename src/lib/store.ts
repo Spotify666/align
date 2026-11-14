@@ -37,9 +37,9 @@ export const FOCUS_AREAS = [
 ] as const;
 export type FocusAreaId = (typeof FOCUS_AREAS)[number]["id"];
 export const ANALYSIS_LEVELS: ReadonlyArray<{ id: AnalysisLevel; label: string; says: string }> = [
-  { id: "beginner", label: "Beginner", says: "Plain words. One thing that was good, one thing to fix, no numbers." },
-  { id: "amateur", label: "Amateur", says: "Cricket terms, with values where they help." },
-  { id: "professional", label: "Professional", says: "The value and its target beside every fix." },
+  { id: "beginner", label: "Beginner", says: "Plain words, no numbers. The 7 checks that matter most." },
+  { id: "amateur", label: "Amateur", says: "Cricket terms, with values where they help. Up to 14 checks." },
+  { id: "professional", label: "Professional", says: "Every check, with its value and target." },
 ];
 
 const DB = "align";

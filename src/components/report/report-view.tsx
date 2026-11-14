@@ -25,8 +25,10 @@ import { BothAngles } from "./angles-report";
 import { SideBySide, sideOnFrontFoot } from "./side-by-side";
 import { BackFootPanel } from "./back-foot-panel";
 import { plainReading } from "@/engine/plain";
-import { fixSentence, friendlyRange, friendlyValue, plainSummary, readingLevel, simpleGood, type ReadingLevel, type SummaryKind } from "@/engine/summary";
-import { loadProfile } from "@/lib/store";
+import { fixSentence, friendlyRange, friendlyValue, plainSummary, readingLevel, simpleGood, type AnalysisLevel, type ReadingLevel, type SummaryKind } from "@/engine/summary";
+import { levelFromReading, present, type ReportModel } from "@/engine/present";
+import type { FocusArea } from "@/engine/category";
+import { FOCUS_AREAS, loadProfile, type StoredAnalysis } from "@/lib/store";
 
 interface Props {
   payload: AnalysisPayload;
@@ -44,6 +46,8 @@ interface Props {
   markHref?: string | null;
   /** Optional: add the same ball from the other angle, or see both together once added. */
   angleLink?: { href: string; label: string } | null;
+  /** What the batter chose for this analysis (level, focus areas); the profile's choice when absent. */
+  session?: StoredAnalysis["session"];
   /** The same ball from the other angle, when it is on this device: shown together under Comparison. */
   otherAngle?: { id: string; payload: AnalysisPayload } | null;
   title?: string;
@@ -62,7 +66,7 @@ const noSubscribe = () => () => {};
 const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, otherAngle, title, analysisId, onAnalyseAs, unchosen, printHref }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, otherAngle, session, title, analysisId, onAnalyseAs, unchosen, printHref }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [switching, setSwitching] = useState(false);
   // The report opens on the summary; each section beyond it is drawn only when the batter opens it.
@@ -74,7 +78,11 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
     document.getElementById("report-section")?.scrollIntoView({ block: "start", behavior: still ? "auto" : "smooth" });
   }, [section]);
   // Worded for the batter's age (profile); pages rendered ahead of time start from "plain".
-  const level = useSyncExternalStore(noSubscribe, () => readingLevel(loadProfile().ageBand, loadProfile().level), () => "plain" as ReadingLevel);
+  // The analysis's own level and focus when it saved them (so the report reads as it did), else the profile's.
+  const level = useSyncExternalStore(noSubscribe, () => readingLevel(loadProfile().ageBand, session?.level ?? loadProfile().level), () => "plain" as ReadingLevel);
+  const analysisLevel: AnalysisLevel = useSyncExternalStore(noSubscribe, () => session?.level ?? loadProfile().level ?? levelFromReading(level), () => "amateur" as AnalysisLevel);
+  const focusKey = useSyncExternalStore(noSubscribe, () => (session?.focusAreas ?? loadProfile().focusAreas ?? []).join(","), () => "");
+  const model = useMemo(() => present(p, analysisLevel, focusKey ? (focusKey.split(",") as FocusArea[]) : []), [p, analysisLevel, focusKey]);
   const shot = shotOf(p);
   const shotName = SHOT_NAME[shot];
   const observedLabel = p.observed_shot?.label;
@@ -266,7 +274,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             )}
         </section>
 
-        <KeyChecks p={p} onSeek={seek} level={level} />
+        <KeyChecks p={p} model={model} onSeek={seek} onMore={() => seekId("indicators")} level={level} />
 
         <LinePanel payload={p} fps={obs.media.fps} onSeek={(f) => seek(f)} />
 
@@ -535,18 +543,15 @@ const evidenceFrame = (m: Metric) => {
 /** A photo read side-on with enough of the batter visible: its checks are graded against the formula. */
 const positionGraded = (p: AnalysisPayload) => !!p.position_check && !["not_side_on", "not_enough", "not_on_front_foot", "not_on_back_foot"].includes(p.position_check.verdict);
 
-function KeyChecks({ p, onSeek, level }: { p: AnalysisPayload; onSeek: (frame: number, metricId?: string) => void; level: ReadingLevel }) {
+function KeyChecks({ p, model, onSeek, onMore, level }: { p: AnalysisPayload; model: ReportModel; onSeek: (frame: number, metricId?: string) => void; onMore: () => void; level: ReadingLevel }) {
   // Under 13: words only; older: friendly numbers (seconds, share of height) beside them.
   const numbers = level !== "simple";
   const isValid = p.analysis_status === "valid";
-  const graded = isValid || positionGraded(p);
-  const shown = (isValid || p.mode === "posture_screen" ? p.metrics : (p.observations ?? [])).filter((m) => m.status !== "not_measured" && m.value !== null);
-  // With a verdict, only the checks that were graded: an ungraded estimate beside them reads like a score.
-  const measured = shown.some((m) => m.inRange !== null) ? shown.filter((m) => m.inRange !== null) : shown;
-  // Out-of-range first, then the rest, at most six.
-  // Needs work first, then within range, then shown-but-not-graded; at most six.
-  const order = (m: Metric) => (m.inRange === false ? 0 : m.inRange === true ? 1 : 2);
-  const key = [...measured].sort((a, b) => order(a) - order(b)).slice(0, positionGraded(p) ? 7 : 6);
+  const graded = model.graded;
+  // Which checks, and how many, follow the analysis level and focus (`present.ts`): the engine's
+  // own priorities always, then the focus, then the rest; everything else under Technical details.
+  const key = model.checks.map((c) => c.metric);
+  const focusIds = new Set(model.checks.filter((c) => c.because === "focus").map((c) => c.metric.id));
   const unread = p.position_check?.angled ? p.metrics.filter((m) => m.status === "not_measured") : [];
   const strength = p.strengths[0];
   const priority = p.priorities[0];
@@ -609,6 +614,7 @@ function KeyChecks({ p, onSeek, level }: { p: AnalysisPayload; onSeek: (frame: n
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="font-medium">{graded ? plainReading(m) : m.name}</span>
+                      {focusIds.has(m.id) && <span className="ml-2 rounded-full border border-line-strong px-1.5 text-[0.7rem] text-fg-muted">Your focus</span>}
                       <span className="block text-xs text-fg-subtle">
                         {graded && m.name !== plainReading(m) ? m.name : ""}
                         {numbers && m.inRange === false && m.range ? `${graded && m.name !== plainReading(m) ? " · " : ""}aim for ${friendlyRange(m)}` : ""}
@@ -621,6 +627,18 @@ function KeyChecks({ p, onSeek, level }: { p: AnalysisPayload; onSeek: (frame: n
               );
             })}
           </ul>
+          {(model.more > 0 || model.unmeasuredFocus.length > 0) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-2 text-xs text-fg-subtle">
+              {model.unmeasuredFocus.length > 0 && (
+                <span>Not measured in this {p.mode === "posture_screen" ? "photo" : "clip"}: {model.unmeasuredFocus.map((f) => FOCUS_AREAS.find((a) => a.id === f)?.label.toLowerCase() ?? f).join(", ")}.</span>
+              )}
+              {model.more > 0 && (
+                <button type="button" onClick={onMore} className="ml-auto min-h-11 font-medium text-fg underline underline-offset-4">
+                  {model.more === 1 ? "1 more check" : `${model.more} more checks`} in Technical details
+                </button>
+              )}
+            </div>
+          )}
           {unread.length > 0 && (
             <p className="border-t border-line px-4 py-2.5 text-xs text-fg-subtle">
               Not checked from this angle: {unread.map((m) => m.name.toLowerCase()).join(", ")}. A side-on photo checks them too.

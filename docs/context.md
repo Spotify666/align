@@ -3,6 +3,16 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · Batch 4 begun: the level and focus decide what the report lists
+
+- The analysis level now decides how many checks "Your checks" lists: Beginner the 7 that
+  matter most, Amateur up to 14, Professional every one. The rest are one tap away ("n more
+  checks in Technical details"). The words already followed the level.
+- Focus areas chosen on the check screen now lead the list (tagged "Your focus"), after the
+  engine's own top faults, which are always shown whatever the focus. A focus the clip had
+  nothing to measure for is named ("Not measured in this clip: shot outcome").
+- `src/engine/present.ts`; nothing measured changes (156 golden cases identical).
+
 ## 2026-11-14 · Batch 3 finished: the Comparison section
 
 - **Each match broken down by part of the body** (`domainsOf` in `lib/compare.ts`): the line,

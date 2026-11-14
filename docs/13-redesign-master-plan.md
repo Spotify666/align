@@ -24,7 +24,8 @@ Three things to know before reading:
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
 | 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
 | 3 Report, evidence, 3D, PDF | **Shipped 2026-11-14**, in five parts (see "Batch 3 … as built"): the report in six sections, the PDF from a print layout, landmark figures, one drawing rule and the 3D view in words, the Comparison section (with the two-angle report folded in) |
-| 4–8 | Not started |
+| 4 Levels and parameters | **In progress.** Shipped: `present()`, focus groups and level counts in the category specs, the report's checks by level and focus. Not yet: availability matrix, body measurements used, wrist–elbow (provisional), identify-without-choice inside the engine |
+| 5–8 | Not started |
 
 ## 1. Diagnosis
 
@@ -665,3 +666,21 @@ replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/contex
 - Checked: samples (accepted, no bat, another shot, back-foot), the owner's real side-on clip
   against an earlier attempt, a two-clip pair (different balls: "Not combined"); no sideways
   scroll, no page errors. Not verified: a real same-ball pair; a real phone.
+
+## Batch 4, first part, as built (2026-11-14)
+
+- **`present(payload, level, focus) → ReportModel`** (`src/engine/present.ts`, `aline.report-model/1`):
+  pure; the analysis never reads the level or the focus. It lists only measured checks: the
+  engine's own priorities first (always, whatever the focus), then the chosen focus areas
+  (faults first), then the rest in the category's order. Beginner up to 7 checks, Amateur up to
+  14, Professional all; the rest are "n more checks in Technical details", one tap away.
+- **Category specs** carry `presentation` (`category.ts`): the measures of each focus area, the
+  order of importance, the level counts (5–7, 10–14). Presentation only; the category versions
+  are unchanged because no phase, policy or wording changed.
+- **Report**: "Your checks" follows the analysis's saved level and focus (else the profile's),
+  tags the focus checks, and names a chosen focus the clip had nothing to measure for.
+- **Tests** (`tests/present.test.ts`): on every fixture asked as both defences, 60 population
+  cases and the real tracks, at each level and every focus choice: only measured checks, each
+  once, inside the level's count, the priorities never hidden, the payload untouched. The
+  stored payload is identical on all 156 golden cases before and after.
+- The words of a check still follow the reading level as before (Beginner: no numbers).
