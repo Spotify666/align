@@ -3,6 +3,13 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · "Yes build the form": recording a permission
+
+- `/library/manage` (site admins; a button on the library page): name, who they are, batting
+  hand, the shot (analysed in Aline), where the recording came from, what may be used, where,
+  until when, and the signed agreement. Unsigned: saved, shown to no one. Withdraw hides it at
+  once.
+
 ## 2026-11-14 · Reference decisions (owner)
 
 - "yeah it should stay": the international batters' line (KU CricShot medians) stays, labelled
