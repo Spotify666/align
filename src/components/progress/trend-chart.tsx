@@ -119,7 +119,7 @@ export function TrendChart({
             <text x={W - pad.r} y={H - 6} fontSize="9" textAnchor="end" fill="var(--color-fg-subtle)">{last ? new Date(last.date).toLocaleDateString() : ""}</text>
           </svg>
           {hover !== null && points[hover] && (
-            <div className="pointer-events-none absolute -top-1 rounded-md border border-line-strong bg-bg px-2 py-1 text-xs num shadow-lg"
+            <div className="pointer-events-none absolute -top-1 rounded-md border border-line-strong bg-bg px-2 py-1 text-xs num"
               style={{ left: `${(x(hover) / W) * 100}%`, transform: "translate(-50%, -100%)" }}>
               {new Date(points[hover].date).toLocaleDateString()} · <span className="text-fg">{fmt(points[hover].value)} {unit}</span>
               {points[hover].uncertainty !== null && <span className="text-fg-subtle"> ± {fmt(points[hover].uncertainty!)}</span>}

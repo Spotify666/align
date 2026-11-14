@@ -82,7 +82,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-12">
       <header className="space-y-2">
-        <Link href="/library" className="text-sm text-fg-subtle hover:text-fg">Reference library</Link>
+        <Link href="/library" className="inline-flex min-h-11 items-center text-sm text-fg-subtle hover:text-fg">Reference library</Link>
         <h1 className="display text-4xl">Record a permission</h1>
         <p className="text-fg-muted">A player appears in the library only with their written permission: what may be used, where, and until when.</p>
       </header>

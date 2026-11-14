@@ -86,7 +86,7 @@ export function LibraryPage() {
         {yours === null ? (
           <p className="text-sm text-fg-subtle">Reading your shots…</p>
         ) : yours.length ? (
-          yours.map((c) => <CardRow key={c.id} c={c} />)
+          <ul className="space-y-2">{yours.map((c) => <CardRow key={c.id} c={c} />)}</ul>
         ) : (
           <p className="text-sm text-fg-muted">
             Your usual appears once you have three confirmed front-foot defences filmed the same way. <Link href="/check" className="font-medium underline underline-offset-4">Check a shot</Link>
@@ -95,16 +95,18 @@ export function LibraryPage() {
       </Group>
 
       <Group title="Made by Aline and from research">
-        {builtIn.map((c) => (
-          <CardRow key={c.id} c={c} />
-        ))}
+        <ul className="space-y-2">
+          {builtIn.map((c) => (
+            <CardRow key={c.id} c={c} />
+          ))}
+        </ul>
       </Group>
 
       <Group title="Licensed references" note="A coach's model or a player who signed a licence. One appears only once its rights are recorded, and disappears when they end.">
         {library === null ? (
           <p className="text-sm text-fg-subtle">Opening the library…</p>
         ) : library.length ? (
-          library.map((c) => <CardRow key={c.id} c={c} />)
+          <ul className="space-y-2">{library.map((c) => <CardRow key={c.id} c={c} />)}</ul>
         ) : (
           <p className="text-sm text-fg-muted">{libraryError ? "The library couldn't be reached. Your own and Aline's references still work." : "None yet."}</p>
         )}
@@ -126,7 +128,7 @@ function Group({ title, note, children }: { title: string; note?: string; childr
     <section className="space-y-3" aria-label={title}>
       <h2 className="text-xl font-semibold">{title}</h2>
       {note && <p className="text-sm text-fg-muted">{note}</p>}
-      <ul className="space-y-2">{children}</ul>
+      {children}
     </section>
   );
 }

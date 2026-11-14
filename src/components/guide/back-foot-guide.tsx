@@ -38,7 +38,7 @@ export function BackFootGuide() {
     ["Set before the ball", "Feet and head settled by contact (contact seen)", "at or before contact"],
   ];
   return (
-    <section id="back-foot" aria-labelledby="back-foot-h" className="mt-6 scroll-mt-24 border-t border-line pt-10 space-y-6">
+    <section id="back-foot-steps" aria-labelledby="back-foot-h" className="mt-6 scroll-mt-24 pt-4 space-y-6">
       <div className="max-w-3xl">
         <p className="eyebrow">Second shot</p>
         <h2 id="back-foot-h" className="display mt-2 text-3xl sm:text-5xl">The back-foot defence</h2>

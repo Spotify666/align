@@ -147,7 +147,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10 space-y-8">
       <div className="flex flex-wrap items-center gap-3 text-sm text-fg-subtle">
-        <Link href="/sessions" className="hover:text-fg">Sessions</Link>
+        <Link href="/sessions" className="inline-flex min-h-11 items-center hover:text-fg">Sessions</Link>
         <span aria-hidden>/</span>
         <span className="text-fg-muted">{title ?? p.label ?? "Analysis"}</span>
         <DemoBadge show={p.demo} />

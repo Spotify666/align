@@ -20,6 +20,17 @@ const Section = ({ id, eyebrow, title, children }: { id: string; eyebrow: string
   </section>
 );
 
+/** A long list, closed until opened, so the page stays readable on a phone. */
+const More = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <details className="panel group">
+    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 font-medium">
+      {label}
+      <span aria-hidden className="text-fg-subtle transition-transform group-open:rotate-45">+</span>
+    </summary>
+    <div className="space-y-3 border-t border-line p-4">{children}</div>
+  </details>
+);
+
 export default function SciencePage() {
   const ffd = PROTOTYPES.front_foot_defence;
   const compare = ["front_foot_defence", "front_foot_drive", "pull", "back_foot_defence"] as const;
@@ -34,7 +45,7 @@ export default function SciencePage() {
         </p>
         <nav className="flex flex-wrap gap-2 text-sm" aria-label="On this page">
           {[["order", "Decision order"], ["ontology", "Shots"], ["metrics", "Measures"], ["availability", "What each set-up gives"], ["index", "Index"], ["thresholds", "Thresholds"], ["validation", "Validation"], ["llm", "Language model"], ["refs", "References"]].map(([id, l]) => (
-            <a key={id} href={`#${id}`} className="chip border-line-strong text-fg-muted min-h-9">{l}</a>
+            <a key={id} href={`#${id}`} className="chip border-line-strong text-fg-muted min-h-11">{l}</a>
           ))}
         </nav>
       </header>
@@ -60,7 +71,7 @@ export default function SciencePage() {
 
       <Section id="ontology" eyebrow="Shot ontology" title="Two graded shots, many recognised ones">
         <p className="text-fg-muted">The front-foot defence and the back-foot defence are graded in this release. Other shots are recognised so they can be rejected with evidence; each unlocks only after passing the same validation bar.</p>
-        <div className="overflow-x-auto card">
+        <div className="overflow-x-auto card" tabIndex={0} role="region" aria-label="Shot features compared">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-fg-subtle border-b border-line">
@@ -85,6 +96,7 @@ export default function SciencePage() {
       </Section>
 
       <Section id="metrics" eyebrow={`Measures · ${METRIC_VERSION}`} title="Front-foot-defence movement indicators">
+        <More label={`All ${METRICS.length} measures, with their ranges and sources`}>
         <ul className="grid gap-3 sm:grid-cols-2">
           {METRICS.map((m) => (
             <li key={m.id} className="card p-4">
@@ -99,6 +111,7 @@ export default function SciencePage() {
             </li>
           ))}
         </ul>
+        </More>
         <p className="text-sm text-fg-muted">These are movement indicators, not biomarkers or diagnoses. Ranges are provisional coaching ranges for adult club batters facing medium pace from a side-on view, pending validation.</p>
         <p className="text-sm text-fg-muted">
           <strong className="text-fg">The position formula (photos).</strong> A side-on photo is checked against seven of these at once: stride (foot to foot), front knee, back leg,
@@ -119,6 +132,7 @@ export default function SciencePage() {
           measurements of the back-foot defence were found, so every range is provisional coaching geometry from the coaching sources below. See the{" "}
           <Link className="underline" href="/guide#back-foot">guide</Link> for the shot itself.
         </p>
+        <More label={`All ${BFD_METRICS.length} measures, with their ranges`}>
         <ul className="grid gap-3 sm:grid-cols-2">
           {BFD_METRICS.map((m) => (
             <li key={m.id} className="card p-4">
@@ -133,6 +147,7 @@ export default function SciencePage() {
             </li>
           ))}
         </ul>
+        </More>
       </Section>
 
       <Section id="availability" eyebrow="What each set-up gives" title="Which measures a recording can give">
@@ -147,7 +162,7 @@ export default function SciencePage() {
           return (
             <details key={shot} className="panel">
               <summary className="flex min-h-11 cursor-pointer items-center px-4 font-medium">{shot === "front_foot_defence" ? "Front-foot defence" : "Back-foot defence"}</summary>
-              <div className="overflow-x-auto border-t border-line">
+              <div className="overflow-x-auto border-t border-line" tabIndex={0} role="region" aria-label={`${shot === "front_foot_defence" ? "Front-foot" : "Back-foot"} defence measures by set-up`}>
                 <table className="w-full min-w-[36rem] text-sm">
                   <caption className="sr-only">Which {shot === "front_foot_defence" ? "front-foot" : "back-foot"} defence measures each set-up gives</caption>
                   <thead>
@@ -189,21 +204,20 @@ export default function SciencePage() {
           coach&apos;s review.
         </p>
         {PROVISIONAL_MEASURES.map((m) => (
-          <div key={m.id} className="panel space-y-2 p-5 text-sm">
-            <h3 className="text-lg font-semibold">
-              {m.name} <span className="ml-1 rounded-full border border-line-strong px-2 py-0.5 text-xs font-normal text-fg-muted">Off</span>
-            </h3>
-            <p><span className="text-fg-subtle">Why: </span>{m.rationale}</p>
-            <p><span className="text-fg-subtle">How: </span>{m.formula}</p>
-            <p><span className="text-fg-subtle">Needs: </span>{m.needs.join("; ")}.</p>
-            <p><span className="text-fg-subtle">Uncertainty: </span>{m.uncertainty}</p>
-            <p className="text-fg-subtle">Before it is turned on:</p>
-            <ul className="list-disc space-y-1 pl-5">
-              {m.toEnable.map((t) => (
-                <li key={t}>{t}</li>
-              ))}
-            </ul>
-          </div>
+          <More key={m.id} label={`${m.name} · Off`}>
+            <div className="space-y-2 text-sm">
+              <p><span className="text-fg-subtle">Why: </span>{m.rationale}</p>
+              <p><span className="text-fg-subtle">How: </span>{m.formula}</p>
+              <p><span className="text-fg-subtle">Needs: </span>{m.needs.join("; ")}.</p>
+              <p><span className="text-fg-subtle">Uncertainty: </span>{m.uncertainty}</p>
+              <p className="text-fg-subtle">Before it is turned on:</p>
+              <ul className="list-disc space-y-1 pl-5">
+                {m.toEnable.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          </More>
         ))}
       </Section>
 
@@ -216,7 +230,9 @@ export default function SciencePage() {
       </Section>
 
       <Section id="thresholds" eyebrow={`Registry ${REGISTRY_HASH}`} title="Every threshold, with its reason">
-        <div className="overflow-x-auto card">
+        <p className="text-fg-muted max-w-3xl">Every number the analysis compares against lives in one registry, with the reason for its value. Changing any of them changes the registry&apos;s fingerprint above.</p>
+        <More label={`All ${Object.keys(THRESHOLDS).length} thresholds`}>
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Thresholds">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-fg-subtle border-b border-line"><th className="p-3 font-normal">Rule</th><th className="p-3 font-normal">Value</th><th className="p-3 font-normal">Why</th></tr></thead>
             <tbody>
@@ -230,6 +246,7 @@ export default function SciencePage() {
             </tbody>
           </table>
         </div>
+        </More>
         <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
           {[["Engine", ENGINE_VERSION], ["Metrics", METRIC_VERSION], ["Classifier", CLASSIFIER_VERSION], ["Pose model", POSE_MODEL], ["Drill library", DRILL_LIBRARY_VERSION], ["Registry hash", REGISTRY_HASH]].map(([k, v]) => (
             <div key={k} className="card p-3"><dt className="text-fg-subtle text-xs">{k}</dt><dd className="num break-all">{v}</dd></div>
@@ -243,14 +260,16 @@ export default function SciencePage() {
           <div className="card p-4"><p className="font-semibold">Internal engineering tests</p><p className="mt-1 text-sm text-fg-muted">Synthetic fixtures (below), 31 pull variants that must never be scored, reproducibility and report-contract tests, run on every change.</p></div>
           <div className="card p-4 border-warn/50"><p className="font-semibold text-warn">Real-athlete validation</p><p className="mt-1 text-sm text-fg-muted">Not done. Planned release gates: non-defence false-accept below 2%, at least 90% recall of usable defences, event timing and joint-angle error targets per tier.</p></div>
         </div>
-        <ul className="card divide-y divide-line">
+        <More label={`The ${FIXTURE_SPECS.length} test cases, each with its sample report`}>
+        <ul className="divide-y divide-line">
           {FIXTURE_SPECS.map((f) => (
-            <li key={f.key} className="p-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              <Link href={`/sample/${f.key}`} className="font-medium hover:underline">{f.title}</Link>
+            <li key={f.key} className="flex flex-wrap items-center gap-x-4 py-1 text-sm">
+              <Link href={`/sample/${f.key}`} className="inline-flex min-h-11 items-center font-medium hover:underline">{f.title}</Link>
               <span className="num text-xs text-fg-subtle">{f.expectation}</span>
             </li>
           ))}
         </ul>
+        </More>
       </Section>
 
       <Section id="llm" eyebrow="Language model boundary" title="Explains the evidence. Never measures.">
@@ -268,15 +287,15 @@ export default function SciencePage() {
 
       <Section id="refs" eyebrow="References" title="Sources">
         <ul className="space-y-2 text-sm text-fg-muted list-disc pl-5">
-          <li><a className="underline" href="https://pubmed.ncbi.nlm.nih.gov/10189076/">Stretch et al., 1998 — front-foot drive and forward defence kinematics</a></li>
+          <li><a className="inline-block py-3 underline" href="https://pubmed.ncbi.nlm.nih.gov/10189076/">Stretch et al., 1998 — front-foot drive and forward defence kinematics</a></li>
           {BFD_SOURCES.map((s) => (
-            <li key={s.href}><a className="underline" href={s.href}>{s.name}</a> — the back-foot defence (coaching; its ranges are provisional)</li>
+            <li key={s.href}><a className="inline-block py-3 underline" href={s.href}>{s.name}</a> — the back-foot defence (coaching; its ranges are provisional)</li>
           ))}
-          <li><a className="underline" href="https://www.researchgate.net/publication/5912436_The_position_of_the_head_and_centre_of_mass_during_the_front_foot_off-drive_in_skilled_and_less-skilled_cricket_batsmen">Taliep et al., 2007 — head and centre of mass at contact, skilled vs less-skilled batters</a></li>
-          <li><a className="underline" href="https://doi.org/10.1371/journal.pcbi.1011462">OpenCap — multi-phone markerless biomechanics</a></li>
-          <li><a className="underline" href="https://arxiv.org/abs/1907.03698">TrackNet — tracking small, fast sports balls</a></li>
-          <li><a className="underline" href="https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker">MediaPipe Pose Landmarker</a></li>
-          <li><a className="underline" href="https://openaccess.thecvf.com/content/ICCV2023/papers/Zhu_MotionBERT_A_Unified_Perspective_on_Learning_Human_Motion_Representations_ICCV_2023_paper.pdf">MotionBERT — temporal 3D pose lifting</a></li>
+          <li><a className="inline-block py-3 underline" href="https://www.researchgate.net/publication/5912436_The_position_of_the_head_and_centre_of_mass_during_the_front_foot_off-drive_in_skilled_and_less-skilled_cricket_batsmen">Taliep et al., 2007 — head and centre of mass at contact, skilled vs less-skilled batters</a></li>
+          <li><a className="inline-block py-3 underline" href="https://doi.org/10.1371/journal.pcbi.1011462">OpenCap — multi-phone markerless biomechanics</a></li>
+          <li><a className="inline-block py-3 underline" href="https://arxiv.org/abs/1907.03698">TrackNet — tracking small, fast sports balls</a></li>
+          <li><a className="inline-block py-3 underline" href="https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker">MediaPipe Pose Landmarker</a></li>
+          <li><a className="inline-block py-3 underline" href="https://openaccess.thecvf.com/content/ICCV2023/papers/Zhu_MotionBERT_A_Unified_Perspective_on_Learning_Human_Motion_Representations_ICCV_2023_paper.pdf">MotionBERT — temporal 3D pose lifting</a></li>
         </ul>
       </Section>
     </div>

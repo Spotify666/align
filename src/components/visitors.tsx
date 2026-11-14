@@ -261,7 +261,7 @@ export function Visitors() {
       )}
       <p className="text-[0.7rem] text-fg-subtle">
         {rows ? "Single visits: only on this device's private link. " : "Totals only: no IP addresses, towns or single visits are shown here. "}
-        <button className="underline underline-offset-2 hover:text-fg" onClick={toggleCounted}>
+        <button className="inline-flex min-h-11 items-center underline underline-offset-2 hover:text-fg" onClick={toggleCounted}>
           {counted ? "Don't count my visits on this device" : "Count my visits on this device again"}
         </button>
       </p>

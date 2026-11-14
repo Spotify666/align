@@ -62,12 +62,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
       <header
-        className={`sticky top-0 z-40 pt-[env(safe-area-inset-top)] transition-[background-color,border-color,backdrop-filter] duration-200 ${
-          scrolled || open ? "border-b border-line bg-bg/80 backdrop-blur-xl" : "border-b border-transparent bg-bg/0"
+        className={`sticky top-0 z-40 pt-[env(safe-area-inset-top)] transition-[background-color,border-color] duration-200 ${
+          scrolled || open ? "border-b border-line bg-bg" : "border-b border-transparent bg-bg/0"
         }`}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-          <Link href="/home" className="flex items-center gap-2" aria-label="Aline home" onClick={() => setOpen(false)}>
+          <Link href="/home" className="flex min-h-11 items-center gap-2" aria-label="Aline home" onClick={() => setOpen(false)}>
             <Mark size={28} />
             <span className="text-[0.82rem] font-semibold tracking-[0.32em]">ALINE</span>
           </Link>
@@ -132,10 +132,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main id="main" className="flex-1 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-0">
-        {children}
-        <footer className="md:hidden mt-10 border-t border-line px-4 py-4 text-xs text-fg-subtle flex gap-4">
-          <Link href="/privacy" className="hover:text-fg">Privacy</Link>
-          <Link href="/visitors" className="hover:text-fg">Visitors</Link>
+        <div className="min-h-[calc(100dvh-4rem)]">{children}</div>
+        <footer className="md:hidden mt-10 border-t border-line px-4 py-1 text-xs text-fg-subtle flex gap-4">
+          <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-fg">Privacy</Link>
+          <Link href="/visitors" className="inline-flex min-h-11 items-center hover:text-fg">Visitors</Link>
         </footer>
       </main>
 
@@ -172,7 +172,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </footer>
 
-      <nav aria-label="Tabs" className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/90 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
+      <nav aria-label="Tabs" className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg pb-[env(safe-area-inset-bottom)]">
         <ul className="grid grid-cols-5">
           {TABS.map(({ href, label, Icon, primary }) => (
             <li key={href}>
@@ -182,7 +182,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={`relative flex h-[4.25rem] flex-col items-center justify-center gap-1 text-[0.68rem] font-medium transition-colors ${active(href) ? "text-fg" : "text-fg-subtle"}`}
               >
                 {primary ? (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand text-brand-fg shadow-sm">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand text-brand-fg">
                     <Icon size={20} />
                   </span>
                 ) : (

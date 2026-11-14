@@ -184,13 +184,13 @@ export function ProfilePage() {
           Built from {needed}–10 of your valid front-foot defences, weighted by confidence. It is kept separate from the coaching ranges.
         </p>
         <div className="flex items-center gap-3">
-          <div className="h-2 flex-1 rounded bg-line overflow-hidden" role="progressbar" aria-valuenow={Math.min(valid.length, needed)} aria-valuemax={needed}>
+          <div className="h-2 flex-1 rounded bg-line overflow-hidden" role="progressbar" aria-label="Defences toward your baseline" aria-valuenow={Math.min(valid.length, needed)} aria-valuemin={0} aria-valuemax={needed}>
             <div className="h-full bg-data" style={{ width: `${Math.min(100, (valid.length / needed) * 100)}%` }} />
           </div>
           <span className="num text-sm">{valid.length}/{needed}</span>
         </div>
         <p className="text-sm">{valid.length >= needed ? "Baseline established. New reports compare you against it." : `Record ${needed - valid.length} more valid defence${needed - valid.length === 1 ? "" : "s"} to establish it.`}</p>
-        <Link href="/sessions" className="text-sm underline text-fg-muted">Choose representative attempts in Sessions</Link>
+        <Link href="/sessions" className="inline-flex min-h-11 items-center text-sm underline text-fg-muted">Choose representative attempts in Sessions</Link>
       </section>
 
       <section className="card p-5 space-y-4" aria-labelledby="account">
@@ -322,7 +322,7 @@ export function ProfilePage() {
             </ul>
           </details>
         )}
-        <Link href="/privacy" className="text-sm underline text-fg-muted">How Aline handles your data</Link>
+        <Link href="/privacy" className="inline-flex min-h-11 items-center text-sm underline text-fg-muted">How Aline handles your data</Link>
       </section>
     </div>
   );

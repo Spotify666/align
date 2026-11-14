@@ -87,7 +87,7 @@ export function PairSession() {
   return (
     <div className="mx-auto max-w-xl space-y-8 px-4 py-8 sm:py-12">
       <header className="space-y-2">
-        <Link href="/check" className="text-sm text-fg-subtle hover:text-fg">Check your shot</Link>
+        <Link href="/check" className="inline-flex min-h-11 items-center text-sm text-fg-subtle hover:text-fg">Check your shot</Link>
         <h1 className="display text-4xl">Two phones, one ball</h1>
         <p className="text-fg-muted">One phone side-on, one from the bowler&apos;s end. Pair them, start together, and Aline puts both angles of the ball together.</p>
       </header>

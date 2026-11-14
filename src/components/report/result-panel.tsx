@@ -61,7 +61,7 @@ export function ResultPanel({ result: r, payload, obs }: { result: AnalysisResul
   const alts = r.action.alternatives.filter((a) => a.label !== "unknown").slice(0, 3);
   return (
     <section aria-labelledby="result-h" className="space-y-3">
-      <h3 id="result-h" className="text-lg font-semibold">How sure each part is</h3>
+      <h2 id="result-h" className="text-lg font-semibold">How sure each part is</h2>
       <p className="text-sm text-fg-muted">{OUTCOME[r.action.outcome](r.category.name)}</p>
       <div className="card overflow-x-auto px-4">
         <table className="w-full text-sm">

@@ -28,7 +28,7 @@ Three things to know before reading:
 | 5 Reference library | **In progress.** Shipped: `aline.similarity/1` (comparability gate, five parts of the body with coverage, overall unchanged), provenance on every reference, the batter's usual as the fallback reference; the reference tables with rights in Supabase (row-level security: nothing readable without granted, unexpired rights), the library page. Not yet: overlays and PDF with references (nothing to overlay until a reference carries a pose track), the first licensed references (decision 8) |
 | 6 Coach workspace | **Shipped 2026-11-14**: squads, the review queue (unreviewed first, then the least clear recordings), the coach's own assessment beside Aline's result, assignments, the player's view of both, history, CSV export; tables with row-level security and an audit trail; a parent's or guardian's agreement before a player under 18 shares with a coach |
 | 7 Dual angle | **Shipped 2026-11-14** (pass-through, decision 11): pairing two phones with a code and a check number, clock sync, a shared countdown, the second phone's result sent to the first (never video), the same-ball check before combining, rejoining after a drop. Not verified: two real phones over the live connection |
-| 8 | Not started |
+| 8 Hardening | **Shipped 2026-11-14** (see "Batch 8 as built"). Not verified: real phones (pairing, camera line-up, Save as PDF), Safari, a screen reader's speech |
 
 ## 1. Diagnosis
 
@@ -845,3 +845,43 @@ replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/contex
   after reload, both refusals, and what the second phone sent (hello, ping, pong, pieces).
 - **Not verified**: two real phones over the live connection (this session can't reach
   Supabase), a real same-ball pair from two phones.
+
+## Batch 8, hardening, as built (2026-11-14)
+
+The owner: "Start and finish". Measured on the production build, phone width (390 px), 4× CPU
+slowdown (`measure.mjs`, two runs; blocking time varies by about ±100 ms between runs).
+
+| | Before (section 1, or before this batch) | After |
+|---|---|---|
+| `/check` on arrival: bytes | 9.9 MB | 0.6 MB (the pose models load on the first tap or key) |
+| `/check` blocking time | 1,977 ms (2,353 ms before this batch) | 135–250 ms (target ≤ 600) |
+| Layout shift, every page | up to 0.076 | 0 on all 18 pages |
+| Controls under 44 px | 4–27 per page | 0, except one link inside a sentence on `/check` |
+| `/science` height | 32,782 px | 8,984 px (measures, thresholds, provisional measures, fixtures behind "+") |
+| `/guide` height | 10,527 px | 5,491 px (tapping steps and the back-foot guide behind "+"; `#back-foot` opens it) |
+| Accessibility faults (axe-core 4.10, 15 pages, dark and daylight, every section opened) | 4 kinds, 10 places | 0 |
+| Font files | Archivo, Geist, Geist Mono, Caveat | Archivo, Geist (system monospace) |
+| Broken internal links | — | 0 of 38 |
+
+- **Rule-keeping**: no backdrop blur on the header and tab bar, no shadows left (evidence tabs,
+  trend tooltip); the first-design intro on `/home` deleted; `/home` says "Check your shot".
+- **Accessibility fixes**: heading order in the report (Technical details opens on an h2; the
+  domain cards are h3), the baseline progress bar named, the library's empty states outside
+  their lists, wide tables on the Science page reachable by keyboard.
+- **Security review** (Supabase advisors): nothing new. The remaining warnings are deliberate:
+  the visitor log's functions (`record_visit`, `visits_overview`, `visits_full` with its key),
+  `is_site_admin` and `redeem_coach_invite` are callable by design and check their own inputs.
+  Leaked-password protection is off: a switch in the Supabase dashboard (Auth), for the owner.
+  Performance: three foreign keys without an index, added
+  (`20261114000400_foreign_key_indexes.sql`, applied).
+- **Rollback rehearsed**: the app: Vercel → the previous production deployment → Promote, or
+  `NEXT_PUBLIC_UI=1` (built and opened: the first design, no page errors). The database:
+  `supabase/rollback/*.down.sql` undo Batches 5–7, newest first, with what each loses
+  (`supabase/rollback/README.md`); `scripts/db/check-rls.sh --rollback` applies everything, runs
+  the access checks, rolls back, checks what is left (`rollback-check.sql`: core tables and rows
+  kept, the core sharing rule as before), then applies them again. Passed locally.
+- **Unchanged**: no file under `src/engine`; 526 tests pass; a real clip gives the same verdicts
+  (front-foot and back-foot) as before the model-loading change.
+
+**Not verified**: real phones (two-phone pairing over the live connection, the camera line-up's
+camera and level, Save as PDF), Safari and Firefox, a screen reader's speech.
