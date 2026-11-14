@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 // Dual-angle capture: one ball filmed by two phones at once. A short plan of the session (where
 // the phones go, what to do, how the videos get here), then the two videos, one slot at a time:
 // a side video and a front video, each shown
@@ -255,6 +257,10 @@ export function TwoVideoPicker({
           </li>
         ))}
       </ol>
+      <p className="rounded-xl border border-line-strong p-3 text-sm">
+        <span className="font-medium">Both phones have Aline?</span> Pair them instead: a countdown starts both together, and the other phone sends only its result, never its video.{" "}
+        <Link href="/check/pair" className="font-medium underline underline-offset-4">Pair two phones</Link>
+      </p>
       <DualPlan />
       <div className="grid grid-cols-2 gap-3">
         {(["side", "front"] as const).map((slot) => (

@@ -27,7 +27,8 @@ Three things to know before reading:
 | 4 Levels and parameters | **In progress.** Shipped: `present()`, focus groups and level counts, the report's checks by level and focus; the availability matrix; wrist–elbow specified and off. Not yet: body measurements used; identify-without-choice inside the engine (needs real clips: it would be a new way to accept a shot) |
 | 5 Reference library | **In progress.** Shipped: `aline.similarity/1` (comparability gate, five parts of the body with coverage, overall unchanged), provenance on every reference, the batter's usual as the fallback reference; the reference tables with rights in Supabase (row-level security: nothing readable without granted, unexpired rights), the library page. Not yet: overlays and PDF with references (nothing to overlay until a reference carries a pose track), the first licensed references (decision 8) |
 | 6 Coach workspace | **Shipped 2026-11-14**: squads, the review queue (unreviewed first, then the least clear recordings), the coach's own assessment beside Aline's result, assignments, the player's view of both, history, CSV export; tables with row-level security and an audit trail; a parent's or guardian's agreement before a player under 18 shares with a coach |
-| 7–8 | Not started |
+| 7 Dual angle | **Shipped 2026-11-14** (pass-through, decision 11): pairing two phones with a code and a check number, clock sync, a shared countdown, the second phone's result sent to the first (never video), the same-ball check before combining, rejoining after a drop. Not verified: two real phones over the live connection |
+| 8 | Not started |
 
 ## 1. Diagnosis
 
@@ -811,3 +812,36 @@ replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/contex
   after withdrawal, including an assessment; in a browser with the network faked: the order of
   the writes (under 18 on the account, the agreement, then the link). Legal advice for the
   markets served is still to be taken.
+
+## Batch 7, as built (2026-11-14)
+
+- **Decision 11**, the owner's answer: "Pass-through only". Messages go over a Supabase Realtime
+  broadcast channel named after the code, which passes them and stores none. No table, no row.
+- **Pairing** (`/check/pair`, `components/capture/dual/pair-session.tsx`; linked from the
+  dual-angle screen): the first phone starts a pairing and shows a six-letter code (no 0, O, 1,
+  I or L); the second joins with it. Each says where it films (side-on, or from the bowler's
+  end). The first phone accepts one second phone; both show the same two-digit check number (from
+  both phones' own ids), so a stranger with a guessed code is refused; from then on only the
+  paired phone is heard. Two phones in the same place can't be paired.
+- **Clock** (`clockOffset` in `src/lib/pair.ts`): ping and pong between the phones; the quickest
+  round trip gives the other phone's clock and how sure it is (half that trip), shown in words
+  ("in time with each other within a tenth of a second"; never milliseconds).
+- **Countdown**: the first phone taps Start; both count down five seconds to "Record now" at
+  the same moment (each on its own clock, corrected by the offset). Each phone records with its
+  camera app and checks its own clip in Aline; the pairing stays open for 30 minutes.
+- **The second phone's result** (`resultMessage`, `readResult`): Aline's result and the
+  tracked body points, cut into pieces under 50 KB. Only the declared parts: a message with
+  anything else (a video, pictures) is refused unread. Never video or pictures.
+- **Same ball** (`src/lib/pair-decide.ts`): the first phone puts the two together only when the
+  two clips come from two different places and the batter's movement lines up in both (the
+  same check the two-video option uses, `sameBallTwoVideos`, its thresholds unchanged);
+  otherwise both stay separate reports and the reason is said. Never paired silently.
+- **A phone dropping out**: shown at once ("can come back with the same code"); a reloaded
+  phone rejoins by itself; sending again replaces, never duplicates.
+- **Checked**: `tests/pair.test.ts` (codes, check number, clock, pieces, declared parts only;
+  on generated movement: one ball from two places is put together, two clips from one place
+  and two different balls are not); in a browser, two tabs as two phones over a local channel
+  (`?transport=local`): check numbers, sync, countdowns within a second of each other, rejoin
+  after reload, both refusals, and what the second phone sent (hello, ping, pong, pieces).
+- **Not verified**: two real phones over the live connection (this session can't reach
+  Supabase), a real same-ball pair from two phones.
