@@ -12,7 +12,7 @@ import TEXTBOOK from "./textbook-refs.json";
  * shows it; there is no reference without it. Numbers only: no reference carries footage.
  */
 export interface Provenance {
-  rights: "yours" | "generated" | "shared" | "research_unconfirmed";
+  rights: "yours" | "generated" | "shared" | "research_unconfirmed" | "licensed";
   /** In a line, shown under the reference. */
   label: string;
 }
@@ -28,11 +28,17 @@ export const PROVENANCE = {
   },
 } satisfies Record<string, Provenance>;
 
+/** A library reference's provenance: its source and the licence its rights were recorded under. */
+export function libraryProvenance(source: string, licence: string | null, expires: string | null): Provenance {
+  const until = expires ? `, until ${new Date(expires).toLocaleDateString()}` : "";
+  return { rights: "licensed", label: `${source}. Rights recorded${licence ? ` (${licence})` : ""}${until}` };
+}
+
 export interface Reference {
   id: string;
   name: string;
   note: string;
-  kind: "model" | "pro" | "you" | "usual" | "player";
+  kind: "model" | "pro" | "you" | "usual" | "player" | "library";
   signature: ShotSignature;
   provenance: Provenance;
   when?: string;

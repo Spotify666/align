@@ -12,8 +12,8 @@ import { similarity, usualSignature, SIMILARITY_DOMAINS, type Similarity } from 
 import { friendlyValue } from "@/engine/summary";
 import { METRICS } from "@/engine/registry";
 import { FRONTAL_METRICS } from "@/engine/frontal";
-import { builtInReferences, likeness, PROVENANCE, type Reference } from "@/lib/compare";
-import { currentUser, listShotProfiles, shareShotProfile, unshareShotProfile, type SharedProfile } from "@/lib/cloud";
+import { builtInReferences, libraryProvenance, likeness, PROVENANCE, type Reference } from "@/lib/compare";
+import { currentUser, listLibraryShots, listShotProfiles, shareShotProfile, unshareShotProfile, type SharedProfile } from "@/lib/cloud";
 import { getAnalysis, listAnalyses, loadProfile, updateAnalysis } from "@/lib/store";
 
 interface Row extends Reference {
@@ -27,6 +27,7 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
   const [refs, setRefs] = useState<Reference[] | null>(null);
   const [own, setOwn] = useState<Reference[]>([]);
   const [players, setPlayers] = useState<Reference[]>([]);
+  const [library, setLibrary] = useState<Reference[]>([]);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [sharedId, setSharedId] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -36,6 +37,25 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
     let alive = true;
     // The textbook model is built by the engine itself: off the first paint.
     const t = setTimeout(() => alive && setRefs(builtInReferences()), 30);
+    // The library: only references whose rights are granted reach this page (the database decides).
+    listLibraryShots()
+      .then(
+        (rows) =>
+          alive &&
+          setLibrary(
+            rows
+              .filter((r) => r.shot === "front_foot_defence" && r.signature?.values)
+              .map((r) => ({
+                id: `library_${r.id}`,
+                name: r.reference_athletes?.display_name ?? "Library reference",
+                note: [r.reference_athletes?.kind === "coach_model" ? "A coach's model" : r.reference_athletes?.kind === "generated" ? "Generated" : "Licensed player", VIEW(r.signature)].filter(Boolean).join(" · "),
+                kind: "library" as const,
+                signature: r.signature,
+                provenance: r.reference_athletes?.kind === "generated" ? PROVENANCE.generated : libraryProvenance(r.source, r.licence_ref, r.rights_expires_at),
+              })),
+          ),
+      )
+      .catch(() => {});
     (async () => {
       const all = await listAnalyses().catch(() => []);
       const mineStored = analysisId ? all.find((a) => a.id === analysisId) : undefined;
@@ -79,7 +99,7 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
   }
 
   const rows = (xs: Reference[]): Row[] => xs.map((r) => ({ ...r, sim: similarity(mine, r.signature) }));
-  const allBuiltIn = rows(refs ?? []);
+  const allBuiltIn = rows([...(refs ?? []), ...library]);
   // Comparable references first; the others stay listed, with why and what would make them comparable.
   const builtIn = [...allBuiltIn].sort((a, b) => Number(b.sim.comparable) - Number(a.sim.comparable));
   const allYours = rows(own);

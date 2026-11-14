@@ -3,6 +3,13 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · Batch 5: the reference library
+
+- `/library` (in the menu, and from a report's Comparison): your usual, the references Aline
+  makes, the research line, and licensed references.
+- Licensed references live in the database with their rights; the database itself hides any
+  without granted, unexpired rights. None are in it yet: adding one waits on who signs licences.
+
 ## 2026-11-14 · Batch 5 begun: when two shots can be compared, and where each reference comes from
 
 - Two shots get a match only when they are the same shot, filmed the same way, with at least
