@@ -24,7 +24,7 @@ Three things to know before reading:
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
 | 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
 | 3 Report, evidence, 3D, PDF | **Shipped 2026-11-14**, in five parts (see "Batch 3 … as built"): the report in six sections, the PDF from a print layout, landmark figures, one drawing rule and the 3D view in words, the Comparison section (with the two-angle report folded in) |
-| 4 Levels and parameters | **In progress.** Shipped: `present()`, focus groups and level counts in the category specs, the report's checks by level and focus. Not yet: availability matrix, body measurements used, wrist–elbow (provisional), identify-without-choice inside the engine |
+| 4 Levels and parameters | **In progress.** Shipped: `present()`, focus groups and level counts, the report's checks by level and focus; the availability matrix; wrist–elbow specified and off. Not yet: body measurements used; identify-without-choice inside the engine (needs real clips: it would be a new way to accept a shot) |
 | 5–8 | Not started |
 
 ## 1. Diagnosis
@@ -684,3 +684,23 @@ replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/contex
   once, inside the level's count, the priorities never hidden, the payload untouched. The
   stored payload is identical on all 156 golden cases before and after.
 - The words of a check still follow the reading level as before (Beginner: no numbers).
+
+## Batch 4, second part, as built (2026-11-14)
+
+- **Availability matrix** (`src/engine/availability.ts`): for a shot and a set-up (video or
+  photo, camera position, bat, ball, frame rate, scale, depth), every measure as graded, shown
+  (taken, not graded) or not available with what would make it available. The rules mirror the
+  analysis (`computeMetrics`' prerequisites, `withholdAlongPitch`, `FRONTAL_UNGRADED`,
+  `backFootMetrics`' view and photo rules). `tests/availability.test.ts` holds them to it: on
+  every fixture asked as both defences, 60 population cases and the real tracks, no measure the
+  analysis took is ever called unavailable. On the Science page ("Which measures a recording can
+  give"), for four set-ups, each defence behind its own disclosure.
+- **Wrist and elbow together** (`src/engine/provisional.ts`): rationale (a hypothesis for a
+  coach to check), phases, landmarks, view, formula, uncertainty and what must happen before it
+  is turned on. Off: no file of the analysis reads it, it is in no analysis, it adds no
+  threshold (`tests/provisional.test.ts`). Shown on the Science page as "Off".
+- Not done, and why: **identify without a choice inside the engine** (each category's gate
+  tried, at most one accepted) would accept a back-foot defence where the front-foot result
+  doesn't point to it: a new way to accept a shot, which needs real clips first (standing rules
+  1 and 3). **Body measurements** are still not used: using them changes measures, which needs
+  the same.

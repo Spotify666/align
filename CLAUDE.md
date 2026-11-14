@@ -97,6 +97,8 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | A shot checked without naming it (front-foot analysis, then the back-foot one only when that result points there; never a new rule) | `src/engine/identify.ts`, `tests/identify.test.ts`, `scripts/eval/unchosen.probe.ts`; chooser `components/capture/shot-chooser.tsx` |
 | Coaching and drill ladders | `coaching.ts`, `scoring.ts` (`buildPlan`) |
 | What a report lists at each analysis level and focus (pure; the analysis never reads them) | `src/engine/present.ts` (`present`, `aline.report-model/1`), `CategorySpec.presentation` in `category.ts`, `tests/present.test.ts` |
+| Which measures a set-up gives (camera, media, bat, ball, fps, scale; mirrors the analysis) | `src/engine/availability.ts`, `tests/availability.test.ts`, Science page |
+| Measures specified but off (never read by the analysis) | `src/engine/provisional.ts` (wrist and elbow together), `tests/provisional.test.ts` |
 | Back-foot defence (measures, ranges, coaching, gate) | `backfoot.ts`, `backfoot-defs.ts`, `backfoot-coaching.ts`, `analyze.ts` (`analyzeBackFoot`), report `back-foot-panel.tsx`, guide `back-foot-guide.tsx` |
 | Shot signature and match % | `signature.ts`, `src/lib/compare.ts`, Supabase `shot_profiles` |
 | Capture (scan, pick batter, gate, track) | `src/components/capture/capture-flow.tsx` (its stateless helpers: `flow-helpers.ts`), `src/lib/capture/*`; lining the phone up before recording (live picture, guides, level; guidance, not a gate) `camera-line-up.tsx`, `src/lib/capture/line-up.ts`; where to stand `pitch-guide.tsx` |
