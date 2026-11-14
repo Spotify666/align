@@ -40,7 +40,7 @@ export default function PrivacyPage() {
           ["Consent first", "You agree to on-device processing before any upload. Cloud saving, coach sharing and model-training use are separate switches, all off until you turn them on."],
           ["Training use", "Off by default. If you opt in, only de-identified tracks are used — never video — and you can withdraw at any time."],
           ["Coach sharing", "Coaches see nothing until you enter their invite code. You can revoke the link; every share and consent change is recorded in your activity log."],
-          ["Under 18", "A parent or guardian must agree before analysis and before saving to an account."],
+          ["Under 18", "A parent or guardian must agree before analysis, before saving to an account, and before sharing with a coach. Withdrawing their agreement hides your reports from coaches at once."],
           ["Security", "Encrypted in transit (TLS) and at rest. Database rules make every row visible only to its owner and consented coaches."],
           ["Not medical", "Aline describes technique. It does not diagnose, predict injury or replace a physiotherapist."],
         ].map(([t, d]) => (

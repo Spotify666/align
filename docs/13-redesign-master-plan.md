@@ -26,7 +26,7 @@ Three things to know before reading:
 | 3 Report, evidence, 3D, PDF | **Shipped 2026-11-14**, in five parts (see "Batch 3 … as built"): the report in six sections, the PDF from a print layout, landmark figures, one drawing rule and the 3D view in words, the Comparison section (with the two-angle report folded in) |
 | 4 Levels and parameters | **In progress.** Shipped: `present()`, focus groups and level counts, the report's checks by level and focus; the availability matrix; wrist–elbow specified and off. Not yet: body measurements used; identify-without-choice inside the engine (needs real clips: it would be a new way to accept a shot) |
 | 5 Reference library | **In progress.** Shipped: `aline.similarity/1` (comparability gate, five parts of the body with coverage, overall unchanged), provenance on every reference, the batter's usual as the fallback reference; the reference tables with rights in Supabase (row-level security: nothing readable without granted, unexpired rights), the library page. Not yet: overlays and PDF with references (nothing to overlay until a reference carries a pose track), the first licensed references (decision 8) |
-| 6 Coach workspace | **In progress.** Shipped: squads, the review queue (unreviewed first, then the least clear recordings), the coach's own assessment beside Aline's result, assignments, the player's view of both, history, CSV export; tables with row-level security and an audit trail. Not yet: a guardian's consent before a player under 18 shares with a coach (decision 13) |
+| 6 Coach workspace | **Shipped 2026-11-14**: squads, the review queue (unreviewed first, then the least clear recordings), the coach's own assessment beside Aline's result, assignments, the player's view of both, history, CSV export; tables with row-level security and an audit trail; a parent's or guardian's agreement before a player under 18 shares with a coach |
 | 7–8 | Not started |
 
 ## 1. Diagnosis
@@ -390,7 +390,7 @@ not yet validated on real athletes.
 first players wanted: Virat Kohli and Sachin Tendulkar, not added until their own permission and a usable
 recording exist. Still open, none blocks Batch 1: 8 (who asks players and records licences), 9 (left-handers never
 flipped: standing rule 7 holds unless changed), 10 ("match %" renamed), 11 (dual-angle through
-Supabase), 13 (legal sign-off on minors). 12 (PDF from a print layout): yes, 2026-11-13 ("Continue" after it was proposed).
+Supabase: pass-through only, nothing stored, 2026-11-14), 13 (players under 18: a parent's agreement first, 2026-11-14; legal advice for the markets served still to take). 12 (PDF from a print layout): yes, 2026-11-13 ("Continue" after it was proposed).
 
 **As first asked**
 
@@ -796,3 +796,18 @@ replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/contex
   Supabase): queue order, every write's rows, the export, the player's view and "Mark done".
 - **Open: minors** (decision 13). Today a player under 18 can link a coach with an invite code
   like anyone else; the plan asks for a guardian's consent first, and legal sign-off on how.
+
+## Batch 6, second part, as built (2026-11-14)
+
+- **Players under 18** (decision 13, the owner's answer: "Ask a parent first";
+  `supabase/migrations/20261114000300_guardian_consent.sql`, applied): a player whose profile
+  is under 18 can't link a coach (`redeem_coach_invite` refuses with
+  `guardian_consent_required`), and a linked coach sees nothing of theirs (`private.can_view`),
+  until a 'guardian' consent is recorded; withdrawing it hides their reports from coaches at
+  once. Profile: under 18, "A parent or guardian agreed to me sharing my reports with this
+  coach" must be ticked before "Link coach", and the agreement can be withdrawn from the list
+  of consents. No account was affected when it went live (no under-18 profiles or links).
+- Checked locally (`scripts/db/guardian-rls.sql`): refused without, allowed with, hidden again
+  after withdrawal, including an assessment; in a browser with the network faked: the order of
+  the writes (under 18 on the account, the agreement, then the link). Legal advice for the
+  markets served is still to be taken.
