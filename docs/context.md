@@ -3,6 +3,18 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · "Start and finish": Batch 8, hardening
+
+- Asked "What's hardening?", then "Start and finish". Done: the check screen no longer
+  downloads the pose models on arrival (0.6 MB instead of 10 MB; they load on the first tap);
+  nothing moves while a page loads; every button and link is big enough for a thumb; the
+  Science and Guide pages are short, with the long parts behind "+"; two fonts and the old
+  /home intro removed; no accessibility faults found on 15 pages in either theme; the
+  database checked (three indexes added) and its rollback rehearsed; the first design still
+  builds. Details: docs/13, "Batch 8 as built".
+- Still needs the athlete: two real phones pairing, the camera line-up on a real phone, Save
+  as PDF from a phone; turning on leaked-password protection in Supabase (Auth settings).
+
 ## 2026-11-14 · Batch 7: two phones, one ball
 
 - `/check/pair` (from the dual-angle screen): one phone starts and shows a code, the other

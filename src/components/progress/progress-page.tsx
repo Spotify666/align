@@ -61,13 +61,13 @@ export function ProgressPage() {
           <h1 className="display text-5xl mt-2">Change you can measure.</h1>
           <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Shot">
             {SHOTS.map((x) => (
-              <button key={x.id} type="button" role="radio" aria-checked={shot === x.id} onClick={() => setShot(x.id)} className={`chip min-h-10 ${shot === x.id ? "border-brand text-fg" : "border-line-strong text-fg-muted"}`}>
+              <button key={x.id} type="button" role="radio" aria-checked={shot === x.id} onClick={() => setShot(x.id)} className={`chip min-h-11 ${shot === x.id ? "border-brand text-fg" : "border-line-strong text-fg-muted"}`}>
                 {x.label}
               </button>
             ))}
           </div>
         </div>
-        <label className="chip border-line-strong text-fg-muted min-h-10 cursor-pointer">
+        <label className="chip border-line-strong text-fg-muted min-h-11 cursor-pointer">
           <input type="checkbox" className="accent-[var(--color-brand)]" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
           Show demo athlete
         </label>

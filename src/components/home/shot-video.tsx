@@ -128,7 +128,7 @@ function Choice({ label, value, onChange, names }: { label: string; value: Side;
             role="radio"
             aria-checked={value === v}
             onClick={() => onChange(v)}
-            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${value === v ? "bg-brand text-brand-fg" : "text-fg-muted hover:text-fg"}`}
+            className={`inline-flex min-h-11 items-center rounded-full px-3 font-medium transition-colors ${value === v ? "bg-brand text-brand-fg" : "text-fg-muted hover:text-fg"}`}
           >
             {names[v]}
           </button>

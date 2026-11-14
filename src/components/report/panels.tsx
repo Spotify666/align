@@ -76,7 +76,7 @@ export function DomainGrid({ domains }: { domains: DomainResult[] }) {
             <span className="num text-xs text-fg-subtle">0{i + 1}</span>
             <span className={`chip ${DOMAIN_TONE[d.status]}`}>{DOMAIN_TEXT[d.status]}</span>
           </div>
-          <h4 className="mt-2 font-semibold">{DOMAIN_LABELS[d.domain]}</h4>
+          <h3 className="mt-2 font-semibold">{DOMAIN_LABELS[d.domain]}</h3>
           <p className="mt-1 text-sm text-fg-muted">{d.summary}</p>
         </li>
       ))}

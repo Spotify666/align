@@ -66,7 +66,7 @@ export function MetricCard({
 
       <p className="text-sm text-fg-muted">{m.meaning}</p>
       <details className="group text-sm">
-        <summary className="list-none flex items-center gap-1 text-fg-subtle hover:text-fg min-h-9">
+        <summary className="list-none flex items-center gap-1 text-fg-subtle hover:text-fg min-h-11">
           <span className="group-open:rotate-90 transition-transform">›</span> Why it matters for a defence
         </summary>
         <p className="mt-1 text-fg-muted">{m.relevance}</p>

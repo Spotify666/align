@@ -119,6 +119,8 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | What depends on each event; what the contract costs | `scripts/eval/sensitivity.probe.ts`, `perf.probe.ts` |
 | Synthetic fixtures and population | `src/engine/fixtures/*` |
 | Real-media evaluation | `scripts/eval/*` |
+| Rolling back the database changes of Batches 5–7 (rehearsed: `scripts/db/check-rls.sh --rollback`) | `supabase/rollback/` |
+| A `<details>` opened by the address's `#id` | `src/components/common/open-on-hash.tsx` |
 | Product docs | `docs/00…10-*.md` |
 
 Checks: `npm run lint && npm run typecheck && npm test && npm run build`.

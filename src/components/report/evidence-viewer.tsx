@@ -496,7 +496,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
               role="tab"
               aria-selected={mode === m.id}
               onClick={() => setMode(m.id)}
-              className={`min-h-9 whitespace-nowrap rounded-[10px] px-3 text-sm transition-colors ${mode === m.id ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg"}`}
+              className={`min-h-11 whitespace-nowrap rounded-[10px] px-3 text-sm transition-colors ${mode === m.id ? "bg-surface text-fg" : "text-fg-muted hover:text-fg"}`}
             >
               {m.label}
             </button>

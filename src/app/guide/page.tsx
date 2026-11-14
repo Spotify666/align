@@ -5,6 +5,7 @@ import { MarkHint } from "@/components/guide/mark-illustrations";
 import { Reveal } from "@/components/common/reveal";
 import { Check, Cross } from "@/components/icons";
 import { BackFootGuide } from "@/components/guide/back-foot-guide";
+import { OpenOnHash } from "@/components/common/open-on-hash";
 
 export const metadata: Metadata = { title: "How to analyse your defence" };
 
@@ -46,7 +47,7 @@ export default function GuidePage() {
         <ol className="mt-8 flex flex-wrap gap-2 text-sm">
           {[["prepare", "Prepare"], ["film", "Film"], ["upload", "Upload"], ["read", "Read and train"], ["ball-bat", "Optional: ball and bat"], ["back-foot", "Back-foot defence"]].map(([id, s], i, all) => (
             <li key={id} className="flex items-center gap-2">
-              <a href={`#${id}`} className="chip min-h-9 text-fg-muted hover:text-fg">{s}</a>
+              <a href={`#${id}`} className="chip min-h-11 text-fg-muted hover:text-fg">{s}</a>
               {i < all.length - 1 && <span aria-hidden className="text-fg-subtle">→</span>}
             </li>
           ))}
@@ -114,15 +115,19 @@ export default function GuidePage() {
             <li><strong>Re-record.</strong> <span className="text-fg-muted">Your next report compares against this one and your baseline.</span></li>
           </ol>
           <div className="flex flex-wrap gap-3 pt-2">
-            <Link href="/check?shot=front" className="btn btn-primary">Check front-foot defence</Link>
-            <Link href="/analyse?shot=back" className="btn btn-ghost">Check back-foot defence</Link>
+            <Link href="/check" className="btn btn-primary">Check your shot</Link>
             <Link href="/sample" className="btn btn-ghost">All sample reports</Link>
           </div>
         </Stage>
 
         <Stage id="ball-bat" when="If you want more" title="Optional: add ball and bat" time="About 30 seconds">
           <p className="text-fg-muted">The ball and bat are small and fast, so a phone can&apos;t always see them. Without them the report shows what your body did but can&apos;t confirm the shot. To get the full verdict, tap “Add ball and bat” on the report and mark them on a few frames. Every mark is labelled “marked by you”; skip anything you can&apos;t see.</p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <details className="group rounded-2xl border border-line">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 font-medium">
+            Where to tap, step by step
+            <span aria-hidden className="text-fg-subtle transition-transform group-open:rotate-45">+</span>
+          </summary>
+          <div className="grid gap-4 border-t border-line p-4 sm:grid-cols-2 lg:grid-cols-3">
             {([
               ["stumps", "Stumps: base, then top", "Gives the pitch scale for distances."],
               ["bounce", "Ball at bounce", "Scrub to where it hits the pitch, then tap the ball."],
@@ -142,11 +147,21 @@ export default function GuidePage() {
               );
             })}
           </div>
+          </details>
         </Stage>
 
       </div>
 
-      <BackFootGuide />
+      <OpenOnHash />
+      <details id="back-foot" className="group mt-6 scroll-mt-24 rounded-2xl border border-line">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 text-lg font-semibold">
+          The back-foot defence, step by step
+          <span aria-hidden className="text-fg-subtle transition-transform group-open:rotate-45">+</span>
+        </summary>
+        <div className="border-t border-line px-4">
+          <BackFootGuide />
+        </div>
+      </details>
 
       <section className="mt-6 border-t border-line pt-10">
         <h2 className="text-2xl font-semibold tracking-tight">Common questions</h2>
@@ -156,14 +171,14 @@ export default function GuidePage() {
             ["Why “uncertain”?", "Something needed to confirm a defence was missing: usually the ball or bat, which a phone can't always see. Tap “Add ball and bat” on the report to mark them, or follow the recording tips it lists."],
             ["Is my video uploaded?", "No. It's analysed on your phone. Only if you choose to save to your account do we store the small movement tracks, a few still frames and the report."],
             ["I bat left-handed.", "Set it in Profile. Aline works out “front” and “forward” from your batting hand and the bowler's side, not from the screen."],
-            ["Which shots are supported?", "The front-foot defence and the back-foot defence: pick one on the Analyse screen. Other shots are recognised so they can be rejected, and will unlock once they pass the same validation."],
+            ["Which shots are supported?", "The front-foot defence and the back-foot defence are graded. You don't have to say which one you played: Aline tells. Other shots are recognised where possible and not graded; they will be once they pass the same validation."],
             ["Can I film from behind the bowler?", "Yes. Aline recognises the camera position (you can change it if it's wrong). Forward distances then come from a 3D pose estimate, and bounce distance, bat speed and ball speed aren't measured — side-on gives the most complete report."],
             ["My clip is long, or has several shots or people in it.", "That's fine. Aline scans the whole clip, finds each shot, skips camera cuts and close-ups, and follows the person holding the bat. If it picks the wrong shot or person, tap “Change”."],
             ["Can I upload photos instead?", "Yes — one or up to 12. A side-on photo at the moment of contact is checked against the front-foot defence position formula: stride, front knee, back leg, head over the knee, trunk lean, weight forward and hands ahead of the knee. A back-foot defence photo is checked on its own position: front foot alongside, head forward, standing tall, front elbow and hands. A photo can't show timing, the bat's path or the ball, so it never confirms the shot or gets a score."],
             ["My video won't open.", "Most phones record MP4 or MOV, which work. Some iPhones and new Android phones record HEVC: open Aline in Safari or recent Chrome, set iPhone Camera → Formats → Most Compatible, or send the clip to yourself on WhatsApp to convert it."],
           ].map(([q, a]) => (
             <details key={q} className="group p-4">
-              <summary className="flex min-h-9 items-center justify-between gap-3 font-medium">{q}<span className="text-fg-subtle transition-transform group-open:rotate-45">+</span></summary>
+              <summary className="flex min-h-11 items-center justify-between gap-3 font-medium">{q}<span className="text-fg-subtle transition-transform group-open:rotate-45">+</span></summary>
               <p className="mt-2 text-sm text-fg-muted">{a}</p>
             </details>
           ))}

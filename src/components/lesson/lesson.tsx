@@ -169,7 +169,7 @@ export function Label({ at, text, color = "var(--ill-chalk)", delay = 1.1, ancho
       fill={color}
       fontSize={7.5}
       fontWeight={700}
-      style={{ fontFamily: "var(--font-hand), cursive", paintOrder: "stroke", stroke: "var(--ill-paper)", strokeWidth: 2.2, strokeLinejoin: "round" }}
+      style={{ fontFamily: "var(--font-geist), system-ui, sans-serif", paintOrder: "stroke", stroke: "var(--ill-paper)", strokeWidth: 2.2, strokeLinejoin: "round" }}
       initial={still ? false : { opacity: 0 }}
       whileInView={{ opacity: 1 }}
       viewport={{ once: true, amount: 0.5 }}

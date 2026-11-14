@@ -239,10 +239,22 @@ export function CaptureFlow() {
     abort.current?.abort();
     run.current++;
   }, []);
-  // Fetch the on-device models while the athlete is still choosing a clip.
+  // Fetch the on-device models while the athlete is still choosing a clip: from their first tap
+  // or key on this page (the file picker takes seconds to choose in), not on arrival, so a slow
+  // phone isn't busy compiling models before anything can be pressed (docs/13, Batch 8).
   useEffect(() => {
-    warmUp();
-    visionPool()?.warm();
+    let done = false;
+    const start = () => {
+      if (done) return;
+      done = true;
+      warmUp();
+      visionPool()?.warm();
+      off();
+    };
+    const events = ["pointerdown", "keydown", "touchstart"] as const;
+    const off = () => events.forEach((e) => window.removeEventListener(e, start, true));
+    events.forEach((e) => window.addEventListener(e, start, { capture: true, passive: true }));
+    return off;
   }, []);
 
   // A new build waits while an analysis is under way (src/lib/fresh.ts).
@@ -1425,7 +1437,7 @@ export function CaptureFlow() {
                 {!consented && <p className="text-sm text-fg-muted">Tick the box above to add a video or photos.</p>}
 
                 <details className="card p-4 group">
-                  <summary className="flex cursor-pointer list-none items-center justify-between font-semibold">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between font-semibold">
                     How to film
                     <Chevron size={18} className="transition-transform group-open:rotate-90" />
                   </summary>
@@ -1446,7 +1458,7 @@ export function CaptureFlow() {
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-fg-subtle">
                   <span>
-                    Batting {profile.handedness}-handed{profile.heightCm ? `, ${profile.heightCm} cm` : ""} · <Link href="/profile" className="underline">change</Link>
+                    Batting {profile.handedness}-handed{profile.heightCm ? `, ${profile.heightCm} cm` : ""} · <Link href="/profile" className="inline-flex min-h-11 items-center underline">change</Link>
                   </span>
                 </div>
               </>
