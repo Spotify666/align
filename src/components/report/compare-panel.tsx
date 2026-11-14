@@ -7,16 +7,17 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { AnalysisPayload, Metric } from "@/engine/types";
-import { matchSignatures, signatureOf, type Match, type ShotSignature } from "@/engine/signature";
+import { signatureOf, type Match, type ShotSignature } from "@/engine/signature";
+import { similarity, usualSignature, SIMILARITY_DOMAINS, type Similarity } from "@/engine/similarity";
 import { friendlyValue } from "@/engine/summary";
 import { METRICS } from "@/engine/registry";
 import { FRONTAL_METRICS } from "@/engine/frontal";
-import { builtInReferences, domainsOf, likeness, notComparable, type Reference } from "@/lib/compare";
+import { builtInReferences, likeness, PROVENANCE, type Reference } from "@/lib/compare";
 import { currentUser, listShotProfiles, shareShotProfile, unshareShotProfile, type SharedProfile } from "@/lib/cloud";
 import { getAnalysis, listAnalyses, loadProfile, updateAnalysis } from "@/lib/store";
 
 interface Row extends Reference {
-  match: Match;
+  sim: Similarity;
 }
 
 const VIEW = (s: ShotSignature) => (s.axis === "sideways" ? "from either end" : s.axis === "forward" ? "side-on" : "");
@@ -43,7 +44,7 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
       for (const a of all) {
         if (a.id === analysisId) continue;
         const sig = signatureOf(a.payload, null);
-        if (sig) others.push({ id: `own_${a.id}`, name: a.title || "Earlier shot", note: new Date(a.recordedAt).toLocaleDateString(), kind: "you", signature: sig, when: a.recordedAt });
+        if (sig) others.push({ id: `own_${a.id}`, name: a.title || "Earlier shot", note: new Date(a.recordedAt).toLocaleDateString(), kind: "you", signature: sig, provenance: PROVENANCE.yours, when: a.recordedAt });
       }
       if (alive) setOwn(others.slice(0, 20));
       const user = await currentUser().catch(() => null);
@@ -61,6 +62,7 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
                 note: [s.skill_level, s.handedness === "left" ? "left-handed" : "right-handed", VIEW(s.signature)].filter(Boolean).join(" · "),
                 kind: "player" as const,
                 signature: s.signature,
+                provenance: PROVENANCE.shared,
               })),
           );
       }
@@ -76,18 +78,25 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
     return null;
   }
 
-  const rows = (xs: Reference[]): Row[] => xs.map((r) => ({ ...r, match: matchSignatures(mine, r.signature) }));
+  const rows = (xs: Reference[]): Row[] => xs.map((r) => ({ ...r, sim: similarity(mine, r.signature) }));
   const allBuiltIn = rows(refs ?? []);
   // Comparable references first; the others stay listed, with why and what would make them comparable.
-  const builtIn = [...allBuiltIn].sort((a, b) => Number(b.match.score !== null) - Number(a.match.score !== null));
+  const builtIn = [...allBuiltIn].sort((a, b) => Number(b.sim.comparable) - Number(a.sim.comparable));
   const allYours = rows(own);
-  const yours = allYours.filter((r) => r.match.score !== null);
+  const yours = allYours.filter((r) => r.sim.comparable);
   const yoursApart = allYours.length - yours.length;
-  const bestYours = [...yours].sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0)).slice(0, 1);
+  const bestYours = [...yours].sort((a, b) => (b.sim.overall ?? 0) - (a.sim.overall ?? 0)).slice(0, 1);
   const latestYours = yours.slice(0, 2).filter((r) => !bestYours.includes(r));
+  // Your usual: the middle of your earlier shots filmed the same way. Always there to compare
+  // with once you have three, whatever else is comparable (the fallback reference).
+  const sameWay = own.filter((r) => r.signature.axis === mine.axis && r.signature.media === "video").length;
+  const usualSig = usualSignature(own.map((r) => r.signature), mine.axis);
+  const usual = usualSig
+    ? rows([{ id: "usual", name: "Your usual", note: `The middle of your ${sameWay} earlier shots filmed the same way`, kind: "usual", signature: usualSig, provenance: PROVENANCE.usual }]).filter((r) => r.sim.comparable)
+    : [];
   const others = rows(players)
-    .filter((r) => r.match.score !== null)
-    .sort((a, b) => (b.match.score ?? 0) - (a.match.score ?? 0));
+    .filter((r) => r.sim.comparable)
+    .sort((a, b) => (b.sim.overall ?? 0) - (a.sim.overall ?? 0));
 
   return (
     <section aria-labelledby="compare-h" className="card p-5 space-y-5">
@@ -107,9 +116,9 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
         ))}
       </Group>
 
-      {(bestYours.length > 0 || latestYours.length > 0) && (
+      {(usual.length > 0 || bestYours.length > 0 || latestYours.length > 0) && (
         <Group title="Your other shots">
-          {[...bestYours.map((r) => ({ ...r, note: `Closest of your shots · ${r.note}` })), ...latestYours].map((r) => (
+          {[...usual, ...bestYours.map((r) => ({ ...r, note: `Closest of your shots · ${r.note}` })), ...latestYours].map((r) => (
             <MatchRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} mine={mine} numbers={numbers} />
           ))}
           {yoursApart > 0 && (
@@ -149,17 +158,18 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 }
 
 function MatchRow({ row, open, onToggle, mine, numbers }: { row: Row; open: boolean; onToggle: () => void; mine: ShotSignature; numbers: boolean }) {
-  const s = row.match.score;
+  const s = row.sim.overall;
   const tone = s === null ? "bg-line" : s >= 85 ? "bg-ok" : s >= 65 ? "bg-brand" : "bg-bad";
-  const why = notComparable(mine, row.signature, row.match);
+  const why = row.sim.reasons.join(" ") || null;
   // The comparability check, in words: what the two have in common.
-  const basis = s === null ? null : `Same camera position · ${row.match.parts.length} measures in common`;
+  const basis = s === null ? null : `Same shot and camera position · ${row.sim.match.parts.length} measures in common`;
   return (
     <li className="rounded-xl border border-line">
       <button className="flex min-h-11 w-full items-center gap-3 px-3.5 py-3 text-left" onClick={onToggle} aria-expanded={open} disabled={s === null}>
         <span className="min-w-0 flex-1">
           <span className="block font-medium">{row.name}</span>
           <span className="block text-xs text-fg-subtle">{row.note}</span>
+          <span className="block text-xs text-fg-subtle">{row.provenance.label}.</span>
           <span className={`block text-xs ${why ? "text-fg-muted" : "text-fg-subtle"}`}>{why ? `Not comparable. ${why}` : basis}</span>
           {s !== null && (
             <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
@@ -169,7 +179,7 @@ function MatchRow({ row, open, onToggle, mine, numbers }: { row: Row; open: bool
         </span>
         <span className="num shrink-0 text-2xl font-semibold">{s === null ? "—" : `${s}%`}</span>
       </button>
-      {open && s !== null && <MatchDetail match={row.match} name={row.name} numbers={numbers} axis={mine.axis} />}
+      {open && s !== null && <MatchDetail sim={row.sim} name={row.name} numbers={numbers} axis={mine.axis} />}
     </li>
   );
 }
@@ -179,8 +189,9 @@ const def = (id: string) => METRICS.find((d) => d.id === id) ?? FRONTAL_METRICS.
 const fmt = (id: string, v: number, unit: string, decimals: number, axis: ShotSignature["axis"]) =>
   friendlyValue({ id, unit, decimals, value: v, range: (def(id)?.range ?? null) as Metric["range"], inRange: null, ...(axis ? { axis } : {}) }).replace("of your height", "of height");
 
-function MatchDetail({ match, name, numbers, axis }: { match: Match; name: string; numbers: boolean; axis: ShotSignature["axis"] }) {
-  const domains = domainsOf(match);
+function MatchDetail({ sim, name, numbers, axis }: { sim: Similarity; name: string; numbers: boolean; axis: ShotSignature["axis"] }) {
+  const match: Match = sim.match;
+  const domains = SIMILARITY_DOMAINS.map((d) => ({ id: d.id, ...sim.domains[d.id] }));
   return (
     <div className="border-t border-line px-3.5 py-3">
       <h4 className="text-xs text-fg-subtle">By part of the body</h4>

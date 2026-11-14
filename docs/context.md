@@ -3,6 +3,18 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · Batch 5 begun: when two shots can be compared, and where each reference comes from
+
+- Two shots get a match only when they are the same shot, filmed the same way, with at least
+  three measures in common; otherwise no number, only why and what would fix it.
+- Each match has a score per part of the body with how much of that part it rests on.
+- Every reference says where it comes from (yours; made by Aline, not a real player; shared by
+  a player, numbers only; a research dataset whose licence isn't confirmed yet).
+- "Your usual" (the middle of your earlier shots filmed the same way) is always there once you
+  have three.
+- To decide: the international batters' line comes from the KU CricShot research dataset;
+  its licence for use as a reference has not been checked.
+
 ## 2026-11-14 · Batch 4: which measures each set-up gives; wrist and elbow, specified and off
 
 - Science page, "Which measures a recording can give": for side-on video, side-on with bat and
