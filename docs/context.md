@@ -3,6 +3,14 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-14 · Batch 7: two phones, one ball
+
+- `/check/pair` (from the dual-angle screen): one phone starts and shows a code, the other
+  joins; both show the same check number; the phones agree on the time and count down together
+  to "Record now". Each checks its own clip; the second sends its result (never video) to the
+  first, which puts both angles together only if it is the same ball from two places.
+- Not yet tried on two real phones.
+
 ## 2026-11-14 · Answers: two phones pass-through only; under 18, a parent agrees first
 
 - Two phones filming the same ball (Batch 7): "Pass-through only": the start signal, clock
