@@ -66,6 +66,24 @@ export interface AbstentionRule {
   recapture?: string;
 }
 
+/** The parts of a shot a batter can ask a report to lead with (the check screen's focus areas). */
+export const FOCUS_AREA_IDS = ["alignment", "footwork", "balance", "bat_contact", "hands", "timing", "outcome", "reference"] as const;
+export type FocusArea = (typeof FOCUS_AREA_IDS)[number];
+
+/**
+ * How a category's report is presented (read by `present.ts`, never by the analysis): which
+ * measures belong to each focus area, the order of importance the levels draw from, and how
+ * many checks each level shows. Presentation only: no measure, range or verdict depends on it.
+ */
+export interface PresentationSpec {
+  /** The measures each focus area is about. "reference" is the Comparison section, not a measure. */
+  focusGroups: Record<FocusArea, string[]>;
+  /** Most important first; the levels take from the top. Measures not listed come last. */
+  order: string[];
+  /** Checks shown at each level, as [fewest worth showing, most]. Professional shows every one. */
+  levels: { beginner: readonly [number, number]; amateur: readonly [number, number] };
+}
+
 export interface CategorySpec {
   schema: typeof CATEGORY_SCHEMA;
   id: TargetShot;
@@ -94,7 +112,12 @@ export interface CategorySpec {
   grading: { summary: string };
   /** Shown with every report of this category until real validation exists. */
   limitations: string[];
+  /** How its report is presented at each analysis level and focus. */
+  presentation: PresentationSpec;
 }
+
+/** The counts the plan set for the levels (docs/13, section 14): 5–7 checks, 10–14, then all. */
+const LEVEL_COUNTS = { beginner: [5, 7], amateur: [10, 14] } as const;
 
 const BODY_PHASE_JOINTS: SemanticJoint[] = ["front_ankle", "back_ankle"];
 const HANDS: SemanticJoint[] = ["front_wrist", "back_wrist"];
@@ -283,6 +306,45 @@ export const FRONT_FOOT_DEFENCE: CategorySpec = {
   },
   grading: { summary: "Each measure against its provisional range; the technique index is secondary and only for an accepted defence." },
   limitations: PROTOTYPE_LIMITATIONS,
+  presentation: {
+    focusGroups: {
+      alignment: ["line_head", "line_shoulder", "line_knee", "line_held", "trunk_inclination", "head_speed_contact"],
+      footwork: ["stride_length", "foot_spread", "front_knee_flexion", "back_knee_extension"],
+      balance: ["weight_forward", "balance_over_feet", "trunk_inclination", "head_speed_contact"],
+      bat_contact: ["bat_angle_contact", "contact_ahead_of_knee", "bat_pad_gap", "bat_speed_contact", "hands_ahead_of_knee"],
+      hands: ["hands_ahead_of_knee", "bat_pad_gap", "bat_angle_contact"],
+      timing: ["sync_spread", "set_late", "decision_timing", "pelvis_thorax_separation"],
+      outcome: ["ball_exit_speed", "repeatability"],
+      reference: [],
+    },
+    // The line first (the shot's definition), then how it was built, then the bat.
+    order: [
+      "line_head",
+      "line_shoulder",
+      "line_knee",
+      "line_held",
+      "sync_spread",
+      "stride_length",
+      "front_knee_flexion",
+      "weight_forward",
+      "trunk_inclination",
+      "hands_ahead_of_knee",
+      "bat_angle_contact",
+      "balance_over_feet",
+      "foot_spread",
+      "back_knee_extension",
+      "head_speed_contact",
+      "set_late",
+      "contact_ahead_of_knee",
+      "bat_pad_gap",
+      "decision_timing",
+      "pelvis_thorax_separation",
+      "bat_speed_contact",
+      "ball_exit_speed",
+      "repeatability",
+    ],
+    levels: LEVEL_COUNTS,
+  },
 };
 
 export const BACK_FOOT_DEFENCE: CategorySpec = {
@@ -385,6 +447,21 @@ export const BACK_FOOT_DEFENCE: CategorySpec = {
   },
   grading: { summary: "Each measure against its coaching-geometry range; the technique index is secondary and only for an accepted defence." },
   limitations: PROTOTYPE_LIMITATIONS,
+  presentation: {
+    focusGroups: {
+      alignment: ["bfd_head", "bfd_tall"],
+      footwork: ["bfd_back_step", "bfd_feet_gap", "bfd_back_first"],
+      balance: ["bfd_tall", "bfd_head_height", "bfd_feet_gap"],
+      bat_contact: ["bfd_dead_bat", "bfd_elbow", "bfd_hands_eyes"],
+      hands: ["bfd_elbow", "bfd_hands_eyes"],
+      timing: ["bfd_back_first", "bfd_set_late"],
+      outcome: [],
+      reference: [],
+    },
+    // Back and tall first (the shot's definition), then the head, then the bat.
+    order: ["bfd_back_step", "bfd_tall", "bfd_head", "bfd_head_height", "bfd_dead_bat", "bfd_elbow", "bfd_hands_eyes", "bfd_feet_gap", "bfd_back_first", "bfd_set_late"],
+    levels: LEVEL_COUNTS,
+  },
 };
 
 export const CATEGORIES: Record<TargetShot, CategorySpec> = {

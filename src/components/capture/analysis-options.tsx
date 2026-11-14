@@ -36,7 +36,7 @@ export function AnalysisOptions({ profile, onChange }: { profile: LocalProfile; 
         ))}
       </div>
       <p className="mt-2 text-sm text-fg-muted" aria-live="polite">{said}</p>
-      <p className="mt-1 text-xs text-fg-subtle">The measurement is the same at every level. The level changes the words.</p>
+      <p className="mt-1 text-xs text-fg-subtle">The measurement is the same at every level. The level changes the words and how many checks the report lists first.</p>
 
       <details className="mt-4 border-t border-line pt-3">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium">
@@ -60,7 +60,7 @@ export function AnalysisOptions({ profile, onChange }: { profile: LocalProfile; 
           ))}
         </ul>
         <p className="mt-2 text-xs text-fg-subtle">
-          Saved with your analysis. Everything is still checked, and a bigger issue outside these areas is still shown. Reports will lead with your areas in a coming update.
+          Saved with your analysis. Your report lists these areas first. Everything is still checked, and a bigger issue outside them is still shown.
         </p>
       </details>
     </section>

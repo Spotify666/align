@@ -134,6 +134,7 @@ export function LocalReport({ id }: { id: string }) {
     <ReportView
       angleLink={angleLink}
       otherAngle={state.other ?? null}
+      session={state.stored.session}
       payload={p}
       obs={state.obs}
       videoUrl={media?.url ?? null}
