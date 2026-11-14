@@ -26,6 +26,7 @@ const TABS = [
 
 const MORE = [
   { href: "/guide", label: "How it works", Icon: Info },
+  { href: "/library", label: "Reference library", Icon: List },
   { href: "/coach", label: "Coach workspace", Icon: Users },
   { href: "/science", label: "Science and validation", Icon: Beaker },
   { href: "/privacy", label: "Privacy and data", Icon: Shield },

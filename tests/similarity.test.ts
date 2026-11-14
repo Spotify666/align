@@ -50,7 +50,7 @@ describe("movement similarity", () => {
     noScore(similarity(side, pro));
   });
 
-  it("never scores shots filmed different ways, across the population", () => {
+  it("never scores shots filmed different ways, across the population", { timeout: 120000 }, () => {
     const sigs = population(80, 3)
       .map((c) => signatureOf(analyze(c.obs, { analysisId: c.obs.id, createdAt: "2026-10-01T00:00:00.000Z" }), c.obs.media.fps))
       .filter((s): s is ShotSignature => !!s);

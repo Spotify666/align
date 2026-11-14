@@ -213,3 +213,31 @@ export async function listShotProfiles(limit = 60): Promise<SharedProfile[]> {
   if (error) throw error;
   return (data ?? []) as SharedProfile[];
 }
+
+/** A reference shot from the library, readable only with granted, unexpired rights (enforced by the database). */
+export interface LibraryShot {
+  id: string;
+  shot: "front_foot_defence" | "back_foot_defence";
+  axis: "forward" | "sideways" | null;
+  media: "video" | "photo";
+  signature: import("@/engine/signature").ShotSignature;
+  engine_version: string;
+  source: string;
+  licence_ref: string | null;
+  rights_expires_at: string | null;
+  permitted_use: string[];
+  reference_athletes: { display_name: string; kind: "generated" | "coach_model" | "licensed_athlete"; handedness: "right" | "left" | null } | null;
+}
+
+/** The library's reference shots this visitor may compare with (signed in or not). */
+export async function listLibraryShots(limit = 60): Promise<LibraryShot[]> {
+  const { data, error } = await supabase()
+    .from("reference_shots")
+    .select("id, shot, axis, media, signature, engine_version, source, licence_ref, rights_expires_at, permitted_use, reference_athletes(display_name, kind, handedness)")
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    // A slow or blocked connection ends as "couldn't be reached", never an endless wait.
+    .abortSignal(AbortSignal.timeout(8000));
+  if (error) throw error;
+  return (data ?? []) as unknown as LibraryShot[];
+}

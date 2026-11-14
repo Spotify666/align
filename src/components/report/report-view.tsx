@@ -421,6 +421,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
       {section === "comparison" && (
         <>
         <ComparePanel payload={p} fps={obs.media.fps} analysisId={analysisId} numbers={level !== "simple"} />
+          <Link href="/library" className="btn btn-ghost">Open the reference library</Link>
           {otherAngle && angleLink && <BothAngles payload={p} other={otherAngle} level={level} href={angleLink.href} />}
           {sideOnFrontFoot(p) && (
             <SideBySide you={{ obs, payload: p, label: title ?? "This shot" }} previous={reference ? { obs: reference.obs, payload: reference.payload, label: reference.label } : null} />

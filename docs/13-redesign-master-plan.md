@@ -25,7 +25,7 @@ Three things to know before reading:
 | 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
 | 3 Report, evidence, 3D, PDF | **Shipped 2026-11-14**, in five parts (see "Batch 3 … as built"): the report in six sections, the PDF from a print layout, landmark figures, one drawing rule and the 3D view in words, the Comparison section (with the two-angle report folded in) |
 | 4 Levels and parameters | **In progress.** Shipped: `present()`, focus groups and level counts, the report's checks by level and focus; the availability matrix; wrist–elbow specified and off. Not yet: body measurements used; identify-without-choice inside the engine (needs real clips: it would be a new way to accept a shot) |
-| 5 Reference library | **In progress.** Shipped: `aline.similarity/1` (comparability gate, five parts of the body with coverage, overall unchanged), provenance on every reference, the batter's usual as the fallback reference. Not yet: reference tables with rights in Supabase, a library page, overlays and PDF |
+| 5 Reference library | **In progress.** Shipped: `aline.similarity/1` (comparability gate, five parts of the body with coverage, overall unchanged), provenance on every reference, the batter's usual as the fallback reference; the reference tables with rights in Supabase (row-level security: nothing readable without granted, unexpired rights), the library page. Not yet: overlays and PDF with references (nothing to overlay until a reference carries a pose track), the first licensed references (decision 8) |
 | 6–8 | Not started |
 
 ## 1. Diagnosis
@@ -728,3 +728,23 @@ replace `batter-art.ts`' poses with it. Blocked on the footage; see `docs/contex
   the population filmed different ways; medians; provenance).
 - Open, for the owner: the international batters' line is derived from a research dataset
   whose licence for use as a reference hasn't been checked (section 10). It stays, labelled so.
+
+## Batch 5, second part, as built (2026-11-14)
+
+- **Reference tables** (`supabase/migrations/20261114000100_reference_library.sql`, applied):
+  `reference_athletes` (generated, coach model, licensed athlete), `reference_shots` (a
+  signature, its source, rights status, permitted uses, licence record, expiry, visibility) and
+  `reference_assets` (pictures, pose tracks; their own rights). Row-level security: a shot is
+  readable only when public and its rights are granted, unexpired and permit comparison; an
+  athlete only with a readable shot; an asset only with its own rights to show pictures and a
+  readable shot. Granted rights need a licence record. Only site admins write. Checked on a
+  local Postgres as anon, a player and an admin, including expiry, revocation and an asset whose
+  shot isn't readable (`scripts/db/check-rls.sh`, `reference-rls.sql`); on production as anon:
+  0 rows, no write access. The tables start empty.
+- **Library page** (`/library`, `components/library/library-page.tsx`; in the menu): yours
+  (your usual per camera position), made by Aline and from research, licensed references (from
+  the tables; "None yet", or "couldn't be reached" after 8 s), each with what it covers, how many
+  measures it carries and its provenance. The report's Comparison links to it and lists library
+  references beside the built-in ones, with their recorded rights.
+- Not done: overlays and the PDF with a reference (no reference carries a pose track or picture
+  yet); adding references (an admin tool) waits on the first licence (decision 8).
