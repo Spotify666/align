@@ -12,8 +12,8 @@ import { th } from "@/engine/registry";
 import { Download, Lock, Trash } from "../icons";
 
 const CONSENTS: Array<{ kind: string; label: string; help: string }> = [
-  { kind: "cloud_storage", label: "Save reports to my account", help: "Tracks (~20 KB), still frames and reports. Never raw video unless you upload it." },
-  { kind: "coach_sharing", label: "Share with my linked coaches", help: "Coaches you linked with an invite code can see your saved reports and add notes." },
+  { kind: "cloud_storage", label: "Save reports to my account", help: "Tracks (~20 KB), still frames and reports. Never the video." },
+  { kind: "coach_sharing", label: "Share with my linked coaches", help: "Coaches you linked with an invite code can see your saved reports, give their own view and set a drill." },
   { kind: "model_training", label: "Use my data to improve the models", help: "Off by default. De-identified tracks only, never video. You can withdraw at any time." },
   { kind: "guardian", label: "A parent or guardian agreed (under 18)", help: "Needed to share with a coach while you are under 18. Untick it and coaches stop seeing your reports at once." },
 ];
@@ -25,7 +25,6 @@ export function ProfilePage() {
   const [consents, setConsents] = useState<Record<string, boolean>>({});
   const [analyses, setAnalyses] = useState<StoredAnalysis[]>([]);
   const [usage, setUsage] = useState<{ trackBytes: number; analyses: number } | null>(null);
-  const [retention, setRetention] = useState(14);
   const [invite, setInvite] = useState("");
   const [guardianOk, setGuardianOk] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -42,8 +41,6 @@ export function ProfilePage() {
         if (!u) return;
         const entries = await Promise.all(CONSENTS.map(async (c) => [c.kind, await latestConsent(c.kind)] as const));
         setConsents(Object.fromEntries(entries));
-        const { data } = await supabase().from("profiles").select("raw_video_retention_days").eq("id", u.id).maybeSingle();
-        if (data?.raw_video_retention_days !== undefined) setRetention(data.raw_video_retention_days);
         const { data: log } = await supabase().from("audit_log").select("action, subject_id, created_at").order("created_at", { ascending: false }).limit(20);
         setAudit(log ?? []);
       })
@@ -163,7 +160,7 @@ export function ProfilePage() {
             </select>
           </label>
           <label className="text-sm">
-            <span className="text-fg-muted">Level</span>
+            <span className="text-fg-muted">Where you play (optional)</span>
             <select className="field mt-1" value={p.skill ?? ""} onChange={(e) => update({ skill: (e.target.value || null) as LocalProfile["skill"] })}>
               <option value="">Not set</option>
               <option value="beginner">Beginner</option>
@@ -174,7 +171,7 @@ export function ProfilePage() {
           </label>
         </div>
         {["u13", "13_15", "16_18"].includes(p.ageBand ?? "") && (
-          <p className="text-sm text-warn border-l-2 border-warn/60 pl-3">Under 18: a parent or guardian must agree before each analysis, and saving to an account or sharing with a coach needs their agreement too.</p>
+          <p className="text-sm text-warn border-l-2 border-warn/60 pl-3">Under 18: a parent or guardian must agree before each analysis, and before you link a coach.</p>
         )}
       </section>
 
@@ -218,22 +215,6 @@ export function ProfilePage() {
                 </li>
               ))}
             </ul>
-            <label className="block text-sm">
-              <span className="text-fg-muted">Delete uploaded raw video after</span>
-              <select
-                className="field mt-1 max-w-xs"
-                value={retention}
-                onChange={async (e) => {
-                  const days = Number(e.target.value);
-                  setRetention(days);
-                  await supabase().from("profiles").upsert({ id: user.id, raw_video_retention_days: days });
-                }}
-              >
-                {[0, 7, 14, 30].map((d) => (
-                  <option key={d} value={d}>{d === 0 ? "Immediately after analysis" : `${d} days`}</option>
-                ))}
-              </select>
-            </label>
             <form
               className="flex flex-wrap gap-2 items-end"
               onSubmit={async (e) => {

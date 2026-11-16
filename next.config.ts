@@ -13,6 +13,16 @@ const buildId = process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYME
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   env: { NEXT_PUBLIC_BUILD_ID: buildId },
+  // The plan's map of the site (docs/13, section 3) names these addresses; each lands on the page that does that job.
+  async redirects() {
+    return [
+      { source: "/how-it-works", destination: "/guide", permanent: false },
+      { source: "/settings", destination: "/profile", permanent: false },
+      { source: "/levels", destination: "/#levels", permanent: false },
+      { source: "/players", destination: "/#coaches", permanent: false },
+      { source: "/coaches", destination: "/#coaches", permanent: false },
+    ];
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

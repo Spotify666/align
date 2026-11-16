@@ -57,8 +57,8 @@ export default function SciencePage() {
             ["Can body, bat, ball and pitch be tracked?", "Body from on-device pose; bat and ball from tracking or your marks — every mark labelled as yours."],
             ["What delivery came down?", "Bounce position and arrival height give soft full / good / short probabilities. No ball, no claim."],
             ["What shot was attempted?", "Open-set prototype model over body, bat and ball features, with an explicit 'unknown' class."],
-            ["Is it the defence you asked for?", "Strict acceptance (body + bat + ball, high score, clear margin), centred on the front-foot or the back-foot defence. Rejection may rest on fewer signals."],
-            ["Only then: how was it executed?", "Six domains of measures with uncertainty, provisional ranges, one priority and up to two drills."],
+            ["Is it a defence Aline grades?", "You don't have to name the shot. With bat and ball in view: a strict test on body, bat and ball (high score, clear margin). From the body alone: the defence's own definition checked on the body and hands, and the report says the bat and ball weren't seen. Rejection may rest on fewer signals."],
+            ["Only then: how was it executed?", "Seven domains of measures with uncertainty, provisional ranges, one priority and a drill ladder."],
           ].map(([t, d], i) => (
             <li key={t} className="bg-surface p-5">
               <span className="num text-brand text-sm">{i + 1}</span>
@@ -256,7 +256,7 @@ export default function SciencePage() {
 
       <Section id="validation" eyebrow="Validation status" title="Tested, not yet validated">
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="card p-4"><p className="font-semibold">Research basis</p><p className="mt-1 text-sm text-fg-muted">Defence vs drive differ mainly in bat and ball speed, not body shape — so acceptance requires bat and ball.</p></div>
+          <div className="card p-4"><p className="font-semibold">Research basis</p><p className="mt-1 text-sm text-fg-muted">A defence and a drive differ mainly in bat and ball speed, not body shape. So a clip with bat and ball is held to both, and a body-only clip is confirmed on the body&apos;s definition and says what it couldn&apos;t see.</p></div>
           <div className="card p-4"><p className="font-semibold">Internal engineering tests</p><p className="mt-1 text-sm text-fg-muted">Synthetic fixtures (below), 31 pull variants that must never be scored, reproducibility and report-contract tests, run on every change.</p></div>
           <div className="card p-4 border-warn/50"><p className="font-semibold text-warn">Real-athlete validation</p><p className="mt-1 text-sm text-fg-muted">Not done. Planned release gates: non-defence false-accept below 2%, at least 90% recall of usable defences, event timing and joint-angle error targets per tier.</p></div>
         </div>

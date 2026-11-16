@@ -31,6 +31,7 @@ const MORE = [
   { href: "/science", label: "Science and validation", Icon: Beaker },
   { href: "/privacy", label: "Privacy and data", Icon: Shield },
   { href: "/sample", label: "Sample reports", Icon: List },
+  { href: "/design", label: "Screens and flows", Icon: Menu },
   { href: "/design-system", label: "Design system", Icon: Menu },
 ];
 
@@ -38,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const active = (href: string) => path.startsWith(href);
+  const active = (href: string) => path === href || path.startsWith(`${href}/`);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
@@ -161,6 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <p className="font-medium">Trust</p>
             <Link href="/science" className="block text-fg-subtle hover:text-fg">Science and validation</Link>
             <Link href="/privacy" className="block text-fg-subtle hover:text-fg">Privacy and data</Link>
+            <Link href="/design" className="block text-fg-subtle hover:text-fg">Screens and flows</Link>
             <Link href="/design-system" className="block text-fg-subtle hover:text-fg">Design system</Link>
           </div>
         </div>

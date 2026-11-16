@@ -13,8 +13,8 @@ export default function SamplesIndex() {
         <p className="eyebrow">Sample reports · DEMO DATA</p>
         <h1 className="display text-5xl">Every outcome, designed as carefully as the good one.</h1>
         <p className="text-fg-muted">
-          These reports are produced by the real engine running on synthetic fixture tracks. They are labelled DEMO DATA everywhere and exist to show
-          how Aline behaves — including when it refuses to score.
+          Each report is made by the same engine that checks your shot, from a generated example. They are labelled DEMO DATA everywhere and show
+          how Aline answers, including when it can&apos;t tell.
         </p>
       </header>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -28,7 +28,6 @@ export default function SamplesIndex() {
                 </span>
                 <h2 className="mt-3 font-semibold text-lg">{spec.title}</h2>
                 <p className="mt-1 text-sm text-fg-muted">{payload.headline}</p>
-                <p className="mt-3 text-xs text-fg-subtle num">expects: {spec.expectation}</p>
               </Link>
             </li>
           );

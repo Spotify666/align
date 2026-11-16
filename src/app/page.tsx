@@ -141,7 +141,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section aria-labelledby="levels-h">
+      <section id="levels" aria-labelledby="levels-h" className="scroll-mt-6">
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
           <p className="text-sm font-medium text-fg-subtle">Your level</p>
           <h2 id="levels-h" className="display mt-2 text-3xl sm:text-4xl">Three levels, one engine.</h2>
@@ -165,14 +165,14 @@ export default function Landing() {
           <div className="panel p-6">
             <h3 className="display text-2xl sm:text-3xl">For players</h3>
             <p className="mt-3 text-fg-muted">
-              Check a shot after nets, see your line at contact, and track the change over sessions against your own baseline. Comparing with a reference player is in development.
+              Check a shot after nets, see your line at contact, and track the change over sessions against your own usual. Compare a shot with a reference when the two were filmed the same way.
             </p>
             <Link href="/check" className="btn btn-primary mt-6">Check your shot</Link>
           </div>
           <div className="panel p-6">
             <h3 className="display text-2xl sm:text-3xl">For coaches</h3>
             <p className="mt-3 text-fg-muted">
-              Invite a player with a code, review the sessions they choose to share, and add your notes beside the evidence. Squads, assignments and exports are in development.
+              Invite a player with a code, review the sessions they choose to share, and give your own view beside Aline&apos;s result. Group players into squads, set a drill with a date to check again, and export your notes.
             </p>
             <Link href="/coach" prefetch={false} className="btn btn-ghost mt-6">Open the coach workspace</Link>
           </div>

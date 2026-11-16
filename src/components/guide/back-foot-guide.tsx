@@ -44,10 +44,10 @@ export function BackFootGuide() {
         <h2 id="back-foot-h" className="display mt-2 text-3xl sm:text-5xl">The back-foot defence</h2>
         <p className="mt-3 text-fg-muted">
           Played to a ball <strong className="text-fg">short of a length, on the stumps, rising</strong>: too short to get forward to, too straight to leave.
-          The aim is to block it safely. Pick “Back-foot defence” on the Analyse screen; everything else works the same way as the front-foot defence.
+          The aim is to block it safely. You don&apos;t have to say which shot you played: Aline tells. Everything else works the same way as the front-foot defence.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/analyse?shot=back" className="btn btn-primary">Check back-foot defence</Link>
+          <Link href="/check?shot=back" className="btn btn-primary">Check your shot</Link>
           <Link href="/sample/valid_bfd" className="btn btn-ghost">See a sample report</Link>
         </div>
       </div>

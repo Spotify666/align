@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HomeNext } from "@/components/home/home-next";
 import { ShotVideo } from "@/components/home/shot-video";
 import { Reveal } from "@/components/common/reveal";
 
@@ -25,6 +26,8 @@ export default function AppHome() {
           </div>
         </div>
       </section>
+
+      <HomeNext />
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-14">
         <Reveal>

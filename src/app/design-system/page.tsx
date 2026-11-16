@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { sampleAnalysis } from "@/lib/demo";
 import { STATUS_META } from "@/components/report/status";
 import { ConfidenceChip, DemoBadge } from "@/components/report/status";
@@ -8,17 +9,18 @@ import { CaptureChecklist, DomainGrid, PriorityPlan, ShotProbabilityPanel } from
 
 export const metadata: Metadata = { title: "Design system" };
 
-const TOKENS: Array<[string, string, string]> = [
-  ["Carbon", "#0a0d10", "page"],
-  ["Graphite", "#151a20", "inputs, media"],
-  ["Panel", "#10151a", "cards"],
-  ["Warm paper", "#f3f0e8", "text, editorial bands"],
-  ["Signal gold", "#d7a62a", "authority, selection, primary action"],
-  ["Performance lime", "#b7f34a", "valid, within range"],
-  ["Data cyan", "#5ed6e6", "measured paths, baseline"],
-  ["Amber", "#f2b84b", "uncertain, estimate, warning"],
-  ["Risk coral", "#f06b5f", "different shot, outside range, error"],
-  ["Steel", "#9aa6b2", "capture failed, unknown"],
+// The second design's tokens (globals.css, `:root[data-ui="2"]`): the value in the dark theme, then in daylight.
+const TOKENS: Array<[string, string, string, string]> = [
+  ["Field", "#050505", "#f4f1e8", "the page"],
+  ["Ground", "#121212", "#f4f1e8", "panels"],
+  ["Raised", "#1a1a1a", "#ebe7da", "controls, rows"],
+  ["Rule", "#2a2a28", "#cecbc4", "hairlines"],
+  ["Chalk", "#f4f1e8", "#050505", "text"],
+  ["Dust", "#a9a59d", "#55534e", "secondary text"],
+  ["The line", "#ff6a00", "#b54700", "the line, the moment in view, the one main action"],
+  ["Good", "#7fb89a", "#0b6b4f", "within range, confirmed"],
+  ["Check", "#e0b354", "#855000", "unsure, estimate"],
+  ["Fix", "#e8736a", "#b02e25", "outside range, another shot"],
 ];
 
 const Block = ({ title, rules, children }: { title: string; rules: string; children: React.ReactNode }) => (
@@ -38,20 +40,40 @@ export default function DesignSystemPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 space-y-14">
       <header className="space-y-2">
-        <p className="eyebrow">Design system · Editorial sports-performance lab</p>
+        <p className="eyebrow">Design system</p>
         <h1 className="display text-5xl">Components and states</h1>
-        <p className="text-fg-muted max-w-3xl">Precise, calm, disciplined. Gold marks authority and selection, never “good”. Measurement states always pair colour with an icon and words. Every state below is rendered from the real engine on DEMO DATA.</p>
+        <p className="text-fg-muted max-w-3xl">A dark field, warm white text and one orange. Orange is the line, the moment being looked at and the one main action; it is never a surface and never means “good”. A state always carries a word or a mark as well as a colour. Every state below is drawn from the real engine on DEMO DATA.</p>
+        <p><Link href="/design" className="inline-flex min-h-11 items-center underline underline-offset-4">Every screen and flow, mapped</Link></p>
       </header>
 
-      <Block title="Tokens" rules="Contrast: body text on carbon ≥ 12:1; muted text ≥ 7:1; subtle text ≥ 5:1. Display: Archivo condensed. UI: Inter. Data: IBM Plex Mono with tabular numerals.">
+      <Block title="Colours" rules="Each swatch shows the dark theme on the left and daylight on the right. Every text pair is held to AA contrast by a test. No gradients, shadows, blur or glass.">
         <ul className="grid gap-3 grid-cols-2 sm:grid-cols-5">
-          {TOKENS.map(([n, hex, use]) => (
+          {TOKENS.map(([n, dark, light, use]) => (
             <li key={n} className="card overflow-hidden">
-              <div className="h-14" style={{ background: hex }} />
-              <div className="p-2 text-xs"><p className="font-semibold">{n}</p><p className="num text-fg-subtle">{hex}</p><p className="text-fg-muted">{use}</p></div>
+              <div className="flex h-14 border-b border-line">
+                <div className="flex-1" style={{ background: dark }} />
+                <div className="flex-1" style={{ background: light }} />
+              </div>
+              <div className="p-2 text-xs"><p className="font-semibold">{n}</p><p className="num text-fg-subtle">{dark} · {light}</p><p className="text-fg-muted">{use}</p></div>
             </li>
           ))}
         </ul>
+      </Block>
+
+      <Block title="Type" rules="Archivo for headlines and big numbers, Geist for everything else. Sentence case. Numbers use tabular figures.">
+        <div className="panel space-y-3 p-5">
+          <p className="display text-4xl">Every shot, explained.</p>
+          <p className="text-lg text-fg-muted">Get your head over your front foot.</p>
+          <p className="num text-sm text-fg-subtle">0.12 × height · 0.83 s · 6 of 8 checks</p>
+        </div>
+      </Block>
+
+      <Block title="Actions" rules="One main action a screen, in orange. Everything else is a quiet pill. Every control is at least 44 px tall.">
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" className="btn btn-primary">Check your shot</button>
+          <button type="button" className="btn btn-ghost">How to film</button>
+          <button type="button" className="btn btn-quiet">Not now</button>
+        </div>
       </Block>
 
       <Block title="Validity banner states" rules="Four outcomes plus the photo posture screen. The non-valid states are as designed as the valid one and always say the score is withheld.">
@@ -77,6 +99,7 @@ export default function DesignSystemPage() {
       </Block>
 
       <Block title="Metric card" rules="Name, value with unit and ±, status (measured / estimate / not measured), range, meaning, why it matters, limitation, and a jump to the evidence frame. Not measured is never shown as zero.">
+        <h3 className="sr-only">A measured and a not-measured example</h3>
         <div className="grid gap-3 sm:grid-cols-2"><MetricCard m={metric} /><MetricCard m={nm} /></div>
       </Block>
 
@@ -88,7 +111,7 @@ export default function DesignSystemPage() {
         <div className="card px-4 max-w-xl"><CaptureChecklist checks={failed.capture.checks} /></div>
       </Block>
 
-      <Block title="Domains" rules="Six domains, equal weight visually; not-measured domains say why.">
+      <Block title="Domains" rules="Seven domains, equal weight visually; not-measured domains say why.">
         <DomainGrid domains={valid.domains} />
       </Block>
 
