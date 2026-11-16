@@ -513,7 +513,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
           </div>
         )}
         {(mode === "overlay" || mode === "original") && (
-          <button onClick={() => setZoom((z) => !z)} className="chip border-line text-fg-muted min-h-9" aria-pressed={zoom}>
+          <button onClick={() => setZoom((z) => !z)} className="chip border-line text-fg-muted min-h-11" aria-pressed={zoom}>
             {zoom ? "Zoomed to batter" : "Zoom to batter"}
           </button>
         )}
@@ -556,7 +556,7 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
       {(mode === "3d" || mode === "compare") && <SceneInWords obs={obs} payload={payload} front={scene.front} />}
       {mode === "3d" && (
         <div className="flex flex-wrap items-center gap-2 px-3 pt-2.5 text-sm">
-          <button className={`chip min-h-9 ${sideView ? "border-brand/60 bg-brand-soft text-fg" : "text-fg-muted"}`} aria-pressed={sideView} onClick={() => setSideView((v) => !v)}>
+          <button className={`chip min-h-11 ${sideView ? "border-brand/60 bg-brand-soft text-fg" : "text-fg-muted"}`} aria-pressed={sideView} onClick={() => setSideView((v) => !v)}>
             Side view{payload.camera_view === "front_on" || payload.camera_view === "behind" ? " (estimate)" : ""}
           </button>
           {sideView && (payload.camera_view === "front_on" || payload.camera_view === "behind") && (
@@ -571,25 +571,25 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
 
       {isPhoto && n > 1 && (
         <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-          <button onClick={() => setFrame((f) => Math.max(0, f - 1))} disabled={frame === 0} className="btn btn-ghost !min-h-10 !px-3" aria-label="Previous photo">‹ Prev</button>
+          <button onClick={() => setFrame((f) => Math.max(0, f - 1))} disabled={frame === 0} className="btn btn-ghost !min-h-11 !px-3" aria-label="Previous photo">‹ Prev</button>
           <span className="text-sm text-fg-muted">
             Photo <span className="num text-fg">{frame + 1}</span> of <span className="num">{n}</span>
             {payload.photo_set?.[frame]?.phase ? ` · ${payload.photo_set[frame]!.phase}` : ""}
           </span>
-          <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} disabled={frame >= n - 1} className="btn btn-ghost !min-h-10 !px-3" aria-label="Next photo">Next ›</button>
+          <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} disabled={frame >= n - 1} className="btn btn-ghost !min-h-11 !px-3" aria-label="Next photo">Next ›</button>
         </div>
       )}
       {!isPhoto && (
         <div className="px-3 pb-3 pt-2">
           <div className="mb-1 flex items-center gap-2">
-            <button onClick={() => setPlaying((p) => !p)} className="btn btn-ghost !min-h-10 !px-3" aria-label={playing ? "Pause" : "Play"}>
+            <button onClick={() => setPlaying((p) => !p)} className="btn btn-ghost !min-h-11 !px-3" aria-label={playing ? "Pause" : "Play"}>
               {playing ? <Pause size={16} /> : <Play size={16} />}
             </button>
-            <button onClick={() => setSlow((s) => !s)} className="chip border-line text-fg-muted min-h-9" aria-pressed={slow}>
+            <button onClick={() => setSlow((s) => !s)} className="chip border-line text-fg-muted min-h-11" aria-pressed={slow}>
               {slow ? "¼ speed" : "1× speed"}
             </button>
-            <button onClick={() => setFrame((f) => Math.max(0, f - 1))} className="chip border-line text-fg-muted min-h-9" aria-label="Previous frame">−1 f</button>
-            <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} className="chip border-line text-fg-muted min-h-9" aria-label="Next frame">+1 f</button>
+            <button onClick={() => setFrame((f) => Math.max(0, f - 1))} className="chip border-line text-fg-muted min-h-11" aria-label="Previous frame">−1 f</button>
+            <button onClick={() => setFrame((f) => Math.min(n - 1, f + 1))} className="chip border-line text-fg-muted min-h-11" aria-label="Next frame">+1 f</button>
           </div>
           <PhaseTimeline events={result.events} issues={result.phaseOrder.issues} frames={n} frame={frame} times={obs.t} onSeek={(f) => { setPlaying(false); setFrame(f); }} />
         </div>

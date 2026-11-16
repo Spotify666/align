@@ -43,6 +43,18 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
    when no level is chosen: docs/13, decision 3); never milliseconds or minus signs on report
    screens (docs/context.md, 2026-11-08).
 
+## The quality bar (every session, every task)
+
+Load the `quality-bar` skill before changing anything and again before saying a task is done.
+It is the standard the owner asked every later session to hold (2026-11-16), and it is checked
+by machine where it can be: `npm run lint && npm run typecheck && npm test && npm run build`,
+then `npm run check:pages` (every page, both themes, every section opened: accessibility,
+44 px controls, no sideways scroll, no page errors, links). CI runs all of it on every push.
+In short: find the existing pattern and follow it; pure logic with tests that hold it to the
+truth; when a check fails, fix the cause, never the check; verify in a real browser and on real
+clips where the analysis is touched; write down what was done and what was **not** verified;
+commit and push at every working point; ship, verify production, tell the athlete once.
+
 ## Working rules
 
 - **Design** (docs/13, the owner's decisions of 2026-11-11): a dark field (#050505), warm white
@@ -125,6 +137,8 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Shot models (a person's own model of a correct shot: joints placed on a figure, exported as text, optionally the thing a confirmed shot is checked against; never read by the analysis, never decides the shot) | @docs/14-shot-models.md; `src/engine/pose-model.ts`, `src/lib/pose-models.ts`, `pose-starters.ts` (+ `.json`, `scripts/pose-starters.mjs`), `/models`, `/models/edit`, `components/model/*`, `components/report/model-check-panel.tsx`, `tests/pose-model.test.ts` |
 | App home's "what next" (last result, the one fix, shots checked; this device only) | `src/components/home/home-next.tsx` |
 | A `<details>` opened by the address's `#id` | `src/components/common/open-on-hash.tsx` |
+| Engine foundations (types and contracts; the scene every measure reads; the vector and statistics helpers; the capture gate; tracks in storage; the batter's own baseline; the delivery's length; everyday wording of a value) | `src/engine/types.ts`, `scene.ts`, `math.ts`, `quality.ts`, `tracks-codec.ts`, `baseline.ts`, `delivery.ts`, `plain.ts` |
+| The quality bar and its page checks | `.claude/skills/quality-bar/SKILL.md`, `scripts/checks/pages.mjs` (`npm run check:pages`), `tests/standards.test.ts`, `.github/workflows/ci.yml` |
 | Product docs | `docs/00…10-*.md` |
 
-Checks: `npm run lint && npm run typecheck && npm test && npm run build`.
+Checks: `npm run lint && npm run typecheck && npm test && npm run build && npm run check:pages`.

@@ -88,7 +88,7 @@ export function Lesson({ payload: p, obs, level = "plain" }: { payload: Analysis
           You, as Aline tracked you in your {p.mode === "posture_screen" ? "photo" : "clip"}: solid where it was sure, dotted where it was unsure; what it didn&apos;t see isn&apos;t drawn. Dashed outline: where the textbook defence puts it.
         </p>
       </header>
-      <ol className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 xl:grid-cols-3">
+      <ol tabIndex={0} aria-label="The lesson, chapter by chapter" className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 xl:grid-cols-3">
         {chapters.map(({ m, pose }, i) => (
           <li key={m.id} className="w-[86%] shrink-0 snap-center sm:w-auto">
             <Chapter n={i + 1} of={chapters.length} m={m} pose={pose} ghost={ghost} numbers={level !== "simple"} />

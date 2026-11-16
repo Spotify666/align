@@ -933,3 +933,23 @@ older one); real phones, Safari, a screen reader.
 - **The two references the owner named could not be opened** from the session (network policy):
   the page and the document follow the brief's words ("screen map of every flow", "concise
   explanation to the detail"), not a reading of those sites.
+
+### A stricter page check, and what it found (2026-11-16)
+
+Batch 8's "0 accessibility faults" and "0 controls under 44 px" were true of each page as it
+opens. They were **not** true inside a report's sections, which the check of that day did not
+open. `scripts/checks/pages.mjs` (`npm run check:pages`, now in CI) opens every section on 22
+pages in both themes. It found, and this change fixed:
+
+| In | What |
+|---|---|
+| Evidence viewer | Play, speed, frame steps, zoom and the photo arrows at 36–40 px |
+| Evidence, the line and the back-foot panel | "See this frame" at 20 px; a check row at 40 px |
+| Evidence, the delivery | The bounce marker: a 12 px button inside a picture (nested control) |
+| Evidence, timing | Milliseconds and signed numbers in the text and on the chart's axis (standing rule 8): now seconds, with "before" and "after" |
+| Training | "Rewrite for" buttons at 36 px; the lesson's sideways strip not reachable by keyboard |
+| Comparison | Empty states as paragraphs inside a list |
+| Technical details | Two disclosures at 36 px |
+
+After: "No problems." on all 22 pages. `tests/standards.test.ts` keeps the page list, the
+screen map and the Map in step with the app, and forbids milliseconds on report screens.

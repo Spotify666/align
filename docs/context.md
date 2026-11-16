@@ -3,6 +3,24 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-16 · "Make sure… the code quality and practices are in sync… after this session"
+
+- The standard is now written where every session reads it first (`CLAUDE.md`, "The quality
+  bar"; the `quality-bar` skill: how to build, how to prove it, what done means, how to report,
+  what never to do), and checked by machine where it can be:
+  - `npm run check:pages`: every page, both themes, **every report section opened**:
+    accessibility, 44 px controls, no sideways scroll, one heading, no page errors, links. CI now
+    runs it on every push, with lint, types, tests and build.
+  - `tests/standards.test.ts`: a new page must be added to the page check and the screen map; a
+    new engine file must be in the Map; a report screen may not print milliseconds or a signed
+    number.
+- The stricter check found what the earlier one missed inside report sections, all fixed:
+  small buttons in the evidence viewer, the timing chart and Technical details; three
+  accessibility faults; and milliseconds and minus signs in the Evidence timing text and chart
+  (now seconds, "before" and "after").
+- What no file can do: choose which model runs a later session, or replace judgement. The
+  rules, the tests and CI are what carries over.
+
 ## 2026-11-16 · Asked: place joints on a 3D model to say why a shot is correct, and analyse against it
 
 "build me a flow where user can give inputs of human biomechanics w.r.t joints for a cricketing

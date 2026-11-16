@@ -5,7 +5,6 @@
 
 import { z } from "zod";
 import { SHOT_DISPLAY } from "./classify";
-import { fmt } from "./scoring";
 import { plainRange, plainReading, plainValue } from "./plain";
 import { DRILL_LIBRARY_VERSION } from "./coaching";
 import type { AnalysisPayload } from "./types";

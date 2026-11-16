@@ -407,7 +407,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-fg-subtle">Rewrite for:</span>
             {(["player", "coach", "parent"] as const).map((a) => (
-              <button key={a} className="chip border-line-strong text-fg-muted min-h-9 capitalize" disabled={aiState === "loading"} onClick={() => askAi(a)}>{a}</button>
+              <button key={a} className="chip border-line-strong text-fg-muted min-h-11 capitalize" disabled={aiState === "loading"} onClick={() => askAi(a)}>{a}</button>
             ))}
             {aiState === "loading" && <span className="text-fg-subtle">Writing… (checked against the evidence before it is shown)</span>}
             {aiState === "unavailable" && <span className="text-fg-subtle">AI writing isn&apos;t switched on for this site — showing the standard report.</span>}
@@ -491,7 +491,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           </p>
         )}
           <details className="card p-4 group">
-              <summary className="list-none flex items-center justify-between min-h-9">
+              <summary className="list-none flex items-center justify-between min-h-11">
                 <span className="font-semibold">Why this result</span>
                 <span className="text-fg-subtle group-open:rotate-90 transition-transform">›</span>
               </summary>
@@ -548,7 +548,6 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
   );
 }
 
-const unitText = (u: string) => u.replace("× stature/s", "× height/s").replace("× stature", "× height");
 const evidenceFrame = (m: Metric) => {
   const f = m.evidenceIds.map((id) => /^frame_(\d+)$/.exec(id)?.[1]).find(Boolean);
   return f !== undefined ? Number(f) : null;
@@ -620,7 +619,7 @@ function KeyChecks({ p, model, onSeek, onMore, level }: { p: AnalysisPayload; mo
               return (
                 <li key={m.id}>
                   <button
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-tint disabled:hover:bg-transparent"
+                    className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-tint disabled:hover:bg-transparent"
                     disabled={f === null}
                     onClick={() => f !== null && onSeek(f, m.id)}
                   >
@@ -817,15 +816,15 @@ function DeliveryPanel({ payload: p, onSeek }: { payload: AnalysisPayload; onSee
         <p className="text-fg-muted">{d.reason}</p>
       ) : (
         <>
-          <div className="relative h-16 rounded-lg bg-sunken border border-line overflow-hidden" role="img"
-            aria-label={`Pitch from the batter's stumps. ${d.bounceDistanceM !== null ? `Bounce about ${d.bounceDistanceM.toFixed(1)} metres from the stumps.` : "Bounce not seen."}`}>
+          <p className="sr-only">{`Pitch from the batter's stumps. ${d.bounceDistanceM !== null ? `Bounce about ${d.bounceDistanceM.toFixed(1)} metres from the stumps.` : "Bounce not seen."}`}</p>
+          <div className="relative h-16 rounded-lg bg-sunken border border-line overflow-hidden">
             <div className="absolute inset-y-0 bg-ok/10" style={{ left: 0, width: x(fg) }} />
             <div className="absolute inset-y-0 bg-brand/10" style={{ left: x(fg), width: `calc(${x(gs)} - ${x(fg)})` }} />
             <div className="absolute inset-y-0 bg-bad/10" style={{ left: x(gs), right: 0 }} />
             <div className="absolute inset-y-0 w-0.5 bg-fg/50" style={{ left: 0 }} title="stumps" />
             <div className="absolute inset-y-0 w-px bg-fg/30" style={{ left: x(1.22) }} title="popping crease" />
             {d.bounceDistanceM !== null && (
-              <button onClick={() => onSeek("evt_bounce")} className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: x(d.bounceDistanceM) }} aria-label="Go to the bounce">
+              <button onClick={() => onSeek("evt_bounce")} className="absolute top-1/2 grid h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 place-items-center" style={{ left: x(d.bounceDistanceM) }} aria-label="Go to the bounce">
                 <span className="block h-3 rounded-full bg-data/30 border border-data" style={{ width: `${Math.max(12, ((d.bounceUncertaintyM ?? 0) * 2 / max) * 100 * 6)}px` }} />
               </button>
             )}

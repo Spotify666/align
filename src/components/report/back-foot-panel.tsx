@@ -42,6 +42,9 @@ function where(id: string, v: number, axis: "forward" | "sideways") {
   return `${pct(v)} of your height to the ${v > 0 ? "off" : "leg"} side of the back ankle`;
 }
 
+/** A time in seconds, as report screens show it (never milliseconds): 150 → "0.15 s". */
+const secs = (ms: number) => `${Number((Math.abs(ms) / 1000).toFixed(2))} s`;
+
 export function BackFootPanel({ payload: p, fps, onSeek }: { payload: AnalysisPayload; fps: number | null; onSeek?: (frame: number) => void }) {
   const bf = p.back_foot;
   if (!bf || p.requested_shot !== "back_foot_defence") return null;
@@ -136,7 +139,7 @@ export function BackFootPanel({ payload: p, fps, onSeek }: { payload: AnalysisPa
                 {p.mode === "posture_screen" ? "on this photo, taken to be contact" : bf.referenceKind === "contact" ? "at contact" : "at the set position (bat and ball not seen, so contact is placed where your body had set)"}.
               </p>
               {onSeek && (
-                <button className="mt-1 text-sm font-medium text-brand hover:underline" onClick={() => onSeek(bf.referenceFrame)}>
+                <button className="inline-flex min-h-11 items-center text-sm font-medium text-brand hover:underline" onClick={() => onSeek(bf.referenceFrame)}>
                   See this frame
                 </button>
               )}
@@ -174,7 +177,7 @@ export function BackFootPanel({ payload: p, fps, onSeek }: { payload: AnalysisPa
             <p className="text-sm">
               <span className="font-semibold">Soft hands: </span>
               <span className={tone(soft)}>hands moved {pct(soft.value!)} of your height</span>
-              <span className="text-fg-muted"> in the 250 ms after the ball (aim for 12% or less: the bat gives, no push).</span>
+              <span className="text-fg-muted"> in the quarter of a second after the ball (aim for 12% or less: the bat gives, no push).</span>
             </p>
           )}
           {bf.arrivals && p.mode !== "posture_screen" && <Arrivals arrivals={bf.arrivals} moment={bf.referenceKind === "contact" ? "contact" : "set"} axis={axis} />}
@@ -182,18 +185,18 @@ export function BackFootPanel({ payload: p, fps, onSeek }: { payload: AnalysisPa
             <p className="text-sm">
               <span className="font-semibold">Back foot first: </span>
               <span className={tone(first)}>
-                {first.value! >= 0 ? `${Math.round(first.value!)} ms before the front foot` : `the front foot set ${Math.round(-first.value!)} ms before the back foot`}
+                {first.value! >= 0 ? `${secs(first.value!)} before the front foot` : `the front foot set ${secs(first.value!)} before the back foot`}
               </span>
               <span className="text-fg-muted">
                 {" "}
-                (aim for 0–350 ms{frameMs ? `; ± ${frameMs} ms, one frame` : ""}).
+                (aim for up to 0.35 s{frameMs ? `; give or take ${secs(frameMs)}, one frame` : ""}).
               </span>
             </p>
           )}
           {late && (
             <p className="text-sm">
               <span className="font-semibold">Set before the ball: </span>
-              <span className={tone(late)}>{late.value! <= 0 ? "yes, set before contact" : `still moving ${Math.round(late.value!)} ms after contact`}</span>
+              <span className={tone(late)}>{late.value! <= 0 ? "yes, set before contact" : `still moving ${secs(late.value!)} after contact`}</span>
             </p>
           )}
           {!bf.arrivals && p.mode !== "posture_screen" && (
@@ -233,12 +236,12 @@ function Arrivals({ arrivals, moment, axis }: { arrivals: NonNullable<NonNullabl
   return (
     <figure>
       <p className="text-sm font-semibold">When each part set</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" role="img" aria-label={`When the back foot, the front foot and the head set, in milliseconds from ${moment}.`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" role="img" aria-label={`When the back foot, the front foot and the head set, in seconds before and after ${moment}.`}>
         {ticks.map((t) => (
           <g key={t}>
             <line x1={x(t)} x2={x(t)} y1={6} y2={H - 16} stroke="var(--color-line)" strokeWidth={t === 0 ? 0 : 1} />
             <text x={x(t)} y={H - 4} textAnchor="middle" fontSize={9} fill="var(--color-fg-subtle)">
-              {t === 0 ? "0" : `${t > 0 ? "+" : ""}${t}`}
+              {t === 0 ? "0" : `${Math.abs(t) / 1000}`}
             </text>
           </g>
         ))}
@@ -264,7 +267,7 @@ function Arrivals({ arrivals, moment, axis }: { arrivals: NonNullable<NonNullabl
           );
         })}
       </svg>
-      <figcaption className="text-xs text-fg-subtle">Milliseconds from {moment === "contact" ? "contact" : "the set position"}; negative = before. The back foot moves first, the front foot follows.</figcaption>
+      <figcaption className="text-xs text-fg-subtle">Seconds before (left of the line) and after (right of it) {moment === "contact" ? "contact" : "the set position"}. The back foot moves first, the front foot follows.</figcaption>
     </figure>
   );
 }

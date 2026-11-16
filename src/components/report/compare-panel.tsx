@@ -130,7 +130,7 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
       </header>
 
       <Group title="References">
-        {refs === null && <p className="text-sm text-fg-subtle">Building the textbook model…</p>}
+        {refs === null && <li className="text-sm text-fg-subtle">Building the textbook model…</li>}
         {builtIn.map((r) => (
           <MatchRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} mine={mine} numbers={numbers} />
         ))}
@@ -151,18 +151,22 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
 
       <Group title="Other players">
         {signedIn === false && (
-          <p className="text-sm text-fg-muted">
+          <li className="text-sm text-fg-muted">
             <Link href={`/signin?next=${analysisId ? `/report/${analysisId}` : "/home"}`} className="font-medium text-brand hover:underline">
               Sign in
             </Link>{" "}
             to compare with shots other players share, and to share yours.
-          </p>
+          </li>
         )}
-        {signedIn && others.length === 0 && <p className="text-sm text-fg-subtle">No shared shots from the same camera position yet.</p>}
+        {signedIn && others.length === 0 && <li className="text-sm text-fg-subtle">No shared shots from the same camera position yet.</li>}
         {others.slice(0, 8).map((r) => (
           <MatchRow key={r.id} row={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} mine={mine} numbers={numbers} />
         ))}
-        {signedIn && analysisId && <ShareShot analysisId={analysisId} signature={mine} payload={payload} sharedId={sharedId} onChange={setSharedId} />}
+        {signedIn && analysisId && (
+          <li>
+            <ShareShot analysisId={analysisId} signature={mine} payload={payload} sharedId={sharedId} onChange={setSharedId} />
+          </li>
+        )}
       </Group>
     </section>
   );
@@ -270,7 +274,7 @@ function ShareShot({ analysisId, signature, payload, sharedId, onChange }: { ana
       <li className="flex flex-wrap items-center gap-2 pt-1 text-sm">
         <span className="chip border-ok/50 text-ok">This shot is shared</span>
         <button
-          className="btn btn-ghost !min-h-9 !py-1.5 text-sm"
+          className="btn btn-ghost !min-h-11 !py-1.5 text-sm"
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -318,7 +322,7 @@ function ShareShot({ analysisId, signature, payload, sharedId, onChange }: { ana
           Name to show
         </label>
         <input id="share-name" className="field min-w-0 flex-1" maxLength={40} placeholder="Name to show" value={name} onChange={(e) => setName(e.target.value)} />
-        <button className="btn btn-primary !min-h-10" disabled={busy}>
+        <button className="btn btn-primary !min-h-11" disabled={busy}>
           {busy ? "Sharing…" : "Share"}
         </button>
       </form>

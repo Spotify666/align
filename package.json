@@ -11,11 +11,12 @@
     "prebuild": "node scripts/vendor-mediapipe.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run lint && npm run typecheck && npm run test",
+    "check:pages": "node scripts/checks/pages.mjs",
     "vendor": "node scripts/vendor-mediapipe.mjs"
   },
   "dependencies": {
@@ -40,6 +41,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.186.0",
+    "axe-core": "^4.10.2",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.8",
     "jiti": "^2.7.0",
