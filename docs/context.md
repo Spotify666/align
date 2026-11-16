@@ -3,6 +3,31 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-16 · Asked: place joints on a 3D model to say why a shot is correct, and analyse against it
+
+"build me a flow where user can give inputs of human biomechanics w.r.t joints for a cricketing
+shot on why it is correct one. 3d model so he can place the joints. the mapping should be
+perfect where dimensions are read properly and they can be exported as text… the values should
+be saved and able to be applied… 3d plotting should be available in both angles, single angle
+to link that to a particular cricketing shot and then apply those to calculating the shot. this
+feature should be optional for analysis: if user chooses specific to this plotting then analyse
+it based on that else current logic. currently applicable for front foot defence, backfoot
+defence." With a picture of joints drawn over a sprinter, with a 3D switch and a ruler.
+
+- Status: **asked, not built yet.** Next after the review below.
+
+## 2026-11-16 · "review and correct them… w.r.t plan laid"; a `/design` page with every flow and a PDF
+
+- Review of Batches 1–8 against the plan: ten things corrected (the landing still said the coach
+  tools were "in development"; the design-system page showed the old colours; the privacy page
+  described video uploads that never happen; Home had no "last result"; and smaller ones). The
+  list, and what is still open and why: docs/13, "Review against this plan".
+- `/design` ("Screens and flows" in the menu): 9 flows, 46 screens, each flow a lane of phone
+  screens on one orange line; tap a screen for what each thing does. "Download the design
+  document (PDF)": 19 slides made from the same data.
+- The two example sites the athlete named (revyl.com/atlas, a product teardown PDF) could not be
+  opened from the session; built from their description.
+
 ## 2026-11-14 · "Start and finish": Batch 8, hardening
 
 - Asked "What's hardening?", then "Start and finish". Done: the check screen no longer

@@ -24,8 +24,8 @@ Three things to know before reading:
 | 1 Foundation and landing | **Shipped 2026-11-11** (see "Batch 1 as built" at the end) |
 | 2 Analysis interaction | **Shipped 2026-11-12**, in four parts (see "Batch 2 … as built"). Left for later batches, as planned: identifying without a choice inside the engine for more shots (4), live pairing of two phones (7). Not done: the processing steps of the capture flow are still one component |
 | 3 Report, evidence, 3D, PDF | **Shipped 2026-11-14**, in five parts (see "Batch 3 … as built"): the report in six sections, the PDF from a print layout, landmark figures, one drawing rule and the 3D view in words, the Comparison section (with the two-angle report folded in) |
-| 4 Levels and parameters | **In progress.** Shipped: `present()`, focus groups and level counts, the report's checks by level and focus; the availability matrix; wrist–elbow specified and off. Not yet: body measurements used; identify-without-choice inside the engine (needs real clips: it would be a new way to accept a shot) |
-| 5 Reference library | **In progress.** Shipped: `aline.similarity/1` (comparability gate, five parts of the body with coverage, overall unchanged), provenance on every reference, the batter's usual as the fallback reference; the reference tables with rights in Supabase (row-level security: nothing readable without granted, unexpired rights), the library page. Not yet: overlays and PDF with references (nothing to overlay until a reference carries a pose track), the first licensed references (decision 8) |
+| 4 Levels and parameters | **Shipped 2026-11-14** as far as it can go without real clips: `present()`, focus groups and level counts, the report's checks by level and focus; the availability matrix; wrist–elbow specified and off. **Waiting on labelled real clips** (each would change what is measured or accepted): body measurements used; identify-without-choice inside the engine |
+| 5 Reference library | **Shipped 2026-11-14** as far as it can go without a licence: `aline.similarity/1`, provenance on every reference, the batter's usual; the reference tables with rights (row-level security), the library page, recording and withdrawing a permission. **Waiting on the first signed permission** (decision 8): a licensed reference, and overlays and the PDF with one (nothing to overlay until a reference carries a pose track) |
 | 6 Coach workspace | **Shipped 2026-11-14**: squads, the review queue (unreviewed first, then the least clear recordings), the coach's own assessment beside Aline's result, assignments, the player's view of both, history, CSV export; tables with row-level security and an audit trail; a parent's or guardian's agreement before a player under 18 shares with a coach |
 | 7 Dual angle | **Shipped 2026-11-14** (pass-through, decision 11): pairing two phones with a code and a check number, clock sync, a shared countdown, the second phone's result sent to the first (never video), the same-ball check before combining, rejoining after a drop. Not verified: two real phones over the live connection |
 | 8 Hardening | **Shipped 2026-11-14** (see "Batch 8 as built"). Not verified: real phones (pairing, camera line-up, Save as PDF), Safari, a screen reader's speech |
@@ -885,3 +885,51 @@ slowdown (`measure.mjs`, two runs; blocking time varies by about ±100 ms betwee
 
 **Not verified**: real phones (two-phone pairing over the live connection, the camera line-up's
 camera and level, Save as PDF), Safari and Firefox, a screen reader's speech.
+
+## Review against this plan, and the screen map (2026-11-16)
+
+The owner: "review and correct them if any gaps or inconsistencies are present w.r.t. the plan
+laid", and a `/design` page with a screen map of every flow and a PDF to download.
+
+**Found and corrected**
+
+| Where | What was wrong | Now |
+|---|---|---|
+| Landing, "For players / For coaches" | Said reference comparison, squads, assignments and exports were "in development" (they shipped in Batches 5 and 6) | Says what they do |
+| `/design-system` (planned for Batch 1, never done) | Still the first design: gold, lime and cyan swatches, Inter, IBM Plex Mono | The real tokens in both themes, type, actions; links to `/design` |
+| `/privacy` (planned for Batch 1) | Said a clip could be uploaded and was deleted after 14 days: nothing in the app uploads video. Nothing about coach notes, two phones or references. "Under 18" claimed more than is enforced | Says the video is never uploaded; rows for a coach's notes, two phones (passed through, stored nowhere) and references; the under-18 rule as built |
+| Profile | A "Delete uploaded raw video after" setting for uploads that cannot happen; two fields both called "Level"; an under-18 note that claimed a gate on saving | The setting removed (the column stays); "Where you play"; the note as built |
+| `/home` (section 3: "what to do next, last result, progress at a glance") | Only a headline and two videos | `HomeNext`: the last result in its own first sentence, the one fix, shots checked and confirmed; one fixed height, so nothing moves |
+| Section 7 terms | "Check back-foot defence" in the guide; report links to `/analyse`; "Match compares…"; "synthetic fixture tracks" and "expects:" on the samples page | "Check your shot"; `/check`; "Movement similarity compares…"; plain words |
+| Section 3 addresses | `/how-it-works`, `/settings`, `/levels`, `/players`, `/coaches` did not exist | Each redirects to the page that does that job |
+| Report, Training | A drill step already passed was dimmed to 60%: its small text fell to 3.5:1 (found by the accessibility check once the design-system page was added to it) | Not dimmed; it already says "(already past this)" |
+| `CLAUDE.md`, rule 8 | Said wording follows age | Level decides (decision 3) |
+| Status table above | Batches 4 and 5 "In progress" | What shipped, and exactly what each still waits on |
+
+**Still open, and why** (none can be closed by more building alone): identify-without-choice in
+the engine, body measurements used, ranges fitted to players (labelled real clips); a licensed
+reference and overlays (a signed permission); the capture flow's processing steps as separate
+components (a refactor of 1,680 lines with no change a batter would see: not done without real
+clips to prove nothing moved); `/science` in the new voice (three out-of-date statements were corrected:
+acceptance from the body alone, seven domains, no need to name the shot; its tone is still the
+older one); real phones, Safari, a screen reader.
+
+**The screen map** (`/design`, in the menu as "Screens and flows")
+
+- 9 flows and 46 screens (`src/lib/screen-map.ts`): each flow a lane of phone screens strung on
+  one orange line, numbered in the order they are met; a lane scrolls sideways inside itself.
+  Tapping a screen opens it larger with what each thing on it does, previous and next within the
+  flow, and "Open this page". The pictures are captures of the app on generated examples and
+  made-up test accounts (`scripts/design/capture.mjs`, `capture-accounts.mjs`); the coaching
+  video's thumbnail is blocked, so no third-party picture is in them.
+- **The document to download** (`public/design/aline-design.pdf`, 19 A4 landscape slides, 3 MB):
+  what Aline is and who it is for, the rules every screen follows, the map, every flow with its
+  screens and what each does, how an answer is made, what is kept and where, what is true today.
+  It is `/design/print` printed (`scripts/design/pdf.mjs`), from the same data as the page.
+- `tests/screen-map.test.ts`: every step names a screen, every screen has its picture and is in
+  a flow, "Open this page" goes to a real page, the PDF is there.
+- Checked: phone and desktop, both themes; no sideways page scroll, no control under 44 px, no
+  page errors, no accessibility faults (axe) on `/design` and `/design-system`; layout shift 0.
+- **The two references the owner named could not be opened** from the session (network policy):
+  the page and the document follow the brief's words ("screen map of every flow", "concise
+  explanation to the detail"), not a reading of those sites.

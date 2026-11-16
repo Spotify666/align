@@ -121,7 +121,7 @@ export function PriorityPlan({ plan }: { plan: PlanItem }) {
             const here = level === start;
             const done = level < start;
             return (
-              <li key={d.id} id={d.id} className={`relative rounded-xl border p-3.5 pl-12 ${here ? "border-brand bg-brand/5" : "border-line"} ${done ? "opacity-60" : ""}`}>
+              <li key={d.id} id={d.id} className={`relative rounded-xl border p-3.5 pl-12 ${here ? "border-brand bg-brand/5" : "border-line"}`}>
                 <span
                   className={`absolute left-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold num ${here ? "bg-brand text-brand-fg" : "bg-line text-fg-muted"}`}
                   aria-hidden

@@ -778,3 +778,150 @@
     animation: none !important;
   }
 }
+
+/* The screen map's larger view (/design). */
+.screen-dialog::backdrop {
+  background: rgb(0 0 0 / 0.72);
+}
+
+/* The design document (/design/print, and the PDF made from it): A4 landscape slides on paper,
+   in its own colours so the file is the same whatever theme the browser is in. */
+@page design-doc {
+  size: 297mm 210mm;
+  margin: 0;
+}
+.design-doc {
+  --d-paper: #f4f1e8;
+  --d-ink: #050505;
+  --d-muted: #33322f;
+  --d-subtle: #55534e;
+  --d-rule: #cecbc4;
+  --d-line: #b54700;
+  --d-raised: #ebe7da;
+  color: var(--d-ink);
+  background: var(--d-paper);
+  font-size: 9.5pt;
+  line-height: 1.4;
+  overflow-x: auto;
+}
+.design-doc .slide {
+  page: design-doc;
+  position: relative;
+  box-sizing: border-box;
+  width: 297mm;
+  height: 210mm;
+  padding: 13mm 15mm 12mm;
+  overflow: hidden;
+  background: var(--d-paper);
+  break-after: page;
+  break-inside: avoid;
+  display: flex;
+  flex-direction: column;
+}
+.design-doc .slide:last-child {
+  break-after: auto;
+}
+.design-doc .slide + .slide {
+  border-top: 1px solid var(--d-rule);
+}
+.design-doc h1 {
+  font-family: var(--font-display);
+  font-size: 44pt;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.design-doc h2 {
+  font-family: var(--font-display);
+  font-size: 21pt;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.design-doc h3 {
+  font-size: 10pt;
+  font-weight: 600;
+}
+.design-doc .d-muted {
+  color: var(--d-muted);
+}
+.design-doc .d-subtle {
+  color: var(--d-subtle);
+}
+.design-doc .d-accent {
+  color: var(--d-line);
+}
+.design-doc .d-foot {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 8mm;
+  padding-top: 3mm;
+  border-top: 0.4mm solid var(--d-ink);
+  font-size: 7.5pt;
+  color: var(--d-subtle);
+}
+.design-doc .d-box {
+  border: 0.3mm solid var(--d-rule);
+  border-radius: 4mm;
+  background: var(--d-raised);
+  padding: 4mm 5mm;
+}
+.design-doc .d-phone {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3.2mm;
+  border: 0.3mm solid #8a877f;
+  background: #000;
+}
+.design-doc .d-joint {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 6mm;
+  height: 6mm;
+  border-radius: 50%;
+  border: 0.5mm solid var(--d-line);
+  font-size: 7.5pt;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.design-doc .d-rail {
+  flex: 1;
+  height: 0.5mm;
+  background: var(--d-line);
+}
+.design-doc ul.d-list {
+  margin: 0;
+  padding-left: 3.6mm;
+  list-style: disc;
+}
+.design-doc ul.d-list li {
+  margin-bottom: 0.8mm;
+}
+.design-doc table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.design-doc th,
+.design-doc td {
+  text-align: left;
+  vertical-align: top;
+  padding: 1.6mm 2mm 1.6mm 0;
+  border-bottom: 0.2mm solid var(--d-rule);
+}
+.design-doc th {
+  font-size: 8pt;
+  font-weight: 600;
+  color: var(--d-subtle);
+  border-bottom: 0.3mm solid var(--d-ink);
+}
+@media print {
+  .design-doc {
+    overflow: visible;
+  }
+  .design-doc .slide + .slide {
+    border-top: 0;
+  }
+}

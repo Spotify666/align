@@ -128,7 +128,7 @@ export function LocalReport({ id }: { id: string }) {
       : state.other
         ? { href: `/angles?a=${id}&b=${state.other.id}`, label: "See both angles together" }
         : media
-          ? { href: `/analyse?angle=${id}${p.requested_shot === "back_foot_defence" ? "&shot=back" : ""}`, label: family === "side" ? "Add the front angle of this ball" : "Add the side angle of this ball" }
+          ? { href: `/check?angle=${id}${p.requested_shot === "back_foot_defence" ? "&shot=back" : ""}`, label: family === "side" ? "Add the front angle of this ball" : "Add the side angle of this ball" }
           : null;
   return (
     <>
@@ -148,7 +148,7 @@ export function LocalReport({ id }: { id: string }) {
       onAnalyseAs={state.remote ? undefined : analyseAs}
       unchosen={state.stored.session?.intended === null}
       printHref={`/report/${id}/print`}
-      markHref={canMark ? `/analyse?mark=${id}` : null}
+      markHref={canMark ? `/check?mark=${id}` : null}
       notice={
         canMark ? (
           <p className="mt-3 text-sm text-fg-muted">

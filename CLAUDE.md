@@ -38,8 +38,9 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
    (`src/engine/summary.ts`) and the camera angle on the right; everything else (measures,
    illustrations, drills) only in its sections, closed until opened (Evidence, Training,
    Comparison, Progress, Technical details). Opening pages: a headline, the
-   actions, a few steps; no long copy. Wording follows the batter's age (`readingLevel`: under
-   13 no numbers; adults the number and target); never milliseconds or minus signs on report
+   actions, a few steps; no long copy. Wording follows the batter's analysis level
+   (`readingLevel`: Beginner no numbers; Professional the number and target; age stands in only
+   when no level is chosen: docs/13, decision 3); never milliseconds or minus signs on report
    screens (docs/context.md, 2026-11-08).
 
 ## Working rules
@@ -120,6 +121,8 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Synthetic fixtures and population | `src/engine/fixtures/*` |
 | Real-media evaluation | `scripts/eval/*` |
 | Rolling back the database changes of Batches 5–7 (rehearsed: `scripts/db/check-rls.sh --rollback`) | `supabase/rollback/` |
+| Screen map (every flow as the screens met in order; the same data makes the page, its print layout and the PDF to download) | `/design` (`components/design/screen-map.tsx`), `src/lib/screen-map.ts`, `/design/print`, `public/design/` (pictures, `aline-design.pdf`), made by `scripts/design/` (`capture.mjs`, `capture-accounts.mjs`, `pdf.mjs`: run all three after a screen changes), `tests/screen-map.test.ts` |
+| App home's "what next" (last result, the one fix, shots checked; this device only) | `src/components/home/home-next.tsx` |
 | A `<details>` opened by the address's `#id` | `src/components/common/open-on-hash.tsx` |
 | Product docs | `docs/00…10-*.md` |
 
