@@ -21,7 +21,13 @@ export interface StoredAnalysis {
   otherAngle?: string | null;
   /** What the batter chose before this analysis, so the report can be reproduced: level and focus areas. */
   /** What the batter set for this check. `intended`: the shot they said it was; null when they left it to Aline; absent on analyses saved before the choice was optional. */
-  session?: { level: AnalysisLevel | null; focusAreas: FocusAreaId[]; intended?: TargetShot | null };
+  session?: {
+    level: AnalysisLevel | null;
+    focusAreas: FocusAreaId[];
+    intended?: TargetShot | null;
+    /** The batter's own shot model this check is set against (src/lib/pose-models.ts); null or absent: Aline's ranges. */
+    modelId?: string | null;
+  };
 }
 
 /** The areas a batter can ask a report to lead with. Choosing none means the level's default. */
@@ -78,7 +84,7 @@ export async function saveAnalysis(a: StoredAnalysis, tracks: Uint8Array, keyfra
   });
 }
 
-export async function updateAnalysis(id: string, patch: Partial<Pick<StoredAnalysis, "title" | "notes" | "tags" | "representative" | "cloud" | "sharedProfileId" | "otherAngle">>) {
+export async function updateAnalysis(id: string, patch: Partial<Pick<StoredAnalysis, "title" | "notes" | "tags" | "representative" | "cloud" | "sharedProfileId" | "otherAngle" | "session">>) {
   const cur = await getAnalysis(id);
   if (!cur) return;
   await tx(["analyses"], "readwrite", (t) => {

@@ -53,6 +53,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     }
   };
 
+  // Start without a shot model, so the capture screens look as a new visitor sees them; one is made at the end.
+  await go("/home");
+  await p.evaluate(() => {
+    localStorage.removeItem("align.pose-models");
+    localStorage.removeItem("align.pose-model.chosen");
+  });
+
   await step("landing", async () => {
     await go("/", 1500);
     await save(p, "landing-1");
@@ -162,6 +169,46 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   await step("coach signed out", async () => {
     await go("/coach", 2500);
     await save(p, "coach-out");
+  });
+  await step("shot models", async () => {
+    await go("/models");
+    await p.getByRole("button", { name: "New model" }).click();
+    await p.getByRole("button", { name: "Start placing joints" }).click();
+    await p.waitForURL(/models\/edit/);
+    await calm(p);
+    await p.waitForTimeout(800);
+    const edit = p.url();
+    await save(p, "model-edit");
+    await toText("What this pose measures", 330);
+    await save(p, "model-measures");
+    await p.getByRole("button", { name: "Export as text" }).click();
+    await toText("This model as text", 90);
+    await save(p, "model-text");
+    await go("/models");
+    await save(p, "models");
+    // A report set against it: the newest confirmed front-foot defence saved in this profile.
+    const id = await p.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const open = indexedDB.open("align");
+          open.onerror = () => resolve(null);
+          open.onsuccess = () => {
+            if (!open.result.objectStoreNames.contains("analyses")) return resolve(null);
+            const all = open.result.transaction("analyses").objectStore("analyses").getAll();
+            all.onsuccess = () => resolve(all.result.filter((a) => a.payload.analysis_status === "valid" && a.payload.requested_shot === "front_foot_defence" && a.payload.mode === "video").sort((x, y) => y.createdAt.localeCompare(x.createdAt))[0]?.id ?? null);
+          };
+        }),
+    );
+    if (!id) {
+      console.log("SKIPPED report-model: no confirmed front-foot defence saved in this profile", edit);
+      process.exitCode = 1;
+      return;
+    }
+    await go(`/report/${id}`, 1800);
+    await p.locator('section[aria-labelledby="model-h"] select').selectOption({ index: 1 });
+    await p.waitForTimeout(600);
+    await p.evaluate(() => window.scrollTo(0, 120));
+    await save(p, "report-model");
   });
   await ctx.close();
 }

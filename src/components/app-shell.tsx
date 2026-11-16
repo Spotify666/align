@@ -27,6 +27,7 @@ const TABS = [
 const MORE = [
   { href: "/guide", label: "How it works", Icon: Info },
   { href: "/library", label: "Reference library", Icon: List },
+  { href: "/models", label: "Shot models", Icon: User },
   { href: "/coach", label: "Coach workspace", Icon: Users },
   { href: "/science", label: "Science and validation", Icon: Beaker },
   { href: "/privacy", label: "Privacy and data", Icon: Shield },
@@ -152,6 +153,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/check" className="block text-fg-subtle hover:text-fg">Check your shot</Link>
             <Link href="/guide" className="block text-fg-subtle hover:text-fg">How it works</Link>
             <Link href="/sample" className="block text-fg-subtle hover:text-fg">Sample reports</Link>
+            <Link href="/models" className="block text-fg-subtle hover:text-fg">Shot models</Link>
           </div>
           <div className="space-y-2">
             <p className="font-medium">For coaches</p>

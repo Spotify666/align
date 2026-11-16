@@ -62,7 +62,7 @@ describe("screen map", () => {
 
   it("never shows a screen as needing nothing when it needed a test account", () => {
     // A picture made with a made-up account or a stand-in device says so.
-    for (const id of ["coach-1", "coach-2", "coach-3", "feedback", "manage", "pair-2", "lineup"]) {
+    for (const id of ["coach-1", "coach-2", "coach-3", "feedback", "manage", "pair-2", "lineup", "report-model"]) {
       expect(screenById(id)?.captured, id).toBeTruthy();
     }
   });
