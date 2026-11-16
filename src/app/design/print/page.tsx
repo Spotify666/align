@@ -277,6 +277,7 @@ export default function DesignDocument() {
               <li>Movement similarity with where every reference comes from.</li>
               <li>Coach workspace with squads, drills, history and export.</li>
               <li>Two phones paired for one ball.</li>
+              <li>Your own shot model: joints placed on a figure, exported as text, and reports set against it.</li>
             </ul>
           </div>
           <div>

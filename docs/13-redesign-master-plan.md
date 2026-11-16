@@ -916,13 +916,13 @@ older one); real phones, Safari, a screen reader.
 
 **The screen map** (`/design`, in the menu as "Screens and flows")
 
-- 9 flows and 46 screens (`src/lib/screen-map.ts`): each flow a lane of phone screens strung on
+- 10 flows and 51 screens (`src/lib/screen-map.ts`; 9 and 46 when first shipped, "Make your own model" added the same day with docs/14): each flow a lane of phone screens strung on
   one orange line, numbered in the order they are met; a lane scrolls sideways inside itself.
   Tapping a screen opens it larger with what each thing on it does, previous and next within the
   flow, and "Open this page". The pictures are captures of the app on generated examples and
   made-up test accounts (`scripts/design/capture.mjs`, `capture-accounts.mjs`); the coaching
   video's thumbnail is blocked, so no third-party picture is in them.
-- **The document to download** (`public/design/aline-design.pdf`, 19 A4 landscape slides, 3 MB):
+- **The document to download** (`public/design/aline-design.pdf`, 20 A4 landscape slides, 3.3 MB):
   what Aline is and who it is for, the rules every screen follows, the map, every flow with its
   screens and what each does, how an answer is made, what is kept and where, what is true today.
   It is `/design/print` printed (`scripts/design/pdf.mjs`), from the same data as the page.

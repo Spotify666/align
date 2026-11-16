@@ -9,6 +9,7 @@ const rows: Array<[string, string, string]> = [
   ["Still frames", "Up to 8 small images that prove the result.", "On this device; in your account only if you save the report."],
   ["Report", "The verdict, measures and written report.", "On this device; in your account only if you save it."],
   ["Profile", "Batting hand, height, age band, level, focus areas and any body measurements you give.", "On this device; batting hand, height, age band and level in your account if you sign in. Body measurements stay on this device."],
+  ["Shot models", "Your own picture of a correct shot: where you placed each joint, your tolerances and your note.", "On this device only. It leaves only as text you export yourself."],
   ["Coach's notes", "Your coach's own view of a shot you shared, what to work on, and any drill they set.", "In Aline's database, readable by you and that coach only. Every change is written to a history you can both read. A coach can never change Aline's result."],
   ["Two phones, one ball", "A pairing code, the start signal, the phones' clocks, and the second phone's result (numbers and tracked body points).", "Passed between the two phones through the server and stored nowhere. Never video or pictures."],
   ["Reference library", "A reference player's numbers, with the permission they signed: what, where and until when.", "In Aline's database. Shown only while the permission is signed and has not ended; withdrawing it hides the reference for everyone at once."],

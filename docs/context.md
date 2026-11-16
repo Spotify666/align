@@ -14,7 +14,22 @@ feature should be optional for analysis: if user chooses specific to this plotti
 it based on that else current logic. currently applicable for front foot defence, backfoot
 defence." With a picture of joints drawn over a sprinter, with a 3D switch and a ruler.
 
-- Status: **asked, not built yet.** Next after the review below.
+- **Built, 2026-11-16** (docs/14): `/models` ("Shot models" in the menu). Make a model for
+  the front-foot or back-foot defence, for a right- or left-hander, placed from the side, the
+  front or both. Drag each joint on a figure (Side, Front, 3D); bones keep their length; every
+  measure updates as a joint moves; a joint's place can be typed. Contact, and optionally foot
+  down and the top of the backlift. "Why this is right" in your own words. Save; "Export as
+  text" (every joint, in body heights and centimetres); "Import from text" rebuilds it.
+- **Optional for analysis**: on "Check your shot" choose "Checked against: your model", or
+  change it on any saved report. Aline still decides which shot was played; a confirmed shot is
+  then set against the model ("7 of 12 checks match your model", then the biggest differences).
+  Without a model chosen, everything is as before.
+- Tried on the athlete's three clips (side front-foot, side back-foot, back-foot from the
+  bowler's end): each analysed in about 30 s and set against a model.
+- Left out on purpose: an elbow's bend and the tilt of shoulders and hips seen end-on (one
+  camera can't read them: the test showed 11° and 20° errors); their heights are used instead.
+- Not yet: the model check in the PDF; photos; moving a model between devices other than by
+  its text. Not tried on a real phone's touch screen.
 
 ## 2026-11-16 · "review and correct them… w.r.t plan laid"; a `/design` page with every flow and a PDF
 

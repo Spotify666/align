@@ -122,6 +122,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Vitest · Sup
 | Real-media evaluation | `scripts/eval/*` |
 | Rolling back the database changes of Batches 5–7 (rehearsed: `scripts/db/check-rls.sh --rollback`) | `supabase/rollback/` |
 | Screen map (every flow as the screens met in order; the same data makes the page, its print layout and the PDF to download) | `/design` (`components/design/screen-map.tsx`), `src/lib/screen-map.ts`, `/design/print`, `public/design/` (pictures, `aline-design.pdf`), made by `scripts/design/` (`capture.mjs`, `capture-accounts.mjs`, `pdf.mjs`: run all three after a screen changes), `tests/screen-map.test.ts` |
+| Shot models (a person's own model of a correct shot: joints placed on a figure, exported as text, optionally the thing a confirmed shot is checked against; never read by the analysis, never decides the shot) | @docs/14-shot-models.md; `src/engine/pose-model.ts`, `src/lib/pose-models.ts`, `pose-starters.ts` (+ `.json`, `scripts/pose-starters.mjs`), `/models`, `/models/edit`, `components/model/*`, `components/report/model-check-panel.tsx`, `tests/pose-model.test.ts` |
 | App home's "what next" (last result, the one fix, shots checked; this device only) | `src/components/home/home-next.tsx` |
 | A `<details>` opened by the address's `#id` | `src/components/common/open-on-hash.tsx` |
 | Product docs | `docs/00…10-*.md` |

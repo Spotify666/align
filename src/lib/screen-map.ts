@@ -367,6 +367,53 @@ export const SCREENS: Screen[] = [
     captured: "Captured with a test admin account; the player's name is made up.",
   },
 
+  // ---------- Your own model ----------
+  {
+    id: "models", name: "Shot models", route: "/models", href: "/models",
+    says: "Your own picture of a correct shot, joint by joint: start one, read one back from text, choose one to be checked against.",
+    options: [
+      ["New model", "The shot, the batting side, and which angles you will place it from."],
+      ["Import from text", "Rebuilds a model from what Export gave."],
+      ["Use for my checks", "New reports are set against this model instead of Aline's own ranges."],
+    ],
+  },
+  {
+    id: "model-edit", name: "Place the joints", route: "/models/edit", href: null,
+    says: "Drag each joint on the figure. Bones keep their length; the orange line stands over the front toe.",
+    options: [
+      ["Contact, Foot down, Top of the backlift", "The moments a model can hold. Contact is always there."],
+      ["Side, Front, 3D", "From the side a joint moves along the pitch and up; from the front, across and up; 3D turns the figure."],
+      ["Undo", "Steps back one move."],
+    ],
+  },
+  {
+    id: "model-measures", name: "What the pose measures", route: "/models/edit", href: null,
+    says: "Every number a clip will be set against, changing as a joint moves, and each joint's exact place.",
+    options: [
+      ["Joint", "Choose a joint and type where it is, in centimetres when the height is given."],
+      ["Why this is right", "Your own words, saved with the model."],
+      ["How close a clip must be", "Tight, Normal or Loose: your setting, not Aline's."],
+    ],
+  },
+  {
+    id: "model-text", name: "As text", route: "/models/edit", href: null,
+    says: "The whole model as text: every joint at every moment, the lengths and the measures.",
+    options: [
+      ["Copy, Download", "Take it anywhere; paste it back to rebuild the model."],
+      ["Check my shots against this model", "Aline still decides which shot was played."],
+    ],
+  },
+  {
+    id: "report-model", name: "Set against your model", route: "/report/…", href: null,
+    says: "A confirmed shot is read against your model: how many checks match, and the biggest differences in words.",
+    options: [
+      ["This shot is checked against", "Your model, or back to Aline's own ranges, for any saved shot."],
+      ["Each check against your model", "You, your model, and the reading, moment by moment."],
+      ["Not applied", "Another shot, the other batting side or another camera position: the report says which."],
+    ],
+    captured: "Captured on a saved clip with a model made for the capture.",
+  },
+
   // ---------- Understand and trust ----------
   {
     id: "menu", name: "Menu", route: "every page", href: "/home",
@@ -448,6 +495,12 @@ export const FLOWS: Flow[] = [
     goal: "A fair comparison, with every reference saying where it comes from.",
     steps: ["report-comparison", "library", "manage"],
     note: "No licensed player is in the library yet.",
+  },
+  {
+    id: "own-model", name: "Make your own model", who: "A coach, or a batter with their own picture of the shot",
+    goal: "A saved model of a correct shot, as text too, and reports set against it when you choose.",
+    steps: ["models", "model-edit", "model-measures", "model-text", "report-model"],
+    note: "Aline still decides which shot was played. A model is applied only to a clip confirmed as its shot, for the batting side and camera position it was made for.",
   },
   {
     id: "trust", name: "Understand and trust it", who: "Everyone",

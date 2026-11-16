@@ -2,17 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { decodeTracks, encodeTracks } from "@/engine/tracks-codec";
 import { analyze } from "@/engine/analyze";
 import { angleFamily } from "@/engine/angles";
 import { buildBaseline, compareToBaseline, type BaselineComparison } from "@/engine/baseline";
 import type { AnalysisPayload, CaptureObservation, TargetShot } from "@/engine/types";
-import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, saveAnalysis, type StoredAnalysis } from "@/lib/store";
+import { checkAgainstModel, modelLines, type PoseModel } from "@/engine/pose-model";
+import { readingLevel } from "@/engine/summary";
+import { listModels } from "@/lib/pose-models";
+import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, loadProfile, saveAnalysis, updateAnalysis, type StoredAnalysis } from "@/lib/store";
 import { deleteFromCloud, loadCloudAnalysis } from "@/lib/cloud";
 import { Annotations } from "../coach/annotations";
 import { CoachFeedback } from "../coach/coach-feedback";
 import { sessionCapture, sessionMedia } from "@/lib/session-media";
+import { ModelCheckPanel } from "./model-check-panel";
 import { ReportView } from "./report-view";
 import type { CompareReference } from "./evidence-viewer";
 import { CloudSave } from "../cloud/cloud-save";
@@ -37,6 +41,24 @@ type State =
 export function LocalReport({ id }: { id: string }) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "loading" });
+
+  // The batter's own shot models on this device, and the one this shot is set against (kept with the analysis).
+  const [models, setModels] = useState<PoseModel[]>([]);
+  const [modelId, setModelId] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    // They live in this browser's storage: read them once the page is there.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setModels(listModels());
+  }, []);
+  const ready = state.kind === "ready" ? state : null;
+  const usedId = modelId === undefined ? ready?.stored.session?.modelId ?? null : modelId;
+  const model = models.find((m) => m.id === usedId) ?? null;
+  const check = useMemo(() => (model && ready ? checkAgainstModel(model, ready.obs, ready.stored.payload) : null), [model, ready]);
+  const numbers = useMemo(() => {
+    if (!ready) return true;
+    const profile = loadProfile();
+    return readingLevel(profile.ageBand, ready.stored.session?.level ?? profile.level) !== "simple";
+  }, [ready]);
 
   // A report still holding this session's video (playback, marking) isn't reloaded under the batter.
   useEffect(() => (sessionMedia.has(id) ? holdUpdates() : undefined), [id]);
@@ -148,6 +170,20 @@ export function LocalReport({ id }: { id: string }) {
       onAnalyseAs={state.remote ? undefined : analyseAs}
       unchosen={state.stored.session?.intended === null}
       printHref={`/report/${id}/print`}
+      modelCheck={check && model ? { name: model.name, applied: check.applied, lines: modelLines(check, model, numbers) } : null}
+      modelPanel={
+        <ModelCheckPanel
+          models={models}
+          modelId={model?.id ?? null}
+          check={check}
+          model={model}
+          numbers={numbers}
+          onChoose={(next) => {
+            setModelId(next);
+            if (!state.remote) void updateAnalysis(id, { session: { level: null, focusAreas: [], ...state.stored.session, modelId: next } });
+          }}
+        />
+      }
       markHref={canMark ? `/check?mark=${id}` : null}
       notice={
         canMark ? (

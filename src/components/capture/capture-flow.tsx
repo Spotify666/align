@@ -1,5 +1,6 @@
 "use client";
 
+import { chosenModelId } from "@/lib/pose-models";
 import { CricketLoader } from "./cricket-loader";
 import { TwoVideoPicker, TwoVideoStrip, VIDEO_ACCEPT, type TwoSlots } from "./two-videos";
 import Link from "next/link";
@@ -1164,7 +1165,7 @@ export function CaptureFlow() {
       const target: TargetShot = payload.requested_shot ?? "front_foot_defence";
       const title = remark?.title ?? (tr.kind === "photo" ? (tr.body.length > 1 ? `${tr.body.length} photos` : (name ?? "Photo")) : (name ?? SHOT_TITLE[target]));
       const recordedAt = remark?.recordedAt ?? (f?.lastModified ? new Date(f.lastModified).toISOString() : createdAt);
-      await saveAnalysis({ id, createdAt, recordedAt, payload, title, notes: "", tags: [], representative: false, cloud: null, session: { level: profile.level, focusAreas: profile.focusAreas, intended: unchosen ? null : target } }, gz, keyframes);
+      await saveAnalysis({ id, createdAt, recordedAt, payload, title, notes: "", tags: [], representative: false, cloud: null, session: { level: profile.level, focusAreas: profile.focusAreas, intended: unchosen ? null : target, modelId: chosenModelId() } }, gz, keyframes);
       if (clipUrl && tr.kind === "video") {
         sessionMedia.set(id, { url: clipUrl, mediaTimes: mediaTimesRef.current });
         sessionCapture.set(id, { tracking: tr, view: finalMarks.view === "front_on" || finalMarks.view === "behind" ? finalMarks.view : "side_on", bowlerSide: finalMarks.bowlerSide, title, createdAt, recordedAt, target });

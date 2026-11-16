@@ -1,5 +1,6 @@
 "use client";
 
+import { ModelChoice } from "../model/model-choice";
 import { ANALYSIS_LEVELS, FOCUS_AREAS, type FocusAreaId, type LocalProfile } from "@/lib/store";
 
 /**
@@ -63,6 +64,7 @@ export function AnalysisOptions({ profile, onChange }: { profile: LocalProfile; 
           Saved with your analysis. Your report lists these areas first. Everything is still checked, and a bigger issue outside them is still shown.
         </p>
       </details>
+          <ModelChoice />
     </section>
   );
 }

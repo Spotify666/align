@@ -25,6 +25,7 @@ import { BothAngles } from "./angles-report";
 import { SideBySide, sideOnFrontFoot } from "./side-by-side";
 import { BackFootPanel } from "./back-foot-panel";
 import { plainReading } from "@/engine/plain";
+import type { ModelLine } from "@/engine/pose-model";
 import { fixSentence, friendlyRange, friendlyValue, plainSummary, readingLevel, simpleGood, type AnalysisLevel, type ReadingLevel, type SummaryKind } from "@/engine/summary";
 import { levelFromReading, present, type ReportModel } from "@/engine/present";
 import type { FocusArea } from "@/engine/category";
@@ -42,6 +43,10 @@ interface Props {
   actions?: React.ReactNode;
   /** Shown in the details, under the full verdict. */
   notice?: React.ReactNode;
+  /** The batter's own shot model, when this shot is set against one: its lines lead the summary when it was applied. */
+  modelCheck?: { name: string; applied: boolean; lines: ModelLine[] } | null;
+  /** The model chooser and each check, shown under the summary. */
+  modelPanel?: React.ReactNode;
   /** Where the batter marks the ball and bat on this clip (offered while it is still open). */
   markHref?: string | null;
   /** Optional: add the same ball from the other angle, or see both together once added. */
@@ -66,7 +71,7 @@ const noSubscribe = () => () => {};
 const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, otherAngle, session, title, analysisId, onAnalyseAs, unchosen, printHref }: Props) {
+export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, otherAngle, session, title, analysisId, onAnalyseAs, unchosen, printHref, modelCheck, modelPanel }: Props) {
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [switching, setSwitching] = useState(false);
   // The report opens on the summary; each section beyond it is drawn only when the batter opens it.
@@ -90,6 +95,12 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
   // The other defence the same tracks can be checked as, when this result itself points to it.
   const switchTo: TargetShot | null = pointsTo(p);
   const sum = useMemo(() => plainSummary(p, { mediaKind: obs.media.kind, otherShot: onAnalyseAs ? switchTo : null, level, unchosen }), [p, obs.media.kind, onAnalyseAs, switchTo, level, unchosen]);
+  // Set against the batter's own model: its findings lead; where it couldn't be applied, Aline's stay and the reason is added.
+  const summaryLines: Array<{ kind: SummaryKind; text: string }> = modelCheck
+    ? modelCheck.applied
+      ? modelCheck.lines
+      : [...sum.lines.slice(0, 3), ...modelCheck.lines.slice(0, 1)]
+    : sum.lines;
   const recordHref = shot === "back_foot_defence" ? "/check?shot=back" : "/check?shot=front";
   const [aiReport, setAiReport] = useState<Report | null>(null);
   const [aiState, setAiState] = useState<"idle" | "loading" | "unavailable" | "fallback">("idle");
@@ -176,9 +187,10 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             <AngleChip label={sum.angle.short} />
           </div>
           <h1 id="verdict" className="display mt-4 text-[1.9rem] leading-[1.08] sm:text-5xl max-w-3xl">{sum.verdict}</h1>
-          {sum.lines.length > 0 && (
-            <ul className="mt-5 space-y-3 max-w-2xl" aria-label="Summary">
-              {sum.lines.map((l) => (
+          {modelCheck?.applied && <p className="mt-4 text-sm font-medium text-fg-muted">Checked against your model: {modelCheck.name}</p>}
+          {summaryLines.length > 0 && (
+            <ul className={`${modelCheck?.applied ? "mt-3" : "mt-5"} space-y-3 max-w-2xl`} aria-label="Summary">
+              {summaryLines.map((l) => (
                 <li key={l.text} className="flex items-start gap-3 text-[1.05rem] leading-snug">
                   <LineIcon kind={l.kind} />
                   <span>{l.text}</span>
@@ -212,6 +224,8 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           </div>
         </div>
       </section>
+
+      {modelPanel}
 
       {angleLink && (
         <p className="-mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
