@@ -195,23 +195,24 @@ export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(
   const d = unit(dir) ?? ([0, -1, 0] as V3);
   const next: Pose = { ...p };
   // Each hand closes round the handle a hand's length beyond its wrist (the owner: "there is no
-  // concept of wrist"): the wrist sits back from the bat, on the side its arm comes from, so the
-  // hand angles away from the forearm at the wrist, as a batter's does.
+  // concept of wrist"), and the hand carries on the line of its forearm (the owner: "right wrist
+  // facing upwards, left wrist downwards, the core human motion logic is missing"): the arm reaches
+  // as forearm-and-hand together from the elbow to its grip, and the wrist only cocks a little,
+  // toward the back of the handle (the face looks toward the bowler).
   const hold = (side: Side, along: number, pole: V3) => {
     const grip = add(handle, mul(d, along));
     const shoulder = p[j(side, "shoulder")];
-    const from = sub(shoulder, grip);
-    const toArm = unit(sub(from, mul(d, dot(from, d)))) ?? ([0, 0, 1] as V3);
-    // The hands stay behind the handle all through the stroke (the face looks toward the bowler),
-    // a little toward the arm they belong to: so the wrist keeps its angle as the bat swings.
+    const forearm = distance(p[j(side, "elbow")], p[j(side, "wrist")]);
+    // Elbow to grip, with the wrist bent by `cock`: the forearm and hand as one slightly bent line.
+    const span = Math.sqrt(forearm ** 2 + GRIP.hand ** 2 + 2 * forearm * GRIP.hand * Math.cos((GRIP.cock * Math.PI) / 180));
+    const arm = reach(shoulder, distance(shoulder, p[j(side, "elbow")]), span, pole, grip);
+    // The wrist bends toward the back of the handle (the face looks toward the bowler).
     const fwd: V3 = [1, 0, 0];
     const face = unit(sub(fwd, mul(d, dot(fwd, d)))) ?? ([0, 1, 0] as V3);
-    const behind = unit(add(mul(face, -GRIP.behind), mul(toArm, 1 - GRIP.behind))) ?? toArm;
-    const wrist = add(grip, mul(behind, GRIP.hand));
-    const r = reach(shoulder, distance(shoulder, p[j(side, "elbow")]), distance(p[j(side, "elbow")], p[j(side, "wrist")]), pole, wrist);
-    next[j(side, "elbow")] = r.mid;
-    next[j(side, "wrist")] = r.end;
-    return sub(r.end, wrist);
+    const hand = reach(arm.mid, forearm, GRIP.hand, mul(face, -1), arm.end);
+    next[j(side, "elbow")] = arm.mid;
+    next[j(side, "wrist")] = hand.mid;
+    return sub(arm.end, grip);
   };
   // Where an arm can't reach that far, the bat comes toward the hands until both hold it: it is never let go.
   let held = handle;
@@ -225,11 +226,11 @@ export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(
 }
 /**
  * How a batter holds the bat (body heights): the top and bottom hands either side of the handle
- * point (the two gloves touching), each wrist a hand's length back from the handle, mostly behind
- * the bat's face (`behind`: the share of that, the rest toward its own arm), and which way
- * the bottom elbow bends (down and a little forward, tucked in front of the hip, as a batter's is).
+ * point (the two gloves touching), each wrist a hand's length back from its grip on the line of
+ * its forearm, cocked a little (`cock`, degrees) toward the back of the handle, and which way the bottom
+ * elbow bends (down and a little forward, tucked in front of the hip, as a batter's is).
  */
-export const GRIP = { top: 0.03, bottom: 0.035, hand: 0.05, behind: 0.7, bottomElbow: [0.35, -1, 0.15] as V3 } as const;
+export const GRIP = { top: 0.03, bottom: 0.035, hand: 0.05, cock: 15, bottomElbow: [0.35, -1, 0.15] as V3 } as const;
 export function withoutBat(p: Pose): Pose {
   const { bat_handle: _h, bat_toe: _t, ...rest } = p;
   void _h;

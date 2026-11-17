@@ -192,3 +192,8 @@ body." Nothing of that site is copied: Aline draws its own mannequin.
   wrist sits mostly behind the handle (opposite the face, `GRIP.behind`), a little toward its own arm,
   so the hands keep their angle on the handle as the bat swings; the bottom elbow bends down and a
   little forward, tucked in front of the hip ("right elbow rotation is not in sync").
+- **The hand on the line of the forearm** (the owner: "right side wrist facing upwards, left side
+  wrist downwards, the core human motion logic is missing"): each arm reaches with the forearm and
+  hand as one line from the elbow to its grip, the wrist bent only a little (`GRIP.cock`, 15°) toward
+  the back of the handle, both bones keeping their lengths. Tested: the wrist bend under 25° on every
+  moment of both shots.

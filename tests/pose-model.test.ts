@@ -286,10 +286,16 @@ describe("the bat (optional)", () => {
     const t = r[0] * d[0] + r[1] * d[1] + r[2] * d[2];
     return { t, off: Math.hypot(r[0] - d[0] * t, r[1] - d[1] * t, r[2] - d[2] * t) };
   };
-  // Held: each wrist a hand's length back from the handle (the hand runs from the wrist round it), the bat its own length.
+  /** Where a hand holds the handle: the top hand just above the handle point, the bottom just below. */
+  const gripOf = (p: Pose, side: "front" | "back"): V3 => {
+    const d = batDirection(p)!;
+    const k = side === "front" ? -GRIP.top : GRIP.bottom;
+    return [p.bat_handle![0] + d[0] * k, p.bat_handle![1] + d[1] * k, p.bat_handle![2] + d[2] * k];
+  };
+  // Held: each wrist a hand's length from its grip on the handle, the bat its own length.
   const held = (p: Pose, why: string) => {
     expect(distance(p.bat_handle!, p.bat_toe!), `${why}: its length`).toBeCloseTo(BAT.handsToToe, 9);
-    for (const w of [p.front_wrist, p.back_wrist]) expect(Math.abs(onHandle(p, w).off - GRIP.hand), `${why}: in the hands`).toBeLessThan(0.03);
+    for (const s of ["front", "back"] as const) expect(Math.abs(distance(p[`${s}_wrist`], gripOf(p, s)) - GRIP.hand), `${why}: ${s} hand on the handle`).toBeLessThan(0.02);
   };
   it("starts in the hands at every moment, its toe above the ground", () => {
     for (const shot of ["front_foot_defence", "back_foot_defence"] as const)
@@ -324,12 +330,16 @@ describe("the bat (optional)", () => {
     for (const shot of ["front_foot_defence", "back_foot_defence"] as const)
       for (const m of MOMENTS) {
         const p = withBat(shot, m.id);
-        const top = onHandle(p, p.front_wrist);
-        const bottom = onHandle(p, p.back_wrist);
-        // Each wrist a hand's length back from the handle: the hand bends at the wrist to close round it.
-        expect(top.off, `${shot} ${m.id} top`).toBeCloseTo(GRIP.hand, 2);
-        expect(bottom.off, `${shot} ${m.id} bottom`).toBeCloseTo(GRIP.hand, 2);
-        expect(top.t).toBeLessThan(bottom.t);
+        // Each wrist a hand's length from its grip, the top hand's grip above the bottom's.
+        for (const s of ["front", "back"] as const) expect(distance(p[`${s}_wrist`], gripOf(p, s)), `${shot} ${m.id} ${s}`).toBeCloseTo(GRIP.hand, 2);
+        expect(onHandle(p, gripOf(p, "front")).t).toBeLessThan(onHandle(p, gripOf(p, "back")).t);
+        // The hand carries on the line of its forearm, bent only a little at the wrist.
+        for (const s of ["front", "back"] as const) {
+          const fore = [0, 1, 2].map((i) => p[`${s}_wrist`][i]! - p[`${s}_elbow`][i]!) as unknown as V3;
+          const hand = [0, 1, 2].map((i) => gripOf(p, s)[i]! - p[`${s}_wrist`][i]!) as unknown as V3;
+          const cos = (fore[0] * hand[0] + fore[1] * hand[1] + fore[2] * hand[2]) / (Math.hypot(...fore) * Math.hypot(...hand));
+          expect(Math.acos(Math.min(1, cos)) * (180 / Math.PI), `${shot} ${m.id} ${s} wrist bend`).toBeLessThan(25);
+        }
         // The bottom elbow below its shoulder, as a batter's is.
         expect(p.back_elbow[1]).toBeLessThan(p.back_shoulder[1]);
       }
