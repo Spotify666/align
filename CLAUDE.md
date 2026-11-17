@@ -49,7 +49,7 @@ Load the `quality-bar` skill before changing anything and again before saying a 
 It is the standard the owner asked every later session to hold (2026-11-16), and it is checked
 by machine where it can be: `npm run lint && npm run typecheck && npm test && npm run build`,
 then `npm run check:pages` (every page, both themes, every section opened: accessibility,
-44 px controls, no sideways scroll, no page errors, links). CI runs all of it on every push.
+44 px controls, no sideways scroll, no page errors, links, no long paragraph on arrival). CI runs all of it on every push.
 In short: find the existing pattern and follow it; pure logic with tests that hold it to the
 truth; when a check fails, fix the cause, never the check; verify in a real browser and on real
 clips where the analysis is touched; write down what was done and what was **not** verified;
@@ -136,6 +136,7 @@ commit and push at every working point; ship, verify production, tell the athlet
 | Screen map (every flow as the screens met in order; the same data makes the page, its print layout and the PDF to download) | `/design` (`components/design/screen-map.tsx`), `src/lib/screen-map.ts`, `/design/print`, `public/design/` (pictures, `aline-design.pdf`), made by `scripts/design/` (`capture.mjs`, `capture-accounts.mjs`, `pdf.mjs`: run all three after a screen changes), `tests/screen-map.test.ts` |
 | Shot models (a person's own model of a correct shot: joints placed on a figure, exported as text, optionally the thing a confirmed shot is checked against; never read by the analysis, never decides the shot) | @docs/14-shot-models.md; `src/engine/pose-model.ts`, `src/lib/pose-models.ts`, `pose-starters.ts` (+ `.json`, `scripts/pose-starters.mjs`), `/models`, `/models/edit`, `components/model/*`, `components/report/model-check-panel.tsx`, `tests/pose-model.test.ts` |
 | App home's "what next" (last result, the one fix, shots checked; this device only) | `src/components/home/home-next.tsx` |
+| Short on the page, the full text on a long press (or a click, or Enter); one sheet for the whole app | `src/components/common/hold.tsx` (`Hold`, `HoldSheet` in `layout.tsx`), `.hold` in `globals.css`; enforced by `check:pages` (no paragraph of 30+ words on arrival) |
 | A `<details>` opened by the address's `#id` | `src/components/common/open-on-hash.tsx` |
 | Engine foundations (types and contracts; the scene every measure reads; the vector and statistics helpers; the capture gate; tracks in storage; the batter's own baseline; the delivery's length; everyday wording of a value) | `src/engine/types.ts`, `scene.ts`, `math.ts`, `quality.ts`, `tracks-codec.ts`, `baseline.ts`, `delivery.ts`, `plain.ts` |
 | The quality bar and its page checks | `.claude/skills/quality-bar/SKILL.md`, `scripts/checks/pages.mjs` (`npm run check:pages`), `tests/standards.test.ts`, `.github/workflows/ci.yml` |

@@ -1,5 +1,6 @@
 "use client";
 
+import { Hold } from "@/components/common/hold";
 import { useState } from "react";
 
 type View = "side" | "end";
@@ -112,7 +113,9 @@ export function PitchGuide() {
             </li>
           ))}
         </ol>
-        <p className="mt-2 text-xs text-fg-subtle">Drawn to scale. Side-on gives every measure; from the bowler&apos;s end the line is read sideways and forward distances are not graded.</p>
+        <p className="mt-2 text-xs text-fg-subtle">
+          <Hold more={<p>Drawn to scale. Side-on gives every measure; from the bowler&apos;s end the line is read sideways and forward distances are not graded.</p>}>Drawn to scale</Hold>
+        </p>
       </figcaption>
     </figure>
   );

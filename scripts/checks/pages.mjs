@@ -8,6 +8,7 @@
 //   - a page error or console error
 //   - more or fewer than one h1
 //   - an internal link that doesn't answer
+//   - a paragraph of 30 words or more showing when the page opens (keep it short; <Hold> the rest)
 // The database is never called: pages that draw from it get one sample answer, the same on
 // every machine (see `database` below).
 // With TIMING=1 it also prints load numbers at 4× CPU slowdown (largest paint, blocking time,
@@ -129,6 +130,17 @@ try {
         const found = await page.evaluate(async () => (await window.axe.run(document, { resultTypes: ["violations"] })).violations.map((v) => `${v.id} (${v.impact}, ${v.nodes.length}): ${v.nodes[0].target.join(" ")}`));
         for (const v of found) problems.push(`${theme} ${path}${where}: ${v}`);
       };
+      // Short on the page (the owner, 2026-11-17): no paragraph of 30 words or more shows on
+      // arrival. The full text belongs behind a long press (components/common/hold.tsx).
+      const long = await page.evaluate(() =>
+        [...document.querySelectorAll("main p, main li, main dd, main figcaption, main td")]
+          .filter((e) => e.offsetParent !== null && !e.closest("details:not([open]), dialog, .hold") && !e.querySelector("p, li, dd, td"))
+          .map((e) => (e.innerText || "").trim())
+          .filter((t) => t.split(/\s+/).length >= 30)
+          .map((t) => `${t.split(/\s+/).length} words: "${t.slice(0, 60)}…"`),
+      );
+      // A print layout is paper: nothing to press there, so the full text stays.
+      if (!path.endsWith("/print")) for (const l of long) problems.push(`${theme} ${path}: a long paragraph on arrival (${l}); put the full text behind a <Hold>`);
       await open();
       await check("");
       // A report's five sections are buttons, each opened in turn.

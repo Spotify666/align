@@ -96,7 +96,9 @@ export default function SciencePage() {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-fg-subtle">Units: fractions of standing height, degrees, or height per second. Bands are coach-authored prototypes ({CLASSIFIER_VERSION}); scores are softened likelihoods, not calibrated probabilities.</p>
+        <p className="text-xs text-fg-subtle">
+          <Hold more={<p>Units: fractions of standing height, degrees, or height per second. Bands are coach-authored prototypes ({CLASSIFIER_VERSION}); scores are softened likelihoods, not calibrated probabilities.</p>}>Units and how scores are made</Hold>
+        </p>
       </Section>
 
       <Section id="metrics" eyebrow={`Measures · ${METRIC_VERSION}`} title="Front-foot-defence movement indicators">
@@ -125,10 +127,10 @@ export default function SciencePage() {
           A photo can&apos;t show timing, the bat&apos;s path or the ball, and a drive can look the same at contact, so a photo never confirms the shot or gets a score.</p>}>Photos: the position formula</Hold>
         </p>
         <p className="text-xs text-fg-subtle">
-          Sources: Stretch RA, Buys F, Du Toit E, Viljoen G (1998), Kinematics and kinetics of the drive off the front foot in cricket batting, Journal of Sports Sciences
+          <Hold more={<p>Sources: Stretch RA, Buys F, Du Toit E, Viljoen G (1998), Kinematics and kinetics of the drive off the front foot in cricket batting, Journal of Sports Sciences
           (bat angle at impact in the forward defence: 62.6 ± 6.5° from horizontal; drive 77.8 ± 7.1°). Taliep MS, Galal U, Vaughan CL (2007), The position of the head and
           centre of mass during the front foot off-drive in skilled and less-skilled cricket batsmen, Sports Biomechanics (skilled batters&apos; head and centre of mass further
-          forward; less-skilled more upright at the hip). Where no measurement exists, the range is a coaching criterion and says so.
+          forward; less-skilled more upright at the hip). Where no measurement exists, the range is a coaching criterion and says so.</p>}>Sources</Hold>
         </p>
       </Section>
 
