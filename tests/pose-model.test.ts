@@ -263,3 +263,13 @@ describe("as text", () => {
     expect(readFileSync(join(__dirname, "../src/engine/registry.ts"), "utf8")).not.toMatch(/pose-model|model_check/);
   });
 });
+
+describe("deleting a model asks for the passcode", () => {
+  it("accepts only 1000", async () => {
+    const { passcodeOk, DELETE_PASSCODE } = await import("@/lib/pose-models");
+    expect(DELETE_PASSCODE).toBe("1000");
+    expect(passcodeOk("1000")).toBe(true);
+    expect(passcodeOk(" 1000 ")).toBe(true);
+    for (const wrong of ["", "100", "10000", "0000", "abcd"]) expect(passcodeOk(wrong)).toBe(false);
+  });
+});

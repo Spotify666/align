@@ -10,9 +10,10 @@ import {
   dragHandle, ground, handlePoint, measuresOf, modelToText, pelvisOf, planesOf, segments, valueInWords, withSegments,
   type Handle, type MomentId, type Pose, type PoseModel, type Segments, type V3,
 } from "@/engine/pose-model";
-import { chooseModel, chosenModelId, deleteModel, saveModel, starterPose } from "@/lib/pose-models";
+import { chooseModel, chosenModelId, saveModel, starterPose } from "@/lib/pose-models";
+import { DeleteModel } from "./delete-model";
 import { loadProfile } from "@/lib/store";
-import { Download, Trash } from "../icons";
+import { Download } from "../icons";
 import { PoseCanvas, VIEWS, type View } from "./pose-canvas";
 
 const SHOT_LABEL = { front_foot_defence: "Front-foot defence", back_foot_defence: "Back-foot defence" } as const;
@@ -334,14 +335,7 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" className="btn btn-primary" onClick={save} disabled={saved}>{saved ? "Saved" : "Save model"}</button>
               <button type="button" className="btn btn-ghost" onClick={() => { setText(modelToText(model)); setCopied(false); }}>Export as text</button>
-              <button type="button" className="btn btn-quiet"
-                onClick={() => {
-                  if (!confirm(`Delete "${model.name}"? This can't be undone.`)) return;
-                  deleteModel(model.id);
-                  router.push("/models");
-                }}>
-                <Trash size={16} /> Delete
-              </button>
+              <DeleteModel id={model.id} name={model.name} onDeleted={() => router.push("/models")} />
             </div>
             <label className="flex items-start gap-3 text-sm">
               <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-brand)]" checked={uses}

@@ -1288,3 +1288,16 @@ Open:
   app home at `/home`; cricket-ground background; athletic figure in the lesson.
 - Front-on / behind views, photos and photo sets, multi-person clips, broadcast cuts, body-led
   verdict without bat or ball, population-validated identity gates, 3D replay and Compare.
+
+## 2026-11-17 · Coach sign-in by email; delete a model
+
+- "On coach workspace the email flow is not working." Found in the sign-in logs: the link in the
+  email went to `http://localhost:3000` (the Supabase project's Site URL), so on a phone it opened
+  nothing. **Fix needs the owner** (no tool here can change it): Supabase → Authentication → URL
+  Configuration: Site URL `https://alynn.vercel.app`; Redirect URLs `https://alynn.vercel.app/**`
+  and `https://align-lab.vercel.app/**`. Also in the code: a failed link (expired, used twice,
+  opened inside Gmail instead of Chrome) now returns to the sign-in form with the reason in plain
+  words (`src/lib/auth-errors.ts`, `tests/auth-errors.test.ts`), and "send again" is offered.
+- "Give option to delete here, with a passcode of 1000": Delete on each model in `/models` and in
+  the editor asks for the passcode (`DELETE_PASSCODE`, `components/model/delete-model.tsx`). A
+  guard against deleting by mistake, not security (models are on the device). Shipped.

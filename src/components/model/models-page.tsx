@@ -11,6 +11,7 @@ import { MOMENTS, type ModelAngles, type PoseModel } from "@/engine/pose-model";
 import type { Handedness, TargetShot } from "@/engine/types";
 import { chooseModel, chosenModelId, importModel, listModels, newModel, saveModel } from "@/lib/pose-models";
 import { loadProfile } from "@/lib/store";
+import { DeleteModel } from "./delete-model";
 
 const SHOT_LABEL: Record<TargetShot, string> = { front_foot_defence: "Front-foot defence", back_foot_defence: "Back-foot defence" };
 const ANGLES: Array<{ id: ModelAngles; label: string; says: string }> = [
@@ -149,6 +150,7 @@ export function ModelsPage() {
                   </div>
                   <Link href={`/models/edit?m=${m.id}`} className="btn btn-ghost">Open</Link>
                   <button type="button" className="btn btn-quiet" onClick={() => use(chosen === m.id ? null : m.id)}>{chosen === m.id ? "Stop using" : "Use for my checks"}</button>
+                  <DeleteModel id={m.id} name={m.name} onDeleted={() => { setModels(listModels()); setChosen(chosenModelId()); }} />
                 </li>
               ))}
             </ul>

@@ -3,13 +3,15 @@
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { readProblem, signInProblem, SIGN_IN_WORDS } from "@/lib/auth-errors";
 
 export function SignIn() {
   const params = useSearchParams();
   const next = params.get("next") ?? "/profile";
   const [email, setEmail] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(params.get("error") ? "error" : "idle");
-  const [message, setMessage] = useState(params.get("error") ?? "");
+  const arrived = readProblem(params.get("problem")) ?? (params.get("error") ? "failed" : null);
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">(arrived ? "error" : "idle");
+  const [message, setMessage] = useState(arrived ? SIGN_IN_WORDS[arrived] : "");
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -20,7 +22,7 @@ export function SignIn() {
     });
     if (error) {
       setState("error");
-      setMessage(error.message);
+      setMessage(SIGN_IN_WORDS[signInProblem(error.code, error.message)]);
     } else setState("sent");
   }
 
@@ -34,7 +36,8 @@ export function SignIn() {
       {state === "sent" ? (
         <div className="card p-5">
           <p className="font-semibold">Check your email</p>
-          <p className="mt-1 text-sm text-fg-muted">We sent a sign-in link to {email}. Open it on this device.</p>
+          <p className="mt-1 text-sm text-fg-muted">We sent a sign-in link to {email}. Open it on this phone, in this browser.</p>
+          <button type="button" className="btn btn-quiet mt-3" onClick={() => setState("idle")}>Use another email or send again</button>
         </div>
       ) : (
         <form onSubmit={send} className="space-y-3">
