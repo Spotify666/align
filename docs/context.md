@@ -1293,9 +1293,10 @@ Open:
 
 - "On coach workspace the email flow is not working." Found in the sign-in logs: the link in the
   email went to `http://localhost:3000` (the Supabase project's Site URL), so on a phone it opened
-  nothing. **Fix needs the owner** (no tool here can change it): Supabase → Authentication → URL
-  Configuration: Site URL `https://alynn.vercel.app`; Redirect URLs `https://alynn.vercel.app/**`
-  and `https://align-lab.vercel.app/**`. Also in the code: a failed link (expired, used twice,
+  nothing. **Fixed 2026-11-17** through the management API (the owner's access token, saved as a
+  network secret on the environment): Site URL `https://alynn.vercel.app`; Redirect URLs
+  `https://alynn.vercel.app/**` and `https://align-lab.vercel.app/**`. Still the built-in mailer:
+  2 sign-in emails an hour for the whole project; more needs a custom SMTP sender. Also in the code: a failed link (expired, used twice,
   opened inside Gmail instead of Chrome) now returns to the sign-in form with the reason in plain
   words (`src/lib/auth-errors.ts`, `tests/auth-errors.test.ts`), and "send again" is offered.
 - "Give option to delete here, with a passcode of 1000": Delete on each model in `/models` and in
