@@ -306,11 +306,30 @@ describe("the bat (optional)", () => {
         }
     }
   });
-  it("dragging its toe turns only the bat", () => {
+  it("dragging its toe turns the bat; only the arms follow it, the hands staying on the handle", () => {
     const p = withBat("front_foot_defence");
     const q = dragHandle(p, "bat_toe", [p.bat_toe![0] + 0.2, p.bat_toe![1], p.bat_toe![2]]);
-    for (const k of MODEL_JOINTS) expect(q[k]).toEqual(p[k]);
+    for (const k of MODEL_JOINTS) if (!/elbow|wrist/.test(k)) expect(q[k]).toEqual(p[k]);
     expect(batDirection(q)![0]).toBeGreaterThan(batDirection(p)![0]);
+  });
+  it("is held as a batter holds it: both hands on the handle, the top hand just above the bottom one", () => {
+    for (const shot of ["front_foot_defence", "back_foot_defence"] as const)
+      for (const m of MOMENTS) {
+        const p = withBat(shot, m.id);
+        const d = batDirection(p)!;
+        const on = (w: V3) => {
+          const r: V3 = [w[0] - p.bat_handle![0], w[1] - p.bat_handle![1], w[2] - p.bat_handle![2]];
+          const t = r[0] * d[0] + r[1] * d[1] + r[2] * d[2];
+          return { t, off: Math.hypot(r[0] - d[0] * t, r[1] - d[1] * t, r[2] - d[2] * t) };
+        };
+        const top = on(p.front_wrist);
+        const bottom = on(p.back_wrist);
+        expect(top.off, `${shot} ${m.id} top`).toBeLessThan(0.02);
+        expect(bottom.off, `${shot} ${m.id} bottom`).toBeLessThan(0.02);
+        expect(top.t).toBeLessThan(bottom.t);
+        // The bottom elbow below its shoulder, as a batter's is.
+        expect(p.back_elbow[1]).toBeLessThan(p.back_shoulder[1]);
+      }
   });
   it("is kept by grounding and by the batter's own lengths, and can be taken away", () => {
     const p = withBat("front_foot_defence");

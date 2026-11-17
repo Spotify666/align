@@ -1332,3 +1332,8 @@ Open:
   traced frame by frame and smoothed) played on the mannequin at half speed, the orange line
   through head, front shoulder, front knee and toe, the moments lighting up, and what Aline read
   on that clip; the grip is two fists on the handle. Nothing of the reference site is copied.
+- "You are doing an exact rip-off; try to add a touch of a cricketing athlete to the mannequin so it
+  looks polished and crafted for this solution": the figure is now a batter in kit (helmet, pads,
+  gloves, shoes, whites, willow bat), in the editor and on the home page.
+- "Right hand is not in sync with how a human holds the bat… similarly check the back-foot defence":
+  both hands now sit on the handle, the bottom elbow down and back, in both shots (docs/14).

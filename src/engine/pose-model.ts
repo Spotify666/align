@@ -183,11 +183,34 @@ export const handsOf = (p: Pose): V3 => mid(p.front_wrist, p.back_wrist);
 /** Which way the bat points, from the handle to the toe; null without a bat. */
 export const batDirection = (p: Pose): V3 | null => (p.bat_handle && p.bat_toe ? unit(sub(p.bat_toe, p.bat_handle)) : null);
 /** The pose holding a bat that points `dir` (handle to toe), in the hands. */
+/**
+ * The pose holding a bat that points `dir` (handle to toe), as a batter holds it (the owner,
+ * 2026-11-17: "right hand is not in sync with how a human holds the bat"): both hands on the
+ * handle, the top hand (front wrist) just above the bottom hand, each arm reaching from its
+ * shoulder with its bones' own lengths. The top arm keeps the way its elbow bends; the bottom
+ * arm's elbow drops down and back beside the body, as a batter's does (and as a side-on clip of a
+ * right-hander can't see: that arm is behind the body, where the tracker guesses).
+ */
 export function placeBat(p: Pose, dir: V3): Pose {
   const d = unit(dir) ?? ([0, -1, 0] as V3);
-  const hands = handsOf(p);
-  return { ...p, bat_handle: hands, bat_toe: add(hands, mul(d, BAT.handsToToe)) };
+  const handle = handsOf(p);
+  const next: Pose = { ...p };
+  const top = sub(handle, mul(d, GRIP.top));
+  const bottom = add(handle, mul(d, GRIP.bottom));
+  const front = reach(p.front_shoulder, distance(p.front_shoulder, p.front_elbow), distance(p.front_elbow, p.front_wrist), sub(p.front_elbow, p.front_shoulder), top);
+  const back = reach(p.back_shoulder, distance(p.back_shoulder, p.back_elbow), distance(p.back_elbow, p.back_wrist), GRIP.bottomElbow, bottom);
+  next.front_elbow = front.mid;
+  next.front_wrist = front.end;
+  next.back_elbow = back.mid;
+  next.back_wrist = back.end;
+  const hands = handsOf(next);
+  return { ...next, bat_handle: hands, bat_toe: add(hands, mul(d, BAT.handsToToe)) };
 }
+/**
+ * Where the hands hold the handle, either side of the point between them (body heights: the two
+ * gloves touching), and which way the bottom elbow bends (down and back, beside the body).
+ */
+export const GRIP = { top: 0.03, bottom: 0.035, bottomElbow: [-0.35, -1, 0] as V3 } as const;
 export function withoutBat(p: Pose): Pose {
   const { bat_handle: _h, bat_toe: _t, ...rest } = p;
   void _h;

@@ -170,3 +170,16 @@ body." Nothing of that site is copied: Aline draws its own mannequin.
 - **The grip** (the owner: "Holding of the bat is nowhere close to what a human holds it like"):
   with a bat, both hands close round the handle as fists, the top hand (the front wrist's) just
   above the bottom one, each joined to its wrist by the palm; without a bat, open hands.
+- **A cricketer, not a manikin** (the owner: "You are doing an exact rip-off; add a touch of a
+  cricketing athlete… so it looks polished and crafted for this solution"): cream whites with the
+  joints rounded in the same cloth, a navy helmet with its peak and steel grille, batting pads with
+  three ridges and a knee roll, gloves with cuffs, white spiked shoes with dark soles, a willow
+  blade on a dark rubber grip (`Part.tone` in `src/lib/mannequin.ts`). Orange stays the line and
+  the part picked.
+- **Both hands on the bat** (the owner, with a coaching photo: "Right hand is not in sync with how a
+  human holds the bat… similarly check the back-foot defence"): with a bat, each arm reaches from its
+  shoulder (bone lengths kept) to its place on the handle, the top hand just above the bottom one;
+  the top elbow keeps its bend (high and forward), the bottom elbow drops down and back beside the
+  body (`placeBat`, `GRIP` in `pose-model.ts`). A side-on clip of a right-hander can't see that arm
+  (it is behind the body, where the tracker guesses), so it is solved, not copied. Tested on every
+  moment of both shots.

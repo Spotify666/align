@@ -24,8 +24,9 @@ describe("the mannequin", () => {
       }
       // The head sits behind the nose (the tracked point), the feet on the ground.
       const head = parts.find((x) => x.key === "head")!;
-      expect(near(head.a, p.head)).toBeLessThan(0.08);
-      for (const f of parts.filter((x) => x.kind === "foot")) expect(Math.min(f.a[1], f.b[1]) - (f.depth ?? 0)).toBeLessThan(0.05);
+      const centre: V3 = [(head.a[0] + head.b[0]) / 2, (head.a[1] + head.b[1]) / 2, (head.a[2] + head.b[2]) / 2];
+      expect(near(centre, p.head)).toBeLessThan(0.08);
+      for (const f of parts.filter((x) => x.key.endsWith("-foot"))) expect(Math.min(f.a[1], f.b[1]) - (f.depth ?? 0)).toBeLessThan(0.05);
     }
   });
   it("follows a joint that is moved, however far, without a part leaving its joints", () => {
@@ -69,6 +70,8 @@ describe("the mannequin", () => {
         expect(bottom.t - top.t).toBeLessThan(0.08);
         // No open hands when holding a bat.
         expect(parts.some((x) => x.key.endsWith("-hand"))).toBe(false);
+        // In kit: a helmet with its grille, pads on both shins, gloves, shoes with soles.
+        for (const k of ["helmet", "helmet-peak", "grille-0", "front-pad", "back-pad", "front-knee-roll", "front-fist", "back-cuff", "front-sole"]) expect(parts.some((x) => x.key === k), k).toBe(true);
       }
   });
 });

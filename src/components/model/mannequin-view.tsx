@@ -10,7 +10,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { Handle, Pose, V3 } from "@/engine/pose-model";
-import { mannequinParts, partsMovedBy, type Part } from "@/lib/mannequin";
+import { mannequinParts, partsMovedBy, type Part, type Tone } from "@/lib/mannequin";
 
 export interface Camera {
   /** viewBox width and height, the scale (viewBox units per body height) and the ground's y. */
@@ -29,10 +29,10 @@ export interface Camera {
 
 const v = (p: V3) => new THREE.Vector3(p[0], p[1], p[2]);
 
-/** A part's mesh, made once at unit size: a limb a unit-tall tapered cylinder, the rest unit spheres or a box. */
+/** A part's mesh, made once at unit size: a limb a unit-tall tapered cylinder, a box a unit cube, the rest unit spheres. */
 function makeMesh(part: Part, material: THREE.Material): THREE.Mesh {
   if (part.kind === "limb") return new THREE.Mesh(new THREE.CylinderGeometry(part.r2, part.r, 1, 20, 1), material);
-  if (part.kind === "blade") return new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+  if (part.kind === "box") return new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
   return new THREE.Mesh(new THREE.SphereGeometry(1, part.kind === "ball" ? 20 : 24, part.kind === "ball" ? 14 : 18), material);
 }
 
@@ -52,13 +52,10 @@ function placeMesh(m: THREE.Mesh, part: Part) {
   if (part.kind === "ball") {
     m.position.copy(a);
     m.scale.setScalar(part.r);
-  } else if (part.kind === "head") {
-    m.position.copy(a);
-    m.scale.set(part.depth ?? part.r, part.r2, part.r);
   } else if (part.kind === "limb") {
     m.position.copy(a.clone().add(b).multiplyScalar(0.5));
     m.scale.set(1, Math.max(length, 1e-4), 1);
-  } else if (part.kind === "blade") {
+  } else if (part.kind === "box") {
     m.position.copy(a.clone().add(b).multiplyScalar(0.5));
     m.scale.set(part.r * 2, Math.max(length, 1e-4), (part.depth ?? part.r) * 2);
   } else {
@@ -91,12 +88,21 @@ export function createMannequinScene(el: HTMLElement): MannequinScene | null {
   scene.add(key);
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 20);
   const light = document.documentElement.dataset.theme === "light";
-  const mat = (color: number) => new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0, side: THREE.DoubleSide });
-  const materials = {
-    body: mat(light ? 0xa79c8a : 0xd8cfbd),
-    joint: mat(light ? 0x8a7f6d : 0xb9ae9a),
-    bat: mat(light ? 0xd9c7a0 : 0xeadcbc),
-    picked: mat(light ? 0xb54700 : 0xff6a00),
+  const mat = (color: number, roughness = 0.62, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness, side: THREE.DoubleSide });
+  // A batter's kit: cream whites, white pads, gloves and shoes, a navy helmet with a steel grille,
+  // a willow blade on a dark rubber grip. A little deeper in daylight so it stands off the page.
+  const materials: Record<Tone | "picked", THREE.MeshStandardMaterial> = {
+    kit: mat(light ? 0xd5ccb8 : 0xe9e2d2, 0.75),
+    skin: mat(0x8d6248, 0.6),
+    helmet: mat(0x1d2633, 0.35, 0.1),
+    grille: mat(0x9aa1a8, 0.3, 0.6),
+    pad: mat(light ? 0xe6e1d6 : 0xf6f3ec, 0.55),
+    glove: mat(light ? 0xe2ddd2 : 0xf2eee5, 0.55),
+    shoe: mat(light ? 0xe4e0d8 : 0xf3f0ea, 0.5),
+    sole: mat(0x26282b, 0.7),
+    willow: mat(light ? 0xd8bf8a : 0xe7d1a2, 0.55),
+    grip: mat(0x22252a, 0.8),
+    picked: mat(light ? 0xb54700 : 0xff6a00, 0.5),
   };
   const meshes = new Map<string, THREE.Mesh>();
 
@@ -127,7 +133,7 @@ export function createMannequinScene(el: HTMLElement): MannequinScene | null {
     const seen = new Set<string>();
     for (const part of parts) {
       seen.add(part.key);
-      const material = on.has(part.key) ? materials.picked : part.key.startsWith("bat") ? materials.bat : part.kind === "ball" ? materials.joint : materials.body;
+      const material = on.has(part.key) ? materials.picked : materials[part.tone];
       let m = meshes.get(part.key);
       if (!m) {
         m = makeMesh(part, material);
