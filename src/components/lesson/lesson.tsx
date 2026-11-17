@@ -4,6 +4,7 @@
 // textbook position sits behind as a dashed outline, and the one thing the check is about draws itself on as it scrolls into
 // view, with two plain sentences underneath.
 
+import { Hold } from "@/components/common/hold";
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import type { AnalysisPayload, CaptureObservation, Metric } from "@/engine/types";
@@ -85,7 +86,15 @@ export function Lesson({ payload: p, obs, level = "plain" }: { payload: Analysis
         <p className="eyebrow">Your lesson</p>
         <h2 id="lesson-h" className="display text-[1.75rem] sm:text-4xl">What this shot teaches you</h2>
         <p className="text-sm text-fg-subtle max-w-3xl">
-          You, as Aline tracked you in your {p.mode === "posture_screen" ? "photo" : "clip"}: solid where it was sure, dotted where it was unsure; what it didn&apos;t see isn&apos;t drawn. Dashed outline: where the textbook defence puts it.
+          <Hold
+            more={
+              <p>
+                You, as Aline tracked you in your {p.mode === "posture_screen" ? "photo" : "clip"}: solid where it was sure, dotted where it was unsure; what it didn&apos;t see isn&apos;t drawn. Dashed outline: where the textbook defence puts it.
+              </p>
+            }
+          >
+            You, as tracked; dashed: the textbook
+          </Hold>
         </p>
       </header>
       <ol tabIndex={0} aria-label="The lesson, chapter by chapter" className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 xl:grid-cols-3">
@@ -133,7 +142,9 @@ function Chapter({ n, of, m, pose, ghost, numbers }: { n: number; of: number; m:
           <span className="font-semibold">{numbers ? `${m.name}: ${friendlyValue(m)}` : m.name}</span>
           {numbers && m.range && <span className="text-fg-subtle"> · aim {friendlyRange(m)}</span>}
         </p>
-        <p className="text-fg-muted">{m.relevance}</p>
+        <p className="text-fg-muted">
+          <Hold more={<p>{m.relevance}</p>}>Why it matters</Hold>
+        </p>
         {cue && <p className="font-medium text-brand">Try: “{cue}”</p>}
       </div>
     </article>

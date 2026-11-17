@@ -5,6 +5,7 @@
 // lesson's rule: what wasn't seen isn't drawn), each figure framed on its own feet and height
 // and both at one scale, so a difference in shape is a difference in the movement.
 
+import { Hold } from "@/components/common/hold";
 import { useMemo, useState } from "react";
 import { analyze } from "@/engine/analyze";
 import { generate } from "@/engine/fixtures/generate";
@@ -73,8 +74,16 @@ export function SideBySide({ you, previous }: { you: SideShot; previous: SideSho
       <header className="space-y-1">
         <h3 id="sbs-h" className="text-lg font-semibold">Side by side</h3>
         <p className="text-sm text-fg-muted">
-          The same moments of the shot, found in each clip on its own. Solid where Aline was sure, dotted where it was unsure; what it didn&apos;t see
-          isn&apos;t drawn.
+          <Hold
+            more={
+              <p>
+                The same moments of the shot, found in each clip on its own. Solid where Aline was sure, dotted where it was unsure; what it didn&apos;t see
+                isn&apos;t drawn.
+              </p>
+            }
+          >
+            The same three moments
+          </Hold>
         </p>
       </header>
       {previous && (

@@ -4,6 +4,7 @@
 // measures both shots have, each difference sized against its coaching range (see
 // src/engine/signature.ts); 100% = the same on every one of them.
 
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { AnalysisPayload, Metric } from "@/engine/types";
@@ -123,9 +124,17 @@ export function ComparePanel({ payload, fps, analysisId, numbers = true }: { pay
       <header>
         <p className="eyebrow">Compare</p>
         <h2 id="compare-h" className="display mt-1 text-[1.6rem] leading-tight sm:text-3xl">How close is this shot?</h2>
-        <p className="mt-2 max-w-3xl text-sm text-fg-muted">
-          Movement similarity compares the measures both shots have (the line, its timing and the shape around it), each difference sized against its coaching
-          range. 100% means the same on all of them. Only shots filmed from the same kind of position are compared on the line.
+        <p className="mt-1 max-w-3xl text-sm text-fg-muted">
+          <Hold
+            more={
+              <p>
+                Movement similarity compares the measures both shots have (the line, its timing and the shape around it), each difference sized against its coaching
+                range. 100% means the same on all of them. Only shots filmed from the same kind of position are compared on the line.
+              </p>
+            }
+          >
+            100% means the same on every measure
+          </Hold>
         </p>
       </header>
 
