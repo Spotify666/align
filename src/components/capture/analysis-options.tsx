@@ -1,5 +1,6 @@
 "use client";
 
+import { Hold } from "@/components/common/hold";
 import { ModelChoice } from "../model/model-choice";
 import { ANALYSIS_LEVELS, FOCUS_AREAS, type FocusAreaId, type LocalProfile } from "@/lib/store";
 
@@ -37,7 +38,9 @@ export function AnalysisOptions({ profile, onChange }: { profile: LocalProfile; 
         ))}
       </div>
       <p className="mt-2 text-sm text-fg-muted" aria-live="polite">{said}</p>
-      <p className="mt-1 text-xs text-fg-subtle">The measurement is the same at every level. The level changes the words and how many checks the report lists first.</p>
+      <p className="mt-1 text-xs text-fg-subtle">
+        <Hold more={<p>The measurement is the same at every level. The level changes the words and how many checks the report lists first.</p>}>Same measurement at every level</Hold>
+      </p>
 
       <details className="mt-4 border-t border-line pt-3">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium">

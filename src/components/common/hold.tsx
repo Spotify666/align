@@ -13,9 +13,12 @@ const LEARNED = "align.hold.learned";
 
 type Open = { title: ReactNode; body: ReactNode; from: HTMLElement | null } | null;
 let current: Open = null;
+/** When the sheet last opened: the finger that held it lifts onto the backdrop, which must not close it. */
+let openedAt = 0;
 const listeners = new Set<() => void>();
 const show = (next: Open) => {
   current = next;
+  if (next) openedAt = Date.now();
   listeners.forEach((l) => l());
 };
 const subscribe = (l: () => void) => {
@@ -120,7 +123,7 @@ export function HoldSheet() {
         show(null);
         from?.focus({ preventScroll: true });
       }}
-      onClick={(e) => e.target === dialog.current && dialog.current?.close()}
+      onClick={(e) => e.target === dialog.current && Date.now() - openedAt > 600 && dialog.current?.close()}
     >
       {open && (
         <div className="mx-auto flex max-h-[min(80dvh,40rem)] w-full max-w-xl flex-col gap-3 overflow-y-auto p-5 sm:p-6">

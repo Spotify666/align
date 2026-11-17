@@ -17,7 +17,7 @@ export default function AppHome() {
           <div className="card flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
             <div>
               <h1 className="display text-3xl sm:text-5xl">Film one shot.</h1>
-              <p className="mt-3 max-w-md text-lg text-fg-muted">Get a few simple lines: what was good, and what to fix. Front-foot and back-foot defences are graded today.</p>
+              <p className="mt-3 max-w-md text-lg text-fg-muted">What was good, and one thing to fix.</p>
             </div>
             <div className="flex shrink-0 flex-col gap-2.5 sm:w-60">
               <Link href="/check" className="btn btn-primary text-base">Check your shot</Link>

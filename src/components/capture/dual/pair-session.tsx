@@ -7,6 +7,7 @@
 // movement must line up) before putting both angles together. Nothing is stored on the server,
 // and no video or picture ever leaves a phone.
 
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { decodeTracks } from "@/engine/tracks-codec";
@@ -89,12 +90,20 @@ export function PairSession() {
       <header className="space-y-2">
         <Link href="/check" className="inline-flex min-h-11 items-center text-sm text-fg-subtle hover:text-fg">Check your shot</Link>
         <h1 className="display text-4xl">Two phones, one ball</h1>
-        <p className="text-fg-muted">One phone side-on, one from the bowler&apos;s end. Pair them, start together, and Aline puts both angles of the ball together.</p>
+        <p className="text-fg-muted">One phone at the side, one at the bowler&apos;s end.</p>
       </header>
       {!ready ? null : session ? <Paired s={session} onEnd={end} /> : <Choose onStart={start} />}
       <p className="text-xs text-fg-subtle">
-        What travels between the phones: the start signal, clock checks, and the second phone&apos;s result (Aline&apos;s numbers and the body points it tracked).
-        It passes through Aline&apos;s server and is not stored. Never video, never pictures.
+        <Hold
+          more={
+            <p>
+              What travels between the phones: the start signal, clock checks, and the second phone&apos;s result (Aline&apos;s numbers and the body points it tracked).
+              It passes through Aline&apos;s server and is not stored. Never video, never pictures.
+            </p>
+          }
+        >
+          Never video, never stored
+        </Hold>
       </p>
     </div>
   );

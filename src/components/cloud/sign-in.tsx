@@ -29,7 +29,7 @@ export function SignIn() {
       <p className="eyebrow">Account</p>
       <h1 className="display text-5xl">Sign in</h1>
       <p className="text-fg-muted">
-        You only need an account to save reports to the cloud or share with a coach. Analysis works on this device without one.
+        Only to save reports or share with a coach.
       </p>
       {state === "sent" ? (
         <div className="card p-5">

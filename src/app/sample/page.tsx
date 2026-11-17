@@ -10,12 +10,9 @@ export default function SamplesIndex() {
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 space-y-8">
       <header className="max-w-3xl space-y-3">
-        <p className="eyebrow">Sample reports · DEMO DATA</p>
-        <h1 className="display text-5xl">Every outcome, designed as carefully as the good one.</h1>
-        <p className="text-fg-muted">
-          Each report is made by the same engine that checks your shot, from a generated example. They are labelled DEMO DATA everywhere and show
-          how Aline answers, including when it can&apos;t tell.
-        </p>
+        <p className="eyebrow">DEMO DATA</p>
+        <h1 className="display text-5xl">Sample reports</h1>
+        <p className="text-fg-muted">Every answer Aline can give, on generated examples.</p>
       </header>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map(({ spec, payload }) => {
@@ -27,7 +24,6 @@ export default function SamplesIndex() {
                   <m.Icon size={14} /> {statusLabel(payload)}
                 </span>
                 <h2 className="mt-3 font-semibold text-lg">{spec.title}</h2>
-                <p className="mt-1 text-sm text-fg-muted">{payload.headline}</p>
               </Link>
             </li>
           );

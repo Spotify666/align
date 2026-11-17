@@ -1,5 +1,6 @@
 "use client";
 
+import { Hold } from "@/components/common/hold";
 import { useEffect, useRef, useState } from "react";
 import { instrument, pitchLines, type HeroData, type Instrument } from "@/lib/hero-geometry";
 
@@ -258,8 +259,8 @@ export function HeroFigure({ data }: { data: HeroData }) {
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-xs text-fg-subtle">
-          Side-on, to scale: stumps, both feet, bat and ball. The brackets are the range each part should be in. A generated example, measured by the same engine that checks your shot.
+        <p className="mt-1 text-xs text-fg-subtle">
+          <Hold more={<p>Side-on, to scale: stumps, both feet, bat and ball. The brackets are the range each part should be in. A generated example, measured by the same engine that checks your shot.</p>}>Illustration: a generated example, to scale</Hold>
         </p>
       </figcaption>
     </figure>
