@@ -61,3 +61,10 @@ python scripts/trace/rig.py <end_net.mp4> public/models/pose_landmarker_full.tas
 ```
 
 Contact (29) is the moment Aline found; 25 and 27 were picked from the traced frames.
+
+The whole movement for the home page's figure (`components/home/motion-figure.tsx`), every frame
+from the stance to the end of the stroke, smoothed over time:
+
+```bash
+MOTION_OUT=public/art/motion-ffd-side.json python scripts/trace/rig.py <side_ffd.mp4> public/models/pose_landmarker_full.task /tmp/rig.json front_foot_defence side side_on backlift=46,foot_down=55,contact=61
+```

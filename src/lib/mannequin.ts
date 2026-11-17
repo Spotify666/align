@@ -1,29 +1,36 @@
-// The shot-model mannequin (/models/edit): a jointed figure in the manner of an artist's wooden
-// manikin, built only from the joints a person places. The owner, 2026-11-17, pointing to a 3D
-// posing tool: "refer to this site for the accurate depiction… blend this depiction with the
-// current model so it becomes accessible and easy for someone registering the data points".
+// The shot-model figure (/models/edit) and the home page's moving batter: a cricketer in kit,
+// built only from the joints a person places. The owner, 2026-11-17: a 3D posing tool was the
+// reference for how a body should read ("accurate depiction… accessible for someone registering
+// the data points"), then: "add a touch of a cricketing athlete… so it looks polished and crafted
+// for this solution". So the figure is a batter, not an artist's manikin: whites, a helmet with
+// its peak and grille, batting pads with their ridges and knee roll, gloves with cuffs closed on the
+// handle, spiked shoes, a willow bat with a rubber grip.
 //
-// Every part hangs between two placed points (a limb from the shoulder to the elbow, the shin from
-// the knee to the ankle), so the figure can never tear or stretch: it is the pose, given a body.
-// Ball joints sit at the shoulders, elbows, wrists, hips, knees and ankles. Pure: the 3D drawing
-// (components/model/mannequin-view.tsx) reads these parts; tests/mannequin.test.ts holds them to
-// the pose. Sizes are an adult's proportions in body heights: drawing only, never measured.
+// Every part hangs from the placed points (a limb from the shoulder to the elbow, a pad down the
+// shin from the knee to the ankle), so the figure can never tear or stretch: it is the pose, given
+// a cricketer's body. Pure: the 3D drawing (components/model/mannequin-view.tsx) reads these parts;
+// tests/mannequin.test.ts holds them to the pose. Sizes are an adult's, in body heights: drawing
+// only, never measured.
 
-import { chestOf, handsOf, pelvisOf, type Handle, type Pose, type V3 } from "@/engine/pose-model";
+import { chestOf, pelvisOf, type Handle, type Pose, type V3 } from "@/engine/pose-model";
 
-export type PartKind = "limb" | "ball" | "head" | "trunk" | "foot" | "hand" | "blade";
+/** limb: a tapered cylinder between a and b; ball: a sphere at a; ellipsoid and box: between a and b, `r` wide and `depth` deep. */
+export type PartKind = "limb" | "ball" | "ellipsoid" | "box";
+/** What a part is made of, which decides its colour. */
+export type Tone = "kit" | "skin" | "helmet" | "grille" | "pad" | "glove" | "shoe" | "sole" | "willow" | "grip";
 export interface Part {
   key: string;
   kind: PartKind;
+  tone: Tone;
   /** Where the part starts and ends (a ball: both its centre). */
   a: V3;
   b: V3;
   /** Its half-width at a, and at b (a limb tapers from one to the other). */
   r: number;
   r2: number;
-  /** For a trunk, hand, foot or blade: the direction its width lies along. */
+  /** For an ellipsoid or a box: the direction its width lies along. */
   across?: V3;
-  /** Its half-depth (a trunk, foot, hand or blade is flatter one way than the other). */
+  /** Its half-depth (an ellipsoid or a box is flatter one way than the other). */
   depth?: number;
   /** The handles that move it: picking one shows the part picked. */
   moves: Handle[];
@@ -33,41 +40,71 @@ const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const mul = (a: V3, k: number): V3 => [a[0] * k, a[1] * k, a[2] * k];
 const lerp = (a: V3, b: V3, t: number): V3 => add(a, mul(sub(b, a), t));
+const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const len = (a: V3) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: V3, fallback: V3): V3 => (len(a) > 1e-9 ? mul(a, 1 / len(a)) : fallback);
+/** `a` with its part along `axis` taken out, as a unit vector. */
+const square = (a: V3, axis: V3, fallback: V3): V3 => unit(sub(a, mul(axis, dot(a, axis))), fallback);
 
 /** Half-widths, in body heights (a 175 cm adult: the thigh 19 cm across at the top, the knee 14). */
 export const SIZE = {
-  shoulder: 0.036, elbow: 0.029, wrist: 0.022, hip: 0.05, knee: 0.04, ankle: 0.028,
+  shoulder: 0.034, elbow: 0.027, wrist: 0.021, hip: 0.05, knee: 0.04, ankle: 0.027,
   upperArm: [0.034, 0.027], forearm: [0.027, 0.021], thigh: [0.056, 0.041], shin: [0.04, 0.027],
-  neck: 0.03, head: 0.062, hand: 0.026, foot: 0.03, footDepth: 0.022, chestDepth: 0.075, hipDepth: 0.07,
+  neck: 0.03, head: 0.058, hand: 0.026, foot: 0.03, footDepth: 0.022, chestDepth: 0.075, hipDepth: 0.07,
+  /** A batting pad: half its width, half its depth, how far its face stands in front of the shin. */
+  pad: { half: 0.044, depth: 0.02, ahead: 0.024 },
+  helmet: 0.07,
 } as const;
 
-/** The mannequin's parts for a pose, the bat's too when it holds one. */
+/** The figure's parts for a pose, the bat's too when it holds one. */
 export function mannequinParts(p: Pose): Part[] {
   const parts: Part[] = [];
   const up: V3 = [0, 1, 0];
+  const held = !!(p.bat_handle && p.bat_toe);
   for (const s of ["front", "back"] as const) {
     const j = (part: string) => p[`${s}_${part}` as keyof Pose] as V3;
     const h = (part: string) => `${s}_${part}` as Handle;
     const [sh, el, wr, hip, kn, an, heel, toe] = [j("shoulder"), j("elbow"), j("wrist"), j("hip"), j("knee"), j("ankle"), j("heel"), j("foot")];
+    // Whites: long sleeves and trousers, the joints rounded in the same cloth (no manikin balls).
     parts.push(
-      { key: `${s}-upper-arm`, kind: "limb", a: sh, b: el, r: SIZE.upperArm[0], r2: SIZE.upperArm[1], moves: [h("shoulder"), h("elbow")] },
-      { key: `${s}-forearm`, kind: "limb", a: el, b: wr, r: SIZE.forearm[0], r2: SIZE.forearm[1], moves: [h("wrist")] },
-      { key: `${s}-thigh`, kind: "limb", a: hip, b: kn, r: SIZE.thigh[0], r2: SIZE.thigh[1], moves: [h("hip"), h("knee")] },
-      { key: `${s}-shin`, kind: "limb", a: kn, b: an, r: SIZE.shin[0], r2: SIZE.shin[1], moves: [h("ankle")] },
+      { key: `${s}-upper-arm`, kind: "limb", tone: "kit", a: sh, b: el, r: SIZE.upperArm[0], r2: SIZE.upperArm[1], moves: [h("shoulder"), h("elbow")] },
+      { key: `${s}-forearm`, kind: "limb", tone: "kit", a: el, b: wr, r: SIZE.forearm[0], r2: SIZE.forearm[1], moves: [h("wrist")] },
+      { key: `${s}-thigh`, kind: "limb", tone: "kit", a: hip, b: kn, r: SIZE.thigh[0], r2: SIZE.thigh[1], moves: [h("hip"), h("knee")] },
+      { key: `${s}-shin`, kind: "limb", tone: "kit", a: kn, b: an, r: SIZE.shin[0], r2: SIZE.shin[1], moves: [h("ankle")] },
     );
     for (const [part, r] of [["shoulder", SIZE.shoulder], ["elbow", SIZE.elbow], ["wrist", SIZE.wrist], ["hip", SIZE.hip], ["knee", SIZE.knee], ["ankle", SIZE.ankle]] as const)
-      parts.push({ key: `${s}-${part}-joint`, kind: "ball", a: j(part), b: j(part), r, r2: r, moves: [h(part)] });
-    // The hand: a flat mitten beyond the wrist, along the forearm.
+      parts.push({ key: `${s}-${part}-joint`, kind: "ball", tone: "kit", a: j(part), b: j(part), r, r2: r, moves: [h(part)] });
+
+    // The batting pad: down the front of the shin from just above the knee to the ankle, three
+    // raised bolsters down its face and the knee roll on top.
+    const shin = unit(sub(an, kn), [0, -1, 0]);
+    const toes = square(sub(toe, heel), shin, [1, 0, 0]);
+    const width = unit(cross(shin, toes), [0, 0, 1]);
+    const padTop = add(sub(kn, mul(shin, 0.07)), mul(toes, SIZE.pad.ahead));
+    const padEnd = add(add(an, mul(shin, -0.02)), mul(toes, SIZE.pad.ahead));
+    parts.push({ key: `${s}-pad`, kind: "box", tone: "pad", a: padTop, b: padEnd, r: SIZE.pad.half, r2: SIZE.pad.half, depth: SIZE.pad.depth, across: width, moves: [h("knee"), h("ankle")] });
+    for (const [n, off] of [[0, -0.024], [1, 0], [2, 0.024]] as const) {
+      const face = mul(toes, SIZE.pad.depth);
+      const across = mul(width, off);
+      parts.push({ key: `${s}-pad-ridge-${n}`, kind: "limb", tone: "pad", a: add(add(lerp(padTop, padEnd, 0.18), face), across), b: add(add(lerp(padTop, padEnd, 0.95), face), across), r: 0.009, r2: 0.008, moves: [h("knee"), h("ankle")] });
+    }
+    parts.push({ key: `${s}-knee-roll`, kind: "ellipsoid", tone: "pad", a: add(padTop, mul(shin, -0.005)), b: add(padTop, mul(shin, 0.06)), r: SIZE.pad.half * 1.02, r2: SIZE.pad.half, depth: SIZE.pad.depth * 1.6, across: width, moves: [h("knee")] });
+
+    // The shoe: a white upper from the heel to the toe, a dark spiked sole under it.
+    const footWidth = unit(cross(unit(sub(toe, heel), [1, 0, 0]), up), [0, 0, 1]);
+    parts.push(
+      { key: `${s}-foot`, kind: "ellipsoid", tone: "shoe", a: add(heel, mul(up, SIZE.footDepth)), b: add(toe, mul(up, SIZE.footDepth * 0.75)), r: SIZE.foot, r2: SIZE.foot * 0.85, depth: SIZE.footDepth, across: footWidth, moves: [h("heel"), h("foot"), h("ankle")] },
+      { key: `${s}-sole`, kind: "box", tone: "sole", a: add(heel, mul(up, 0.004)), b: add(toe, mul(up, 0.004)), r: SIZE.foot * 0.9, r2: SIZE.foot * 0.9, depth: 0.005, across: footWidth, moves: [h("heel"), h("foot")] },
+    );
+
+    // The glove's cuff over the wrist; without a bat, an open gloved hand beyond it.
     const along = unit(sub(wr, el), [0, -1, 0]);
-    parts.push({ key: `${s}-hand`, kind: "hand", a: wr, b: add(wr, mul(along, 0.09)), r: SIZE.hand, r2: SIZE.hand, depth: SIZE.hand * 0.55, across: unit([along[1] * up[2] - along[2] * up[1], along[2] * up[0] - along[0] * up[2], along[0] * up[1] - along[1] * up[0]], [0, 0, 1]), moves: [h("wrist")] });
-    // The foot: from the heel to the toe, flat on its sole, the ankle above it.
-    const footAcross = unit(sub(lerp(heel, toe, 0.5), an), up);
-    parts.push({ key: `${s}-foot`, kind: "foot", a: add(heel, mul(up, SIZE.footDepth)), b: add(toe, mul(up, SIZE.footDepth * 0.7)), r: SIZE.foot, r2: SIZE.foot * 0.85, depth: SIZE.footDepth, across: footAcross, moves: [h("heel"), h("foot"), h("ankle")] });
+    parts.push({ key: `${s}-cuff`, kind: "limb", tone: "glove", a: sub(wr, mul(along, 0.04)), b: wr, r: SIZE.wrist * 1.45, r2: SIZE.wrist * 1.4, moves: [h("wrist")] });
+    if (!held) parts.push({ key: `${s}-hand`, kind: "ellipsoid", tone: "glove", a: wr, b: add(wr, mul(along, 0.09)), r: SIZE.hand, r2: SIZE.hand, depth: SIZE.hand * 0.6, across: unit(cross(along, up), [0, 0, 1]), moves: [h("wrist")] });
   }
 
-  // The trunk: the chest between the shoulders, the waist, the hips between the hip joints.
+  // The trunk in a shirt: the chest between the shoulders, the waist, the hips between the hip joints.
   const chest = chestOf(p);
   const pelvis = pelvisOf(p);
   const shoulders = unit(sub(p.front_shoulder, p.back_shoulder), [1, 0, 0]);
@@ -75,35 +112,58 @@ export function mannequinParts(p: Pose): Part[] {
   const halfShoulders = len(sub(p.front_shoulder, p.back_shoulder)) / 2;
   const halfHips = len(sub(p.front_hip, p.back_hip)) / 2;
   parts.push(
-    { key: "chest", kind: "trunk", a: lerp(chest, pelvis, -0.04), b: lerp(chest, pelvis, 0.58), r: halfShoulders * 0.92, r2: halfShoulders * 0.92, depth: SIZE.chestDepth, across: shoulders, moves: ["chest", "front_shoulder", "back_shoulder"] },
-    { key: "waist", kind: "trunk", a: lerp(chest, pelvis, 0.45), b: lerp(chest, pelvis, 0.9), r: Math.max(halfHips, halfShoulders * 0.62), r2: Math.max(halfHips, halfShoulders * 0.62), depth: SIZE.hipDepth * 0.9, across: unit(add(shoulders, hips), shoulders), moves: ["chest"] },
-    { key: "hips", kind: "trunk", a: lerp(chest, pelvis, 0.78), b: lerp(chest, pelvis, 1.18), r: halfHips + 0.035, r2: halfHips + 0.035, depth: SIZE.hipDepth, across: hips, moves: ["pelvis", "front_hip", "back_hip"] },
+    { key: "chest", kind: "ellipsoid", tone: "kit", a: lerp(chest, pelvis, -0.04), b: lerp(chest, pelvis, 0.58), r: halfShoulders * 0.92, r2: halfShoulders * 0.92, depth: SIZE.chestDepth, across: shoulders, moves: ["chest", "front_shoulder", "back_shoulder"] },
+    { key: "waist", kind: "ellipsoid", tone: "kit", a: lerp(chest, pelvis, 0.45), b: lerp(chest, pelvis, 0.9), r: Math.max(halfHips, halfShoulders * 0.62), r2: Math.max(halfHips, halfShoulders * 0.62), depth: SIZE.hipDepth * 0.9, across: unit(add(shoulders, hips), shoulders), moves: ["chest"] },
+    { key: "hips", kind: "ellipsoid", tone: "kit", a: lerp(chest, pelvis, 0.78), b: lerp(chest, pelvis, 1.18), r: halfHips + 0.035, r2: halfHips + 0.035, depth: SIZE.hipDepth, across: hips, moves: ["pelvis", "front_hip", "back_hip"] },
   );
 
-  // The head: an egg a little behind the nose (the tracked point is the nose), on a neck.
+  // The head, a little behind the nose (the tracked point is the nose), in a helmet facing the
+  // bowler: the dome, the peak over the eyes, the grille's bars across the face.
   const toNose = sub(p.head, chest);
   const facing = unit([toNose[0], 0, toNose[2]], [1, 0, 0]);
   const head = add(sub(p.head, mul(facing, 0.05)), [0, 0.012, 0]);
   const neckUp = unit(sub(head, chest), up);
+  const face = square(facing, neckUp, [1, 0, 0]);
+  const side = unit(cross(neckUp, face), [0, 0, 1]);
+  const at = (f: number, u: number, sd = 0): V3 => add(add(add(head, mul(face, f)), mul(neckUp, u)), mul(side, sd));
+  const H = SIZE.helmet;
   parts.push(
-    { key: "neck", kind: "limb", a: add(chest, mul(neckUp, 0.02)), b: add(head, mul(neckUp, -0.04)), r: SIZE.neck, r2: SIZE.neck * 0.9, moves: ["head"] },
-    { key: "head", kind: "head", a: head, b: add(head, neckUp), r: SIZE.head, r2: SIZE.head * 1.22, across: facing, depth: SIZE.head * 1.05, moves: ["head"] },
+    { key: "neck", kind: "limb", tone: "skin", a: add(chest, mul(neckUp, 0.02)), b: add(head, mul(neckUp, -0.04)), r: SIZE.neck, r2: SIZE.neck * 0.9, moves: ["head"] },
+    { key: "head", kind: "ellipsoid", tone: "skin", a: at(0.008, -0.045), b: at(0.008, 0.045), r: SIZE.head * 0.92, r2: SIZE.head, across: side, depth: SIZE.head, moves: ["head"] },
+    { key: "helmet", kind: "ellipsoid", tone: "helmet", a: at(-0.008, -0.03), b: at(-0.008, 0.078), r: H, r2: H, across: side, depth: H * 1.04, moves: ["head"] },
+    { key: "helmet-peak", kind: "box", tone: "helmet", a: at(0.045, 0.022), b: at(0.105, 0.012), r: H * 0.72, r2: H * 0.72, depth: 0.005, across: side, moves: ["head"] },
   );
+  for (const [n, u] of [[0, -0.008], [1, -0.03], [2, -0.052]] as const)
+    parts.push({ key: `grille-${n}`, kind: "limb", tone: "grille", a: at(0.078 - n * 0.006, u, -0.05), b: at(0.078 - n * 0.006, u, 0.05), r: 0.0045, r2: 0.0045, moves: ["head"] });
+  parts.push({ key: "grille-stem", kind: "limb", tone: "grille", a: at(0.084, 0.0), b: at(0.068, -0.058), r: 0.0045, r2: 0.0045, moves: ["head"] });
 
-  // The bat, when held: the handle from above the top hand to the blade, then the blade to the toe.
-  if (p.bat_handle && p.bat_toe) {
-    const dir = unit(sub(p.bat_toe, p.bat_handle), [0, -1, 0]);
-    const hands = handsOf(p);
-    const top = sub(hands, mul(dir, 0.06));
-    const blade = sub(p.bat_toe, mul(dir, 0.32));
+  // The bat, when held: a rubber grip from above the top hand to the blade, the willow blade to the toe.
+  if (held) {
+    const dir = unit(sub(p.bat_toe!, p.bat_handle!), [0, -1, 0]);
+    // Where the hands hold the handle (each wrist sits a hand's length back from it: placeBat).
+    const hands = p.bat_handle!;
+    const top = sub(hands, mul(dir, 0.075));
+    const blade = sub(p.bat_toe!, mul(dir, 0.32));
     // The face looks toward the bowler, square to the bat.
-    const fwd: V3 = [1, 0, 0];
-    const face = unit(sub(fwd, mul(dir, fwd[0] * dir[0] + fwd[1] * dir[1] + fwd[2] * dir[2])), [0, 0, 1]);
-    const width: V3 = unit([dir[1] * face[2] - dir[2] * face[1], dir[2] * face[0] - dir[0] * face[2], dir[0] * face[1] - dir[1] * face[0]], [0, 0, 1]);
+    const batFace = square([1, 0, 0], dir, [0, 0, 1]);
+    const width = unit(cross(dir, batFace), [0, 0, 1]);
     parts.push(
-      { key: "bat-handle", kind: "limb", a: top, b: blade, r: 0.013, r2: 0.013, moves: ["bat_toe"] },
-      { key: "bat-blade", kind: "blade", a: blade, b: p.bat_toe, r: 0.031, r2: 0.031, depth: 0.017, across: width, moves: ["bat_toe"] },
+      { key: "bat-handle", kind: "limb", tone: "grip", a: top, b: blade, r: 0.0135, r2: 0.0135, moves: ["bat_toe"] },
+      { key: "bat-blade", kind: "box", tone: "willow", a: blade, b: p.bat_toe!, r: 0.031, r2: 0.031, depth: 0.017, across: width, moves: ["bat_toe"] },
     );
+    // Both gloved hands close round the handle, touching: the top hand (the front wrist's) just
+    // above the bottom hand, as a batter holds it. From each wrist the hand runs to the handle at
+    // its own angle (the wrist bends), and the fingers close round it.
+    for (const [s, along] of [["front", -0.03], ["back", 0.03]] as const) {
+      const wrist = p[`${s}_wrist`];
+      const grip = add(hands, mul(dir, along));
+      // The back of the hand faces the wrist it comes from.
+      const out = square(sub(grip, wrist), dir, [0, 0, 1]);
+      parts.push(
+        { key: `${s}-palm`, kind: "limb", tone: "glove", a: wrist, b: sub(grip, mul(out, 0.012)), r: SIZE.wrist * 1.15, r2: SIZE.hand * 0.95, moves: [`${s}_wrist` as Handle] },
+        { key: `${s}-fist`, kind: "ellipsoid", tone: "glove", a: sub(add(grip, mul(dir, -0.028)), mul(out, 0.006)), b: sub(add(grip, mul(dir, 0.028)), mul(out, 0.006)), r: SIZE.hand * 1.2, r2: SIZE.hand * 1.2, depth: SIZE.hand * 1.15, across: out, moves: [`${s}_wrist` as Handle] },
+      );
+    }
   }
   return parts;
 }

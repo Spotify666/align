@@ -1324,3 +1324,22 @@ Open:
 - Evening: "refer to this site (posemaker.org/editor) for the accurate depiction… blend this
   depiction with the current model so it becomes accessible". Shipped: a 3D mannequin built from
   the joints, the default figure; the traced batter is the other choice. Docs/14 "The mannequin".
+- "On home page the logo is still old… make sure logo is intact on all pages": every page's header
+  and footer now use the landing's mark and name (shipped with the mannequin).
+- "See how seamless the motion and action feel on this site (dailyrepsfit.com)… blend in with the
+  app's use case", and "Holding of the bat is nowhere close to what a human holds it like".
+  Shipped: on /home, "What Aline reads": the owner's real front-foot defence (their side clip,
+  traced frame by frame and smoothed) played on the mannequin at half speed, the orange line
+  through head, front shoulder, front knee and toe, the moments lighting up, and what Aline read
+  on that clip; the grip is two fists on the handle. Nothing of the reference site is copied.
+- "You are doing an exact rip-off; try to add a touch of a cricketing athlete to the mannequin so it
+  looks polished and crafted for this solution": the figure is now a batter in kit (helmet, pads,
+  gloves, shoes, whites, willow bat), in the editor and on the home page.
+- "Right hand is not in sync with how a human holds the bat… similarly check the back-foot defence":
+  both hands now sit on the handle, the bottom elbow down and tucked in front of the hip, in both shots (docs/14).
+- "There is no concept of wrist in the above; that's why it's not matching the human thing": each wrist
+  now sits a hand's length back from the handle and the hand bends at it to close round the bat.
+- "Right elbow rotation is not in sync with humans": the bottom elbow now bends down and a little
+  forward, tucked in front of the hip, the upper arm angled toward the bat (it hung straight down).
+- "Now right wrist angle seems off with movement": each wrist now stays behind the handle (opposite
+  the bat's face), a little toward its own arm, so the hands keep their angle as the bat swings.

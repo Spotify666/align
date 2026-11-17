@@ -183,11 +183,53 @@ export const handsOf = (p: Pose): V3 => mid(p.front_wrist, p.back_wrist);
 /** Which way the bat points, from the handle to the toe; null without a bat. */
 export const batDirection = (p: Pose): V3 | null => (p.bat_handle && p.bat_toe ? unit(sub(p.bat_toe, p.bat_handle)) : null);
 /** The pose holding a bat that points `dir` (handle to toe), in the hands. */
-export function placeBat(p: Pose, dir: V3): Pose {
+/**
+ * The pose holding a bat that points `dir` (handle to toe), as a batter holds it (the owner,
+ * 2026-11-17: "right hand is not in sync with how a human holds the bat"): both hands on the
+ * handle, the top hand (front wrist) just above the bottom hand, each arm reaching from its
+ * shoulder with its bones' own lengths. The top arm keeps the way its elbow bends; the bottom
+ * arm's elbow drops down and a little forward, tucked in front of the hip, as a batter's does (and as a side-on clip of a
+ * right-hander can't see: that arm is behind the body, where the tracker guesses).
+ */
+export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(p)): Pose {
   const d = unit(dir) ?? ([0, -1, 0] as V3);
-  const hands = handsOf(p);
-  return { ...p, bat_handle: hands, bat_toe: add(hands, mul(d, BAT.handsToToe)) };
+  const next: Pose = { ...p };
+  // Each hand closes round the handle a hand's length beyond its wrist (the owner: "there is no
+  // concept of wrist"): the wrist sits back from the bat, on the side its arm comes from, so the
+  // hand angles away from the forearm at the wrist, as a batter's does.
+  const hold = (side: Side, along: number, pole: V3) => {
+    const grip = add(handle, mul(d, along));
+    const shoulder = p[j(side, "shoulder")];
+    const from = sub(shoulder, grip);
+    const toArm = unit(sub(from, mul(d, dot(from, d)))) ?? ([0, 0, 1] as V3);
+    // The hands stay behind the handle all through the stroke (the face looks toward the bowler),
+    // a little toward the arm they belong to: so the wrist keeps its angle as the bat swings.
+    const fwd: V3 = [1, 0, 0];
+    const face = unit(sub(fwd, mul(d, dot(fwd, d)))) ?? ([0, 1, 0] as V3);
+    const behind = unit(add(mul(face, -GRIP.behind), mul(toArm, 1 - GRIP.behind))) ?? toArm;
+    const wrist = add(grip, mul(behind, GRIP.hand));
+    const r = reach(shoulder, distance(shoulder, p[j(side, "elbow")]), distance(p[j(side, "elbow")], p[j(side, "wrist")]), pole, wrist);
+    next[j(side, "elbow")] = r.mid;
+    next[j(side, "wrist")] = r.end;
+    return sub(r.end, wrist);
+  };
+  // Where an arm can't reach that far, the bat comes toward the hands until both hold it: it is never let go.
+  let held = handle;
+  for (let i = 0; i < 12; i++) {
+    handle = held;
+    const short = mul(add(hold("front", -GRIP.top, sub(p.front_elbow, p.front_shoulder)), hold("back", GRIP.bottom, GRIP.bottomElbow)), 0.5);
+    held = add(held, short);
+    if (len(short) < 1e-5) break;
+  }
+  return { ...next, bat_handle: held, bat_toe: add(held, mul(d, BAT.handsToToe)) };
 }
+/**
+ * How a batter holds the bat (body heights): the top and bottom hands either side of the handle
+ * point (the two gloves touching), each wrist a hand's length back from the handle, mostly behind
+ * the bat's face (`behind`: the share of that, the rest toward its own arm), and which way
+ * the bottom elbow bends (down and a little forward, tucked in front of the hip, as a batter's is).
+ */
+export const GRIP = { top: 0.03, bottom: 0.035, hand: 0.05, behind: 0.7, bottomElbow: [0.35, -1, 0.15] as V3 } as const;
 export function withoutBat(p: Pose): Pose {
   const { bat_handle: _h, bat_toe: _t, ...rest } = p;
   void _h;
@@ -274,7 +316,7 @@ function plantLegs(next: Pose, before: Pose) {
  */
 export function dragHandle(pose: Pose, handle: Handle, target: V3): Pose {
   const dir = batDirection(pose);
-  if (handle === "bat_toe") return dir ? placeBat(pose, sub(target, handsOf(pose))) : pose;
+  if (handle === "bat_toe") return dir ? placeBat(pose, sub(target, pose.bat_handle!)) : pose;
   if (!dir) return moveBody(pose, handle, target);
   // With a bat, both hands are on the handle: a hand moves them together, each arm reaching.
   let next: Pose;
@@ -287,13 +329,13 @@ export function dragHandle(pose: Pose, handle: Handle, target: V3): Pose {
       next[j(side, "wrist")] = r.end;
     }
   } else next = moveBody(pose, handle, target);
-  // The bat stays in the hands; a lean of the chest turns it with the arms.
+  // The bat stays in the hands (the handle keeps its place against them); a lean of the chest turns it with the arms.
   let d = dir;
   if (handle === "chest") {
     const pivot = pelvisOf(pose);
     d = sub(turn(add(pivot, dir), pivot, sub(chestOf(pose), pivot), sub(target, pivot)), pivot);
   }
-  return placeBat(next, d);
+  return placeBat(next, d, add(handsOf(next), sub(pose.bat_handle!, handsOf(pose))));
 }
 
 /** `dragHandle` for the body alone (see there). */
@@ -379,8 +421,11 @@ export function ground(pose: Pose): Pose {
   const low = Math.min(...(["front_heel", "back_heel", "front_foot", "back_foot"] as SemanticJoint[]).map((k) => pose[k][1]));
   const p = {} as Pose;
   for (const k of MODEL_JOINTS) p[k] = [pose[k][0], pose[k][1] - low, pose[k][2]];
-  const dir = batDirection(pose);
-  return dir ? placeBat(p, dir) : p;
+  if (pose.bat_handle && pose.bat_toe) {
+    p.bat_handle = [pose.bat_handle[0], pose.bat_handle[1] - low, pose.bat_handle[2]];
+    p.bat_toe = [pose.bat_toe[0], pose.bat_toe[1] - low, pose.bat_toe[2]];
+  }
+  return p;
 }
 
 /**
@@ -410,7 +455,7 @@ export function withSegments(pose: Pose, want: Partial<Segments>): Pose {
     p[j(side, "foot")] = add(ankle, mul(sub(pose[j(side, "foot")], pose[j(side, "ankle")]), k("foot")));
   }
   const dir = batDirection(pose);
-  return ground(dir ? placeBat(p, dir) : p);
+  return ground(dir ? placeBat(p, dir, add(handsOf(p), sub(pose.bat_handle!, handsOf(pose)))) : p);
 }
 
 // ---------- Measures read off a pose, in one camera's plane ----------
@@ -778,7 +823,8 @@ export function modelFromText(text: string, fill: (shot: TargetShot, moment: Mom
       const t = bat.toe ?? {};
       const dir: V3 = [num(t.forward) - num(h.forward), num(t.up) - num(h.up), num(t.across) - num(h.across)];
       if (!bat.handle || !bat.toe || !(Math.hypot(...dir) > 1e-6)) return { ok: false, problem: `"${m.id}": the bat needs a handle and a toe at different places.` };
-      moments[m.id] = placeBat(pose, dir);
+      const handle: V3 = [h.forward ?? (pose.front_wrist[0] + pose.back_wrist[0]) / 2, num(h.up), h.across ?? (pose.front_wrist[2] + pose.back_wrist[2]) / 2];
+      moments[m.id] = placeBat(pose, dir, handle);
     } else moments[m.id] = pose;
   }
   if (!moments.contact) return { ok: false, problem: "A model needs the contact moment." };

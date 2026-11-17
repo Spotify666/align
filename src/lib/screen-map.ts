@@ -82,6 +82,7 @@ export const SCREENS: Screen[] = [
       ["Check your shot", "Opens the capture screen."],
       ["Your last shot", "The last result in one sentence, what to work on next, and how many shots you have checked."],
       ["How to film", "Opens the guide."],
+      ["What Aline reads", "A real front-foot defence played on Aline's figure, with the line it reads through head, shoulder, knee and toe."],
     ],
   },
   {

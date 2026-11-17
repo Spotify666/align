@@ -24,8 +24,9 @@ describe("the mannequin", () => {
       }
       // The head sits behind the nose (the tracked point), the feet on the ground.
       const head = parts.find((x) => x.key === "head")!;
-      expect(near(head.a, p.head)).toBeLessThan(0.08);
-      for (const f of parts.filter((x) => x.kind === "foot")) expect(Math.min(f.a[1], f.b[1]) - (f.depth ?? 0)).toBeLessThan(0.05);
+      const centre: V3 = [(head.a[0] + head.b[0]) / 2, (head.a[1] + head.b[1]) / 2, (head.a[2] + head.b[2]) / 2];
+      expect(near(centre, p.head)).toBeLessThan(0.08);
+      for (const f of parts.filter((x) => x.key.endsWith("-foot"))) expect(Math.min(f.a[1], f.b[1]) - (f.depth ?? 0)).toBeLessThan(0.05);
     }
   });
   it("follows a joint that is moved, however far, without a part leaving its joints", () => {
@@ -48,5 +49,29 @@ describe("the mannequin", () => {
     expect([...partsMovedBy(held, "bat_toe")].sort()).toEqual(["bat-blade", "bat-handle"]);
     expect(partsMovedBy(held, "front_knee").has("front-thigh")).toBe(true);
     expect(partsMovedBy(held, null).size).toBe(0);
+  });
+  it("grips the bat as a batter does: both fists on the handle, the top hand just above the bottom one", () => {
+    for (const shot of ["front_foot_defence", "back_foot_defence"] as const)
+      for (const m of MOMENTS) {
+        const p = placeBat(starterPose(shot, m.id), starterBat(shot, m.id));
+        const parts = mannequinParts(p);
+        const dir = ((d: V3) => { const l = Math.hypot(...d); return d.map((x) => x / l) as unknown as V3; })([p.bat_toe![0] - p.bat_handle![0], p.bat_toe![1] - p.bat_handle![1], p.bat_toe![2] - p.bat_handle![2]]);
+        const offAxis = (q: V3) => {
+          const r: V3 = [q[0] - p.bat_handle![0], q[1] - p.bat_handle![1], q[2] - p.bat_handle![2]];
+          const t = r[0] * dir[0] + r[1] * dir[1] + r[2] * dir[2];
+          return { t, d: Math.hypot(r[0] - dir[0] * t, r[1] - dir[1] * t, r[2] - dir[2] * t) };
+        };
+        const mid = (k: string) => { const f = parts.find((x) => x.key === k)!; return [(f.a[0] + f.b[0]) / 2, (f.a[1] + f.b[1]) / 2, (f.a[2] + f.b[2]) / 2] as V3; };
+        const top = offAxis(mid("front-fist"));
+        const bottom = offAxis(mid("back-fist"));
+        expect(top.d, `${shot} ${m.id}`).toBeLessThan(0.01);
+        expect(bottom.d).toBeLessThan(0.01);
+        expect(top.t).toBeLessThan(bottom.t);
+        expect(bottom.t - top.t).toBeLessThan(0.08);
+        // No open hands when holding a bat.
+        expect(parts.some((x) => x.key.endsWith("-hand"))).toBe(false);
+        // In kit: a helmet with its grille, pads on both shins, gloves, shoes with soles.
+        for (const k of ["helmet", "helmet-peak", "grille-0", "front-pad", "back-pad", "front-knee-roll", "front-fist", "back-cuff", "front-sole"]) expect(parts.some((x) => x.key === k), k).toBe(true);
+      }
   });
 });

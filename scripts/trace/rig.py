@@ -131,3 +131,41 @@ for name, i in moments.items():
     print(name, i, "lines", len(entry["body"]), "bat", "bat" in entry)
 json.dump(result, open(out_path, "w"), separators=(",", ":"))
 print("stature px", round(stature_px), "m", round(stature_m, 2), "front", F, "size", os.path.getsize(out_path))
+
+# The whole movement (MOTION_OUT=<file>): every frame from the stance to the end of the stroke, the
+# joints and the bat in the model's units, smoothed over time (a pose model jitters from frame to
+# frame; a Gaussian of 1.2 frames keeps the movement's own timing). For a figure that plays the
+# shot (components/landing/motion-figure.tsx).
+motion_out = os.environ.get("MOTION_OUT")
+if motion_out:
+    order = sorted(ready)
+    names = list(JOINTS)
+    raw = np.zeros((len(order), len(names), 3))
+    bats = []
+    prev = None
+    for n, i in enumerate(order):
+        crop, lm, world, person = ready[i]
+        for m, (j, k) in enumerate(JOINTS.items()):
+            a, u = plane(lm[k, 0], lm[k, 1])
+            raw[n, m] = [a, u, depth(world, k)] if view == "side" else [depth(world, k), u, a]
+        _, deg = find_bat(crop, lm, person, prev)
+        if deg is not None: prev = deg
+        a = np.deg2rad(deg) if deg is not None else None
+        bats.append(None if a is None else [sign * np.cos(a), -np.sin(a)])
+    # Frames the bat wasn't found in take the nearest found direction.
+    found = [n for n, b in enumerate(bats) if b is not None]
+    for n in range(len(bats)):
+        if bats[n] is None and found: bats[n] = bats[min(found, key=lambda f: abs(f - n))]
+    t = np.arange(len(order))
+    kernel = lambda c: np.exp(-0.5 * ((t[:, None] - c) / 1.2) ** 2)
+    w = kernel(t)
+    w = w / w.sum(axis=0, keepdims=True)
+    smooth = np.einsum("fc,fjd->cjd", w, raw)
+    bat = np.array(bats, dtype=float)
+    bat = np.einsum("fc,fd->cd", w, bat)
+    frames_out = []
+    for n, i in enumerate(order):
+        d = bat[n] / (np.linalg.norm(bat[n]) or 1)
+        frames_out.append({"frame": i, "pose": {j: [round(float(v), 4) for v in smooth[n, m]] for m, j in enumerate(names)}, "bat": [round(float(d[0]), 4), round(float(d[1]), 4), 0]})
+    json.dump({"schema": "aline.traced-motion/1", "shot": shot, "view": view, "batting_side": "right", "clip": os.path.basename(video), "fps": round(len(frames) and cap.get(cv2.CAP_PROP_FPS) or 30, 3), "moments": moments, "frames": frames_out}, open(motion_out, "w"), separators=(",", ":"))
+    print("motion", len(frames_out), "frames", os.path.getsize(motion_out), "bytes")
