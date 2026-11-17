@@ -188,7 +188,7 @@ export const batDirection = (p: Pose): V3 | null => (p.bat_handle && p.bat_toe ?
  * 2026-11-17: "right hand is not in sync with how a human holds the bat"): both hands on the
  * handle, the top hand (front wrist) just above the bottom hand, each arm reaching from its
  * shoulder with its bones' own lengths. The top arm keeps the way its elbow bends; the bottom
- * arm's elbow drops down and back beside the body, as a batter's does (and as a side-on clip of a
+ * arm's elbow drops down and a little forward, tucked in front of the hip, as a batter's does (and as a side-on clip of a
  * right-hander can't see: that arm is behind the body, where the tracker guesses).
  */
 export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(p)): Pose {
@@ -201,8 +201,13 @@ export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(
     const grip = add(handle, mul(d, along));
     const shoulder = p[j(side, "shoulder")];
     const from = sub(shoulder, grip);
-    const back = unit(sub(from, mul(d, dot(from, d)))) ?? ([0, 0, 1] as V3);
-    const wrist = add(grip, mul(back, GRIP.hand));
+    const toArm = unit(sub(from, mul(d, dot(from, d)))) ?? ([0, 0, 1] as V3);
+    // The hands stay behind the handle all through the stroke (the face looks toward the bowler),
+    // a little toward the arm they belong to: so the wrist keeps its angle as the bat swings.
+    const fwd: V3 = [1, 0, 0];
+    const face = unit(sub(fwd, mul(d, dot(fwd, d)))) ?? ([0, 1, 0] as V3);
+    const behind = unit(add(mul(face, -GRIP.behind), mul(toArm, 1 - GRIP.behind))) ?? toArm;
+    const wrist = add(grip, mul(behind, GRIP.hand));
     const r = reach(shoulder, distance(shoulder, p[j(side, "elbow")]), distance(p[j(side, "elbow")], p[j(side, "wrist")]), pole, wrist);
     next[j(side, "elbow")] = r.mid;
     next[j(side, "wrist")] = r.end;
@@ -220,10 +225,11 @@ export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(
 }
 /**
  * How a batter holds the bat (body heights): the top and bottom hands either side of the handle
- * point (the two gloves touching), each wrist a hand's length back from the handle, and which way
- * the bottom elbow bends (down and back, beside the body).
+ * point (the two gloves touching), each wrist a hand's length back from the handle, mostly behind
+ * the bat's face (`behind`: the share of that, the rest toward its own arm), and which way
+ * the bottom elbow bends (down and a little forward, tucked in front of the hip, as a batter's is).
  */
-export const GRIP = { top: 0.03, bottom: 0.035, hand: 0.05, bottomElbow: [-0.35, -1, 0] as V3 } as const;
+export const GRIP = { top: 0.03, bottom: 0.035, hand: 0.05, behind: 0.7, bottomElbow: [0.35, -1, 0.15] as V3 } as const;
 export function withoutBat(p: Pose): Pose {
   const { bat_handle: _h, bat_toe: _t, ...rest } = p;
   void _h;

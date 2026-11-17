@@ -179,8 +179,8 @@ body." Nothing of that site is copied: Aline draws its own mannequin.
 - **Both hands on the bat** (the owner, with a coaching photo: "Right hand is not in sync with how a
   human holds the bat… similarly check the back-foot defence"): with a bat, each arm reaches from its
   shoulder (bone lengths kept) to its place on the handle, the top hand just above the bottom one;
-  the top elbow keeps its bend (high and forward), the bottom elbow drops down and back beside the
-  body (`placeBat`, `GRIP` in `pose-model.ts`). A side-on clip of a right-hander can't see that arm
+  the top elbow keeps its bend (high and forward), the bottom elbow drops down and a little forward, tucked in front of the
+  hip (`placeBat`, `GRIP` in `pose-model.ts`). A side-on clip of a right-hander can't see that arm
   (it is behind the body, where the tracker guesses), so it is solved, not copied. Tested on every
   moment of both shots.
 - **The wrist** (the owner: "There is no concept of wrist… that's why it's not matching the human
@@ -188,3 +188,7 @@ body." Nothing of that site is copied: Aline draws its own mannequin.
   its arm comes from, and the gloved hand runs from the wrist to the handle at its own angle before
   closing round it, so the hand bends at the wrist as a batter's does. Where an arm can't reach that
   far, the bat comes toward the hands until both hold it.
+- **The wrists through the stroke** (the owner: "right wrist angle seems off with movement"): each
+  wrist sits mostly behind the handle (opposite the face, `GRIP.behind`), a little toward its own arm,
+  so the hands keep their angle on the handle as the bat swings; the bottom elbow bends down and a
+  little forward, tucked in front of the hip ("right elbow rotation is not in sync").
