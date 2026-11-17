@@ -1343,3 +1343,5 @@ Open:
   forward, tucked in front of the hip, the upper arm angled toward the bat (it hung straight down).
 - "Now right wrist angle seems off with movement": each wrist now stays behind the handle (opposite
   the bat's face), a little toward its own arm, so the hands keep their angle as the bat swings.
+- "See right side wrist facing upwards, left side wrist downwards, the core human motion logic is
+  missing": each hand now carries on the line of its forearm, the wrist cocked only a little.
