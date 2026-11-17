@@ -1,3 +1,4 @@
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PitchGuide } from "@/components/capture/pitch-guide";
@@ -38,8 +39,8 @@ export default function GuidePage() {
     <div className="mx-auto max-w-5xl px-4 sm:px-6 py-10 sm:py-16">
       <header className="max-w-3xl">
         <p className="eyebrow">Guide</p>
-        <h1 className="display mt-3 text-4xl sm:text-6xl">How to analyse your defence</h1>
-        <p className="mt-4 text-lg text-fg-muted">The front-foot defence, and now the <a href="#back-foot" className="underline">back-foot defence</a>. You film and upload. Aline finds the shot, the batter and the camera angle, checks the recording and tracks the body on your phone — no setup screens.</p>
+        <h1 className="display mt-3 text-4xl sm:text-6xl">How to film your shot</h1>
+        <p className="mt-4 text-lg text-fg-muted">Film. Upload. Aline does the rest, on your phone.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/check" className="btn btn-primary">Start now</Link>
           <Link href="/sample/valid_ffd" className="btn btn-ghost">See what you&apos;ll get</Link>
@@ -79,19 +80,21 @@ export default function GuidePage() {
             </div>
           </div>
           <PitchGuide />
-          <p className="rounded-xl bg-tint p-3 text-sm text-fg-muted">
-            Only able to film from behind the bowler? That works too — Aline recognises the camera position. Some distances become estimates and bounce, bat speed and ball speed aren&apos;t measured.
+          <p className="text-sm text-fg-muted">
+            <Hold more={<p>Only able to film from behind the bowler? That works too — Aline recognises the camera position. Some distances become estimates and bounce, bat speed and ball speed aren&apos;t measured.</p>}>
+              From the bowler&apos;s end works too
+            </Hold>
           </p>
           <div className="grid gap-4 md:grid-cols-2">
             <Do items={["Square-on to the batter, at hip height", "6–8 m away, so head, feet, bat and stumps stay in frame", "The bounce area visible in the frame", "Phone fixed still — no hand-holding"]} />
             <Do dont items={["Filming from behind the keeper (the body hides bat and ball)", "Zooming in so the feet or head leave the frame", "People walking between the camera and batter", "Bright sun or nets lights behind the batter"]} />
           </div>
-          <Do items={["Start recording before the ball is released", "Play the defence as you normally would (pick front-foot or back-foot on the Analyse screen)", "Stop after your follow-through — or keep filming a whole net session", "Record a few: your personal baseline needs 6 valid defences"]} />
+          <Do items={["Start recording before the ball is released", "Play the defence as you normally would", "Stop after your follow-through — or keep filming a whole net session", "Record a few: your personal baseline needs 6 valid defences"]} />
         </Stage>
 
 
         <Stage id="upload" when="In Aline" title="Upload — the rest is automatic" time="About a minute">
-          <p className="text-fg-muted">Choose the clip — any length — or a few photos. While you watch, Aline:</p>
+          <p className="text-fg-muted">Choose the clip or a few photos. Aline then:</p>
           <ul className="grid gap-2 text-sm sm:grid-cols-2">
             {[
               ["Finds the shot", "Scans the whole clip and skips camera cuts, replays and close-ups."],
@@ -100,19 +103,24 @@ export default function GuidePage() {
               ["Checks the recording", "Frame rate, light, blur, shake and the whole batter in view. If the shot isn't usable it tries the next one, and tells you exactly what to change."],
               ["Tracks the body", "Frame by frame, following the batter through pans and zooms. The video never leaves your phone."],
             ].map(([t, d]) => (
-              <li key={t} className="card p-3"><p className="font-medium">{t}</p><p className="mt-0.5 text-fg-muted">{d}</p></li>
+              <li key={t} className="card px-3 py-1"><Hold more={<p>{d}</p>}><span className="font-medium">{t}</span></Hold></li>
             ))}
           </ul>
-          <p className="text-sm text-fg-subtle">Each choice shows with a “Change” link — use it only if Aline got one wrong.</p>
         </Stage>
 
         <Stage id="read" when="After" title="Read and train" time="2 minutes, then practise">
-          <ol className="space-y-3 text-sm">
-            <li><strong>Verdict first.</strong> <span className="text-fg-muted">Valid defence, different shot, uncertain, or capture failed. A score is only given to a confirmed defence.</span></li>
-            <li><strong>Evidence.</strong> <span className="text-fg-muted">Scrub the replay, switch to 3D, and tap any measure to jump to the frame that proves it.</span></li>
-            <li><strong>One priority, up to two drills.</strong> <span className="text-fg-muted">Each drill has a dosage and a pass condition you can see on video.</span></li>
-            <li><strong>Keep it.</strong> <span className="text-fg-muted">Download the PDF, save it to your account, or share with a coach.</span></li>
-            <li><strong>Re-record.</strong> <span className="text-fg-muted">Your next report compares against this one and your baseline.</span></li>
+          <ol className="text-sm">
+            {[
+              ["Verdict first", "Valid defence, different shot, uncertain, or capture failed. A score is only given to a confirmed defence."],
+              ["Evidence", "Scrub the replay, switch to 3D, and tap any measure to jump to the frame that proves it."],
+              ["One priority, one drill", "One priority, up to two drills. Each drill has a dosage and a pass condition you can see on video."],
+              ["Keep it", "Download the PDF, save it to your account, or share with a coach."],
+              ["Re-record", "Your next report compares against this one and your baseline."],
+            ].map(([t, d]) => (
+              <li key={t}>
+                <Hold more={<p>{d}</p>}><span className="font-semibold">{t}</span></Hold>
+              </li>
+            ))}
           </ol>
           <div className="flex flex-wrap gap-3 pt-2">
             <Link href="/check" className="btn btn-primary">Check your shot</Link>
@@ -121,7 +129,9 @@ export default function GuidePage() {
         </Stage>
 
         <Stage id="ball-bat" when="If you want more" title="Optional: add ball and bat" time="About 30 seconds">
-          <p className="text-fg-muted">The ball and bat are small and fast, so a phone can&apos;t always see them. Without them the report shows what your body did but can&apos;t confirm the shot. To get the full verdict, tap “Add ball and bat” on the report and mark them on a few frames. Every mark is labelled “marked by you”; skip anything you can&apos;t see.</p>
+          <p className="text-fg-muted">
+            <Hold more={<p>The ball and bat are small and fast, so a phone can&apos;t always see them. Without them the report shows what your body did but can&apos;t confirm the shot. To get the full verdict, tap “Add ball and bat” on the report and mark them on a few frames. Every mark is labelled “marked by you”; skip anything you can&apos;t see.</p>}>Tap “Add ball and bat” on the report for the full verdict</Hold>
+          </p>
           <details className="group rounded-2xl border border-line">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 font-medium">
             Where to tap, step by step
