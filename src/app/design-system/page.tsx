@@ -1,3 +1,4 @@
+import { Hold } from "@/components/common/hold";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { sampleAnalysis } from "@/lib/demo";
@@ -26,7 +27,9 @@ const TOKENS: Array<[string, string, string, string]> = [
 const Block = ({ title, rules, children }: { title: string; rules: string; children: React.ReactNode }) => (
   <section className="space-y-3">
     <h2 className="display text-3xl">{title}</h2>
-    <p className="text-sm text-fg-muted max-w-3xl">{rules}</p>
+    <p className="text-sm text-fg-muted max-w-3xl">
+      <Hold more={<p>{rules}</p>}>The rules</Hold>
+    </p>
     {children}
   </section>
 );
@@ -42,7 +45,11 @@ export default function DesignSystemPage() {
       <header className="space-y-2">
         <p className="eyebrow">Design system</p>
         <h1 className="display text-5xl">Components and states</h1>
-        <p className="text-fg-muted max-w-3xl">A dark field, warm white text and one orange. Orange is the line, the moment being looked at and the one main action; it is never a surface and never means “good”. A state always carries a word or a mark as well as a colour. Every state below is drawn from the real engine on DEMO DATA.</p>
+        <p className="text-fg-muted max-w-3xl">
+          <Hold more={<p>A dark field, warm white text and one orange. Orange is the line, the moment being looked at and the one main action; it is never a surface and never means “good”. A state always carries a word or a mark as well as a colour. Every state below is drawn from the real engine on DEMO DATA.</p>}>
+            Dark, warm white, one orange
+          </Hold>
+        </p>
         <p><Link href="/design" className="inline-flex min-h-11 items-center underline underline-offset-4">Every screen and flow, mapped</Link></p>
       </header>
 
