@@ -177,7 +177,7 @@ export function PoseCanvas({
 
       {art ? (
         <g aria-hidden>
-          <path d={art.body} fillRule="evenodd" fill="var(--fg)" stroke="var(--fg)" strokeWidth={0.6} strokeLinejoin="round" />
+          <path d={art.body} fill="none" stroke="var(--fg)" strokeWidth={1.3} strokeLinejoin="round" strokeLinecap="round" />
           {art.bat && <path d={art.bat} fill="var(--surface)" stroke="var(--fg)" strokeWidth={1.6} strokeLinejoin="round" />}
           {art.grips && <path d={art.grips} fill="var(--surface)" stroke="var(--fg)" strokeWidth={1.3} strokeLinejoin="round" />}
         </g>
@@ -226,14 +226,14 @@ const PLAIN_BAT = plainBat(BAT.handsToToe, BAT.aboveHands, BAT.blade, BAT.width)
 /** The traced drawing bent to `pose` in 3D, as SVG paths in the picture. The bat and hands only when the model holds a bat. */
 function artPaths(tied: Tied, pose: Pose, start: Pose, plane: Plane, project: (p: V3) => Projected) {
   const at = followFrom(tied.traced, start, pose, plane);
-  const path = (shapes: V3[][]) =>
+  const path = (shapes: V3[][], closed = true) =>
     shapes
-      .filter((s) => s.length > 2)
-      .map((s) => `M${s.map((p) => { const q = project(p); return `${q.x.toFixed(1)},${q.y.toFixed(1)}`; }).join("L")}Z`)
+      .filter((s) => s.length > (closed ? 2 : 1))
+      .map((s) => `M${s.map((p) => { const q = project(p); return `${q.x.toFixed(1)},${q.y.toFixed(1)}`; }).join("L")}${closed ? "Z" : ""}`)
       .join("");
   const hasBat = !!(pose.bat_handle && pose.bat_toe);
   return {
-    body: path(bend(tied.body, bodyBones(at), plane)),
+    body: path(bend(tied.body, bodyBones(at), plane, true), false),
     bat: hasBat && tied.bat ? path(bend(tied.bat, batBones(at), plane)) : null,
     grips: hasBat && tied.grips ? path(bend(tied.grips, handBones(at), plane)) : null,
   };

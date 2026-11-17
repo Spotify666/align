@@ -1315,3 +1315,9 @@ Open:
 - Later the same day: "Add the front view drawing too. All angles covered for both shots."
   Shipped: the bowler's-end drawing, and every angle in 3D. There is no front-on clip of a
   front-foot defence, so that view uses the back-foot one and says so; asked the owner for one.
+- Later: "The arcs don't give the real idea of a human being… There is no way this is called a good
+  representation" (3D turn; a hand dragged far). Fixed: each body part moves rigidly with its own
+  bone (a cut-out pinned at the joints); in 3D the tracing is a flat cut-out. Docs/14.
+- "This em dash itself gives a clear indicator of being AI generated completely and doesn't feel
+  genuine." Removed from every page's copy and the page titles; the analysis's stored sentences
+  lose theirs on the way to the screen. A test keeps them out (`tests/display-text.test.ts`).

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Aline — cricket shot analysis",
+    name: "Aline · Cricket shot analysis",
     short_name: "Aline",
     description: "Front-foot and back-foot defence analysis: confirm the shot, then measure it.",
     start_url: "/home",

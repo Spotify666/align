@@ -3,6 +3,7 @@
 // payload and template text the screen shows, so the file never disagrees with it.
 
 import type { AnalysisPayload } from "@/engine/types";
+import { forDisplay } from "./display-text";
 import { templateReport } from "@/engine/report";
 import { DOMAIN_LABELS } from "@/engine/registry";
 import { fmt } from "@/engine/scoring";
@@ -28,7 +29,8 @@ const clean = (s: string) =>
     .replaceAll("‑", "-")
     .replace(/[^\u0000-ÿ–—‘’“”•…]/g, "");
 
-export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: string; evidenceImage?: string | null } = {}) {
+export async function downloadReportPdf(stored: AnalysisPayload, opts: { title?: string; evidenceImage?: string | null } = {}) {
+  const p = forDisplay(stored);
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
@@ -131,7 +133,7 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
   // Domains and measures
   if (p.analysis_status === "valid") {
     heading("Six domains");
-    for (const d of p.domains) text(`${DOMAIN_LABELS[d.domain]}: ${d.status.replace("_", " ")} — ${d.summary}`, 9.5, ink, "normal", 1);
+    for (const d of p.domains) text(`${DOMAIN_LABELS[d.domain]}: ${d.status.replace("_", " ")}: ${d.summary}`, 9.5, ink, "normal", 1);
     heading("Movement indicators");
     doc.setFontSize(8.5);
     const cols = [M, M + 170, M + 270, M + 380];
@@ -146,7 +148,7 @@ export async function downloadReportPdf(p: AnalysisPayload, opts: { title?: stri
       doc.setTextColor(...ink);
       doc.text(clean(m.name), cols[0]!, y + 9);
       doc.text(clean(m.value !== null ? plainValue(m) : "not checked"), cols[1]!, y + 9);
-      doc.text(clean(m.range ? plainRange(m) : "—"), cols[2]!, y + 9);
+      doc.text(clean(m.range ? plainRange(m) : "–"), cols[2]!, y + 9);
       doc.setTextColor(...(m.inRange === false ? ([180, 57, 47] as [number, number, number]) : muted));
       doc.text(clean(m.status === "not_measured" ? "" : m.inRange === null ? "not graded" : plainReading(m)), cols[3]!, y + 9);
       y += 13;

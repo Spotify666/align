@@ -62,7 +62,7 @@ export function PhotoReview({
         <p className="eyebrow">Photos</p>
         <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">{items.length === 1 ? "Your photo" : `${items.length} photos`}</h1>
         <p className="mt-2 text-fg-muted">
-          Photos give a posture screen: knee bend, head position and trunk lean. Tag what each photo shows — the one tagged <strong className="text-fg">Contact</strong> leads the report.
+          Photos give a posture screen: knee bend, head position and trunk lean. Tag what each photo shows. The one tagged <strong className="text-fg">Contact</strong> leads the report.
           {found < items.length && ` ${items.length - found} without a clear batter will be skipped.`}
         </p>
       </div>
@@ -94,7 +94,7 @@ export function PhotoReview({
           <p className="font-medium">{failed.length === 1 ? "1 file couldn't be used" : `${failed.length} files couldn't be used`}</p>
           <ul className="mt-2 space-y-1.5 text-sm text-fg-muted">
             {failed.map((f) => (
-              <li key={f.name}><span className="font-medium text-fg">{f.name}</span> — {f.reason}</li>
+              <li key={f.name}><span className="font-medium text-fg">{f.name}</span>: {f.reason}</li>
             ))}
           </ul>
         </div>

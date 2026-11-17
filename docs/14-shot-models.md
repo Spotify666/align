@@ -136,3 +136,14 @@ traced again, larger (`rig.py` scales a small batter up), for all three moments;
 in 3D (each line keeps its bone's depth), so it shows from the side, from the front and at any 3D
 turn (the side tracing up to 45°, the bowler's-end one beyond); a moment whose clip didn't show the
 bat clearly draws a full-size bat in the hands instead.
+
+### A cut-out, not a stretch (2026-11-17, later)
+
+The owner, on a 3D turn and on a hand dragged far: "The arcs don't give the real idea of a human
+being. It's all messed up… There is no way this is called a good representation." Both were right:
+each traced line was one closed outline whose points blended between two bones, so a joint moved
+far dragged it across the body, and in 3D a line bent round a bone pointing at the camera tore.
+Now each point belongs to one part only and a traced line is cut where it passes to the next part,
+so every part (head, trunk, each upper arm, forearm, thigh, shin, foot) moves rigidly with its bone,
+like a cut-out pinned at the joints; at worst a small gap opens at a joint. In 3D a tracing is a flat
+cut-out on its own plane at the hips' depth.

@@ -56,7 +56,7 @@ export function BatterPicker({
       <div>
         <p className="eyebrow">Moment</p>
         <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">Which one is the batter?</h1>
-        <p className="mt-2 text-fg-muted">We see {candidates.length} people. Tap the batter — only they are tracked.</p>
+        <p className="mt-2 text-fg-muted">We see {candidates.length} people. Tap the batter. Only they are tracked.</p>
       </div>
       <div className="stage relative mx-auto overflow-hidden rounded-2xl" style={{ aspectRatio: `${aspect}`, maxHeight: "62vh", maxWidth: `calc(62vh * ${aspect})` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}

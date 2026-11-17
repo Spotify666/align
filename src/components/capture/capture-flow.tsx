@@ -447,7 +447,7 @@ export function CaptureFlow() {
     }
     if (!alive()) return;
     if (!v.videoWidth || !v.videoHeight) return fail("No picture in this file", "The file plays but has no video image (audio only?). Choose the original video from your camera roll.");
-    if (!Number.isFinite(v.duration) || v.duration < 0.5) return fail("Clip too short", "The clip must include the whole shot — start before the ball is bowled and stop after the follow-through.");
+    if (!Number.isFinite(v.duration) || v.duration < 0.5) return fail("Clip too short", "The clip must include the whole shot: start before the ball is bowled and stop after the follow-through.");
     let fps = track?.fps ?? null;
     let fpsSource: Meta["fpsSource"] = track ? "container" : "unknown";
     if (!fps && "requestVideoFrameCallback" in v) {
@@ -543,7 +543,7 @@ export function CaptureFlow() {
     stage(
       "batter",
       "done",
-      cs.length > 1 ? `${cs.length} people in view — following the one batting` : cs.length ? "Found the batter" : "No clear person found — using the whole frame",
+      cs.length > 1 ? `${cs.length} people in view, following the one batting` : cs.length ? "Found the batter" : "No clear person found, so using the whole frame",
     );
     await fromCamera(id);
   }
@@ -615,7 +615,7 @@ export function CaptureFlow() {
           // An earlier shot was analysed: report the clearest of those instead.
           const b = j.attempts.reduce((best, a) => (rank(a.payload) > rank(best.payload) ? a : best), j.attempts[0]!);
           mediaTimesRef.current = b.times;
-          stage("check", "done", "This shot isn't usable — using the earlier one");
+          stage("check", "done", "This shot isn't usable, so using the earlier one");
           return finish(b.marks, b.tr);
         }
         stage("check", "done", "Not usable");
@@ -1684,9 +1684,9 @@ function SlowExport({ slow, onChange }: { slow: number; onChange: (s: number) =>
     <label className="block text-sm">
       <span className="text-fg-muted">Was this clip saved as a slowed-down video (slow motion baked in)?</span>
       <select className="field mt-1" value={slow} onChange={(e) => onChange(Number(e.target.value))}>
-        <option value={1}>No — it plays at real speed</option>
-        <option value={4}>Yes — 4× slowed (120 fps slow-mo)</option>
-        <option value={8}>Yes — 8× slowed (240 fps slow-mo)</option>
+        <option value={1}>No, it plays at real speed</option>
+        <option value={4}>Yes, 4× slowed (120 fps slow-mo)</option>
+        <option value={8}>Yes, 8× slowed (240 fps slow-mo)</option>
       </select>
     </label>
   );

@@ -5,8 +5,8 @@
 //
 // How it bends: every point of the drawing is tied to the one or two bones nearest it in the
 // traced pose (its place along the bone and its distance to one side). When the joints move, the
-// point keeps that place on the moved bones, in 3D: the bones carry their depth, so the drawing
-// follows the joints from any angle, the side tracing nearer side-on and the bowler's-end one
+// point keeps that place on the moved bones. In 3D a tracing is a flat cut-out on its own plane at
+// the hips' depth, turned with the figure: the side tracing nearer side-on, the bowler's-end one
 // nearer front-on. It is never mirrored for a left-hander (standing rule 7: a left-hander needs a
 // left-hander's clip).
 //
@@ -81,8 +81,10 @@ export function followFrom(traced: Pose, start: Pose, now: Pose, plane: Plane) {
   // The tracing stands where the starting pose stands: its hips over the same spot on the ground.
   const hips = (q: Pose) => [(q.front_hip[0] + q.back_hip[0]) / 2, (q.front_hip[2] + q.back_hip[2]) / 2];
   const [dx, dz] = [hips(start)[0]! - hips(traced)[0]!, hips(start)[1]! - hips(traced)[1]!];
-  // A tracing has its shape in its own plane only; the axis it was seen along is the pose's.
+  // A tracing has its shape in its own plane only, so it stays a flat cut-out at the hips' depth:
+  // bent round bones that point toward the camera, its lines would tear (2026-11-17, a 3D turn).
   const depth = plane === "side" ? 2 : 0;
+  const flat = (now.front_hip[depth] + now.back_hip[depth]) / 2;
   return (p: ModelPoint): V3 | null => {
     if (p === "bat_handle" || p === "bat_toe") return now[p] ?? null;
     const r = traced[p];
@@ -90,7 +92,7 @@ export function followFrom(traced: Pose, start: Pose, now: Pose, plane: Plane) {
     const b = now[p];
     if (!r || !a || !b) return null;
     const out: [number, number, number] = [r[0] + dx + b[0] - a[0], r[1] + b[1] - a[1], r[2] + dz + b[2] - a[2]];
-    out[depth] = b[depth];
+    out[depth] = flat;
     return out;
   };
 }
@@ -155,8 +157,10 @@ export function bind(shapes: number[][], rest: Bone[]): Bound {
             best = row;
           } else if (d < next[1]!) next = row;
         });
-        const w1 = next[0]! < 0 ? 1 : (1 / (best[1]! + 0.004) ** 4) / (1 / (best[1]! + 0.004) ** 4 + 1 / (next[1]! + 0.004) ** 4);
-        out.set([best[0]!, best[2]!, best[3]!, next[0]! < 0 ? best[0]! : next[0]!, next[2]!, next[3]!, w1], i * 7);
+        // One bone per point: a part moves rigidly with its bone (a cut-out pinned at the joints).
+        // Blending two bones stretched lines across the body when a joint moved far (2026-11-17).
+        void next;
+        out.set([best[0]!, best[2]!, best[3]!, best[0]!, best[2]!, best[3]!, 1], i * 7);
       }
       return out;
     }),
@@ -185,23 +189,29 @@ function place(b: Bone<V3>, t: number, off: number, n: V3): V3 | null {
 }
 
 /**
- * The shapes on the bones as they are now, in 3D. In the plane the drawing was traced in, a
- * point lands where the 2D bending puts it; out of it, it keeps its bone's depth. A point whose
- * bones are both unseen is dropped.
+ * The shapes on the bones as they are now, in 3D. With `cut`, a traced line is cut where it
+ * passes from one body part to the next, and each piece is returned as an open line on its own
+ * part, so a part that moves never drags a line across the body. A point whose bone is unseen is
+ * dropped.
  */
-export function bend(bound: Bound, now: Bone<V3>[], plane: Plane): V3[][] {
+export function bend(bound: Bound, now: Bone<V3>[], plane: Plane, cut = false): V3[][] {
   const n = PLANE_NORMAL[plane];
-  return bound.shapes.map((v) => {
-    const pts: V3[] = [];
+  const out: V3[][] = [];
+  for (const v of bound.shapes) {
+    let piece: V3[] = [];
+    let bone = -1;
     for (let i = 0; i < v.length; i += 7) {
       const p = place(now[v[i]!] ?? null, v[i + 1]!, v[i + 2]!, n);
-      const q = place(now[v[i + 3]!] ?? null, v[i + 4]!, v[i + 5]!, n);
-      const w = v[i + 6]!;
-      if (p && q) pts.push([p[0] * w + q[0] * (1 - w), p[1] * w + q[1] * (1 - w), p[2] * w + q[2] * (1 - w)]);
-      else if (p || q) pts.push((p ?? q)!);
+      if (cut && v[i] !== bone && piece.length) {
+        out.push(piece);
+        piece = [];
+      }
+      bone = v[i]!;
+      if (p) piece.push(p);
     }
-    return pts;
-  });
+    if (piece.length) out.push(piece);
+  }
+  return out;
 }
 
 /**

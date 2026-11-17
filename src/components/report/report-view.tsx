@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { forDisplay } from "@/lib/display-text";
 import type { AnalysisPayload, CaptureObservation, Metric, TargetShot } from "@/engine/types";
 import { TARGET_SHOTS } from "@/engine/types";
 import type { BaselineComparison } from "@/engine/baseline";
@@ -71,7 +72,9 @@ const noSubscribe = () => () => {};
 const SHOT_NAME: Record<TargetShot, string> = { front_foot_defence: "front-foot defence", back_foot_defence: "back-foot defence" };
 const shotOf = (p: AnalysisPayload): TargetShot => p.requested_shot ?? "front_foot_defence";
 
-export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, otherAngle, session, title, analysisId, onAnalyseAs, unchosen, printHref, modelCheck, modelPanel }: Props) {
+export function ReportView({ payload: stored, obs, videoUrl, mediaTimes, keyframes, baseline, reference, narrative, actions, notice, markHref, angleLink, otherAngle, session, title, analysisId, onAnalyseAs, unchosen, printHref, modelCheck, modelPanel }: Props) {
+  // The stored result's own sentences, without em dashes on screen (lib/display-text.ts).
+  const p = useMemo(() => forDisplay(stored), [stored]);
   const viewer = useRef<EvidenceViewerHandle>(null);
   const [switching, setSwitching] = useState(false);
   // The report opens on the summary; each section beyond it is drawn only when the batter opens it.
@@ -339,7 +342,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
                         </td>
                         {ph.observations.map((m) => (
                           <td key={m.id} className={`num px-3 py-2.5 ${m.inRange === false ? "text-bad" : ""}`}>
-                            {m.value !== null ? `${m.value.toFixed(m.decimals)} ${m.unit.replace("× stature", "×H")}` : <span className="text-fg-subtle">—</span>}
+                            {m.value !== null ? `${m.value.toFixed(m.decimals)} ${m.unit.replace("× stature", "×H")}` : <span className="text-fg-subtle">–</span>}
                             {m.inRange === true && <span className="ml-1 text-ok" aria-label="within range">✓</span>}
                             {m.inRange === false && <span className="ml-1" aria-label="outside range">!</span>}
                           </td>
@@ -410,7 +413,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
               <button key={a} className="chip border-line-strong text-fg-muted min-h-11 capitalize" disabled={aiState === "loading"} onClick={() => askAi(a)}>{a}</button>
             ))}
             {aiState === "loading" && <span className="text-fg-subtle">Writing… (checked against the evidence before it is shown)</span>}
-            {aiState === "unavailable" && <span className="text-fg-subtle">AI writing isn&apos;t switched on for this site — showing the standard report.</span>}
+            {aiState === "unavailable" && <span className="text-fg-subtle">AI writing isn&apos;t switched on for this site, so this is the standard report.</span>}
             {aiState === "fallback" && <span className="text-warn">The AI draft didn&apos;t match the evidence, so the standard report is shown.</span>}
           </div>
           <div className="card p-5 sm:p-6 space-y-5">
@@ -464,7 +467,7 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
             </section>
 
             <section aria-labelledby="indicators" className="space-y-4">
-              <SectionHead id="indicators" eyebrow="Movement indicators" title="Measures, ranges and evidence" note="Ranges are provisional coaching ranges, not population norms. Not-measured means the capture could not support it — never zero." />
+              <SectionHead id="indicators" eyebrow="Movement indicators" title="Measures, ranges and evidence" note="Ranges are provisional coaching ranges, not population norms. Not measured means the capture could not support it. It is never shown as zero." />
               {(["alignment", "footwork", "head_trunk", "bat_contact", "setup", "sequence", "outcome"] as const).map((d) => {
                 const ms = p.metrics.filter((m) => m.domain === d);
                 if (!ms.length) return null;
@@ -502,9 +505,9 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
                   <strong className="text-fg">{p.tracking.bat.ok ? p.tracking.bat.source.replace("_", " ") : "no"}</strong>, ball{" "}
                   <strong className="text-fg">{p.tracking.ball.ok ? p.tracking.ball.source.replace("_", " ") : "no"}</strong>
                 </li>
-                <li>3. Delivery: <strong className="text-fg">{p.delivery.available ? (p.delivery.lengthLabel ?? "—") : "not claimed"}</strong></li>
+                <li>3. Delivery: <strong className="text-fg">{p.delivery.available ? (p.delivery.lengthLabel ?? "–") : "not claimed"}</strong></li>
                 <li>4–5. Shot family and compatibility: <strong className="text-fg">{meta.label}</strong></li>
-                <li>6. Technique measured: <strong className="text-fg">{isValid ? "yes" : "no — withheld"}</strong></li>
+                <li>6. Technique measured: <strong className="text-fg">{isValid ? "yes" : "no, withheld"}</strong></li>
               </ol>
               {p.features.length > 0 && (
                 <ul className="mt-4 divide-y divide-line">
@@ -834,7 +837,7 @@ function DeliveryPanel({ payload: p, onSeek }: { payload: AnalysisPayload; onSee
           </div>
           <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <div><dt className="text-fg-subtle">Bounce</dt><dd className="num">{d.bounceDistanceM !== null ? `${d.bounceDistanceM.toFixed(1)} m ± ${(d.bounceUncertaintyM ?? 0).toFixed(1)}` : "not seen"}</dd></div>
-            <div><dt className="text-fg-subtle">At batter</dt><dd className="num">{d.heightAtBatterM !== null ? `${d.heightAtBatterM.toFixed(2)} m` : d.heightAtBatterRel !== null ? `${d.heightAtBatterRel.toFixed(2)} × height` : "—"}</dd></div>
+            <div><dt className="text-fg-subtle">At batter</dt><dd className="num">{d.heightAtBatterM !== null ? `${d.heightAtBatterM.toFixed(2)} m` : d.heightAtBatterRel !== null ? `${d.heightAtBatterRel.toFixed(2)} × height` : "–"}</dd></div>
             {d.length && (["full", "good", "short"] as const).map((k) => (
               <div key={k} className="hidden sm:block"><dt className="text-fg-subtle capitalize">{k}</dt><dd className="num">{Math.round(d.length![k] * 100)}%</dd></div>
             )).slice(0, 2)}

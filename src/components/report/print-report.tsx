@@ -1,5 +1,6 @@
 "use client";
 
+import { forDisplay } from "@/lib/display-text";
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AnalysisPayload, CaptureObservation, ImgPoint, LinePartId, Metric } from "@/engine/types";
@@ -180,7 +181,7 @@ function MetricRows({ metrics, level }: { metrics: Metric[]; level: ReadingLevel
                 {m.name}
               </td>
               {level !== "simple" && <td className="py-1.5 pr-3 num">{friendlyValue(m)}</td>}
-              {level !== "simple" && <td className="py-1.5 pr-3 num text-fg-muted">{m.range ? friendlyRange(m) : "—"}</td>}
+              {level !== "simple" && <td className="py-1.5 pr-3 num text-fg-muted">{m.range ? friendlyRange(m) : "–"}</td>}
               <td className={`py-1.5 ${off ? "font-semibold" : "text-fg-muted"}`}>{m.inRange === null ? "not graded" : plainReading(m)}</td>
             </tr>
           );
@@ -196,7 +197,8 @@ function MetricRows({ metrics, level }: { metrics: Metric[]; level: ReadingLevel
  * Always in the daylight theme, readable in greyscale (every state is also a word or a mark).
  * Made from the same payload as the screen, so the two never disagree.
  */
-export function PrintReport({ payload: p, obs, keyframes, title, backHref, unchosen }: { payload: AnalysisPayload; obs: CaptureObservation; keyframes: Record<number, string>; title?: string; backHref: string; unchosen?: boolean }) {
+export function PrintReport({ payload: stored, obs, keyframes, title, backHref, unchosen }: { payload: AnalysisPayload; obs: CaptureObservation; keyframes: Record<number, string>; title?: string; backHref: string; unchosen?: boolean }) {
+  const p = forDisplay(stored);
   const level = useSyncExternalStore(noSubscribe, () => readingLevel(loadProfile().ageBand, loadProfile().level), () => "plain" as ReadingLevel);
   const sum = plainSummary(p, { mediaKind: obs.media.kind, level, unchosen });
   const report = templateReport(p);

@@ -210,7 +210,7 @@ function MatchRow({ row, open, onToggle, mine, numbers }: { row: Row; open: bool
             </span>
           )}
         </span>
-        <span className="num shrink-0 text-2xl font-semibold">{s === null ? "—" : `${s}%`}</span>
+        <span className="num shrink-0 text-2xl font-semibold">{s === null ? "–" : `${s}%`}</span>
       </button>
       {open && s !== null && <MatchDetail sim={row.sim} name={row.name} numbers={numbers} axis={mine.axis} />}
     </li>

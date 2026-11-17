@@ -41,6 +41,11 @@ small.
   `<Hold more={full}>short</Hold>` (`components/common/hold.tsx`; a mouse click and Enter open it
   too). Write the short version first, in a few words a child could follow. `check:pages` fails
   on a paragraph of 30 words or more showing when a page opens (print layouts excepted).
+- **No em dashes** (the owner, 2026-11-17: "This em dash itself gives a clear indicator of being
+  AI generated"). Write a comma, a colon or a full stop instead. The app's own copy has none
+  (`tests/display-text.test.ts` fails on one); the analysis's own stored sentences keep theirs
+  (byte-identical to the locked build) and lose them on the way to the screen (`forDisplay`,
+  `src/lib/display-text.ts`).
 - **Honest states**: loading, empty, failed and "can't tell" are designed, and say what to do.
 - **Comments say why**, in the file's own voice. No commented-out code, no TODOs left behind.
 

@@ -108,11 +108,11 @@ export function ProfilePage() {
             </div>
           </fieldset>
           <label className="text-sm">
-            <span className="text-fg-muted">Height (cm) — scales distances when stumps aren&apos;t marked</span>
+            <span className="text-fg-muted">Height (cm): scales distances when stumps aren&apos;t marked</span>
             <input className="field mt-1" type="number" inputMode="numeric" min={100} max={230} value={p.heightCm ?? ""} onChange={(e) => update({ heightCm: e.target.value ? Number(e.target.value) : null })} />
           </label>
           <label className="text-sm">
-            <span className="text-fg-muted">Analysis level — decides how reports are worded</span>
+            <span className="text-fg-muted">Analysis level: decides how reports are worded</span>
             <select className="field mt-1" value={p.level ?? ""} onChange={(e) => update({ level: (e.target.value || null) as LocalProfile["level"] })}>
               <option value="">Not chosen (follows your age band)</option>
               {ANALYSIS_LEVELS.map((l) => (
@@ -263,8 +263,8 @@ export function ProfilePage() {
       <section className="card p-5 space-y-4" aria-labelledby="data">
         <h2 id="data" className="text-lg font-semibold flex items-center gap-2"><Lock size={18} /> Your data</h2>
         <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-          <div><dt className="text-fg-subtle">Reports on this device</dt><dd className="num text-lg">{usage?.analyses ?? "—"}</dd></div>
-          <div><dt className="text-fg-subtle">Track data</dt><dd className="num text-lg">{usage ? `${(usage.trackBytes / 1024).toFixed(0)} KB` : "—"}</dd></div>
+          <div><dt className="text-fg-subtle">Reports on this device</dt><dd className="num text-lg">{usage?.analyses ?? "–"}</dd></div>
+          <div><dt className="text-fg-subtle">Track data</dt><dd className="num text-lg">{usage ? `${(usage.trackBytes / 1024).toFixed(0)} KB` : "–"}</dd></div>
           <div><dt className="text-fg-subtle">Raw video stored</dt><dd className="text-lg">None</dd></div>
         </dl>
         <div className="flex flex-wrap gap-2">
