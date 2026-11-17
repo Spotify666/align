@@ -53,3 +53,11 @@ node scripts/pose-starters.mjs > src/lib/pose-starters.json
 The frames are the moments Aline found in the clip (its saved analysis). Made on 2026-11-17 from
 the owner's `side_ffd` (backlift 46, foot down 55, contact 61) and `side_bfd` (53, 59, 65, picked
 from its traced frames). `tests/traced-figure.test.ts` checks the files and the starting poses.
+
+From the bowler's end (the batter is small there, so `rig.py` works at six times the clip's size):
+
+```bash
+python scripts/trace/rig.py <end_net.mp4> public/models/pose_landmarker_full.task public/art/model-bfd-front.json back_foot_defence front front_on backlift=25,foot_down=27,contact=29
+```
+
+Contact (29) is the moment Aline found; 25 and 27 were picked from the traced frames.

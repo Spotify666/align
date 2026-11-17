@@ -18,7 +18,6 @@ from mediapipe.tasks.python import vision, BaseOptions
 
 video, model, out_path, shot, view, camera = sys.argv[1:7]
 moments = {k: int(v) for k, v in (m.split("=") for m in sys.argv[7].split(","))}
-K = 3
 SEGMENT_FRACTION_OF_STATURE = 0.779  # thigh + shank + trunk (Winter), as the engine (scene.ts)
 
 cap = cv2.VideoCapture(video); frames = []
@@ -39,6 +38,9 @@ for i in range(lo, hi + 1):
     px = [p.x * Ww for p in r.pose_landmarks[0]]; py = [p.y * Hh for p in r.pose_landmarks[0]]
     xs += [min(px), max(px)]; ys += [min(py), max(py)]; hs.append(max(py) - min(py))
 h = float(np.median(hs)); Hh, Ww = frames[0].shape[:2]
+# Work at three times the video's size, or more for a batter filmed small (from the bowler's end),
+# so the drawing's kernels and line widths meet a batter of about the same size in every clip.
+K = 3 if h >= 200 else int(np.ceil(700 / h))
 x0, x1 = int(max(0, min(xs) - 0.45 * h)), int(min(Ww, max(xs) + 0.45 * h))
 y0, y1 = int(max(0, min(ys) - 0.22 * h)), int(min(Hh, max(ys) + 0.1 * h))
 
