@@ -21,6 +21,9 @@ function where(v: number, axis: "forward" | "sideways") {
   return `${pct(v)} of your height to the ${v > 0 ? "off" : "leg"} side of the front ankle`;
 }
 
+/** A time in seconds, as report screens show it (never milliseconds): 150 → "0.15 s". */
+const secs = (ms: number) => `${Number((Math.abs(ms) / 1000).toFixed(2))} s`;
+
 export function LinePanel({ payload: p, fps, onSeek }: { payload: AnalysisPayload; fps: number | null; onSeek?: (frame: number) => void }) {
   const line = p.line;
   if (!line) return null;
@@ -119,7 +122,7 @@ export function LinePanel({ payload: p, fps, onSeek }: { payload: AnalysisPayloa
               {line.referenceKind === "contact" ? "at contact" : "at the set position (bat and ball not seen, so contact is placed where your body had set)"}.
             </p>
             {onSeek && (
-              <button className="mt-1 text-sm font-medium text-brand hover:underline" onClick={() => onSeek(line.referenceFrame)}>
+              <button className="inline-flex min-h-11 items-center text-sm font-medium text-brand hover:underline" onClick={() => onSeek(line.referenceFrame)}>
                 See this frame
               </button>
             )}
@@ -143,17 +146,17 @@ export function LinePanel({ payload: p, fps, onSeek }: { payload: AnalysisPayloa
           {sync?.value != null && (
             <p className="text-sm">
               <span className="font-semibold">Foot, knee and shoulder together: </span>
-              <span className={sync.inRange === false ? "text-bad" : "text-fg"}>within {Math.round(sync.value)} ms</span>
+              <span className={sync.inRange === false ? "text-bad" : "text-fg"}>within {secs(sync.value)}</span>
               <span className="text-fg-muted">
                 {" "}
-                of each other (aim for 150 ms or less{frameMs ? `; ± ${frameMs} ms, one frame at ${fpsText}` : ""}).
+                of each other (aim for 0.15 s or less{frameMs ? `; give or take ${secs(frameMs)}, one frame at ${fpsText}` : ""}).
               </span>
             </p>
           )}
           {late?.value != null && (
             <p className="text-sm">
               <span className="font-semibold">Set before the ball: </span>
-              <span className={late.inRange === false ? "text-bad" : "text-fg"}>{late.value <= 0 ? "yes, all set before contact" : `still moving ${Math.round(late.value)} ms after contact`}</span>
+              <span className={late.inRange === false ? "text-bad" : "text-fg"}>{late.value <= 0 ? "yes, all set before contact" : `still moving ${secs(late.value)} after contact`}</span>
             </p>
           )}
           {!arrivals && p.mode !== "posture_screen" && (
@@ -195,7 +198,7 @@ function Arrivals({ arrivals, moment, axis }: { arrivals: NonNullable<NonNullabl
   return (
     <figure>
       <p className="text-sm font-semibold">When each part arrived</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" role="img" aria-label={`When the front foot, knee, shoulder and head reached their set position, in milliseconds from ${moment}.`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" role="img" aria-label={`When the front foot, knee, shoulder and head reached their set position, in seconds before and after ${moment}.`}>
         {key.length >= 2 && (
           <rect x={x(Math.min(...key))} y={6} width={Math.max(2, x(Math.max(...key)) - x(Math.min(...key)))} height={rowY(2) + 12 - 6} rx={6} fill="#e8b23a" opacity={0.28} />
         )}
@@ -203,7 +206,7 @@ function Arrivals({ arrivals, moment, axis }: { arrivals: NonNullable<NonNullabl
           <g key={t}>
             <line x1={x(t)} x2={x(t)} y1={6} y2={H - 16} stroke="var(--color-line)" strokeWidth={t === 0 ? 0 : 1} />
             <text x={x(t)} y={H - 4} textAnchor="middle" fontSize={9} fill="var(--color-fg-subtle)">
-              {t === 0 ? "0" : `${t > 0 ? "+" : ""}${t}`}
+              {t === 0 ? "0" : `${Math.abs(t) / 1000}`}
             </text>
           </g>
         ))}
@@ -229,7 +232,7 @@ function Arrivals({ arrivals, moment, axis }: { arrivals: NonNullable<NonNullabl
           );
         })}
       </svg>
-      <figcaption className="text-xs text-fg-subtle">Milliseconds from {moment}; negative = before. Gold: the spread of foot, knee and shoulder.</figcaption>
+      <figcaption className="text-xs text-fg-subtle">Seconds before (left of the line) and after (right of it) {moment}. Gold: the spread of foot, knee and shoulder.</figcaption>
     </figure>
   );
 }

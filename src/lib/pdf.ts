@@ -4,7 +4,6 @@
 
 import type { AnalysisPayload } from "@/engine/types";
 import { templateReport } from "@/engine/report";
-import { SHOT_DISPLAY } from "@/engine/classify";
 import { DOMAIN_LABELS } from "@/engine/registry";
 import { fmt } from "@/engine/scoring";
 import { plainRange, plainReading, plainValue } from "@/engine/plain";

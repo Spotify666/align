@@ -198,7 +198,7 @@ export function LocalReport({ id }: { id: string }) {
         state.remote ? null : <>
           <CloudSave id={id} />
           <button
-            className="btn btn-ghost !min-h-9 !py-1.5 text-sm"
+            className="btn btn-ghost !min-h-11 !py-1.5 text-sm"
             onClick={async () => {
               const inCloud = !!state.stored.cloud;
               if (!confirm(inCloud ? "Delete this analysis from this device and from your account? This cannot be undone." : "Delete this analysis from this device? This cannot be undone.")) return;

@@ -155,7 +155,7 @@ export function PriorityPlan({ plan }: { plan: PlanItem }) {
 export function Limitations({ payload }: { payload: AnalysisPayload }) {
   return (
     <details className="card p-4 group">
-      <summary className="list-none flex items-center justify-between gap-2 min-h-9">
+      <summary className="list-none flex items-center justify-between gap-2 min-h-11">
         <span className="font-semibold">Limits of this result</span>
         <span className="chip border-line-strong text-fg-muted">{payload.limitations.length}</span>
       </summary>

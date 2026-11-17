@@ -196,7 +196,7 @@ export function Visitors() {
           <table className="w-full table-fixed border-collapse text-sm">
             <thead>
               <tr className="border-b border-line text-fg-subtle">
-                <th className="w-[34%] py-2 text-left font-normal" />
+                <th scope="col" className="w-[34%] py-2 text-left font-normal"><span className="sr-only">What is counted</span></th>
                 {["Today", "7 days", "30 days"].map((h) => (
                   <th key={h} className="py-2 text-right font-medium">{h}</th>
                 ))}

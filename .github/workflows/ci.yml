@@ -25,3 +25,7 @@ jobs:
       - name: Engine, fixture and contract tests
         run: npm test
       - run: npm run build
+      - name: Browser for the page checks
+        run: npx playwright install --with-deps chromium
+      - name: Every page, both themes (accessibility, controls, scroll, errors, links)
+        run: npm run check:pages
