@@ -49,6 +49,8 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
   const [viewKey, setViewKey] = useState<ViewKey>(angles.includes("side") ? "side" : "front");
   const [view, setView] = useState<View>(VIEWS[angles.includes("side") ? "side" : "front"]);
   const [selected, setSelected] = useState<Handle | null>("pelvis");
+  // What the joints sit on: a 3D mannequin (the owner's pick, 2026-11-17), or the traced batter's line art.
+  const [figure, setFigure] = useState<"mannequin" | "traced">("mannequin");
   const [saved, setSaved] = useState(true);
   const [text, setText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -212,6 +214,7 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
                 onOrbit={model.angles === "both" ? (v) => { setView(v); setViewKey("round"); } : undefined}
                 ghost={moment === "contact" ? null : model.moments.contact}
                 drawings={drawings}
+                figure={figure}
                 start={startPose}
                 label={`${MOMENTS.find((m) => m.id === moment)!.label}: the figure. Drag a joint to place it.`}
               />
@@ -237,6 +240,14 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
                   </button>
                 ))}
             </div>
+            <div role="radiogroup" aria-label="Figure" className="flex gap-2">
+              {(["mannequin", "traced"] as const).map((k) => (
+                <button key={k} type="button" role="radio" aria-checked={figure === k} onClick={() => setFigure(k)}
+                  className={`min-h-11 rounded-full border px-4 text-sm ${figure === k ? "border-fg text-fg" : "border-line-strong text-fg-muted"}`}>
+                  {k === "mannequin" ? "Mannequin" : "Traced batter"}
+                </button>
+              ))}
+            </div>
             <button type="button" role="switch" aria-checked={hasBat} onClick={toggleBat}
               className={`min-h-11 rounded-full border px-4 text-sm ${hasBat ? "border-fg text-fg" : "border-line-strong text-fg-muted"}`}>
               {hasBat ? "Bat: on" : "Add a bat"}
@@ -251,7 +262,9 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
             </button>
           </div>
           <p className="text-sm text-fg-muted">
-            {drawing
+            {figure === "mannequin"
+              ? "A mannequin built from your joints. Drag a joint and it follows."
+              : drawing
               ? borrowed
                 ? "Traced from a real batter's back-foot defence, filmed from the bowler's end, and bent to your pose: there is no clip of a front-foot defence from there yet."
                 : `Traced from a real batter's clip, ${shown === "side" ? "side-on" : "from the bowler's end"}. It bends as you move the joints.`

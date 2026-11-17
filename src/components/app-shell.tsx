@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Beaker, Home, List, Mark, Menu, Plus, Shield, Trend, User, Users, Cross, Info } from "./icons";
+import { Beaker, Home, List, Menu, Plus, Shield, Trend, User, Users, Cross, Info } from "./icons";
+import { Logo } from "./brand/logo";
 import { ThemeToggle } from "./theme-toggle";
 
 const PRIMARY = [
@@ -69,9 +70,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-          <Link href="/home" className="flex min-h-11 items-center gap-2" aria-label="Aline home" onClick={() => setOpen(false)}>
-            <Mark size={28} />
-            <span className="text-[0.82rem] font-semibold tracking-[0.32em]">ALINE</span>
+          <Link href="/home" className="flex min-h-11 items-center gap-2.5" aria-label="Aline home" onClick={() => setOpen(false)}>
+            {/* The same mark and name as the landing page's header (the owner, 2026-11-17: one logo on every page). */}
+            <Logo size={26} name={false} />
+            <span className="text-base font-semibold tracking-tight">Aline</span>
           </Link>
           <nav aria-label="Primary" className="hidden lg:flex items-center gap-0.5 text-sm">
             {PRIMARY.map((n) => (
@@ -144,7 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <footer className="hidden md:block border-t border-line">
         <div className="mx-auto max-w-7xl px-6 py-10 grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-8 text-sm">
           <div className="space-y-3">
-            <span className="flex items-center gap-2"><Mark size={18} /> <span className="text-xs font-semibold tracking-[0.32em]">ALINE</span></span>
+            <span className="flex items-center gap-2"><Logo size={18} name={false} /> <span className="text-sm font-semibold tracking-tight">Aline</span></span>
             <p className="text-fg-subtle max-w-xs">Cricket shot analysis that confirms the shot before it grades it. The front-foot and the back-foot defence.</p>
             <ThemeToggle />
           </div>

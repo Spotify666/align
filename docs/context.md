@@ -1321,3 +1321,6 @@ Open:
 - "This em dash itself gives a clear indicator of being AI generated completely and doesn't feel
   genuine." Removed from every page's copy and the page titles; the analysis's stored sentences
   lose theirs on the way to the screen. A test keeps them out (`tests/display-text.test.ts`).
+- Evening: "refer to this site (posemaker.org/editor) for the accurate depiction… blend this
+  depiction with the current model so it becomes accessible". Shipped: a 3D mannequin built from
+  the joints, the default figure; the traced batter is the other choice. Docs/14 "The mannequin".

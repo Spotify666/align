@@ -15,10 +15,14 @@
 // Drawn in SVG, on demand: nothing moves unless the person moves it, so it draws nothing
 // off-screen, when idle or under reduced motion.
 
-import { useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
+import { useMemo, useRef, useState } from "react";
 import { BAT, BONES, HANDLE_LABEL, chestOf, ground, handlePoint, handlesOf, pelvisOf, type Handle, type Plane, type Pose, type V3 } from "@/engine/pose-model";
 import { batBones, bend, bind, bodyBones, followFrom, handBones, plainBat, restPoints, tracedPose, type TracedMoment } from "@/lib/traced-figure";
 import type { Handedness } from "@/engine/types";
+
+// The mannequin's 3D drawing loads only here, and only in the browser.
+const MannequinView = dynamic(() => import("./mannequin-view").then((m) => m.MannequinView), { ssr: false });
 
 export interface View {
   /** Degrees round the batter from their off side toward the bowler's end: 0 = side-on, 90 = front-on. */
@@ -46,7 +50,7 @@ function axes(view: View) {
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 export function PoseCanvas({
-  pose, side, view, centre, selected, onSelect, onDrag, onDragEnd, onOrbit, ghost, label, drawings, start: startPose,
+  pose, side, view, centre, selected, onSelect, onDrag, onDragEnd, onOrbit, ghost, label, drawings, start: startPose, figure = "mannequin",
 }: {
   pose: Pose;
   side: Handedness;
@@ -62,12 +66,15 @@ export function PoseCanvas({
   /** Another moment, shown faintly behind for reference. */
   ghost?: Pose | null;
   label: string;
-  /** The traced batter for this moment and the plane it was traced in; null: none for this model. */
   /** The traced batter at this moment, from each side it was traced from. */
   drawings?: Partial<Record<Plane, TracedMoment>>;
   /** The pose this moment started from: a tracing moves by how far each joint is moved from it. */
   start?: Pose | null;
+  /** What the joints are placed on: the 3D mannequin, or the traced batter's line art. */
+  figure?: "mannequin" | "traced";
 }) {
+  const [noGl, setNoGl] = useState(false);
+  const failGl = useMemo(() => () => setNoGl(true), []);
   const svg = useRef<SVGSVGElement>(null);
   const drag = useRef<{ kind: "joint"; handle: Handle; from: V3; x: number; y: number } | { kind: "orbit"; view: View; x: number; y: number } | null>(null);
   const ax = useMemo(() => axes(view), [view]);
@@ -121,7 +128,9 @@ export function PoseCanvas({
       grips: drawing.bat && drawing.grips?.length ? bind(drawing.grips, handBones(rest)) : null,
     };
   }, [drawing, plane]);
-  const art = tied ? artPaths(tied, pose, startPose ?? pose, plane, project) : null;
+  const solid = figure === "mannequin" && !noGl;
+  const art = !solid && tied ? artPaths(tied, pose, startPose ?? pose, plane, project) : null;
+  const camera = useMemo(() => ({ W, H: HGT, scale: SCALE, groundY: GROUND_Y, right: ax.right, up: ax.up, toward: ax.toward, centre, flip }), [ax, centre, flip]);
   const sideOn = Math.abs(Math.sin(rad(view.yaw))) < 0.2 && view.pitch < 8;
   const frontOn = Math.abs(Math.cos(rad(view.yaw))) < 0.2 && view.pitch < 8;
   const toe = pts.front_foot;
@@ -133,12 +142,14 @@ export function PoseCanvas({
   const ghostPts = ghost ? (Object.fromEntries(Object.entries(ghost).map(([k, v]) => [k, project(v)])) as Record<string, { x: number; y: number }>) : null;
 
   return (
+    <div className="relative">
+    {solid && <MannequinView pose={pose} camera={camera} selected={selected} onFail={failGl} />}
     <svg
       ref={svg}
       viewBox={`0 0 ${W} ${HGT}`}
       role="group"
       aria-label={label}
-      className="block h-auto max-h-[62vh] w-full touch-none select-none"
+      className="relative block h-auto max-h-[62vh] w-full touch-none select-none"
       onPointerDown={(e) => {
         if (!onOrbit) return onSelect(null);
         svg.current?.setPointerCapture(e.pointerId);
@@ -181,7 +192,7 @@ export function PoseCanvas({
           {art.bat && <path d={art.bat} fill="var(--surface)" stroke="var(--fg)" strokeWidth={1.6} strokeLinejoin="round" />}
           {art.grips && <path d={art.grips} fill="var(--surface)" stroke="var(--fg)" strokeWidth={1.3} strokeLinejoin="round" />}
         </g>
-      ) : (
+      ) : solid ? null : (
         <g aria-hidden stroke="var(--fg)" strokeLinecap="round" strokeOpacity={0.7}>
           {BONES.map(([a, b]) => (
             <line key={`${a}-${b}`} x1={pts[a].x} y1={pts[a].y} x2={pts[b].x} y2={pts[b].y} strokeWidth={2} />
@@ -205,12 +216,13 @@ export function PoseCanvas({
             {centreHandle ? (
               <rect x={p.x - (on ? 6 : 4.5)} y={p.y - (on ? 6 : 4.5)} width={on ? 12 : 9} height={on ? 12 : 9} rx={2} transform={`rotate(45 ${p.x} ${p.y})`} fill="var(--bg)" stroke={on ? "var(--brand)" : "var(--fg)"} strokeWidth={on ? 3 : 1.6} />
             ) : (
-              <circle cx={p.x} cy={p.y} r={on ? 7 : h === "bat_toe" ? 5 : 3.4} fill={on ? "var(--bg)" : "var(--fg)"} fillOpacity={on ? 1 : 0.85} stroke={on ? "var(--brand)" : "var(--bg)"} strokeWidth={on ? 3 : 1.2} />
+              <circle cx={p.x} cy={p.y} r={on ? 7 : h === "bat_toe" ? 5 : 4} fill="var(--bg)" stroke={on ? "var(--brand)" : "var(--fg)"} strokeWidth={on ? 3 : 1.6} />
             )}
           </g>
         );
       })}
     </svg>
+    </div>
   );
 }
 
