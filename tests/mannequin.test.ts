@@ -49,4 +49,26 @@ describe("the mannequin", () => {
     expect(partsMovedBy(held, "front_knee").has("front-thigh")).toBe(true);
     expect(partsMovedBy(held, null).size).toBe(0);
   });
+  it("grips the bat as a batter does: both fists on the handle, the top hand just above the bottom one", () => {
+    for (const shot of ["front_foot_defence", "back_foot_defence"] as const)
+      for (const m of MOMENTS) {
+        const p = placeBat(starterPose(shot, m.id), starterBat(shot, m.id));
+        const parts = mannequinParts(p);
+        const dir = ((d: V3) => { const l = Math.hypot(...d); return d.map((x) => x / l) as unknown as V3; })([p.bat_toe![0] - p.bat_handle![0], p.bat_toe![1] - p.bat_handle![1], p.bat_toe![2] - p.bat_handle![2]]);
+        const offAxis = (q: V3) => {
+          const r: V3 = [q[0] - p.bat_handle![0], q[1] - p.bat_handle![1], q[2] - p.bat_handle![2]];
+          const t = r[0] * dir[0] + r[1] * dir[1] + r[2] * dir[2];
+          return { t, d: Math.hypot(r[0] - dir[0] * t, r[1] - dir[1] * t, r[2] - dir[2] * t) };
+        };
+        const mid = (k: string) => { const f = parts.find((x) => x.key === k)!; return [(f.a[0] + f.b[0]) / 2, (f.a[1] + f.b[1]) / 2, (f.a[2] + f.b[2]) / 2] as V3; };
+        const top = offAxis(mid("front-fist"));
+        const bottom = offAxis(mid("back-fist"));
+        expect(top.d, `${shot} ${m.id}`).toBeLessThan(0.01);
+        expect(bottom.d).toBeLessThan(0.01);
+        expect(top.t).toBeLessThan(bottom.t);
+        expect(bottom.t - top.t).toBeLessThan(0.08);
+        // No open hands when holding a bat.
+        expect(parts.some((x) => x.key.endsWith("-hand"))).toBe(false);
+      }
+  });
 });

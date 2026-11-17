@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HomeNext } from "@/components/home/home-next";
+import { MotionFigure } from "@/components/home/motion-figure";
 import { ShotVideo } from "@/components/home/shot-video";
 import { Reveal } from "@/components/common/reveal";
 
-// The app's home: the next shot first, then a coach playing each defence. Kept short on
+// The app's home: the next shot first, a real defence played on Aline's figure with the line it
+// reads, then a coach playing each defence. Kept short on
 // purpose: the guide, the science and sample reports are a tap away.
 
 export const metadata: Metadata = { title: "Home" };
@@ -28,6 +30,15 @@ export default function AppHome() {
       </section>
 
       <HomeNext />
+
+      <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-14">
+        <Reveal>
+          <h2 className="display text-3xl sm:text-4xl">What Aline reads</h2>
+        </Reveal>
+        <Reveal className="mt-6">
+          <MotionFigure />
+        </Reveal>
+      </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-14">
         <Reveal>

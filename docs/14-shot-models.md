@@ -167,3 +167,6 @@ body." Nothing of that site is copied: Aline draws its own mannequin.
 - **The traced batter stays** as the other choice ("Mannequin" / "Traced batter").
 - Tests: `tests/mannequin.test.ts` (every part on its placed points, at every moment of both
   shots and after far drags of every handle; the bat only when held).
+- **The grip** (the owner: "Holding of the bat is nowhere close to what a human holds it like"):
+  with a bat, both hands close round the handle as fists, the top hand (the front wrist's) just
+  above the bottom one, each joined to its wrist by the palm; without a bat, open hands.

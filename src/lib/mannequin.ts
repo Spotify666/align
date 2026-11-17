@@ -59,9 +59,10 @@ export function mannequinParts(p: Pose): Part[] {
     );
     for (const [part, r] of [["shoulder", SIZE.shoulder], ["elbow", SIZE.elbow], ["wrist", SIZE.wrist], ["hip", SIZE.hip], ["knee", SIZE.knee], ["ankle", SIZE.ankle]] as const)
       parts.push({ key: `${s}-${part}-joint`, kind: "ball", a: j(part), b: j(part), r, r2: r, moves: [h(part)] });
-    // The hand: a flat mitten beyond the wrist, along the forearm.
+    // The hand: with a bat, a fist closed round the handle (below); without one, a flat open hand
+    // beyond the wrist, along the forearm.
     const along = unit(sub(wr, el), [0, -1, 0]);
-    parts.push({ key: `${s}-hand`, kind: "hand", a: wr, b: add(wr, mul(along, 0.09)), r: SIZE.hand, r2: SIZE.hand, depth: SIZE.hand * 0.55, across: unit([along[1] * up[2] - along[2] * up[1], along[2] * up[0] - along[0] * up[2], along[0] * up[1] - along[1] * up[0]], [0, 0, 1]), moves: [h("wrist")] });
+    if (!(p.bat_handle && p.bat_toe)) parts.push({ key: `${s}-hand`, kind: "hand", a: wr, b: add(wr, mul(along, 0.09)), r: SIZE.hand, r2: SIZE.hand, depth: SIZE.hand * 0.55, across: unit([along[1] * up[2] - along[2] * up[1], along[2] * up[0] - along[0] * up[2], along[0] * up[1] - along[1] * up[0]], [0, 0, 1]), moves: [h("wrist")] });
     // The foot: from the heel to the toe, flat on its sole, the ankle above it.
     const footAcross = unit(sub(lerp(heel, toe, 0.5), an), up);
     parts.push({ key: `${s}-foot`, kind: "foot", a: add(heel, mul(up, SIZE.footDepth)), b: add(toe, mul(up, SIZE.footDepth * 0.7)), r: SIZE.foot, r2: SIZE.foot * 0.85, depth: SIZE.footDepth, across: footAcross, moves: [h("heel"), h("foot"), h("ankle")] });
@@ -94,8 +95,21 @@ export function mannequinParts(p: Pose): Part[] {
   if (p.bat_handle && p.bat_toe) {
     const dir = unit(sub(p.bat_toe, p.bat_handle), [0, -1, 0]);
     const hands = handsOf(p);
-    const top = sub(hands, mul(dir, 0.06));
+    const top = sub(hands, mul(dir, 0.075));
     const blade = sub(p.bat_toe, mul(dir, 0.32));
+    // Both hands close round the handle, touching: the top hand (the front wrist's) just above the
+    // bottom hand, as a batter holds it. Each fist sits on the handle, joined to its wrist by the palm.
+    for (const [side, along] of [["front", -0.03], ["back", 0.03]] as const) {
+      const wrist = p[`${side}_wrist`];
+      const grip = add(hands, mul(dir, along));
+      const palm = sub(grip, wrist);
+      // The fist's back faces away from the handle, toward its own wrist.
+      const out = unit(sub(palm, mul(dir, palm[0] * dir[0] + palm[1] * dir[1] + palm[2] * dir[2])), [0, 0, 1]);
+      parts.push(
+        { key: `${side}-palm`, kind: "limb", a: wrist, b: sub(grip, mul(out, 0.012)), r: SIZE.wrist, r2: SIZE.hand * 0.9, moves: [`${side}_wrist` as Handle] },
+        { key: `${side}-fist`, kind: "hand", a: sub(add(grip, mul(dir, -0.028)), mul(out, 0.006)), b: sub(add(grip, mul(dir, 0.028)), mul(out, 0.006)), r: SIZE.hand * 1.15, r2: SIZE.hand * 1.15, depth: SIZE.hand * 1.1, across: out, moves: [`${side}_wrist` as Handle] },
+      );
+    }
     // The face looks toward the bowler, square to the bat.
     const fwd: V3 = [1, 0, 0];
     const face = unit(sub(fwd, mul(dir, fwd[0] * dir[0] + fwd[1] * dir[1] + fwd[2] * dir[2])), [0, 0, 1]);

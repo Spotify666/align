@@ -1324,3 +1324,11 @@ Open:
 - Evening: "refer to this site (posemaker.org/editor) for the accurate depiction… blend this
   depiction with the current model so it becomes accessible". Shipped: a 3D mannequin built from
   the joints, the default figure; the traced batter is the other choice. Docs/14 "The mannequin".
+- "On home page the logo is still old… make sure logo is intact on all pages": every page's header
+  and footer now use the landing's mark and name (shipped with the mannequin).
+- "See how seamless the motion and action feel on this site (dailyrepsfit.com)… blend in with the
+  app's use case", and "Holding of the bat is nowhere close to what a human holds it like".
+  Shipped: on /home, "What Aline reads": the owner's real front-foot defence (their side clip,
+  traced frame by frame and smoothed) played on the mannequin at half speed, the orange line
+  through head, front shoulder, front knee and toe, the moments lighting up, and what Aline read
+  on that clip; the grip is two fists on the handle. Nothing of the reference site is copied.
