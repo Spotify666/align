@@ -1312,3 +1312,6 @@ Open:
 - Shipped: the figure is line art traced from the owner's own side-on clips; new models start
   from that batter's real joints; the drawing bends as joints move. Optional bat. Details and
   limits: docs/14 ("The figure, changed").
+- Later the same day: "Add the front view drawing too. All angles covered for both shots."
+  Shipped: the bowler's-end drawing, and every angle in 3D. There is no front-on clip of a
+  front-foot defence, so that view uses the back-foot one and says so; asked the owner for one.

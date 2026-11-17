@@ -16,8 +16,8 @@
 // off-screen, when idle or under reduced motion.
 
 import { useMemo, useRef } from "react";
-import { BONES, HANDLE_LABEL, chestOf, handlePoint, handlesOf, pelvisOf, poseInPlane, type Handle, type ModelPoint, type Plane, type Pose, type V3 } from "@/engine/pose-model";
-import { batBones, bend, bind, bodyBones, handBones, restPoints, type TracedMoment } from "@/lib/traced-figure";
+import { BAT, BONES, HANDLE_LABEL, chestOf, ground, handlePoint, handlesOf, pelvisOf, type Handle, type Plane, type Pose, type V3 } from "@/engine/pose-model";
+import { batBones, bend, bind, bodyBones, followFrom, handBones, plainBat, restPoints, tracedPose, type TracedMoment } from "@/lib/traced-figure";
 import type { Handedness } from "@/engine/types";
 
 export interface View {
@@ -46,7 +46,7 @@ function axes(view: View) {
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 export function PoseCanvas({
-  pose, side, view, centre, selected, onSelect, onDrag, onDragEnd, onOrbit, ghost, label, drawing,
+  pose, side, view, centre, selected, onSelect, onDrag, onDragEnd, onOrbit, ghost, label, drawings, start: startPose,
 }: {
   pose: Pose;
   side: Handedness;
@@ -63,7 +63,10 @@ export function PoseCanvas({
   ghost?: Pose | null;
   label: string;
   /** The traced batter for this moment and the plane it was traced in; null: none for this model. */
-  drawing?: { moment: TracedMoment; plane: Plane } | null;
+  /** The traced batter at this moment, from each side it was traced from. */
+  drawings?: Partial<Record<Plane, TracedMoment>>;
+  /** The pose this moment started from: a tracing moves by how far each joint is moved from it. */
+  start?: Pose | null;
 }) {
   const svg = useRef<SVGSVGElement>(null);
   const drag = useRef<{ kind: "joint"; handle: Handle; from: V3; x: number; y: number } | { kind: "orbit"; view: View; x: number; y: number } | null>(null);
@@ -104,18 +107,21 @@ export function PoseCanvas({
 
   const handles = handlesOf(pose);
   const pts = Object.fromEntries(handles.map((h) => [h, project(handlePoint(pose, h))])) as Record<Handle, { x: number; y: number; d: number }>;
-  // The traced drawing, when this view is the one it was traced from: tied to its own pose once, bent to this one on each change.
-  const plane: Plane | null = view.pitch === 0 && view.yaw === 0 ? "side" : view.pitch === 0 && view.yaw === 90 ? "front" : null;
+  // The traced drawing nearer this view (side tracing nearer side-on, the bowler's-end one nearer
+  // front-on): tied to its own pose once, bent to this one in 3D on each change.
+  const plane = drawingPlane(view);
+  const drawing = drawings?.[plane] ?? null;
   const tied = useMemo(() => {
     if (!drawing) return null;
-    const rest = restPoints(drawing.moment, drawing.plane);
+    const rest = restPoints(drawing, plane);
     return {
-      body: bind(drawing.moment.body, bodyBones(rest)),
-      bat: drawing.moment.bat ? bind([drawing.moment.bat.outline], batBones(rest)) : null,
-      grips: drawing.moment.grips?.length ? bind(drawing.moment.grips, handBones(rest)) : null,
+      traced: ground(tracedPose(drawing)),
+      body: bind(drawing.body, bodyBones(rest)),
+      bat: drawing.bat ? bind([drawing.bat.outline], batBones(rest)) : PLAIN_BAT,
+      grips: drawing.bat && drawing.grips?.length ? bind(drawing.grips, handBones(rest)) : null,
     };
-  }, [drawing]);
-  const art = tied && drawing && plane === drawing.plane ? artPaths(tied, pose, plane, centre, project) : null;
+  }, [drawing, plane]);
+  const art = tied ? artPaths(tied, pose, startPose ?? pose, plane, project) : null;
   const sideOn = Math.abs(Math.sin(rad(view.yaw))) < 0.2 && view.pitch < 8;
   const frontOn = Math.abs(Math.cos(rad(view.yaw))) < 0.2 && view.pitch < 8;
   const toe = pts.front_foot;
@@ -209,22 +215,26 @@ export function PoseCanvas({
 }
 
 type Projected = { x: number; y: number; d: number };
-type Tied = { body: ReturnType<typeof bind>; bat: ReturnType<typeof bind> | null; grips: ReturnType<typeof bind> | null };
+type Tied = { traced: Pose; body: ReturnType<typeof bind>; bat: ReturnType<typeof bind> | null; grips: ReturnType<typeof bind> | null };
 
-/** The traced drawing bent to `pose`, as SVG paths in the picture. The bat and hands only when the model holds a bat. */
-function artPaths(tied: Tied, pose: Pose, plane: Plane, centre: readonly [number, number], project: (p: V3) => Projected) {
-  const g = poseInPlane(pose, plane);
-  const at = (p: ModelPoint) => g(p);
-  const toScreen = ([h, u]: [number, number]) => project(plane === "side" ? [h, u, centre[1]] : [centre[0], u, h]);
-  const path = (shapes: Array<Array<[number, number]>>) =>
+/** Which tracing a view shows: the side one nearer side-on, the bowler's-end one nearer front-on. */
+export const drawingPlane = (view: View): Plane => (Math.abs(Math.sin(rad(view.yaw))) < Math.SQRT1_2 ? "side" : "front");
+
+/** A drawn bat for a moment whose clip didn't show the bat clearly enough to trace. */
+const PLAIN_BAT = plainBat(BAT.handsToToe, BAT.aboveHands, BAT.blade, BAT.width);
+
+/** The traced drawing bent to `pose` in 3D, as SVG paths in the picture. The bat and hands only when the model holds a bat. */
+function artPaths(tied: Tied, pose: Pose, start: Pose, plane: Plane, project: (p: V3) => Projected) {
+  const at = followFrom(tied.traced, start, pose, plane);
+  const path = (shapes: V3[][]) =>
     shapes
       .filter((s) => s.length > 2)
-      .map((s) => `M${s.map((p) => { const q = toScreen(p); return `${q.x.toFixed(1)},${q.y.toFixed(1)}`; }).join("L")}Z`)
+      .map((s) => `M${s.map((p) => { const q = project(p); return `${q.x.toFixed(1)},${q.y.toFixed(1)}`; }).join("L")}Z`)
       .join("");
   const hasBat = !!(pose.bat_handle && pose.bat_toe);
   return {
-    body: path(bend(tied.body, bodyBones(at))),
-    bat: hasBat && tied.bat ? path(bend(tied.bat, batBones(at))) : null,
-    grips: hasBat && tied.grips ? path(bend(tied.grips, handBones(at))) : null,
+    body: path(bend(tied.body, bodyBones(at), plane)),
+    bat: hasBat && tied.bat ? path(bend(tied.bat, batBones(at), plane)) : null,
+    grips: hasBat && tied.grips ? path(bend(tied.grips, handBones(at), plane)) : null,
   };
 }

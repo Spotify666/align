@@ -14,15 +14,23 @@ export type Starters = Record<TargetShot, Record<MomentId, { joints: Record<stri
 
 const round = (n: number) => Math.round(n * 10000) / 10000;
 
-/** The starting poses from the side-on traced figures: each joint, and the bat's direction (hands to toe, in the side plane). */
-export function startersFrom(side: Record<TargetShot, TracedFigure>): Starters {
+/**
+ * The starting poses from the traced figures: forward and up from the side-on clip, which sees
+ * them; across from the clip filmed from the bowler's end, which sees across (the side clip's
+ * depth estimate is too noisy: it put the head 29% of the batter's height to the off side). There
+ * is no front-foot defence from the bowler's end yet, so that shot borrows the back-foot one's
+ * across until a clip is sent. And the bat's direction (hands to toe, in the side plane).
+ */
+export function startersFrom(side: Record<TargetShot, TracedFigure>, front: Partial<Record<TargetShot, TracedFigure>> = {}): Starters {
   const out = {} as Starters;
   for (const shot of ["front_foot_defence", "back_foot_defence"] as const) {
     out[shot] = {} as Starters[TargetShot];
     for (const m of MOMENTS) {
       const t = side[shot].moments[m.id] ?? side[shot].moments.contact!;
+      const f = front[shot]?.moments[m.id];
       const bat = t.bat ? ([round(t.bat.toe[0] - t.bat.handle[0]), round(t.bat.toe[1] - t.bat.handle[1]), 0] as Xyz) : ([0, -1, 0] as Xyz);
-      out[shot][m.id] = { joints: Object.fromEntries(MODEL_JOINTS.map((k) => [k, t.pose[k]!])), bat };
+      const across = (k: string) => (f ? f.pose[k]![2] : t.pose[k]![2]);
+      out[shot][m.id] = { joints: Object.fromEntries(MODEL_JOINTS.map((k) => [k, [t.pose[k]![0], t.pose[k]![1], across(k)] as Xyz])), bat };
     }
   }
   return out;

@@ -13,10 +13,10 @@ import {
 } from "@/engine/pose-model";
 import { chooseModel, chosenModelId, saveModel, starterBat, starterPose } from "@/lib/pose-models";
 import { DeleteModel } from "./delete-model";
-import { figureFile, type TracedFigure } from "@/lib/traced-figure";
+import { figureFile, type TracedFigure, type TracedMoment } from "@/lib/traced-figure";
 import { loadProfile } from "@/lib/store";
 import { Download } from "../icons";
-import { PoseCanvas, VIEWS, type View } from "./pose-canvas";
+import { PoseCanvas, VIEWS, drawingPlane, type View } from "./pose-canvas";
 
 const SHOT_LABEL = { front_foot_defence: "Front-foot defence", back_foot_defence: "Back-foot defence" } as const;
 const AXIS = [
@@ -62,9 +62,9 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
   useEffect(() => {
     let live = true;
     for (const plane of planesOf(initial.angles)) {
-      const file = figureFile(initial.shot, plane, initial.battingSide);
-      if (!file) continue;
-      fetch(file)
+      const source = figureFile(initial.shot, plane, initial.battingSide);
+      if (!source) continue;
+      fetch(source.file)
         .then((r) => (r.ok ? (r.json() as Promise<TracedFigure>) : null))
         .then((f) => f && live && setFigures((was) => ({ ...was, [plane]: f })))
         .catch(() => {});
@@ -73,9 +73,15 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
       live = false;
     };
   }, [initial.angles, initial.shot, initial.battingSide]);
-  const plane: "side" | "front" | null = viewKey === "side" ? "side" : viewKey === "front" ? "front" : null;
-  const traced = plane ? figures[plane]?.moments[moment] : undefined;
-  const drawing = useMemo(() => (plane && traced ? { moment: traced, plane } : null), [plane, traced]);
+  // The tracing at this moment from each side, and the one this view shows (the nearer side).
+  const drawings = useMemo(
+    () => Object.fromEntries((["side", "front"] as const).flatMap((p) => (figures[p]?.moments[moment] ? [[p, figures[p]!.moments[moment]!]] : []))) as Partial<Record<"side" | "front", TracedMoment>>,
+    [figures, moment],
+  );
+  const startPose = useMemo(() => starterPose(initial.shot, moment), [initial.shot, moment]);
+  const shown = drawingPlane(view);
+  const drawing = drawings[shown] ?? null;
+  const borrowed = drawing ? figureFile(model.shot, shown, model.battingSide)?.from !== model.shot : false;
 
   const pose = model.moments[moment] ?? model.moments.contact;
   const has = !!model.moments[moment];
@@ -205,7 +211,8 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
                 onDragEnd={onDragEnd}
                 onOrbit={model.angles === "both" ? (v) => { setView(v); setViewKey("round"); } : undefined}
                 ghost={moment === "contact" ? null : model.moments.contact}
-                drawing={drawing}
+                drawings={drawings}
+                start={startPose}
                 label={`${MOMENTS.find((m) => m.id === moment)!.label}: the figure. Drag a joint to place it.`}
               />
             ) : (
@@ -245,14 +252,14 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
           </div>
           <p className="text-sm text-fg-muted">
             {drawing
-              ? "Traced from a real batter's clip. It bends as you move the joints."
+              ? borrowed
+                ? "Traced from a real batter's back-foot defence, filmed from the bowler's end, and bent to your pose: there is no clip of a front-foot defence from there yet."
+                : `Traced from a real batter's clip, ${shown === "side" ? "side-on" : "from the bowler's end"}. It bends as you move the joints.`
               : model.battingSide === "left"
                 ? "Joints only: a left-hander needs a left-hander's clip to be traced, never a mirrored one."
-                : !plane
-                  ? "Joints only in 3D. The drawing shows from the side or the front."
-                  : has
-                    ? "Joints only: no clip of this moment from here has been traced yet."
-                    : ""}
+                : has
+                  ? "Joints only: no clip of this moment from here has been traced yet."
+                  : ""}
           </p>
           <p className="text-sm text-fg-subtle">
             <Hold

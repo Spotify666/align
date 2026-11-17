@@ -95,9 +95,15 @@ report.
 - The start is one real batter (the owner, right-handed) at one ball: a starting point, not a
   standard. Its moments were read from Aline's analysis of the front-foot clip; the back-foot
   clip's were picked from its traced frames by eye (the capture test could not run it that day).
-- The drawing exists only side-on and only for a right-hander (never mirrored); from the bowler's
-  end, in 3D, and for a left-hander the joints and bones are shown, and the page says why. The
-  one clip from the bowler's end was too small to trace cleanly.
+- Tracings exist side-on for both shots and from the bowler's end for the back-foot defence
+  (traced at six times the clip's size: the batter is small in it). There is no front-foot
+  defence from the bowler's end: that view shows the back-foot tracing, moved with the joints,
+  and says so, and the front-foot starting pose borrows its across positions from it (the side
+  clip's depth estimate put the head 29% of height to the off side). A front-on front-foot clip
+  would replace both. A left-hander sees joints and bones only (never mirrored).
+- The side-on and bowler's-end clips are two different balls, so a tracing starts as traced,
+  standing where the model stands, and moves only by how far each joint is moved from the start
+  (`followFrom`); its joints sit near, not exactly on, its lines from the other take.
 - A drawing bent far from the traced pose stretches: it follows the nearest bones, so a joint
   moved a long way pulls the lines near it.
 - A model holds poses at moments, not the movement between them.
@@ -122,3 +128,11 @@ owner's, so nothing of it is used. What ships:
 - **The bat** is optional ("Add a bat"): held in both hands (moving a hand moves both), its toe
   sets its angle, saved in the text; four measures (its angle and where its toe is, from the side
   and from the bowler's end), compared only when the clip's bat was tracked.
+
+### Every angle (2026-11-17, later)
+
+"Add the front view drawing too. All angles covered for both shots." The bowler's-end clip is
+traced again, larger (`rig.py` scales a small batter up), for all three moments; the drawing bends
+in 3D (each line keeps its bone's depth), so it shows from the side, from the front and at any 3D
+turn (the side tracing up to 45°, the bowler's-end one beyond); a moment whose clip didn't show the
+bat clearly draws a full-size bat in the hands instead.

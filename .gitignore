@@ -15,3 +15,4 @@ public/models/
 
 # Real-media evaluation: clips, exported tracks and reports stay on this machine (scripts/eval/dataset/README.md)
 eval-media/
+__pycache__/
