@@ -55,6 +55,11 @@ export function saveModel(model: PoseModel): PoseModel {
   localStorage.setItem(KEY, JSON.stringify([saved, ...listModels().filter((m) => m.id !== model.id)]));
   return saved;
 }
+/** The passcode asked before a model is deleted (the owner's choice, 2026-11-17). A guard
+ *  against deleting by mistake, not security: the models are on this device only. */
+export const DELETE_PASSCODE = "1000";
+export const passcodeOk = (typed: string) => typed.trim() === DELETE_PASSCODE;
+
 export function deleteModel(id: string) {
   localStorage.setItem(KEY, JSON.stringify(listModels().filter((m) => m.id !== id)));
   if (chosenModelId() === id) chooseModel(null);
