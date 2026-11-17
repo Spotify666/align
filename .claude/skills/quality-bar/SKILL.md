@@ -36,6 +36,11 @@ small.
   screens; centimetres or a share of height; which way, in words.
 - **Screens**: phone first, both themes, 44 px controls, one main action, no sideways scroll,
   one h1, nothing moving unless the person moves it. Load the `frontend-design` skill first.
+- **Short on the page** (the owner, 2026-11-17: "the site is text heavy… keep it simple"). A
+  page shows a headline, the actions and a few words; anything longer goes behind a long press:
+  `<Hold more={full}>short</Hold>` (`components/common/hold.tsx`; a mouse click and Enter open it
+  too). Write the short version first, in a few words a child could follow. `check:pages` fails
+  on a paragraph of 30 words or more showing when a page opens (print layouts excepted).
 - **Honest states**: loading, empty, failed and "can't tell" are designed, and say what to do.
 - **Comments say why**, in the file's own voice. No commented-out code, no TODOs left behind.
 

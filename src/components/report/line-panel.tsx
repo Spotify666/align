@@ -5,6 +5,7 @@
 //    offset from the front ankle against the band professionals play in;
 //  - when each part arrived in its set position, against contact.
 
+import { Hold } from "@/components/common/hold";
 import type { AnalysisPayload, LinePartId } from "@/engine/types";
 
 const PARTS: Array<{ id: LinePartId; label: string }> = [
@@ -62,9 +63,17 @@ export function LinePanel({ payload: p, fps, onSeek }: { payload: AnalysisPayloa
       <div className="px-5 pt-5">
         <p className="eyebrow">The line · head, front shoulder, front knee, front foot</p>
         <h2 id="line-h" className="display mt-1 text-[1.6rem] leading-tight sm:text-3xl">{title}</h2>
-        <p className="mt-2 max-w-3xl text-sm text-fg-muted">
-          A front-foot defence is built on one line: the front shoulder leads into the line of the ball, the head goes over the ball, and the front knee
-          and foot stay under them, held until the bat meets the ball. The stride changes with the length of the ball; this stack doesn&apos;t.
+        <p className="mt-1 max-w-3xl text-sm text-fg-muted">
+          <Hold
+            more={
+              <p>
+                A front-foot defence is built on one line: the front shoulder leads into the line of the ball, the head goes over the ball, and the front knee
+                and foot stay under them, held until the bat meets the ball. The stride changes with the length of the ball; this stack doesn&apos;t.
+              </p>
+            }
+          >
+            Head, shoulder and knee over the front foot
+          </Hold>
         </p>
       </div>
 

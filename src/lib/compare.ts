@@ -24,7 +24,7 @@ export const PROVENANCE = {
   shared: { rights: "shared", label: "Shared by the player for comparison. Numbers only, never video" },
   research_unconfirmed: {
     rights: "research_unconfirmed",
-    label: "Medians from a research dataset (KU CricShot). Numbers only, no footage or names. Its licence for use as a reference is not yet confirmed",
+    label: "Research data (KU CricShot), numbers only; licence not yet confirmed",
   },
 } satisfies Record<string, Provenance>;
 

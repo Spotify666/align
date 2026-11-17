@@ -958,3 +958,13 @@ The check's first run on CI found one more, which a sandbox could not: the Visit
 table (drawn only when the database answers) had an empty column heading. Fixed, and the check
 now gives database-backed pages one sample answer on every machine instead of calling the live
 database, so it reads the same everywhere and writes no test visits.
+
+## Short on the page (2026-11-17)
+
+The owner: "the site is text heavy… replace it with long press action on shorter version of it
+to get the complete text… keep it simple". `Hold` (`components/common/hold.tsx`): the page shows
+a short version; a long press (or a click, or Enter) opens the full text in one sheet. Words on
+arrival across all pages: 8,164 → about 4,500; no paragraph of 30 words or more on any page as
+it opens (print layouts excepted), held by `check:pages`. Inside the report, section intros,
+drill details, "why it matters" and each measure's explanation moved behind a long press.
+Not verified on a real phone's touch screen.

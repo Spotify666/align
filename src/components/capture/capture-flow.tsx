@@ -1266,7 +1266,7 @@ export function CaptureFlow() {
                 <div>
                   <p className="eyebrow">{chosen ? SHOT_TITLE[shot] : "Front-foot or back-foot defence"}</p>
                   <h1 className="display mt-2 text-[2.4rem] sm:text-5xl">Check your shot</h1>
-                  <p className="mt-2 text-fg-muted">Upload a video for a movement analysis, or photos for a per-frame form check. Film from the side if you can.</p>
+                  <p className="mt-2 text-fg-muted">A video, or photos. From the side is best.</p>
                 </div>
                 <AnalysisOptions
                   profile={profile}

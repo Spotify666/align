@@ -3,6 +3,7 @@
 // person meets them. A lane scrolls sideways inside itself (the page never does). Tapping a
 // screen opens it larger with what each thing on it does. The pictures load as they come near.
 
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { FLOWS, SCREEN_SIZE, screenById, screenImage, type Flow, type Screen } from "@/lib/screen-map";
@@ -28,8 +29,9 @@ export function ScreenMap() {
         <section key={flow.id} id={flow.id} aria-labelledby={`${flow.id}-h`} className="scroll-mt-20 border-t border-line py-10">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <h2 id={`${flow.id}-h`} className="display text-2xl sm:text-3xl">{flow.name}</h2>
-            <p className="mt-1 text-sm text-fg-subtle">{flow.who}</p>
-            <p className="mt-3 max-w-2xl text-fg-muted">{flow.goal}</p>
+            <p className="mt-1 text-sm text-fg-subtle">
+              <Hold more={<p>{flow.goal}</p>}>{flow.who}</Hold>
+            </p>
           </div>
           <div
             role="region"
@@ -66,14 +68,15 @@ export function ScreenMap() {
                       />
                     </button>
                     <h3 className="mt-3 font-semibold">{s.name}</h3>
-                    <p className="mt-1 text-sm text-fg-muted">{s.says}</p>
                   </li>
                 );
               })}
             </ol>
           </div>
           {flow.note && (
-            <p className="mx-auto mt-4 max-w-6xl px-4 text-sm text-fg-subtle sm:px-6">{flow.note}</p>
+            <p className="mx-auto mt-2 max-w-6xl px-4 text-sm text-fg-subtle sm:px-6">
+              <Hold more={<p>{flow.note}</p>}>A note on this flow</Hold>
+            </p>
           )}
         </section>
       ))}

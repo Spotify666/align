@@ -6,6 +6,7 @@
 //    offset against the provisional coaching range;
 //  - when the back foot, the front foot and the head set, against contact.
 
+import { Hold } from "@/components/common/hold";
 import type { AnalysisPayload, Metric } from "@/engine/types";
 
 type Row = { id: string; label: string; from: string };
@@ -81,10 +82,18 @@ export function BackFootPanel({ payload: p, fps, onSeek }: { payload: AnalysisPa
       <div className="px-5 pt-5">
         <p className="eyebrow">The base · back foot, front foot, head, hands</p>
         <h2 id="bfd-h" className="display mt-1 text-[1.6rem] leading-tight sm:text-3xl">{title}</h2>
-        <p className="mt-2 max-w-3xl text-sm text-fg-muted">
-          A back-foot defence is played to a short ball on the stumps: the back foot goes back and across toward the stumps, the front foot follows until it
-          is alongside, and you stay tall and side-on with the head forward over the ball. The front elbow stays high and the ball is met under the eyes
-          with soft hands, then held.
+        <p className="mt-1 max-w-3xl text-sm text-fg-muted">
+          <Hold
+            more={
+              <p>
+                A back-foot defence is played to a short ball on the stumps: the back foot goes back and across toward the stumps, the front foot follows until it
+                is alongside, and you stay tall and side-on with the head forward over the ball. The front elbow stays high and the ball is met under the eyes
+                with soft hands, then held.
+              </p>
+            }
+          >
+            Back and across, tall, elbow high
+          </Hold>
         </p>
       </div>
 

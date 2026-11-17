@@ -4,6 +4,7 @@
 // player), from research (numbers only, licence not yet confirmed) and the library's licensed
 // references (shown only once their rights are recorded: the database hides the rest).
 
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { signatureOf, type ShotSignature } from "@/engine/signature";
@@ -79,17 +80,17 @@ export function LibraryPage() {
     <div className="mx-auto max-w-3xl space-y-10 px-4 py-8 sm:px-6 sm:py-12">
       <header className="space-y-2">
         <h1 className="display text-4xl sm:text-5xl">Reference library</h1>
-        <p className="text-fg-muted">What a shot can be compared with, and where each one comes from. Numbers only: no reference carries anyone&apos;s video.</p>
+        <p className="text-fg-muted">What a shot can be compared with. Numbers only, never video.</p>
       </header>
 
-      <Group title="Yours" note="Built from your own shots on this device. Comparing with your usual shows what changed.">
+      <Group title="Yours">
         {yours === null ? (
           <p className="text-sm text-fg-subtle">Reading your shots…</p>
         ) : yours.length ? (
           <ul className="space-y-2">{yours.map((c) => <CardRow key={c.id} c={c} />)}</ul>
         ) : (
           <p className="text-sm text-fg-muted">
-            Your usual appears once you have three confirmed front-foot defences filmed the same way. <Link href="/check" className="font-medium underline underline-offset-4">Check a shot</Link>
+            <Hold more={<p>Your usual appears once you have three confirmed front-foot defences filmed the same way.</p>}>Appears after three shots</Hold>
           </p>
         )}
       </Group>
@@ -102,7 +103,7 @@ export function LibraryPage() {
         </ul>
       </Group>
 
-      <Group title="Licensed references" note="A coach's model or a player who signed a licence. One appears only once its rights are recorded, and disappears when they end.">
+      <Group title="Licensed references" note={<Hold more={<p>A coach&apos;s model or a player who signed a licence. One appears only once its rights are recorded, and disappears when they end.</p>}>Only with a signed permission</Hold>}>
         {library === null ? (
           <p className="text-sm text-fg-subtle">Opening the library…</p>
         ) : library.length ? (
@@ -116,18 +117,15 @@ export function LibraryPage() {
         <Link href="/library/manage" className="btn btn-ghost">Record a permission</Link>
       )}
 
-      <p className="text-sm text-fg-muted">
-        To compare a shot, open its report and then Comparison. Players who share a shot from their report appear there too, once you are signed in.
-      </p>
     </div>
   );
 }
 
-function Group({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+function Group({ title, note, children }: { title: string; note?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="space-y-3" aria-label={title}>
       <h2 className="text-xl font-semibold">{title}</h2>
-      {note && <p className="text-sm text-fg-muted">{note}</p>}
+      {note && <div className="text-sm text-fg-muted">{note}</div>}
       {children}
     </section>
   );

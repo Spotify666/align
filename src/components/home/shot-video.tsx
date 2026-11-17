@@ -10,6 +10,7 @@
 // never flipped: the steps name the viewer's own sides, and say whether their stronger hand is
 // on top.
 
+import { Hold } from "../common/hold";
 import { useState, useSyncExternalStore } from "react";
 import { loadProfile } from "@/lib/store";
 
@@ -29,29 +30,32 @@ const cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
  * named. A right-hander leads with the left shoulder and foot and has the left hand on top; a
  * left-hander the right.
  */
-function steps(shot: StoryShot, bats: Side): Array<{ k: string; d: string }> {
+function steps(shot: StoryShot, bats: Side): Array<{ k: string; s: string; d: string }> {
   const f = bats === "right" ? "left" : "right";
   const b = bats;
   const setUp = {
     k: "Set up",
+    s: "side-on, eyes level",
     d: `Side-on, ${f} shoulder and ${f} foot toward the bowler, knees soft, eyes level. ${cap(f)} hand on top of the handle, ${b} hand just below it.`,
   };
   return shot === "front"
     ? [
         setUp,
-        { k: "Pick up", d: `The bat goes up straight back, a short pick-up with the hands by the ${b} hip. The head and ${f} shoulder start toward the line of the ball.` },
-        { k: "Stride", d: `The ${f} foot steps to the pitch of the ball, the ${f} knee bends and the weight comes forward. The bat comes down late.` },
+        { k: "Pick up", s: "bat straight back", d: `The bat goes up straight back, a short pick-up with the hands by the ${b} hip. The head and ${f} shoulder start toward the line of the ball.` },
+        { k: "Stride", s: `${f} foot to the ball`, d: `The ${f} foot steps to the pitch of the ball, the ${f} knee bends and the weight comes forward. The bat comes down late.` },
         {
           k: "Contact",
+          s: "head over the knee, hold it",
           d: `Head over the ${f} knee, the bat beside the ${f} pad and angled down, ${f} elbow up. The top (${f}) hand guides the bat, the bottom (${b}) hand stays loose: the ball drops dead. Hold it.`,
         },
       ]
     : [
         setUp,
-        { k: "Back and across", d: `To a short ball the ${b} foot moves first, back toward the stumps and across into the line of the ball. The head stays still.` },
-        { k: "Alongside", d: `The ${f} foot comes back next to the ${b} foot. Stand tall and side-on, the weight on the ${b} foot, the head forward over it.` },
+        { k: "Back and across", s: `${b} foot moves first`, d: `To a short ball the ${b} foot moves first, back toward the stumps and across into the line of the ball. The head stays still.` },
+        { k: "Alongside", s: "stand tall, side-on", d: `The ${f} foot comes back next to the ${b} foot. Stand tall and side-on, the weight on the ${b} foot, the head forward over it.` },
         {
           k: "Contact",
+          s: "elbow high, under your eyes",
           d: `${cap(f)} elbow high, the bat straight and angled down, the hands about belt height. The top (${f}) hand guides, the bottom (${b}) hand stays loose. Meet the ball under your eyes, then hold.`,
         },
       ];
@@ -195,7 +199,6 @@ export function ShotVideo({ shot = "front" }: { shot?: StoryShot }) {
             <a className="underline" href={watch} target="_blank" rel="noopener noreferrer">
               Watch on YouTube
             </a>
-            . Never flipped: a flipped batter isn&apos;t a real left-hander. If the batter in it bats the other way round from you, the steps name your sides.
           </p>
         </div>
 
@@ -205,28 +208,38 @@ export function ShotVideo({ shot = "front" }: { shot?: StoryShot }) {
             <Choice label="Your stronger hand" value={stronger} onChange={(v) => changeSetting(strongerHand, v)} names={{ right: "Right", left: "Left" }} />
           </div>
           <p className="mt-5 font-semibold">What to watch for</p>
-          <ol className="mt-3 space-y-3 text-sm">
+          <ol className="mt-2 text-sm">
             {steps(shot, bats).map((s, i) => (
-              <li key={s.k} className="flex gap-3">
+              <li key={s.k} className="flex items-center gap-3">
                 <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line-strong text-xs font-semibold">
                   {i + 1}
                 </span>
-                <span>
-                  <span className="font-semibold">{s.k}.</span> <span className="text-fg-muted">{s.d}</span>
-                </span>
+                <Hold more={<p>{s.d}</p>}>
+                  <span>
+                    <span className="font-semibold">{s.k}:</span> <span className="text-fg-muted">{s.s}</span>
+                  </span>
+                </Hold>
               </li>
             ))}
           </ol>
-          <div className="mt-5 rounded-xl border border-line p-4 text-sm">
-            <p className="font-semibold">Which hand does the work</p>
-            <p className="mt-1 text-fg-muted">
-              The top hand guides the bat; the bottom hand supports it. Batting side is not the same as your stronger hand: at the 2003 World Cup, 25 of
-              41 left-handed batters bowled right-handed. {handNote(bats, stronger)}
-            </p>
-            <p className="mt-2 text-xs text-fg-subtle">
-              Source: Mann, Runswick &amp; Allen, “Hand and eye dominance in sport: are cricket batters taught to bat back-to-front?”, Sports Medicine
-              2016 (43 professional and 93 inexperienced batters; an observed link, not proof).
-            </p>
+          <div className="mt-3 text-sm">
+            <Hold
+              more={
+                <>
+                  <p>
+                    The top hand guides the bat; the bottom hand supports it. Batting side is not the same as your stronger hand: at the 2003 World Cup, 25
+                    of 41 left-handed batters bowled right-handed. {handNote(bats, stronger)}
+                  </p>
+                  <p>The video is never flipped: a flipped batter isn&apos;t a real left-hander. If the batter in it bats the other way round from you, the steps name your sides.</p>
+                  <p className="text-xs">
+                    Source: Mann, Runswick &amp; Allen, “Hand and eye dominance in sport: are cricket batters taught to bat back-to-front?”, Sports Medicine
+                    2016 (43 professional and 93 inexperienced batters; an observed link, not proof).
+                  </p>
+                </>
+              }
+            >
+              <span className="font-semibold">Which hand does the work</span>
+            </Hold>
           </div>
         </div>
       </div>

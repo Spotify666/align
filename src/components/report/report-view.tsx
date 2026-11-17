@@ -440,9 +440,9 @@ export function ReportView({ payload: p, obs, videoUrl, mediaTimes, keyframes, b
           {sideOnFrontFoot(p) && (
             <SideBySide you={{ obs, payload: p, label: title ?? "This shot" }} previous={reference ? { obs: reference.obs, payload: reference.payload, label: reference.label } : null} />
           )}
-          {reference && <p className="text-sm text-fg-muted">Your last attempt from the same camera position can also be laid over this one, frame by frame, in Evidence.</p>}
+          {reference && <p className="text-sm text-fg-muted">Lay your last attempt over this one in Evidence.</p>}
           {isValid && p.requested_shot === "back_foot_defence" && !otherAngle && (
-            <p className="text-fg-muted">Comparison with other shots covers the front-foot defence so far. Your back-foot defences are compared with each other under Progress.</p>
+            <p className="text-fg-muted">Back-foot defences are compared under Progress.</p>
           )}
           {!isValid && p.mode !== "posture_screen" && <p className="text-fg-muted">A shot is compared with others once it is confirmed. This one wasn&apos;t.</p>}
         </>

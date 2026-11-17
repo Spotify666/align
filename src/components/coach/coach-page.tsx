@@ -102,7 +102,7 @@ export function CoachPage() {
       <header>
         <h1 className="display text-4xl sm:text-5xl">Coach workspace</h1>
         <p className="mt-3 max-w-2xl text-fg-muted">
-          Players link you with your invite code and choose what to share. Your view sits beside Aline&apos;s result and never changes it.
+          Review what your players share. Your view never changes Aline&apos;s.
         </p>
       </header>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -178,7 +179,7 @@ export function ProfilePage() {
       <section className="card p-5 space-y-3" aria-labelledby="baseline">
         <h2 id="baseline" className="text-lg font-semibold">Personal baseline</h2>
         <p className="text-fg-muted text-sm">
-          Built from {needed}–10 of your valid front-foot defences, weighted by confidence. It is kept separate from the coaching ranges.
+          <Hold more={<p>Built from {needed}–10 of your valid front-foot defences, weighted by confidence. It is kept separate from the coaching ranges.</p>}>Your own usual, from your shots</Hold>
         </p>
         <div className="flex items-center gap-3">
           <div className="h-2 flex-1 rounded bg-line overflow-hidden" role="progressbar" aria-label="Defences toward your baseline" aria-valuenow={Math.min(valid.length, needed)} aria-valuemin={0} aria-valuemax={needed}>
@@ -254,7 +255,7 @@ export function ProfilePage() {
           </>
         ) : (
           <p className="text-sm text-fg-muted">
-            Not signed in. Everything works on this device. <Link href="/signin?next=/profile" className="underline text-fg">Sign in</Link> to save reports to your account or share with a coach.
+            Not signed in. <Link href="/signin?next=/profile" className="inline-flex min-h-11 items-center underline text-fg">Sign in</Link> to save or share.
           </p>
         )}
       </section>

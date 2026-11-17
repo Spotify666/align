@@ -1,3 +1,4 @@
+import { Hold } from "@/components/common/hold";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ScreenMap } from "@/components/design/screen-map";
@@ -18,7 +19,7 @@ export default function DesignPage() {
       <header className="mx-auto max-w-6xl px-4 pb-10 pt-10 sm:px-6 sm:pt-14">
         <h1 className="display max-w-3xl text-4xl sm:text-6xl">Every screen, in the order you meet it.</h1>
         <p className="mt-4 max-w-2xl text-lg text-fg-muted">
-          {FLOWS.length} flows and {SCREENS.length} screens, from the first visit to a coach&apos;s review. Each lane is one flow; follow the line from left to right. Tap a screen to see what each thing on it does.
+          {FLOWS.length} flows, {SCREENS.length} screens. Tap a screen for what it does.
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <a href={DESIGN_PDF} download="aline-design.pdf" className="btn btn-primary">
@@ -27,7 +28,7 @@ export default function DesignPage() {
           <Link href="/design-system" className="btn btn-ghost">Colours, type and components</Link>
         </div>
         <p className="mt-3 max-w-2xl text-sm text-fg-subtle">
-          The pictures are the app itself, on generated examples and test accounts. No real player&apos;s footage is shown.
+          <Hold more={<p>The pictures are the app itself, on generated examples and test accounts. No real player&apos;s footage is shown.</p>}>About the pictures</Hold>
         </p>
         <nav aria-label="Flows" className="mt-8 flex flex-wrap gap-2">
           {FLOWS.map((f) => (

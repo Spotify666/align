@@ -3,7 +3,7 @@
 import type { TargetShot } from "@/engine/types";
 
 const CHOICES: Array<{ id: TargetShot | null; title: string; note: string }> = [
-  { id: null, title: "Aline tells", note: "Aline checks for a front-foot defence, and for a back-foot defence if it looks like one. These two are graded today." },
+  { id: null, title: "Aline tells", note: "Aline works out which defence it is." },
   { id: "front_foot_defence", title: "Front foot", note: "Front-foot defence. Full ball: step forward." },
   { id: "back_foot_defence", title: "Back foot", note: "Back-foot defence. Short ball: step back." },
 ];

@@ -779,6 +779,63 @@
   }
 }
 
+/* Short on the page, complete on a long press (components/common/hold.tsx). The dotted line
+   under it is the sign that there is more. */
+.hold {
+  /* Keeps the hidden screen-reader hint inside it: without a positioned box it is placed against
+     the page and can widen it from inside a sideways-scrolling strip. */
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  width: fit-content;
+  max-width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--fg-subtle);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 5px;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  flex-wrap: wrap;
+  column-gap: 0.5rem;
+}
+.hold[data-hint]::after {
+  content: "Hold to read more";
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--brand);
+  text-decoration: none;
+  display: inline-block;
+}
+.hold-sheet {
+  margin: auto auto 0;
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--line-strong);
+  border-bottom: 0;
+  border-radius: 1.4rem 1.4rem 0 0;
+  background: var(--surface);
+  color: var(--fg);
+  padding: 0 0 env(safe-area-inset-bottom);
+}
+.hold-sheet::backdrop {
+  background: rgb(0 0 0 / 0.72);
+}
+@media (min-width: 640px) {
+  .hold-sheet {
+    margin: auto;
+    max-width: 36rem;
+    border-bottom: 1px solid var(--line-strong);
+    border-radius: 1.4rem;
+  }
+}
+
 /* The screen map's larger view (/design). */
 .screen-dialog::backdrop {
   background: rgb(0 0 0 / 0.72);

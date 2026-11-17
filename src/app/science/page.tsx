@@ -1,3 +1,4 @@
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CLASSIFIER_VERSION, DOMAIN_LABELS, ENGINE_VERSION, INDEX_WEIGHTS_VERSION, METRICS, METRIC_VERSION, POSE_MODEL, REGISTRY_HASH, THRESHOLDS } from "@/engine/registry";
@@ -38,10 +39,10 @@ export default function SciencePage() {
     <div className="mx-auto max-w-5xl px-4 sm:px-6 py-10 space-y-14">
       <header className="space-y-3">
         <p className="eyebrow">Science and validation</p>
-        <h1 className="display text-5xl">How a result is produced — and what is not yet proven.</h1>
+        <h1 className="display text-5xl">How a result is made</h1>
         <p className="text-fg-muted max-w-3xl">
-          Aline is a measurement system with an explanation layer, not an AI that watches cricket. This page lists every rule, range and version the engine
-          uses. Nothing here is a claim of accuracy on real athletes: that validation has not been done yet.
+          <Hold more={<p>Aline is a measurement system with an explanation layer, not an AI that watches cricket. This page lists every rule, range and version the engine
+          uses. Nothing here is a claim of accuracy on real athletes: that validation has not been done yet.</p>}>Every rule and range the engine uses. Not yet validated on real athletes.</Hold>
         </p>
         <nav className="flex flex-wrap gap-2 text-sm" aria-label="On this page">
           {[["order", "Decision order"], ["ontology", "Shots"], ["metrics", "Measures"], ["availability", "What each set-up gives"], ["index", "Index"], ["thresholds", "Thresholds"], ["validation", "Validation"], ["llm", "Language model"], ["refs", "References"]].map(([id, l]) => (
@@ -62,15 +63,18 @@ export default function SciencePage() {
           ].map(([t, d], i) => (
             <li key={t} className="bg-surface p-5">
               <span className="num text-brand text-sm">{i + 1}</span>
-              <p className="mt-1 font-semibold">{t}</p>
-              <p className="mt-1 text-sm text-fg-muted">{d}</p>
+              <p className="mt-1 font-semibold">
+                <Hold more={<p>{d}</p>}>{t}</Hold>
+              </p>
             </li>
           ))}
         </ol>
       </Section>
 
       <Section id="ontology" eyebrow="Shot ontology" title="Two graded shots, many recognised ones">
-        <p className="text-fg-muted">The front-foot defence and the back-foot defence are graded in this release. Other shots are recognised so they can be rejected with evidence; each unlocks only after passing the same validation bar.</p>
+        <p className="text-fg-muted">
+          <Hold more={<p>The front-foot defence and the back-foot defence are graded in this release. Other shots are recognised so they can be rejected with evidence; each unlocks only after passing the same validation bar.</p>}>Two shots graded; others recognised, not graded.</Hold>
+        </p>
         <div className="overflow-x-auto card" tabIndex={0} role="region" aria-label="Shot features compared">
           <table className="w-full text-sm">
             <thead>
@@ -92,7 +96,9 @@ export default function SciencePage() {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-fg-subtle">Units: fractions of standing height, degrees, or height per second. Bands are coach-authored prototypes ({CLASSIFIER_VERSION}); scores are softened likelihoods, not calibrated probabilities.</p>
+        <p className="text-xs text-fg-subtle">
+          <Hold more={<p>Units: fractions of standing height, degrees, or height per second. Bands are coach-authored prototypes ({CLASSIFIER_VERSION}); scores are softened likelihoods, not calibrated probabilities.</p>}>Units and how scores are made</Hold>
+        </p>
       </Section>
 
       <Section id="metrics" eyebrow={`Measures · ${METRIC_VERSION}`} title="Front-foot-defence movement indicators">
@@ -112,25 +118,27 @@ export default function SciencePage() {
           ))}
         </ul>
         </More>
-        <p className="text-sm text-fg-muted">These are movement indicators, not biomarkers or diagnoses. Ranges are provisional coaching ranges for adult club batters facing medium pace from a side-on view, pending validation.</p>
         <p className="text-sm text-fg-muted">
-          <strong className="text-fg">The position formula (photos).</strong> A side-on photo is checked against seven of these at once: stride (foot to foot), front knee, back leg,
+          <Hold more={<p>These are movement indicators, not biomarkers or diagnoses. Ranges are provisional coaching ranges for adult club batters facing medium pace from a side-on view, pending validation.</p>}>Movement indicators, not diagnoses. Ranges are provisional.</Hold>
+        </p>
+        <p className="text-sm text-fg-muted">
+          <Hold more={<p><strong className="text-fg">The position formula (photos).</strong> A side-on photo is checked against seven of these at once: stride (foot to foot), front knee, back leg,
           head over the front knee, trunk lean, weight over the front foot, and hands ahead of the front knee. Each is met or not; the photo is taken to be the moment of contact. From an angle, four are checked (front knee, back leg, lean and weight forward): the stride and the head and hand distances run toward the camera and can&apos;t be read.
-          A photo can&apos;t show timing, the bat&apos;s path or the ball, and a drive can look the same at contact, so a photo never confirms the shot or gets a score.
+          A photo can&apos;t show timing, the bat&apos;s path or the ball, and a drive can look the same at contact, so a photo never confirms the shot or gets a score.</p>}>Photos: the position formula</Hold>
         </p>
         <p className="text-xs text-fg-subtle">
-          Sources: Stretch RA, Buys F, Du Toit E, Viljoen G (1998), Kinematics and kinetics of the drive off the front foot in cricket batting, Journal of Sports Sciences
+          <Hold more={<p>Sources: Stretch RA, Buys F, Du Toit E, Viljoen G (1998), Kinematics and kinetics of the drive off the front foot in cricket batting, Journal of Sports Sciences
           (bat angle at impact in the forward defence: 62.6 ± 6.5° from horizontal; drive 77.8 ± 7.1°). Taliep MS, Galal U, Vaughan CL (2007), The position of the head and
           centre of mass during the front foot off-drive in skilled and less-skilled cricket batsmen, Sports Biomechanics (skilled batters&apos; head and centre of mass further
-          forward; less-skilled more upright at the hip). Where no measurement exists, the range is a coaching criterion and says so.
+          forward; less-skilled more upright at the hip). Where no measurement exists, the range is a coaching criterion and says so.</p>}>Sources</Hold>
         </p>
       </Section>
 
       <Section id="back-foot" eyebrow={`Measures · ${BFD_METRIC_VERSION}`} title="Back-foot-defence movement indicators">
         <p className="text-fg-muted">
-          Measured from the back foot (the base of this shot), × standing height. Side-on the distances run along the pitch; from either end, sideways. No published lab
+          <Hold more={<p>Measured from the back foot (the base of this shot), × standing height. Side-on the distances run along the pitch; from either end, sideways. No published lab
           measurements of the back-foot defence were found, so every range is provisional coaching geometry from the coaching sources below. See the{" "}
-          <Link className="underline" href="/guide#back-foot">guide</Link> for the shot itself.
+          <Link className="underline" href="/guide#back-foot">guide</Link> for the shot itself.</p>}>Measured from the back foot. Ranges are provisional.</Hold>
         </p>
         <More label={`All ${BFD_METRICS.length} measures, with their ranges`}>
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -152,10 +160,10 @@ export default function SciencePage() {
 
       <Section id="availability" eyebrow="What each set-up gives" title="Which measures a recording can give">
         <p className="text-fg-muted max-w-3xl">
-          Worked out from each measure&apos;s prerequisites and the camera position, by the same rules the analysis follows (checked against it in the
+          <Hold more={<p>Worked out from each measure&apos;s prerequisites and the camera position, by the same rules the analysis follows (checked against it in the
           tests). <strong className="font-semibold text-fg">Graded</strong>: taken and judged against its range when the body parts it rests on are seen.{" "}
           <strong className="font-semibold text-fg">Shown</strong>: taken, not graded. <strong className="font-semibold text-fg">No</strong>: this set-up never
-          gives it, and the reason says what would.
+          gives it, and the reason says what would.</p>}>Graded, shown, or not available, by set-up.</Hold>
         </p>
         {(["front_foot_defence", "back_foot_defence"] as const).map((shot) => {
           const tables = SETUPS.map((s) => availability(shot, s.conditions));
@@ -200,8 +208,8 @@ export default function SciencePage() {
 
       <Section id="provisional" eyebrow="Provisional · off" title="Specified, not measured">
         <p className="text-fg-muted max-w-3xl">
-          Written down in full so it can be reviewed. It is not taken from any recording and appears in no report until it has labelled real clips and a
-          coach&apos;s review.
+          <Hold more={<p>Written down in full so it can be reviewed. It is not taken from any recording and appears in no report until it has labelled real clips and a
+          coach&apos;s review.</p>}>Written down, not used yet.</Hold>
         </p>
         {PROVISIONAL_MEASURES.map((m) => (
           <More key={m.id} label={`${m.name} · Off`}>
@@ -223,14 +231,16 @@ export default function SciencePage() {
 
       <Section id="index" eyebrow={INDEX_WEIGHTS_VERSION} title="The secondary technique index">
         <p className="text-fg-muted">
-          Shown only for a valid defence with at least {THRESHOLDS["index.min_domains"].value} of 6 domains measured. Each measure scores 1 inside its range and falls off as
+          <Hold more={<p>Shown only for a valid defence with at least {THRESHOLDS["index.min_domains"].value} of 6 domains measured. Each measure scores 1 inside its range and falls off as
           exp(−½·(d/0.5)²), where d is the distance outside the range in half-range-widths. The index is the weight-averaged score × 100, rounded to an integer, with a band
-          from re-scoring at ± one uncertainty. Domains are always read first; the index is a summary, never the truth.
+          from re-scoring at ± one uncertainty. Domains are always read first; the index is a summary, never the truth.</p>}>How the index is worked out</Hold>
         </p>
       </Section>
 
       <Section id="thresholds" eyebrow={`Registry ${REGISTRY_HASH}`} title="Every threshold, with its reason">
-        <p className="text-fg-muted max-w-3xl">Every number the analysis compares against lives in one registry, with the reason for its value. Changing any of them changes the registry&apos;s fingerprint above.</p>
+        <p className="text-fg-muted max-w-3xl">
+          <Hold more={<p>Every number the analysis compares against lives in one registry, with the reason for its value. Changing any of them changes the registry&apos;s fingerprint above.</p>}>Every number, with its reason.</Hold>
+        </p>
         <More label={`All ${Object.keys(THRESHOLDS).length} thresholds`}>
         <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Thresholds">
           <table className="w-full text-sm">
@@ -256,9 +266,9 @@ export default function SciencePage() {
 
       <Section id="validation" eyebrow="Validation status" title="Tested, not yet validated">
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="card p-4"><p className="font-semibold">Research basis</p><p className="mt-1 text-sm text-fg-muted">A defence and a drive differ mainly in bat and ball speed, not body shape. So a clip with bat and ball is held to both, and a body-only clip is confirmed on the body&apos;s definition and says what it couldn&apos;t see.</p></div>
-          <div className="card p-4"><p className="font-semibold">Internal engineering tests</p><p className="mt-1 text-sm text-fg-muted">Synthetic fixtures (below), 31 pull variants that must never be scored, reproducibility and report-contract tests, run on every change.</p></div>
-          <div className="card p-4 border-warn/50"><p className="font-semibold text-warn">Real-athlete validation</p><p className="mt-1 text-sm text-fg-muted">Not done. Planned release gates: non-defence false-accept below 2%, at least 90% recall of usable defences, event timing and joint-angle error targets per tier.</p></div>
+          <div className="card p-4"><p className="font-semibold">Research basis</p><p className="text-sm text-fg-muted"><Hold more={<p>A defence and a drive differ mainly in bat and ball speed, not body shape. So a clip with bat and ball is held to both, and a body-only clip is confirmed on the body&apos;s definition and says what it couldn&apos;t see.</p>}>Bat and ball, or the body&apos;s own definition</Hold></p></div>
+          <div className="card p-4"><p className="font-semibold">Internal engineering tests</p><p className="text-sm text-fg-muted"><Hold more={<p>Synthetic fixtures (below), 31 pull variants that must never be scored, reproducibility and report-contract tests, run on every change.</p>}>Run on every change</Hold></p></div>
+          <div className="card p-4 border-warn/50"><p className="font-semibold text-warn">Real-athlete validation</p><p className="text-sm text-fg-muted"><Hold more={<p>Not done. Planned release gates: non-defence false-accept below 2%, at least 90% recall of usable defences, event timing and joint-angle error targets per tier.</p>}>Not done yet</Hold></p></div>
         </div>
         <More label={`The ${FIXTURE_SPECS.length} test cases, each with its sample report`}>
         <ul className="divide-y divide-line">
@@ -273,7 +283,9 @@ export default function SciencePage() {
       </Section>
 
       <Section id="llm" eyebrow="Language model boundary" title="Explains the evidence. Never measures.">
-        <p className="text-fg-muted">The written report comes from a fixed template, or optionally a language model given the typed payload. Every sentence with a number must cite payload IDs and match them; reports that contradict the status, invent a measure or use medical language are rejected and the template is used instead.</p>
+        <p className="text-fg-muted">
+          <Hold more={<p>The written report comes from a fixed template, or optionally a language model given the typed payload. Every sentence with a number must cite payload IDs and match them; reports that contradict the status, invent a measure or use medical language are rejected and the template is used instead.</p>}>Explains the evidence. Never measures.</Hold>
+        </p>
         <ul className="card divide-y divide-line text-sm">
           {MODEL_ROUTES.map((r) => (
             <li key={r.id} className="p-3 flex flex-wrap gap-x-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import { Hold } from "@/components/common/hold";
 import { SHOT_DISPLAY } from "@/engine/classify";
 import { DOMAIN_LABELS, THRESHOLDS } from "@/engine/registry";
 import type { AnalysisPayload, DomainResult, PlanItem, QualityCheck, ShotClass } from "@/engine/types";
@@ -94,10 +95,20 @@ export function PriorityPlan({ plan }: { plan: PlanItem }) {
       <div className="card p-5">
         <p className="eyebrow">Primary practice focus</p>
         <h3 className="display text-3xl mt-2">{plan.priority.title}</h3>
-        <p className="mt-3 text-fg-muted">{plan.priority.observation.replace(/\s*Measured .*$/, "")}</p>
-        <p className="mt-3 text-sm text-fg-muted">
-          <span className="text-fg font-medium">Likely effect: </span>
-          {plan.consequence}
+        <p className="mt-2 text-fg-muted">
+          <Hold
+            more={
+              <>
+                <p>{plan.priority.observation.replace(/\s*Measured .*$/, "")}</p>
+                <p>
+                  <span className="font-medium text-fg">Likely effect: </span>
+                  {plan.consequence}
+                </p>
+              </>
+            }
+          >
+            What and why
+          </Hold>
         </p>
         <p className="mt-4 rounded-lg border border-brand/40 bg-brand/5 p-3 text-lg">
           <span className="eyebrow block mb-1">Cue</span>“{plan.cue}”
@@ -133,8 +144,9 @@ export function PriorityPlan({ plan }: { plan: PlanItem }) {
                   {here && <span className="ml-2 font-semibold text-brand">Start here</span>}
                   {done && <span className="ml-2">(already past this)</span>}
                 </p>
-                <h4 className="mt-0.5 font-semibold">{d.name}</h4>
-                <p className="mt-1 text-sm text-fg-muted">{d.constraint}</p>
+                <h4 className="font-semibold">
+                  <Hold more={<p>{d.constraint}</p>}>{d.name}</Hold>
+                </h4>
                 <dl className="mt-2 grid grid-cols-[5rem_1fr] gap-y-1 text-sm">
                   <dt className="text-fg-subtle">Dosage</dt>
                   <dd className="num">{d.dosage}</dd>

@@ -46,7 +46,7 @@ export function HomeNext() {
               {fix && <p className="mt-2 text-fg-muted">Next: {fix}</p>}
             </>
           ) : (
-            <p className="mt-2 max-w-md text-fg-muted">Nothing checked yet. After your first shot, the result and the one thing to work on appear here.</p>
+            <p className="mt-2 max-w-md text-fg-muted">Nothing checked yet.</p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">

@@ -1,5 +1,6 @@
 "use client";
 
+import { Hold } from "@/components/common/hold";
 import { useEffect, useRef, useState } from "react";
 import { TRACED } from "@/lib/traced-batter";
 
@@ -307,8 +308,10 @@ export function BatterFigure() {
         <p className="mt-3 min-h-[2.75rem] text-sm text-fg" aria-live={held === null ? "off" : "polite"}>
           <span className="font-semibold">{MOMENTS[moment]!.name}.</span> <span className="text-fg-muted">{MOMENTS[moment]!.cue}</span>
         </p>
-        <p className="mt-1 text-xs text-fg-subtle">
-          A real batter&apos;s front-foot defence, traced frame by frame from a phone clip. Aline read this clip as a front-foot defence: front knee bent, a good step, front shoulder a little late.
+        <p className="text-xs text-fg-subtle">
+          <Hold more={<p>A real batter&apos;s front-foot defence, traced frame by frame from a phone clip. Aline read this clip as a front-foot defence: front knee bent, a good step, front shoulder a little late.</p>}>
+            Traced from a real clip
+          </Hold>
         </p>
       </figcaption>
     </figure>

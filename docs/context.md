@@ -3,6 +3,20 @@
 Newest first. Keep their words; say what was done and where. Update this file in the same
 change that answers a new ask, so the next session starts from the same page.
 
+## 2026-11-17 · "the site is text heavy… long press… on a shorter version… keep it simple"
+
+- Every page now shows a short version; the full text opens on a long press (a mouse click or
+  Enter opens it too). A quick tap shows "Hold to read more" until the first time it is used.
+  The full text opens in one sheet at the bottom of the screen; tapping outside or Close shuts it.
+- Words on arrival, all pages together: 8,164 → about 4,500. Biggest cuts: Science 1,335 → 804
+  (the rest are tables), the screen map 1,413 → 446, Privacy 605 → 226, Home 621 → 218. Inside a
+  report, each section's intro, every drill's detail, "why it matters" and each measure's
+  explanation are behind a long press too.
+- It stays that way: the page check fails on any paragraph of 30 words or more on arrival.
+- Checked in a browser at phone size: a tap doesn't open it, a long press does, a scroll that
+  starts on it doesn't, mouse and keyboard open it at once, focus returns after closing.
+- Not checked on a real phone's touch screen.
+
 ## 2026-11-16 · "Make sure… the code quality and practices are in sync… after this session"
 
 - The standard is now written where every session reads it first (`CLAUDE.md`, "The quality

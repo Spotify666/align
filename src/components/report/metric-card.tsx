@@ -1,5 +1,6 @@
 "use client";
 
+import { Hold } from "@/components/common/hold";
 import type { Metric } from "@/engine/types";
 import type { BaselineComparison } from "@/engine/baseline";
 import { RangeBar } from "./range-bar";
@@ -64,7 +65,9 @@ export function MetricCard({
         </>
       )}
 
-      <p className="text-sm text-fg-muted">{m.meaning}</p>
+      <p className="text-sm text-fg-muted">
+        <Hold more={<p>{m.meaning}</p>}>What this measures</Hold>
+      </p>
       <details className="group text-sm">
         <summary className="list-none flex items-center gap-1 text-fg-subtle hover:text-fg min-h-11">
           <span className="group-open:rotate-90 transition-transform">›</span> Why it matters for a defence

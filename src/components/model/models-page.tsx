@@ -3,6 +3,7 @@
 // lists the ones on this device, starts a new one, reads one back from its text, and says which
 // one new checks are set against.
 
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -34,6 +35,13 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
   );
 }
 
+const HOW: Array<[string, string]> = [
+  ["Holds a pose at each moment", "It holds where each joint is at contact (and, if you add them, when the foot lands and at the top of the backlift), from the side, the front or both."],
+  ["Compares what one camera can read", "A clip is compared on what one camera can truly read: where the head, shoulder, knee and hands sit over the feet, how the knees bend, how the body leans. An elbow's bend seen end-on is left out; its height is used."],
+  ["Never decides the shot", "It never decides which shot was played. If Aline can't confirm the shot, or it was filmed from a position the model wasn't placed from, the model isn't applied and the report says so."],
+  ["Stays on this device", "It stays on this device. Its text can be saved, shared and read back anywhere."],
+];
+
 export function ModelsPage() {
   const router = useRouter();
   const [models, setModels] = useState<PoseModel[] | null>(null);
@@ -64,7 +72,7 @@ export function ModelsPage() {
       <header className="space-y-3">
         <h1 className="display text-4xl sm:text-5xl">Your own model of a shot.</h1>
         <p className="max-w-2xl text-lg text-fg-muted">
-          Place each joint on a figure to say what a correct shot looks like to you, and why. Save it, take it away as text, and choose to have your shots checked against it instead of Aline&apos;s own ranges.
+          Place each joint to show a correct shot. Check your shots against it.
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
           <button type="button" className="btn btn-primary" onClick={() => { setMode("new"); setProblem(null); }}>New model</button>
@@ -126,7 +134,7 @@ export function ModelsPage() {
         {models === null ? (
           <p className="text-fg-subtle">Reading your models…</p>
         ) : models.length === 0 ? (
-          <p className="panel p-5 text-fg-muted">None yet. Start one above: it takes a few minutes to move the joints to where you want them.</p>
+          <p className="panel p-5 text-fg-muted">None yet.</p>
         ) : (
           <>
             <ul className="space-y-3">
@@ -145,19 +153,20 @@ export function ModelsPage() {
               ))}
             </ul>
             <p className="text-sm text-fg-subtle">
-              {chosen ? "Aline still decides which shot was played; a confirmed shot is then set against your model." : "No model is in use: reports use Aline's own ranges."} A report can also be set against any model afterwards.
+              {chosen ? "Your shots are checked against your model." : "No model in use: Aline's own ranges."}
             </p>
           </>
         )}
       </section>
 
-      <section aria-labelledby="how-h" className="space-y-3 border-t border-line pt-8">
+      <section aria-labelledby="how-h" className="space-y-1 border-t border-line pt-8">
         <h2 id="how-h" className="display text-2xl">What a model does, and doesn&apos;t</h2>
-        <ul className="list-disc space-y-2 pl-5 text-fg-muted">
-          <li>It holds where each joint is at contact (and, if you add them, when the foot lands and at the top of the backlift), from the side, the front or both.</li>
-          <li>A clip is compared on what one camera can truly read: where the head, shoulder, knee and hands sit over the feet, how the knees bend, how the body leans. An elbow&apos;s bend seen end-on is left out; its height is used.</li>
-          <li>It never decides which shot was played. If Aline can&apos;t confirm the shot, or it was filmed from a position the model wasn&apos;t placed from, the model isn&apos;t applied and the report says so.</li>
-          <li>It stays on this device. Its text can be saved, shared and read back anywhere.</li>
+        <ul className="pt-2">
+          {HOW.map(([short, full]) => (
+            <li key={short}>
+              <Hold more={<p>{full}</p>}>{short}</Hold>
+            </li>
+          ))}
         </ul>
       </section>
     </div>

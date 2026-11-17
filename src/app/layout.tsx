@@ -1,3 +1,4 @@
+import { HoldSheet } from "@/components/common/hold";
 import type { Metadata, Viewport } from "next";
 import { Archivo, Geist } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Providers>
           <AppShell>{children}</AppShell>
+          <HoldSheet />
         </Providers>
       </body>
     </html>

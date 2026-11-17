@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
+import { Hold } from "@/components/common/hold";
 import { BatterFigure } from "@/components/landing/batter-figure";
 import { HeroFigure } from "@/components/landing/hero-figure";
 import { analyze } from "@/engine/analyze";
@@ -26,6 +27,14 @@ const STATS = [
   ["17", "body points tracked"],
   ["2", "shots graded today"],
   ["0", "videos uploaded"],
+];
+
+// What is true today, said plainly in a few words; the whole of each is a long press away.
+const TRUE_TODAY = [
+  { name: "Graded", short: "front-foot and back-foot defence", full: "The front-foot defence and the back-foot defence. Other shots are identified where possible and are not graded yet." },
+  { name: "On your phone", short: "your video is never uploaded", full: "The video is analysed on your device and is not uploaded. Results leave it only if you sign in and choose to save or share them." },
+  { name: "Works best", short: "side-on, steady, whole batter in view", full: "Side-on or from the bowler's end, the whole batter in frame, steady camera, 60 frames a second or more." },
+  { name: "Experimental", short: "not yet validated on real athletes", full: `A prototype (engine ${ENGINE_VERSION}). Ranges are provisional coaching ranges and the engine is not yet validated on real athletes. When it can't tell, it says so. Not a medical assessment.` },
 ];
 
 const LEVELS = [
@@ -76,7 +85,7 @@ export default function Landing() {
             Every shot, <span className="text-brand">explained.</span>
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-fg-muted">
-            Film one shot on your phone. Aline finds your body, checks your line and shows you one thing to practise. Your video stays on your phone.
+            Film one shot. Get one thing to practise. Your video stays on your phone.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link href="/check" className="btn btn-primary w-full !px-7 text-base font-semibold sm:w-auto">
@@ -107,8 +116,9 @@ export default function Landing() {
             {STEPS.map((s, i) => (
               <li key={s.title} className="panel p-5">
                 <p className="flex h-9 w-9 items-center justify-center rounded-full border border-line-strong text-sm font-semibold num" aria-hidden>{i + 1}</p>
-                <h3 className="mt-4 text-lg font-semibold">{s.title}</h3>
-                <p className="mt-1 text-fg-muted">{s.text}</p>
+                <h3 className="mt-2 text-lg font-semibold">
+                  <Hold more={<p>{s.text}</p>}>{s.title}</Hold>
+                </h3>
               </li>
             ))}
           </ol>
@@ -120,9 +130,7 @@ export default function Landing() {
           <div>
             <p className="text-sm font-medium text-fg-subtle">What comes back</p>
             <h2 id="sample-h" className="display mt-2 text-3xl sm:text-4xl">A short answer, then the evidence.</h2>
-            <p className="mt-3 max-w-md text-fg-muted">
-              This one is a generated example, analysed by the same engine that checks your shot.
-            </p>
+            <p className="mt-3 max-w-md text-fg-muted">A generated example, read by the same engine as your shot.</p>
             <dl className="panel mt-6 divide-y divide-line px-5">
               {facts.map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[8.5rem_1fr] gap-4 py-3.5">
@@ -145,14 +153,13 @@ export default function Landing() {
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
           <p className="text-sm font-medium text-fg-subtle">Your level</p>
           <h2 id="levels-h" className="display mt-2 text-3xl sm:text-4xl">Three levels, one engine.</h2>
-          <p className="mt-3 max-w-2xl text-fg-muted">
-            Choose your level when you check a shot. It changes the words and how much is shown, never the measurement.
-          </p>
+          <p className="mt-3 max-w-2xl text-fg-muted">The level changes the words, never the measurement.</p>
           <ul className="mt-8 grid gap-4 md:grid-cols-3">
             {LEVELS.map((l) => (
-              <li key={l.name} className="panel p-5">
-                <h3 className="font-semibold">{l.name}</h3>
-                <p className="mt-1 text-fg-muted">{l.text}</p>
+              <li key={l.name} className="panel px-5 py-2">
+                <h3 className="font-semibold">
+                  <Hold more={<p>{l.text}</p>}>{l.name}</Hold>
+                </h3>
               </li>
             ))}
           </ul>
@@ -164,16 +171,12 @@ export default function Landing() {
           <h2 id="who-h" className="sr-only">For players and for coaches</h2>
           <div className="panel p-6">
             <h3 className="display text-2xl sm:text-3xl">For players</h3>
-            <p className="mt-3 text-fg-muted">
-              Check a shot after nets, see your line at contact, and track the change over sessions against your own usual. Compare a shot with a reference when the two were filmed the same way.
-            </p>
+            <p className="mt-3 text-fg-muted">Check a shot, see your line, track the change.</p>
             <Link href="/check" className="btn btn-primary mt-6">Check your shot</Link>
           </div>
           <div className="panel p-6">
             <h3 className="display text-2xl sm:text-3xl">For coaches</h3>
-            <p className="mt-3 text-fg-muted">
-              Invite a player with a code, review the sessions they choose to share, and give your own view beside Aline&apos;s result. Group players into squads, set a drill with a date to check again, and export your notes.
-            </p>
+            <p className="mt-3 text-fg-muted">Review the shots players share, and set drills.</p>
             <Link href="/coach" prefetch={false} className="btn btn-ghost mt-6">Open the coach workspace</Link>
           </div>
         </div>
@@ -183,27 +186,20 @@ export default function Landing() {
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
           <p className="text-sm font-medium text-fg-subtle">Straight answers</p>
           <h2 id="true-h" className="display mt-2 text-3xl sm:text-4xl">What is true today.</h2>
-          <dl className="mt-8 grid gap-x-10 gap-y-6 md:grid-cols-2">
-            <div>
-              <dt className="font-semibold">Graded</dt>
-              <dd className="mt-1 text-fg-muted">The front-foot defence and the back-foot defence. Other shots are identified where possible and are not graded yet.</dd>
-            </div>
-            <div>
-              <dt className="font-semibold">On your phone</dt>
-              <dd className="mt-1 text-fg-muted">The video is analysed on your device and is not uploaded. Results leave it only if you sign in and choose to save or share them.</dd>
-            </div>
-            <div>
-              <dt className="font-semibold">Works best</dt>
-              <dd className="mt-1 text-fg-muted">Side-on or from the bowler&apos;s end, the whole batter in frame, steady camera, 60 frames a second or more.</dd>
-            </div>
-            <div>
-              <dt className="font-semibold">Experimental</dt>
-              <dd className="mt-1 text-fg-muted">A prototype (engine {ENGINE_VERSION}). Ranges are provisional coaching ranges and the engine is not yet validated on real athletes. When it can&apos;t tell, it says so. Not a medical assessment.</dd>
-            </div>
-          </dl>
+          <ul className="mt-6 grid gap-x-10 md:grid-cols-2">
+            {TRUE_TODAY.map((t) => (
+              <li key={t.short} className="border-b border-line py-1">
+                <Hold more={<p>{t.full}</p>}>
+                  <span>
+                    <span className="font-semibold">{t.name}:</span> <span className="text-fg-muted">{t.short}</span>
+                  </span>
+                </Hold>
+              </li>
+            ))}
+          </ul>
           <div className="panel mt-12 px-6 py-10 text-center">
             <h2 className="display text-3xl sm:text-4xl">See your shot more clearly.</h2>
-            <p className="mx-auto mt-3 max-w-md text-fg-muted">No sign-up. One clip from your phone is enough to start.</p>
+            <p className="mx-auto mt-3 max-w-md text-fg-muted">No sign-up. One clip is enough.</p>
             <div className="mt-6 flex flex-col items-center gap-2">
               <Link href="/check" className="btn btn-primary w-full !px-7 text-base font-semibold sm:w-auto">Check your shot</Link>
               <Link href="/science" prefetch={false} className="inline-flex min-h-11 items-center text-sm text-fg-muted underline underline-offset-4 hover:text-fg">How the analysis works and what is validated</Link>

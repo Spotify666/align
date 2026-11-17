@@ -1,7 +1,22 @@
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Privacy and data" };
+
+// Each kind of data in a few words; what it is and where it lives on a long press.
+const SHORT: Record<string, string> = {
+  "Your video": "never leaves your phone",
+  "Movement tracks": "on your phone; your account only if you save",
+  "Still frames": "on your phone; your account only if you save",
+  "Report": "on your phone; your account only if you save",
+  "Profile": "on your phone; basics in your account if signed in",
+  "Shot models": "on your phone only",
+  "Coach's notes": "you and that coach only",
+  "Two phones, one ball": "passed through, never stored",
+  "Reference library": "only while a permission is signed",
+  "Visit log": "totals only in public; 180 days",
+};
 
 const rows: Array<[string, string, string]> = [
   ["Your video", "Stays on your phone. Analysed in the browser.", "Never uploaded. Aline has no way to send a video anywhere; a saved report carries numbers and a few small still frames, not the clip."],
@@ -26,20 +41,25 @@ export default function PrivacyPage() {
       <header className="space-y-3">
         <p className="eyebrow">Privacy and data</p>
         <h1 className="display text-5xl">Your video, your decision.</h1>
-        <p className="text-fg-muted">Plain-language summary. Movement data from video is biometric data, so every use is a separate choice you can change.</p>
+        <p className="text-fg-muted">Every use is your choice, and can be changed.</p>
       </header>
 
       <section className="space-y-3">
         <h2 className="display text-3xl">What is kept, and where</h2>
-        <div className="overflow-x-auto card">
-          <table className="w-full text-sm">
-            <thead><tr className="text-left text-fg-subtle border-b border-line"><th className="p-3 font-normal">Data</th><th className="p-3 font-normal">What it is</th><th className="p-3 font-normal">Where it lives</th></tr></thead>
-            <tbody>{rows.map(([a, b, c]) => <tr key={a} className="border-b border-line last:border-0 align-top"><td className="p-3 font-medium">{a}</td><td className="p-3 text-fg-muted">{b}</td><td className="p-3 text-fg-muted">{c}</td></tr>)}</tbody>
-          </table>
-        </div>
+        <ul className="divide-y divide-line border-y border-line">
+          {rows.map(([a, b, c]) => (
+            <li key={a}>
+              <Hold more={<><p>{b}</p><p>{c}</p></>}>
+                <span>
+                  <span className="font-medium">{a}:</span> <span className="text-fg-muted">{SHORT[a]}</span>
+                </span>
+              </Hold>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-x-6 sm:grid-cols-2">
         {[
           ["Consent first", "You agree to on-device processing before any upload. Cloud saving, coach sharing and model-training use are separate switches, all off until you turn them on."],
           ["Training use", "Off by default. If you opt in, only de-identified tracks are used — never video — and you can withdraw at any time."],
@@ -48,13 +68,15 @@ export default function PrivacyPage() {
           ["Security", "Encrypted in transit (TLS) and at rest. Database rules make every row visible only to its owner and consented coaches."],
           ["Not medical", "Aline describes technique. It does not diagnose, predict injury or replace a physiotherapist."],
         ].map(([t, d]) => (
-          <div key={t} className="card p-5"><p className="font-semibold">{t}</p><p className="mt-1 text-sm text-fg-muted">{d}</p></div>
+          <div key={t} className="border-b border-line">
+            <Hold more={<p>{d}</p>}><span className="font-semibold">{t}</span></Hold>
+          </div>
         ))}
       </section>
 
       <section className="card p-5 space-y-2">
         <h2 className="font-semibold">Your controls</h2>
-        <p className="text-sm text-fg-muted">Export everything as a file, delete everything on this device, delete your account and all saved data, and switch each consent on or off.</p>
+        <p className="text-sm text-fg-muted">Export, delete, and every consent.</p>
         <Link href="/profile" className="btn btn-primary w-fit">Open data controls</Link>
       </section>
     </div>
