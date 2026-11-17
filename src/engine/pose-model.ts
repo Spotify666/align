@@ -38,7 +38,15 @@ export const MODEL_JOINTS = [
   "front_heel", "back_heel",
   "front_foot", "back_foot",
 ] as const satisfies readonly SemanticJoint[];
-export type Pose = Record<SemanticJoint, V3>;
+/**
+ * A pose: every joint, and the bat when the model has one (it is optional: owner, 2026-11-17,
+ * "give the bat as an additional option"). `bat_handle` is where the top hand holds the handle,
+ * as a clip's bat is marked; `bat_toe` is the bottom of the blade. The bat is always held: it
+ * moves with the hands and keeps its length (`placeBat`).
+ */
+export type Pose = Record<SemanticJoint, V3> & { bat_handle?: V3; bat_toe?: V3 };
+/** A point a measure can read: a joint, or one end of the bat. */
+export type ModelPoint = SemanticJoint | "bat_handle" | "bat_toe";
 
 export const JOINT_LABEL: Record<SemanticJoint, string> = {
   head: "Head",
@@ -153,11 +161,40 @@ function reachLimb(pose: Pose, rootJ: SemanticJoint, midJ: SemanticJoint, endJ: 
 export const pelvisOf = (p: Pose): V3 => mid(p.front_hip, p.back_hip);
 export const chestOf = (p: Pose): V3 => mid(p.front_shoulder, p.back_shoulder);
 
-/** What can be dragged: every joint, and the two centres the body hangs from. */
-export type Handle = SemanticJoint | "pelvis" | "chest";
+/** What can be dragged: every joint, the two centres the body hangs from, and the bat's toe. */
+export type Handle = SemanticJoint | "pelvis" | "chest" | "bat_toe";
 export const HANDLES: readonly Handle[] = ["pelvis", "chest", ...MODEL_JOINTS];
-export const HANDLE_LABEL: Record<Handle, string> = { ...JOINT_LABEL, pelvis: "Hips (whole body)", chest: "Chest (lean)" };
-export const handlePoint = (p: Pose, h: Handle): V3 => (h === "pelvis" ? pelvisOf(p) : h === "chest" ? chestOf(p) : p[h]);
+/** The handles of this pose: the bat's toe too when it has a bat. */
+export const handlesOf = (p: Pose): readonly Handle[] => (p.bat_toe ? [...HANDLES, "bat_toe"] : HANDLES);
+export const HANDLE_LABEL: Record<Handle, string> = { ...JOINT_LABEL, pelvis: "Hips (whole body)", chest: "Chest (lean)", bat_toe: "Bat (its toe sets the angle)" };
+export const handlePoint = (p: Pose, h: Handle): V3 =>
+  h === "pelvis" ? pelvisOf(p) : h === "chest" ? chestOf(p) : h === "bat_toe" ? p.bat_toe ?? handsOf(p) : p[h];
+
+// ---------- The bat ----------
+
+/**
+ * A full-size bat (86 cm) on a 175 cm batter, in body heights: from the top hand to the toe,
+ * the handle above the top hand, the blade's length, width and depth. The drawing's sizes and
+ * where the toe sits; not a measure and not an engine threshold.
+ */
+export const BAT = { handsToToe: 0.43, aboveHands: 0.06, blade: 0.32, width: 0.062, depth: 0.034 } as const;
+/** Where the hands hold the bat: between the two wrists. */
+export const handsOf = (p: Pose): V3 => mid(p.front_wrist, p.back_wrist);
+/** Which way the bat points, from the handle to the toe; null without a bat. */
+export const batDirection = (p: Pose): V3 | null => (p.bat_handle && p.bat_toe ? unit(sub(p.bat_toe, p.bat_handle)) : null);
+/** The pose holding a bat that points `dir` (handle to toe), in the hands. */
+export function placeBat(p: Pose, dir: V3): Pose {
+  const d = unit(dir) ?? ([0, -1, 0] as V3);
+  const hands = handsOf(p);
+  return { ...p, bat_handle: hands, bat_toe: add(hands, mul(d, BAT.handsToToe)) };
+}
+export function withoutBat(p: Pose): Pose {
+  const { bat_handle: _h, bat_toe: _t, ...rest } = p;
+  void _h;
+  void _t;
+  return rest as Pose;
+}
+
 
 /** The bones, for drawing and for the lengths that must never change. */
 export const BONES: ReadonlyArray<readonly [SemanticJoint, SemanticJoint]> = [
@@ -236,6 +273,31 @@ function plantLegs(next: Pose, before: Pose) {
  * - head, heel, toe: swing about the neck or the ankle.
  */
 export function dragHandle(pose: Pose, handle: Handle, target: V3): Pose {
+  const dir = batDirection(pose);
+  if (handle === "bat_toe") return dir ? placeBat(pose, sub(target, handsOf(pose))) : pose;
+  if (!dir) return moveBody(pose, handle, target);
+  // With a bat, both hands are on the handle: a hand moves them together, each arm reaching.
+  let next: Pose;
+  if (handle === "front_wrist" || handle === "back_wrist") {
+    const delta = sub(target, pose[handle]);
+    next = { ...pose };
+    for (const side of SIDES) {
+      const r = reachLimb(pose, j(side, "shoulder"), j(side, "elbow"), j(side, "wrist"), pose[j(side, "shoulder")], add(pose[j(side, "wrist")], delta));
+      next[j(side, "elbow")] = r.mid;
+      next[j(side, "wrist")] = r.end;
+    }
+  } else next = moveBody(pose, handle, target);
+  // The bat stays in the hands; a lean of the chest turns it with the arms.
+  let d = dir;
+  if (handle === "chest") {
+    const pivot = pelvisOf(pose);
+    d = sub(turn(add(pivot, dir), pivot, sub(chestOf(pose), pivot), sub(target, pivot)), pivot);
+  }
+  return placeBat(next, d);
+}
+
+/** `dragHandle` for the body alone (see there). */
+function moveBody(pose: Pose, handle: Exclude<Handle, "bat_toe">, target: V3): Pose {
   const p: Pose = { ...pose };
   const UPPER: SemanticJoint[] = ["head", "front_shoulder", "back_shoulder", "front_elbow", "back_elbow", "front_wrist", "back_wrist"];
 
@@ -317,7 +379,8 @@ export function ground(pose: Pose): Pose {
   const low = Math.min(...(["front_heel", "back_heel", "front_foot", "back_foot"] as SemanticJoint[]).map((k) => pose[k][1]));
   const p = {} as Pose;
   for (const k of MODEL_JOINTS) p[k] = [pose[k][0], pose[k][1] - low, pose[k][2]];
-  return p;
+  const dir = batDirection(pose);
+  return dir ? placeBat(p, dir) : p;
 }
 
 /**
@@ -346,17 +409,21 @@ export function withSegments(pose: Pose, want: Partial<Segments>): Pose {
     p[j(side, "heel")] = add(ankle, mul(sub(pose[j(side, "heel")], pose[j(side, "ankle")]), k("foot")));
     p[j(side, "foot")] = add(ankle, mul(sub(pose[j(side, "foot")], pose[j(side, "ankle")]), k("foot")));
   }
-  return ground(p);
+  const dir = batDirection(pose);
+  return ground(dir ? placeBat(p, dir) : p);
 }
 
 // ---------- Measures read off a pose, in one camera's plane ----------
 
 type P2 = readonly [number, number];
 /** A joint in a camera's plane: [sideways in that plane, up], in body heights; null when not seen. */
-export type Get2 = (joint: SemanticJoint) => P2 | null;
+export type Get2 = (point: ModelPoint) => P2 | null;
 
 /** A pose as one camera sees it. Side-on: forward and up. From the bowler's end: across and up. */
-export const poseInPlane = (pose: Pose, plane: Plane): Get2 => (joint) => (plane === "side" ? [pose[joint][0], pose[joint][1]] : [pose[joint][2], pose[joint][1]]);
+export const poseInPlane = (pose: Pose, plane: Plane): Get2 => (point) => {
+  const v = pose[point];
+  return v ? (plane === "side" ? [v[0], v[1]] : [v[2], v[1]]) : null;
+};
 
 const mid2 = (a: P2 | null, b: P2 | null): P2 | null => (a && b ? [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] : null);
 const deg = (r: number) => (r * 180) / Math.PI;
@@ -423,6 +490,12 @@ export const FEATURES: readonly FeatureDef[] = [
   { id: "front_knee_across", label: "Front knee across from the front foot", plane: "front", unit: "height", more: "further to the off side", less: "further to the leg side", compute: (g) => ahead(g("front_knee"), g("front_ankle")) },
   { id: "hands_across", label: "Hands across from the head", plane: "front", unit: "height", more: "further to the off side", less: "further to the leg side", compute: (g) => ahead(hands2(g), g("head")) },
   { id: "front_elbow_height_front", label: "Front elbow against the shoulder", plane: "front", unit: "height", more: "higher", less: "lower", compute: (g) => above(g("front_elbow"), g("front_shoulder")) },
+  // The bat, when the model has one and the clip's bat was tracked: its angle and where its toe
+  // is. Read from the top hand to the toe, as a clip's bat is marked.
+  { id: "bat_angle", label: "Bat angle (handle ahead of the toe)", plane: "side", unit: "deg", more: "handle further forward", less: "handle further back", compute: (g) => lean(g("bat_toe"), g("bat_handle")) },
+  { id: "bat_toe_ahead", label: "Bat toe against the front toe", plane: "side", unit: "height", more: "further forward", less: "further back", compute: (g) => ahead(g("bat_toe"), g("front_foot")) },
+  { id: "bat_angle_front", label: "Bat straight (handle over the toe)", plane: "front", unit: "deg", more: "handle further to the off side", less: "handle further to the leg side", compute: (g) => lean(g("bat_toe"), g("bat_handle")) },
+  { id: "bat_toe_across", label: "Bat toe across from the front foot", plane: "front", unit: "height", more: "further to the off side", less: "further to the leg side", compute: (g) => ahead(g("bat_toe"), g("front_foot")) },
 ];
 
 /** A measure's own value in words: which way a positive and a negative value lie. Null: it has no direction (a bend). */
@@ -524,7 +597,13 @@ const offSideRight = (view: CaptureObservation["camera"]["view"], side: Handedne
 /** The clip's joints at one frame, in the camera's plane, in body heights, off side or bowler positive. */
 export function clipInPlane(scene: Scene, obs: CaptureObservation, frame: number): Get2 {
   const k = scene.plane === "frontal" ? offSideRight(obs.camera.view, obs.athlete.handedness) : 1;
+  // The bat's points carry the picture's own sideways axis; the joints are turned to the bowler's (scene.inPicture).
+  const toBowler = scene.plane === "frontal" ? (obs.camera.bowlerSide === "right" ? 1 : -1) : 1;
   return (joint) => {
+    if (joint === "bat_handle" || joint === "bat_toe") {
+      const b = (joint === "bat_handle" ? scene.batHandle : scene.batToe)[frame];
+      return b && obs.bat.source !== "none" && scene.stature > 0 ? [(k * toBowler * b.f) / scene.stature, b.u / scene.stature] : null;
+    }
     const p = scene.inPicture(frame, joint);
     return p && scene.stature > 0 ? [(k * p[0]) / scene.stature, p[1] / scene.stature] : null;
   };
@@ -613,7 +692,7 @@ export function modelLines(check: ModelCheck, model: PoseModel, numbers: boolean
 // ---------- As text ----------
 
 const round = (n: number) => Math.round(n * 10000) / 10000;
-const AXES = "Positions are in body heights (1 = the batter's standing height), from the point on the ground under the hips at contact. forward: toward the bowler. up: above the ground. across: toward the off side. Joints are named by role: front is the side nearer the bowler; the top hand is the front wrist.";
+const AXES = "Positions are in body heights (1 = the batter's standing height), from the point on the ground under the hips at contact. forward: toward the bowler. up: above the ground. across: toward the off side. Joints are named by role: front is the side nearer the bowler; the top hand is the front wrist. bat (when the model has one): handle is where the top hand holds it, toe is the bottom of the blade; the bat is always in the hands, so on reading back only its direction is taken and it is put in the hands.";
 
 /**
  * A model as text (JSON), complete enough to rebuild it anywhere: every joint at every moment,
@@ -627,16 +706,12 @@ export function modelToText(model: PoseModel): string {
     const pose = model.moments[m.id];
     if (!pose) continue;
     const joints: Record<string, unknown> = {};
-    for (const k of MODEL_JOINTS) {
-      joints[k] = {
-        forward: model.angles === "front" ? null : round(pose[k][0]),
-        up: round(pose[k][1]),
-        across: model.angles === "side" ? null : round(pose[k][2]),
-      };
-    }
+    const xyz = (v: V3) => ({ forward: model.angles === "front" ? null : round(v[0]), up: round(v[1]), across: model.angles === "side" ? null : round(v[2]) });
+    for (const k of MODEL_JOINTS) joints[k] = xyz(pose[k]);
     moments[m.id] = {
       label: m.label,
       joints,
+      bat: pose.bat_handle && pose.bat_toe ? { handle: xyz(pose.bat_handle), toe: xyz(pose.bat_toe) } : null,
       measures: Object.fromEntries(measuresOf(pose, model.angles).map((x) => [x.id, x.value === null ? null : { value: round(x.value), unit: x.unit === "deg" ? "degrees" : "body heights", plane: x.plane }])),
     };
   }
@@ -681,7 +756,8 @@ export function modelFromText(text: string, fill: (shot: TargetShot, moment: Mom
   if (battingSide !== "right" && battingSide !== "left") return { ok: false, problem: "batting_side must be right or left." };
   const angles = (o.angles ?? "both") as ModelAngles;
   if (!["both", "side", "front"].includes(angles)) return { ok: false, problem: "angles must be both, side or front." };
-  const src = (o.moments ?? {}) as Record<string, { joints?: Record<string, { forward?: number | null; up?: number | null; across?: number | null }> }>;
+  type Xyz = { forward?: number | null; up?: number | null; across?: number | null };
+  const src = (o.moments ?? {}) as Record<string, { joints?: Record<string, Xyz>; bat?: { handle?: Xyz; toe?: Xyz } | null }>;
   const moments = {} as PoseModel["moments"];
   for (const m of MOMENTS) {
     const joints = src[m.id]?.joints;
@@ -695,7 +771,15 @@ export function modelFromText(text: string, fill: (shot: TargetShot, moment: Mom
       if (!v.every((x) => typeof x === "number" && Number.isFinite(x) && Math.abs(x) < 4)) return { ok: false, problem: `"${m.id}", ${k}: each of forward, up and across must be a number of body heights.` };
       pose[k] = v;
     }
-    moments[m.id] = pose;
+    const bat = src[m.id]?.bat;
+    if (bat) {
+      const num = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : 0);
+      const h = bat.handle ?? {};
+      const t = bat.toe ?? {};
+      const dir: V3 = [num(t.forward) - num(h.forward), num(t.up) - num(h.up), num(t.across) - num(h.across)];
+      if (!bat.handle || !bat.toe || !(Math.hypot(...dir) > 1e-6)) return { ok: false, problem: `"${m.id}": the bat needs a handle and a toe at different places.` };
+      moments[m.id] = placeBat(pose, dir);
+    } else moments[m.id] = pose;
   }
   if (!moments.contact) return { ok: false, problem: "A model needs the contact moment." };
   const t = (o.tolerance ?? {}) as { angle_degrees?: number; offset_body_heights?: number };

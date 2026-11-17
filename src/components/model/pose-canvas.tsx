@@ -6,11 +6,18 @@
 // their lengths (dragHandle). A left-hander is drawn as a left-hander, seen from their own off
 // side: nothing is mirrored from a right-hander's picture.
 //
+// The figure is a real batter: line art traced from the owner's own clip at this moment
+// (lib/traced-figure.ts), bent to the joints as they are placed. It is drawn only in the view it
+// was traced from (side, or the bowler's end) and only for the batting side of the clip; in any
+// other view, or for a left-hander, the joints and the bones between them are shown, and the
+// caption says why. The bat and the hands over it are drawn only when the model has a bat.
+//
 // Drawn in SVG, on demand: nothing moves unless the person moves it, so it draws nothing
 // off-screen, when idle or under reduced motion.
 
 import { useMemo, useRef } from "react";
-import { BONES, HANDLES, HANDLE_LABEL, chestOf, handlePoint, pelvisOf, type Handle, type Pose, type V3 } from "@/engine/pose-model";
+import { BONES, HANDLE_LABEL, chestOf, handlePoint, handlesOf, pelvisOf, poseInPlane, type Handle, type ModelPoint, type Plane, type Pose, type V3 } from "@/engine/pose-model";
+import { batBones, bend, bind, bodyBones, handBones, restPoints, type TracedMoment } from "@/lib/traced-figure";
 import type { Handedness } from "@/engine/types";
 
 export interface View {
@@ -38,11 +45,8 @@ function axes(view: View) {
 }
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
-const LIMB: Record<string, number> = { hip_knee: 19, knee_ankle: 15, shoulder_elbow: 13, elbow_wrist: 11, ankle_heel: 9, ankle_foot: 9, heel_foot: 9 };
-const widthOf = (a: string, b: string) => LIMB[`${a.split("_").slice(1).join("_")}_${b.split("_").slice(1).join("_")}`] ?? 0;
-
 export function PoseCanvas({
-  pose, side, view, centre, selected, onSelect, onDrag, onDragEnd, onOrbit, ghost, label,
+  pose, side, view, centre, selected, onSelect, onDrag, onDragEnd, onOrbit, ghost, label, drawing,
 }: {
   pose: Pose;
   side: Handedness;
@@ -58,6 +62,8 @@ export function PoseCanvas({
   /** Another moment, shown faintly behind for reference. */
   ghost?: Pose | null;
   label: string;
+  /** The traced batter for this moment and the plane it was traced in; null: none for this model. */
+  drawing?: { moment: TracedMoment; plane: Plane } | null;
 }) {
   const svg = useRef<SVGSVGElement>(null);
   const drag = useRef<{ kind: "joint"; handle: Handle; from: V3; x: number; y: number } | { kind: "orbit"; view: View; x: number; y: number } | null>(null);
@@ -96,13 +102,20 @@ export function PoseCanvas({
     svg.current?.releasePointerCapture?.(e.pointerId);
   };
 
-  const pts = Object.fromEntries(HANDLES.map((h) => [h, project(handlePoint(pose, h))])) as Record<Handle, { x: number; y: number; d: number }>;
-  const limbs = BONES.filter(([a, b]) => widthOf(a, b) > 0)
-    .map(([a, b]) => ({ a: pts[a], b: pts[b], w: widthOf(a, b), d: (pts[a].d + pts[b].d) / 2, key: `${a}-${b}` }))
-    .sort((m, n) => m.d - n.d);
-  const near = (d: number) => (d >= 0 ? 0.34 : 0.2);
-  const torso = [pts.front_shoulder, pts.back_shoulder, pts.back_hip, pts.front_hip].map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const neck = project(chestOf(pose));
+  const handles = handlesOf(pose);
+  const pts = Object.fromEntries(handles.map((h) => [h, project(handlePoint(pose, h))])) as Record<Handle, { x: number; y: number; d: number }>;
+  // The traced drawing, when this view is the one it was traced from: tied to its own pose once, bent to this one on each change.
+  const plane: Plane | null = view.pitch === 0 && view.yaw === 0 ? "side" : view.pitch === 0 && view.yaw === 90 ? "front" : null;
+  const tied = useMemo(() => {
+    if (!drawing) return null;
+    const rest = restPoints(drawing.moment, drawing.plane);
+    return {
+      body: bind(drawing.moment.body, bodyBones(rest)),
+      bat: drawing.moment.bat ? bind([drawing.moment.bat.outline], batBones(rest)) : null,
+      grips: drawing.moment.grips?.length ? bind(drawing.moment.grips, handBones(rest)) : null,
+    };
+  }, [drawing]);
+  const art = tied && drawing && plane === drawing.plane ? artPaths(tied, pose, plane, centre, project) : null;
   const sideOn = Math.abs(Math.sin(rad(view.yaw))) < 0.2 && view.pitch < 8;
   const frontOn = Math.abs(Math.cos(rad(view.yaw))) < 0.2 && view.pitch < 8;
   const toe = pts.front_foot;
@@ -156,24 +169,27 @@ export function PoseCanvas({
         </g>
       )}
 
-      <g aria-hidden>
-        {limbs.filter((l) => l.d < 0).map((l) => (
-          <line key={l.key} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke="var(--fg)" strokeOpacity={near(l.d)} strokeWidth={l.w} strokeLinecap="round" />
-        ))}
-        <polygon points={torso} fill="var(--fg)" fillOpacity={0.24} stroke="var(--fg)" strokeOpacity={0.24} strokeWidth={14} strokeLinejoin="round" />
-        <line x1={neck.x} y1={neck.y} x2={pts.head.x} y2={pts.head.y} stroke="var(--fg)" strokeOpacity={0.3} strokeWidth={10} strokeLinecap="round" />
-        <circle cx={pts.head.x} cy={pts.head.y} r={19} fill="var(--fg)" fillOpacity={0.3} />
-        {limbs.filter((l) => l.d >= 0).map((l) => (
-          <line key={l.key} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke="var(--fg)" strokeOpacity={near(l.d)} strokeWidth={l.w} strokeLinecap="round" />
-        ))}
-        {BONES.map(([a, b]) => (
-          <line key={`${a}-${b}`} x1={pts[a].x} y1={pts[a].y} x2={pts[b].x} y2={pts[b].y} stroke="var(--fg)" strokeOpacity={0.55} strokeWidth={1.2} />
-        ))}
-        <line x1={project(pelvisOf(pose)).x} y1={project(pelvisOf(pose)).y} x2={neck.x} y2={neck.y} stroke="var(--fg)" strokeOpacity={0.55} strokeWidth={1.2} />
-      </g>
+      {art ? (
+        <g aria-hidden>
+          <path d={art.body} fillRule="evenodd" fill="var(--fg)" stroke="var(--fg)" strokeWidth={0.6} strokeLinejoin="round" />
+          {art.bat && <path d={art.bat} fill="var(--surface)" stroke="var(--fg)" strokeWidth={1.6} strokeLinejoin="round" />}
+          {art.grips && <path d={art.grips} fill="var(--surface)" stroke="var(--fg)" strokeWidth={1.3} strokeLinejoin="round" />}
+        </g>
+      ) : (
+        <g aria-hidden stroke="var(--fg)" strokeLinecap="round" strokeOpacity={0.7}>
+          {BONES.map(([a, b]) => (
+            <line key={`${a}-${b}`} x1={pts[a].x} y1={pts[a].y} x2={pts[b].x} y2={pts[b].y} strokeWidth={2} />
+          ))}
+          <line x1={project(pelvisOf(pose)).x} y1={project(pelvisOf(pose)).y} x2={project(chestOf(pose)).x} y2={project(chestOf(pose)).y} strokeWidth={2} />
+          <line x1={project(chestOf(pose)).x} y1={project(chestOf(pose)).y} x2={pts.head.x} y2={pts.head.y} strokeWidth={2} />
+          {pose.bat_handle && pose.bat_toe && (
+            <line x1={project(pose.bat_handle).x} y1={project(pose.bat_handle).y} x2={project(pose.bat_toe).x} y2={project(pose.bat_toe).y} strokeWidth={5} />
+          )}
+        </g>
+      )}
 
       {/* Handles: the far ones first, so a near joint is the one a finger finds. */}
-      {[...HANDLES].sort((a, b) => pts[a].d - pts[b].d).map((h) => {
+      {[...handles].sort((a, b) => pts[a].d - pts[b].d).map((h) => {
         const p = pts[h];
         const on = selected === h;
         const centreHandle = h === "pelvis" || h === "chest";
@@ -181,13 +197,34 @@ export function PoseCanvas({
           <g key={h} role="button" aria-label={HANDLE_LABEL[h]} aria-pressed={on} tabIndex={-1} onPointerDown={(e) => start(e, h)} style={{ cursor: "grab", outline: "none" }}>
             <circle cx={p.x} cy={p.y} r={20} fill="transparent" />
             {centreHandle ? (
-              <rect x={p.x - 6} y={p.y - 6} width={12} height={12} rx={2} transform={`rotate(45 ${p.x} ${p.y})`} fill="var(--bg)" stroke={on ? "var(--brand)" : "var(--fg)"} strokeWidth={on ? 3 : 1.6} />
+              <rect x={p.x - (on ? 6 : 4.5)} y={p.y - (on ? 6 : 4.5)} width={on ? 12 : 9} height={on ? 12 : 9} rx={2} transform={`rotate(45 ${p.x} ${p.y})`} fill="var(--bg)" stroke={on ? "var(--brand)" : "var(--fg)"} strokeWidth={on ? 3 : 1.6} />
             ) : (
-              <circle cx={p.x} cy={p.y} r={on ? 7.5 : 5} fill="var(--bg)" stroke={on ? "var(--brand)" : "var(--fg)"} strokeWidth={on ? 3 : 1.6} />
+              <circle cx={p.x} cy={p.y} r={on ? 7 : h === "bat_toe" ? 5 : 3.4} fill={on ? "var(--bg)" : "var(--fg)"} fillOpacity={on ? 1 : 0.85} stroke={on ? "var(--brand)" : "var(--bg)"} strokeWidth={on ? 3 : 1.2} />
             )}
           </g>
         );
       })}
     </svg>
   );
+}
+
+type Projected = { x: number; y: number; d: number };
+type Tied = { body: ReturnType<typeof bind>; bat: ReturnType<typeof bind> | null; grips: ReturnType<typeof bind> | null };
+
+/** The traced drawing bent to `pose`, as SVG paths in the picture. The bat and hands only when the model holds a bat. */
+function artPaths(tied: Tied, pose: Pose, plane: Plane, centre: readonly [number, number], project: (p: V3) => Projected) {
+  const g = poseInPlane(pose, plane);
+  const at = (p: ModelPoint) => g(p);
+  const toScreen = ([h, u]: [number, number]) => project(plane === "side" ? [h, u, centre[1]] : [centre[0], u, h]);
+  const path = (shapes: Array<Array<[number, number]>>) =>
+    shapes
+      .filter((s) => s.length > 2)
+      .map((s) => `M${s.map((p) => { const q = toScreen(p); return `${q.x.toFixed(1)},${q.y.toFixed(1)}`; }).join("L")}Z`)
+      .join("");
+  const hasBat = !!(pose.bat_handle && pose.bat_toe);
+  return {
+    body: path(bend(tied.body, bodyBones(at))),
+    bat: hasBat && tied.bat ? path(bend(tied.bat, batBones(at))) : null,
+    grips: hasBat && tied.grips ? path(bend(tied.grips, handBones(at))) : null,
+  };
 }

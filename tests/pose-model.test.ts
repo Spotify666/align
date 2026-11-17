@@ -5,22 +5,24 @@ import { analyze } from "@/engine/analyze";
 import { bfdScript, ffdScript, pullScript } from "@/engine/fixtures";
 import { generate } from "@/engine/fixtures/generate";
 import {
-  BONES, FEATURES, HANDLES, MODEL_JOINTS, MOMENTS, POSE_MODEL_SCHEMA, STRICTNESS,
-  checkAgainstModel, chestOf, clipInPlane, distance, dragHandle, handlePoint, measuresOf, modelFromText, modelLines, modelToText,
-  pelvisOf, poseInPlane, segments, withSegments, type Pose, type PoseModel, type V3,
+  BAT, BONES, FEATURES, HANDLES, MODEL_JOINTS, MOMENTS, POSE_MODEL_SCHEMA, STRICTNESS,
+  batDirection, checkAgainstModel, chestOf, clipInPlane, distance, dragHandle, ground, handlePoint, handlesOf, handsOf, measuresOf, modelFromText, modelLines, modelToText,
+  pelvisOf, placeBat, poseInPlane, segments, withSegments, withoutBat, type Pose, type PoseModel, type V3,
 } from "@/engine/pose-model";
 import { buildScene, semanticToJoint } from "@/engine/scene";
 import { decodeTracks } from "@/engine/tracks-codec";
 import { J, type CaptureObservation, type Handedness, type TargetShot } from "@/engine/types";
-import { asPose, computeStarters } from "@/lib/pose-starters";
-import stored from "@/lib/pose-starters.json";
+import { asPose } from "@/lib/pose-starters";
+import { generatedPoses } from "./helpers/generated-poses";
 
 // A person's own model of a shot (src/engine/pose-model.ts): the geometry of placing joints,
 // reading the model and a clip the same way, applying it only where it is fair to, and its text.
 
 const H = 1.75;
-const starters = stored as unknown as Record<TargetShot, Record<string, Record<string, [number, number, number]>>>;
-const pose = (shot: TargetShot, moment = "contact") => asPose(starters[shot][moment]!);
+// The generator's own textbook poses: a model made from the same movement as the generated clips
+// it is set against. (New models start from a real batter: tests/traced-figure.test.ts.)
+const starters = generatedPoses();
+const pose = (shot: TargetShot, moment: "backlift" | "foot_down" | "contact" = "contact") => asPose(starters[shot][moment]!);
 const model = (o: Partial<PoseModel> = {}): PoseModel => ({
   schema: POSE_MODEL_SCHEMA, id: "m1", name: "Test", shot: "front_foot_defence", battingSide: "right", angles: "both", heightCm: 175,
   moments: { contact: pose("front_foot_defence"), backlift: pose("front_foot_defence", "backlift"), foot_down: pose("front_foot_defence", "foot_down") },
@@ -41,10 +43,7 @@ const lengths = (p: Pose) => [
   distance(chestOf(p), p.head),
 ];
 
-describe("starting poses", () => {
-  it("match the generator and the engine (else run: node scripts/pose-starters.mjs > src/lib/pose-starters.json)", () => {
-    expect(JSON.parse(JSON.stringify(computeStarters()))).toEqual(stored);
-  });
+describe("the generated poses the tests use", () => {
   it("stand on the ground with every joint placed", () => {
     for (const shot of ["front_foot_defence", "back_foot_defence"] as const) {
       for (const m of MOMENTS) {
@@ -220,7 +219,7 @@ describe("applying a model", () => {
 });
 
 describe("as text", () => {
-  const fill = (shot: TargetShot, moment: string) => pose(shot, moment);
+  const fill = (shot: TargetShot, moment: "backlift" | "foot_down" | "contact") => pose(shot, moment);
   it("goes out and comes back the same", () => {
     const m = model({ name: "Coach's forward defence", note: "Head over the ball.", tolerance: { angleDeg: 9, offset: 0.05 } });
     const text = modelToText(m);
@@ -271,5 +270,120 @@ describe("deleting a model asks for the passcode", () => {
     expect(passcodeOk("1000")).toBe(true);
     expect(passcodeOk(" 1000 ")).toBe(true);
     for (const wrong of ["", "100", "10000", "0000", "abcd"]) expect(passcodeOk(wrong)).toBe(false);
+  });
+});
+
+describe("the bat (optional)", () => {
+  const DIR: Record<TargetShot, Record<"backlift" | "foot_down" | "contact", V3>> = {
+    front_foot_defence: { backlift: [-0.35, 0.94, 0.1], foot_down: [-0.6, 0.55, 0.05], contact: [-0.3, -1, 0.02] },
+    back_foot_defence: { backlift: [-0.35, 0.94, 0.1], foot_down: [-0.5, 0.6, 0.05], contact: [-0.2, -1, 0] },
+  };
+  const withBat = (shot: TargetShot, m: "backlift" | "foot_down" | "contact" = "contact") => placeBat(pose(shot, m), DIR[shot][m]);
+  const held = (p: Pose, why: string) => {
+    expect(distance(p.bat_handle!, handsOf(p)), `${why}: in the hands`).toBeLessThan(1e-9);
+    expect(distance(p.bat_handle!, p.bat_toe!), `${why}: its length`).toBeCloseTo(BAT.handsToToe, 9);
+  };
+  it("starts in the hands at every moment, its toe above the ground", () => {
+    for (const shot of ["front_foot_defence", "back_foot_defence"] as const)
+      for (const m of MOMENTS) {
+        const p = withBat(shot, m.id);
+        held(p, `${shot} ${m.id}`);
+        expect(p.bat_toe![1]).toBeGreaterThan(0);
+      }
+  });
+  it("stays in the hands and keeps its length whatever is dragged; the bones keep theirs", () => {
+    const targets: V3[] = [[0.3, 0.2, 0.1], [-0.4, 0.9, -0.2], [0.05, 0.5, 0.3], [0, -1, 0]];
+    for (const shot of ["front_foot_defence", "back_foot_defence"] as const) {
+      let p = withBat(shot);
+      const before = lengths(p);
+      expect(handlesOf(p)).toContain("bat_toe");
+      for (const h of handlesOf(p))
+        for (const t of targets) {
+          const at = handlePoint(p, h);
+          p = dragHandle(p, h, [at[0] + t[0] * 0.3, at[1] + t[1] * 0.3, at[2] + t[2] * 0.3]);
+          held(p, `${shot} ${h}`);
+          lengths(p).forEach((l, i) => expect(l, `${shot} ${h} bone ${i}`).toBeCloseTo(before[i]!, 6));
+        }
+    }
+  });
+  it("dragging its toe turns only the bat", () => {
+    const p = withBat("front_foot_defence");
+    const q = dragHandle(p, "bat_toe", [p.bat_toe![0] + 0.2, p.bat_toe![1], p.bat_toe![2]]);
+    for (const k of MODEL_JOINTS) expect(q[k]).toEqual(p[k]);
+    expect(batDirection(q)![0]).toBeGreaterThan(batDirection(p)![0]);
+  });
+  it("is kept by grounding and by the batter's own lengths, and can be taken away", () => {
+    const p = withBat("front_foot_defence");
+    held(ground(p), "ground");
+    const q = withSegments(p, { forearm: 0.17 });
+    held(q, "own lengths");
+    expect(batDirection(q)![0]).toBeCloseTo(batDirection(p)![0], 9);
+    expect(withoutBat(p).bat_toe).toBeUndefined();
+    expect(handlesOf(withoutBat(p))).not.toContain("bat_toe");
+  });
+  it("adds its measures only when there is one", () => {
+    const ids = (p: Pose) => measuresOf(p, "both").filter((m) => m.value !== null).map((m) => m.id);
+    expect(ids(pose("front_foot_defence")).some((id) => id.startsWith("bat_"))).toBe(false);
+    expect(ids(withBat("front_foot_defence"))).toEqual(expect.arrayContaining(["bat_angle", "bat_toe_ahead", "bat_angle_front", "bat_toe_across"]));
+    // At contact the textbook bat is angled with the handle ahead of the toe.
+    const angle = measuresOf(withBat("front_foot_defence"), "side").find((m) => m.id === "bat_angle")!.value!;
+    expect(angle).toBeGreaterThan(10);
+  });
+  it("goes out as text and comes back in the hands", () => {
+    const m = model({ moments: { contact: withBat("front_foot_defence") } });
+    const o = JSON.parse(modelToText(m));
+    expect(o.moments.contact.bat.toe.up).toBeGreaterThan(0);
+    const back = modelFromText(JSON.stringify(o), (shot, mo) => pose(shot, mo));
+    expect(back.ok).toBe(true);
+    if (!back.ok) return;
+    held(back.model.moments.contact, "read back");
+    batDirection(back.model.moments.contact)!.forEach((v, i) => expect(v).toBeCloseTo(batDirection(m.moments.contact)![i]!, 3));
+    // A model without a bat writes none.
+    expect(JSON.parse(modelToText(model())).moments.contact.bat).toBeNull();
+    // A bat with its toe on its handle can't be read.
+    o.moments.contact.bat.toe = o.moments.contact.bat.handle;
+    expect(modelFromText(JSON.stringify(o), (shot, mo) => pose(shot, mo)).ok).toBe(false);
+  });
+
+  // The clip's bat, as tracked, read the way the model's is: the same movement filmed from each
+  // position and by either hand gives the same bat measures.
+  const clipBat = (view: "side_on" | "front_on" | "behind", handedness: Handedness) => {
+    const { obs, payload } = clip({ view, handedness });
+    const frame = payload.events.find((e) => e.type === "contact")!.frame;
+    const g = clipInPlane(buildScene(obs), obs, frame);
+    const plane = view === "side_on" ? "side" : "front";
+    return Object.fromEntries(FEATURES.filter((f) => f.plane === plane && f.id.startsWith("bat_")).map((f) => [f.id, f.compute(g)]));
+  };
+  it("a clip's bat reads the same for either hand, and from the bowler's end or behind", () => {
+    const side = [clipBat("side_on", "right"), clipBat("side_on", "left")];
+    for (const id of ["bat_angle", "bat_toe_ahead"]) {
+      expect(side[0]![id], id).not.toBeNull();
+      expect(Math.abs(side[0]![id]! - side[1]![id]!), id).toBeLessThan(id === "bat_angle" ? 3 : 0.02);
+    }
+    const front = [clipBat("front_on", "right"), clipBat("front_on", "left"), clipBat("behind", "right"), clipBat("behind", "left")];
+    for (const id of ["bat_angle_front", "bat_toe_across"]) {
+      for (const f of front) expect(f[id], id).not.toBeNull();
+      const vals = front.map((f) => f[id]!);
+      expect(Math.max(...vals) - Math.min(...vals), `${id}: ${vals.join(", ")}`).toBeLessThan(id === "bat_angle_front" ? 7 : 0.05);
+    }
+  });
+  it("a model holding the clip's own bat matches it; a clip with no bat tracked leaves the bat unchecked", () => {
+    const { obs, payload } = clip();
+    const frame = payload.events.find((e) => e.type === "contact")!.frame;
+    const g = clipInPlane(buildScene(obs), obs, frame);
+    const [h, t] = [g("bat_handle")!, g("bat_toe")!];
+    const p = pose("front_foot_defence");
+    const m = model({ moments: { contact: placeBat(p, [t[0] - h[0], t[1] - h[1], 0]) } });
+    const c = checkAgainstModel(m, obs, payload);
+    const row = c.moments[0]!.rows.find((r) => r.id === "bat_angle")!;
+    expect(row.within).toBe(true);
+
+    const made = generate({ id: "nb", label: "nb", seed: 5, fps: 120, durationS: 2, statureM: H, handedness: "right", script: ffdScript(), include3d: true, noise: 0, withBat: false });
+    const nb = checkAgainstModel(m, made, analyze(made, { analysisId: "nb", createdAt: "2026-11-16T00:00:00.000Z" }));
+    if (nb.applied) {
+      const rows = nb.moments.flatMap((x) => x.rows.filter((r) => r.id.startsWith("bat_")));
+      expect(rows.length).toBeGreaterThan(0);
+      for (const r of rows) expect(r.within).toBeNull();
+    }
   });
 });

@@ -1293,11 +1293,22 @@ Open:
 
 - "On coach workspace the email flow is not working." Found in the sign-in logs: the link in the
   email went to `http://localhost:3000` (the Supabase project's Site URL), so on a phone it opened
-  nothing. **Fix needs the owner** (no tool here can change it): Supabase → Authentication → URL
-  Configuration: Site URL `https://alynn.vercel.app`; Redirect URLs `https://alynn.vercel.app/**`
-  and `https://align-lab.vercel.app/**`. Also in the code: a failed link (expired, used twice,
+  nothing. **Fixed 2026-11-17** through the management API (the owner's access token, saved as a
+  network secret on the environment): Site URL `https://alynn.vercel.app`; Redirect URLs
+  `https://alynn.vercel.app/**` and `https://align-lab.vercel.app/**`. Still the built-in mailer:
+  2 sign-in emails an hour for the whole project; more needs a custom SMTP sender. Also in the code: a failed link (expired, used twice,
   opened inside Gmail instead of Chrome) now returns to the sign-in form with the reason in plain
   words (`src/lib/auth-errors.ts`, `tests/auth-errors.test.ts`), and "send again" is offered.
 - "Give option to delete here, with a passcode of 1000": Delete on each model in `/models` and in
   the editor asks for the passcode (`DELETE_PASSCODE`, `components/model/delete-model.tsx`). A
   guard against deleting by mistake, not security (models are on the device). Shipped.
+
+## 2026-11-17 · The shot-model figure: a real batter, and a bat
+
+- "This thing doesn't feel like a human, it should be more close to human. And also here we should
+  be giving bat as an additional option." Then: "How many times should I tell you the base model
+  itself is wrong. Do not use this figure at all", with a line-art reference video (not the
+  owner's: not used).
+- Shipped: the figure is line art traced from the owner's own side-on clips; new models start
+  from that batter's real joints; the drawing bends as joints move. Optional bat. Details and
+  limits: docs/14 ("The figure, changed").

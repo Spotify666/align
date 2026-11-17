@@ -2,16 +2,18 @@
 // The shot-model editor (/models/edit): place each joint for the moments that matter, read the
 // measures the pose gives as it changes, say why it is right, save it, and take it away as text.
 
+import { Hold } from "@/components/common/hold";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  FEATURES, HANDLES, HANDLE_LABEL, MOMENTS, SEGMENT_LABEL, STRICTNESS,
-  dragHandle, ground, handlePoint, measuresOf, modelToText, pelvisOf, planesOf, segments, valueInWords, withSegments,
+  FEATURES, HANDLE_LABEL, MOMENTS, SEGMENT_LABEL, STRICTNESS,
+  dragHandle, ground, handlePoint, handlesOf, measuresOf, modelToText, pelvisOf, placeBat, planesOf, segments, valueInWords, withSegments, withoutBat,
   type Handle, type MomentId, type Pose, type PoseModel, type Segments, type V3,
 } from "@/engine/pose-model";
-import { chooseModel, chosenModelId, saveModel, starterPose } from "@/lib/pose-models";
+import { chooseModel, chosenModelId, saveModel, starterBat, starterPose } from "@/lib/pose-models";
 import { DeleteModel } from "./delete-model";
+import { figureFile, type TracedFigure } from "@/lib/traced-figure";
 import { loadProfile } from "@/lib/store";
 import { Download } from "../icons";
 import { PoseCanvas, VIEWS, type View } from "./pose-canvas";
@@ -55,9 +57,40 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
   const [undoable, setUndoable] = useState(0);
   const before = useRef<PoseModel["moments"] | null>(null);
   const units = useUnits(model.heightCm);
+  // The traced batter for each view this model is placed in (a right-hander's clips only), fetched once.
+  const [figures, setFigures] = useState<Partial<Record<"side" | "front", TracedFigure>>>({});
+  useEffect(() => {
+    let live = true;
+    for (const plane of planesOf(initial.angles)) {
+      const file = figureFile(initial.shot, plane, initial.battingSide);
+      if (!file) continue;
+      fetch(file)
+        .then((r) => (r.ok ? (r.json() as Promise<TracedFigure>) : null))
+        .then((f) => f && live && setFigures((was) => ({ ...was, [plane]: f })))
+        .catch(() => {});
+    }
+    return () => {
+      live = false;
+    };
+  }, [initial.angles, initial.shot, initial.battingSide]);
+  const plane: "side" | "front" | null = viewKey === "side" ? "side" : viewKey === "front" ? "front" : null;
+  const traced = plane ? figures[plane]?.moments[moment] : undefined;
+  const drawing = useMemo(() => (plane && traced ? { moment: traced, plane } : null), [plane, traced]);
 
   const pose = model.moments[moment] ?? model.moments.contact;
   const has = !!model.moments[moment];
+  const hasBat = !!model.moments.contact.bat_toe;
+  /** A new moment's pose, holding a bat when the model has one. */
+  const start = (p: Pose, id: MomentId) => (hasBat && !p.bat_toe ? placeBat(p, starterBat(model.shot, id)) : p);
+  const toggleBat = () => {
+    remember(model.moments);
+    const next = Object.fromEntries(
+      Object.entries(model.moments).map(([id, p]) => [id, hasBat ? withoutBat(p as Pose) : placeBat(p as Pose, starterBat(model.shot, id as MomentId))]),
+    ) as PoseModel["moments"];
+    change({ moments: next });
+    if (hasBat && selected === "bat_toe") setSelected(null);
+    if (!hasBat) setSelected("bat_toe");
+  };
   const centre = useMemo(() => {
     const c = pelvisOf(model.moments.contact);
     return [c[0], c[2]] as const;
@@ -172,13 +205,14 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
                 onDragEnd={onDragEnd}
                 onOrbit={model.angles === "both" ? (v) => { setView(v); setViewKey("round"); } : undefined}
                 ghost={moment === "contact" ? null : model.moments.contact}
+                drawing={drawing}
                 label={`${MOMENTS.find((m) => m.id === moment)!.label}: the figure. Drag a joint to place it.`}
               />
             ) : (
               <div className="space-y-3 p-5">
                 <p className="text-fg-muted">This moment isn&apos;t in your model yet. A model needs contact; the other moments are optional and are checked only when placed.</p>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className="btn btn-ghost" onClick={() => setPose(starterPose(model.shot, moment))}>Start from Aline&apos;s textbook pose</button>
+                  <button type="button" className="btn btn-ghost" onClick={() => setPose(start(starterPose(model.shot, moment), moment))}>Start from the traced batter</button>
                   <button type="button" className="btn btn-ghost" onClick={() => setPose(model.moments.contact)}>Start from your contact pose</button>
                 </div>
               </div>
@@ -196,6 +230,10 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
                   </button>
                 ))}
             </div>
+            <button type="button" role="switch" aria-checked={hasBat} onClick={toggleBat}
+              className={`min-h-11 rounded-full border px-4 text-sm ${hasBat ? "border-fg text-fg" : "border-line-strong text-fg-muted"}`}>
+              {hasBat ? "Bat: on" : "Add a bat"}
+            </button>
             <button type="button" className="btn btn-quiet ml-auto" disabled={!undoable}
               onClick={() => {
                 const was = undo.current.pop();
@@ -205,11 +243,35 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
               Undo
             </button>
           </div>
+          <p className="text-sm text-fg-muted">
+            {drawing
+              ? "Traced from a real batter's clip. It bends as you move the joints."
+              : model.battingSide === "left"
+                ? "Joints only: a left-hander needs a left-hander's clip to be traced, never a mirrored one."
+                : !plane
+                  ? "Joints only in 3D. The drawing shows from the side or the front."
+                  : has
+                    ? "Joints only: no clip of this moment from here has been traced yet."
+                    : ""}
+          </p>
           <p className="text-sm text-fg-subtle">
-            {model.angles === "both"
-              ? "Drag a joint to place it. From the side it moves along the pitch and up; from the front, across and up. In 3D, drag the background to turn the figure."
-              : `Drag a joint to place it. This model is placed from the ${model.angles} only, so it is checked only against clips filmed from there.`}{" "}
-            Bones keep their length. {moment !== "contact" && has ? "The dotted figure is your contact pose." : ""}
+            <Hold
+              more={
+                <>
+                  <p>
+                    {model.angles === "both"
+                      ? "From the side a joint moves along the pitch and up; from the front, across and up. In 3D, drag the background to turn the figure."
+                      : `This model is placed from the ${model.angles} only, so it is checked only against clips filmed from there.`}{" "}
+                    Bones keep their length. {moment !== "contact" && has ? "The dotted figure is your contact pose." : ""}
+                  </p>
+                  <p className="mt-2">
+                    The bat is optional. It stays in both hands: move a hand and the bat goes with it; drag its toe to set its angle. It is checked only on clips where the bat was tracked (marked, or found).
+                  </p>
+                </>
+              }
+            >
+              {hasBat ? "Drag a joint, or the bat's toe" : "Drag a joint to place it"}
+            </Hold>
           </p>
           {has && moment !== "contact" && (
             <button type="button" className="btn btn-quiet"
@@ -232,7 +294,7 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
                 <span className="sr-only">Which joint</span>
                 <select className="field" value={selected ?? ""} onChange={(e) => setSelected((e.target.value || null) as Handle | null)}>
                   <option value="">Tap a joint, or choose one</option>
-                  {HANDLES.map((h) => <option key={h} value={h}>{HANDLE_LABEL[h]}</option>)}
+                  {handlesOf(pose).map((h) => <option key={h} value={h}>{HANDLE_LABEL[h]}</option>)}
                 </select>
               </label>
               {point && (
@@ -327,7 +389,7 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
                   The figure has standard proportions. Give your arm and leg lengths in <Link href="/profile" className="inline-flex min-h-11 items-center underline underline-offset-4">Profile</Link> to give it yours.
                 </p>
               )}
-              <button type="button" className="btn btn-quiet" onClick={() => setPose(ground(starterPose(model.shot, moment)))}>Reset to the textbook pose</button>
+              <button type="button" className="btn btn-quiet" onClick={() => setPose(start(ground(starterPose(model.shot, moment)), moment))}>Reset to the traced batter</button>
             </div>
           </details>
 
