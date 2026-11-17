@@ -144,7 +144,7 @@ const side = (m: Valued, v: number) => (v < 0 ? direction(m)![0] : direction(m)!
 
 /** A value in everyday units: seconds, not milliseconds; distances with their direction. */
 export function friendlyValue(m: Valued): string {
-  if (m.value === null) return "—";
+  if (m.value === null) return "–";
   if (signedTime(m) || (isTime(m) && m.value < 0)) return when(m.value);
   if (isTime(m)) return seconds(m.value);
   if (direction(m)) return Math.round(m.value * 100) === 0 ? "level" : `${pct(m.value)} of your height ${side(m, m.value)}`;

@@ -121,7 +121,7 @@ export function SessionsPage() {
                     {p.analysis_status === "valid" && (
                       <label className="flex items-center gap-2 text-sm">
                         <input type="checkbox" className="h-5 w-5 accent-[var(--color-brand)]" checked={a.representative} onChange={(e) => patch(a.id, { representative: e.target.checked })} />
-                        Representative attempt — use for my baseline
+                        Representative attempt: use for my baseline
                       </label>
                     )}
                   </div>

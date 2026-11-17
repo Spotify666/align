@@ -62,7 +62,7 @@ export default function PrivacyPage() {
       <section className="grid gap-x-6 sm:grid-cols-2">
         {[
           ["Consent first", "You agree to on-device processing before any upload. Cloud saving, coach sharing and model-training use are separate switches, all off until you turn them on."],
-          ["Training use", "Off by default. If you opt in, only de-identified tracks are used — never video — and you can withdraw at any time."],
+          ["Training use", "Off by default. If you opt in, only de-identified tracks are used, never video, and you can withdraw at any time."],
           ["Coach sharing", "Coaches see nothing until you enter their invite code. You can revoke the link; every share and consent change is recorded in your activity log."],
           ["Under 18", "You tick that a parent or guardian agreed before each analysis. Linking a coach is refused until their agreement is recorded on your account, and withdrawing it hides your reports from coaches at once."],
           ["Security", "Encrypted in transit (TLS) and at rest. Database rules make every row visible only to its owner and consented coaches."],

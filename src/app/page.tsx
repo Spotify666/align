@@ -10,7 +10,7 @@ import { ENGINE_VERSION } from "@/engine/registry";
 import { heroData } from "@/lib/hero-geometry";
 
 export const metadata: Metadata = {
-  title: { absolute: "Aline — every shot, explained" },
+  title: { absolute: "Aline · Every shot, explained" },
   description:
     "AI-assisted cricket analysis. Upload a cricket shot from your phone: Aline identifies the movement, shows the evidence and turns it into coaching. Front-foot and back-foot defence are graded today. Your video stays on your phone.",
 };
@@ -57,9 +57,9 @@ export default function Landing() {
   const hero = tracked.line ? heroData(track, contact, tracked.line.bands) : null;
   const facts = [
     ["Shot identified", sample.observed_shot?.display ?? "Not identified"],
-    ["What was good", sample.strengths[0]?.title ?? "—"],
+    ["What was good", sample.strengths[0]?.title ?? "–"],
     ["What to fix", sample.priorities[0]?.title ?? "Nothing out of range"],
-    ["Cue", sample.plan?.cue ?? "—"],
+    ["Cue", sample.plan?.cue ?? "–"],
   ];
 
   return (

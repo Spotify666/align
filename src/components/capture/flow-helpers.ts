@@ -113,7 +113,7 @@ export function shotNote(res: ScanResult, i: number): string {
   const w = res.windows[i];
   if (!w) return "Using the whole clip";
   const n = res.windows.length;
-  return n > 1 ? `Shot at ${fmtTime(w.peak)} — best of ${n} found` : `Shot at ${fmtTime(w.peak)}`;
+  return n > 1 ? `Shot at ${fmtTime(w.peak)}, best of ${n} found` : `Shot at ${fmtTime(w.peak)}`;
 }
 
 /** Crop around the batter at media time `t`: where the scan saw them then, else their extent. */
@@ -198,11 +198,11 @@ export function decodeMessage(f: File, track: VideoTrackInfo | null): { title: s
         "The clip is HEVC (H.265), the default on many iPhones and newer Android phones.\n\n" +
         "Any of these fixes it:\n• Open Aline in Safari (iPhone, iPad, Mac) or recent Chrome / Edge.\n" +
         "• iPhone: Settings → Camera → Formats → Most Compatible, then record again.\n" +
-        "• Send the clip to yourself on WhatsApp or save it from Google Photos — that converts it to H.264.",
+        "• Send the clip to yourself on WhatsApp or save it from Google Photos: that converts it to H.264.",
     };
   if (codec === "av01") return { title: "This device can't play AV1 video", body: "Re-export the clip as MP4 (H.264), or open Aline in a recent Chrome or Edge." };
   if (["avi", "wmv", "flv", "mts", "m2ts", "ts"].includes(ext))
-    return { title: `.${ext.toUpperCase()} files can't be played in a browser`, body: "Convert the clip to MP4 (H.264) — most phones and free converters can — then add it again." };
+    return { title: `.${ext.toUpperCase()} files can't be played in a browser`, body: "Convert the clip to MP4 (H.264), which most phones and free converters can do, then add it again." };
   if (ext === "mkv") return { title: "This MKV file can't be played here", body: "Re-save it as MP4 (H.264) and add it again. MP4 and MOV work on every phone and computer." };
   return {
     title: "This video can't be opened on this device",

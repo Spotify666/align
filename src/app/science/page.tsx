@@ -55,7 +55,7 @@ export default function SciencePage() {
         <ol className="grid gap-px overflow-hidden rounded-[14px] border border-line bg-line sm:grid-cols-2">
           {[
             ["Is the capture usable?", "Resolution, frame rate, length, full-body visibility, light, blur, shake, people in frame, camera angle, scale."],
-            ["Can body, bat, ball and pitch be tracked?", "Body from on-device pose; bat and ball from tracking or your marks — every mark labelled as yours."],
+            ["Can body, bat, ball and pitch be tracked?", "Body from on-device pose; bat and ball from tracking or your marks, every mark labelled as yours."],
             ["What delivery came down?", "Bounce position and arrival height give soft full / good / short probabilities. No ball, no claim."],
             ["What shot was attempted?", "Open-set prototype model over body, bat and ball features, with an explicit 'unknown' class."],
             ["Is it a defence Aline grades?", "You don't have to name the shot. With bat and ball in view: a strict test on body, bat and ball (high score, clear margin). From the body alone: the defence's own definition checked on the body and hands, and the report says the bat and ball weren't seen. Rejection may rest on fewer signals."],
@@ -89,7 +89,7 @@ export default function SciencePage() {
                   <td className="p-3 text-fg-muted">{f.replaceAll("_", " ")}</td>
                   {compare.map((c) => {
                     const b = (PROTOTYPES[c] as Record<string, readonly number[]>)[f];
-                    return <td key={c} className="p-3">{b ? `${b[0]}–${b[1]}` : "—"}</td>;
+                    return <td key={c} className="p-3">{b ? `${b[0]}–${b[1]}` : "–"}</td>;
                   })}
                 </tr>
               ))}
@@ -299,15 +299,15 @@ export default function SciencePage() {
 
       <Section id="refs" eyebrow="References" title="Sources">
         <ul className="space-y-2 text-sm text-fg-muted list-disc pl-5">
-          <li><a className="inline-block py-3 underline" href="https://pubmed.ncbi.nlm.nih.gov/10189076/">Stretch et al., 1998 — front-foot drive and forward defence kinematics</a></li>
+          <li><a className="inline-block py-3 underline" href="https://pubmed.ncbi.nlm.nih.gov/10189076/">Stretch et al., 1998: front-foot drive and forward defence kinematics</a></li>
           {BFD_SOURCES.map((s) => (
-            <li key={s.href}><a className="inline-block py-3 underline" href={s.href}>{s.name}</a> — the back-foot defence (coaching; its ranges are provisional)</li>
+            <li key={s.href}><a className="inline-block py-3 underline" href={s.href}>{s.name}</a>: the back-foot defence (coaching; its ranges are provisional)</li>
           ))}
-          <li><a className="inline-block py-3 underline" href="https://www.researchgate.net/publication/5912436_The_position_of_the_head_and_centre_of_mass_during_the_front_foot_off-drive_in_skilled_and_less-skilled_cricket_batsmen">Taliep et al., 2007 — head and centre of mass at contact, skilled vs less-skilled batters</a></li>
-          <li><a className="inline-block py-3 underline" href="https://doi.org/10.1371/journal.pcbi.1011462">OpenCap — multi-phone markerless biomechanics</a></li>
-          <li><a className="inline-block py-3 underline" href="https://arxiv.org/abs/1907.03698">TrackNet — tracking small, fast sports balls</a></li>
+          <li><a className="inline-block py-3 underline" href="https://www.researchgate.net/publication/5912436_The_position_of_the_head_and_centre_of_mass_during_the_front_foot_off-drive_in_skilled_and_less-skilled_cricket_batsmen">Taliep et al., 2007: head and centre of mass at contact, skilled vs less-skilled batters</a></li>
+          <li><a className="inline-block py-3 underline" href="https://doi.org/10.1371/journal.pcbi.1011462">OpenCap: multi-phone markerless biomechanics</a></li>
+          <li><a className="inline-block py-3 underline" href="https://arxiv.org/abs/1907.03698">TrackNet: tracking small, fast sports balls</a></li>
           <li><a className="inline-block py-3 underline" href="https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker">MediaPipe Pose Landmarker</a></li>
-          <li><a className="inline-block py-3 underline" href="https://openaccess.thecvf.com/content/ICCV2023/papers/Zhu_MotionBERT_A_Unified_Perspective_on_Learning_Human_Motion_Representations_ICCV_2023_paper.pdf">MotionBERT — temporal 3D pose lifting</a></li>
+          <li><a className="inline-block py-3 underline" href="https://openaccess.thecvf.com/content/ICCV2023/papers/Zhu_MotionBERT_A_Unified_Perspective_on_Learning_Human_Motion_Representations_ICCV_2023_paper.pdf">MotionBERT: temporal 3D pose lifting</a></li>
         </ul>
       </Section>
     </div>

@@ -90,7 +90,7 @@ export default function DesignSystemPage() {
             return (
               <li key={k} className={`card border p-4 ${m.ring} ${m.bg}`}>
                 <span className={`chip ${m.ring} ${m.tone}`}><m.Icon size={14} /> {m.label}</span>
-                <p className="mt-2 text-sm text-fg-muted">{k === "valid" ? "Domains, measures and plan follow." : "Technique score withheld — with the reason and what to do next."}</p>
+                <p className="mt-2 text-sm text-fg-muted">{k === "valid" ? "Domains, measures and plan follow." : "Technique score withheld, with the reason and what to do next."}</p>
               </li>
             );
           })}

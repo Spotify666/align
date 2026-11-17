@@ -14,19 +14,19 @@ export const BACK_FOOT_SAMPLES: FixtureSpec[] = [
   {
     key: "valid_bfd",
     title: "Valid back-foot defence",
-    expectation: "valid — front foot left out in front: coached to bring it alongside",
+    expectation: "valid: front foot left out in front, coached to bring it alongside",
     options: { ...common, id: "fx_valid_bfd", label: "Valid back-foot defence", seed: 11, script: bfdScript({ backStep: 0.2, frontBack: 0.12 }) },
   },
   {
     key: "front_on_bfd",
     title: "Back-foot defence from the bowler's end",
-    expectation: "valid — head and hands read sideways; going back can't be seen from this end",
+    expectation: "valid: head and hands read sideways; going back can't be seen from this end",
     options: { ...common, id: "fx_front_on_bfd", label: "Back-foot defence, bowler's end", seed: 13, script: bfdScript({ backStep: 0.2, frontBack: 0.27 }), view: "front_on" },
   },
   {
     key: "ffd_as_bfd",
     title: "Front-foot defence submitted as a back-foot defence",
-    expectation: "invalid_for_requested_analysis — named as a front-foot defence, no score",
+    expectation: "invalid_for_requested_analysis: named as a front-foot defence, no score",
     options: { ...common, id: "fx_ffd_as_bfd", label: "Front-foot defence", seed: 21, script: ffdScript() },
   },
 ];

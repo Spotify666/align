@@ -22,7 +22,7 @@ export function ShotProbabilityPanel({ probs, coverage }: { probs: Record<ShotCl
         ))}
       </ul>
       <p className="mt-3 text-xs text-fg-subtle">
-        Prototype scores from a transparent band model — <strong className="text-fg-muted">not yet calibrated</strong> on labelled clips. Evidence coverage{" "}
+        Prototype scores from a transparent band model, <strong className="text-fg-muted">not yet calibrated</strong> on labelled clips. Evidence coverage{" "}
         <span className="num">{Math.round(coverage * 100)}%</span>. Acceptance needs ≥{" "}
         <span className="num">{Math.round(THRESHOLDS["ffd.accept.min_probability"].value * 100)}%</span> with body, bat and ball all tracked.
       </p>

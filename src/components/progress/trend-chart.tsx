@@ -54,7 +54,7 @@ export function TrendChart({
     <figure className="card p-4">
       <figcaption className="flex items-baseline justify-between gap-2">
         <span className="font-semibold">{title}</span>
-        <span className="num text-sm text-fg-muted">{last ? `${fmt(last.value)} ${unit}` : "—"}</span>
+        <span className="num text-sm text-fg-muted">{last ? `${fmt(last.value)} ${unit}` : "–"}</span>
       </figcaption>
       {table ? (
         <table className="mt-3 w-full text-sm num">
@@ -67,7 +67,7 @@ export function TrendChart({
               <tr key={p.id} className="border-t border-line">
                 <td className="py-1">{new Date(p.date).toLocaleDateString()}</td>
                 <td>{fmt(p.value)} {unit}</td>
-                <td>{p.uncertainty !== null ? fmt(p.uncertainty) : "—"}</td>
+                <td>{p.uncertainty !== null ? fmt(p.uncertainty) : "–"}</td>
               </tr>
             ))}
           </tbody>

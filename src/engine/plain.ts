@@ -23,7 +23,7 @@ export function plainUnit(m: Pick<Metric, "unit">): string {
   return m.unit.replace("× stature/s", "× height/s");
 }
 
-export const plainValue = (m: M) => (m.value === null ? "—" : `${plainNumber(m, m.value)} ${plainUnit(m)}`.trim());
+export const plainValue = (m: M) => (m.value === null ? "–" : `${plainNumber(m, m.value)} ${plainUnit(m)}`.trim());
 export const plainRange = (m: M) => (m.range ? `${plainNumber(m, m.range.lo)}–${plainNumber(m, m.range.hi)} ${plainUnit(m)}`.trim() : "");
 
 const READINGS: Record<string, { ok: string; low: string; high: string }> = {

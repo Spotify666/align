@@ -54,7 +54,7 @@ export function ViewPicker({
         <div>
           <p className="eyebrow">Moment</p>
           <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">Where was the phone?</h1>
-          <p className="mt-2 text-fg-muted">This sets which way is &ldquo;forward&rdquo;. {suggested ? "We've pre-selected our best guess — check it." : ""}</p>
+          <p className="mt-2 text-fg-muted">This sets which way is &ldquo;forward&rdquo;. {suggested ? "We've pre-selected our best guess. Check it." : ""}</p>
         </div>
       )}
       {image && aspect && (

@@ -56,7 +56,7 @@ async function decode(file: File): Promise<ImageBitmap> {
 
 export function decodeFailure(file: File): string {
   if (isHeic(file))
-    return "HEIC photo — this browser can't open it. On iPhone: Settings → Camera → Formats → Most Compatible, or share the photo as JPEG. Safari opens HEIC directly.";
+    return "HEIC photo: this browser can't open it. On iPhone: Settings → Camera → Formats → Most Compatible, or share the photo as JPEG. Safari opens HEIC directly.";
   if (file.size === 0) return "The file is empty.";
   if (!file.type.startsWith("image/") && !/\.(jpe?g|png|webp|gif|bmp|avif)$/i.test(file.name)) return "Not a photo this browser can read. Use JPEG, PNG or WebP.";
   return "This photo couldn't be decoded. Re-save it as JPEG and try again.";

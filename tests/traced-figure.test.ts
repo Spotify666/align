@@ -108,15 +108,19 @@ describe("the drawing follows the joints", () => {
     expect(followed).toBeGreaterThan(5);
     expect(still).toBeGreaterThan(5);
   });
-  it("keeps to the joints in depth too, so it follows them from a turned view", () => {
-    // The front ankle moved toward the off side: the lines round it go with it, out of the drawing's plane.
+  it("stays a flat, clean cut-out in 3D: every line on its own plane at the hips' depth", () => {
+    // Even with a joint moved toward the camera, nothing leaves the plane (bending round a bone that
+    // points at the camera is what tore the lines).
     const moved = dragHandle(pose, "front_ankle", [pose.front_ankle[0], pose.front_ankle[1], pose.front_ankle[2] + 0.15]);
-    const out = bend(bound, bodyBones(points3(moved)), plane).flat();
+    const out = bend(bound, bodyBones(followFrom(pose, pose, moved, plane)), plane).flat();
+    const hips = (moved.front_hip[2] + moved.back_hip[2]) / 2;
+    for (const p of out) expect(p[2]).toBeCloseTo(hips, 9);
+    // In the plane, the lines round the ankle still go with it.
     let n = 0;
     before.forEach((pt, i) => {
       if (near(pt, inPlane(pose.front_ankle, plane)) < 0.03) {
         n++;
-        expect(near(out[i]!, moved.front_ankle)).toBeLessThan(0.06);
+        expect(near(inPlane(out[i]!, plane), inPlane(moved.front_ankle, plane))).toBeLessThan(0.05);
       }
     });
     expect(n).toBeGreaterThan(5);
@@ -147,8 +151,8 @@ describe("a tracing from another take", () => {
     for (const k of keys) {
       expect(at(k)![1]).toBeCloseTo(traced[k as keyof Pose]![1], 9);
       expect(at(k)![2]).toBeCloseTo(traced[k as keyof Pose]![2] + hips(start) - hips(traced), 9);
-      // The axis the camera looked along is the pose's own.
-      expect(at(k)![0]).toBeCloseTo(start[k as keyof Pose]![0], 9);
+      // The axis the camera looked along: the hips' own depth (a flat cut-out).
+      expect(at(k)![0]).toBeCloseTo((start.front_hip[0] + start.back_hip[0]) / 2, 9);
     }
   });
   it("follows a moved joint by as much as it moved", () => {
@@ -158,9 +162,12 @@ describe("a tracing from another take", () => {
     expect(after[1] - before[1]).toBeCloseTo(moved.front_wrist[1] - start.front_wrist[1], 9);
     expect(after[2] - before[2]).toBeCloseTo(moved.front_wrist[2] - start.front_wrist[2], 9);
   });
-  it("is the pose itself when the tracing is the start (the side-on tracing of the same take)", () => {
+  it("is the pose itself, in its plane, when the tracing is the start (the side-on tracing of the same take)", () => {
     const p = starterPose("front_foot_defence", "contact");
     const at = followFrom(p, p, p, "side");
-    for (const k of keys) expect(at(k)).toEqual(p[k as keyof Pose]);
+    for (const k of keys) {
+      expect(at(k)![0]).toBeCloseTo(p[k as keyof Pose]![0], 9);
+      expect(at(k)![1]).toBeCloseTo(p[k as keyof Pose]![1], 9);
+    }
   });
 });

@@ -17,7 +17,7 @@ const COPY: Record<Exclude<Step, "done">, { title: string; body: string; skip: s
   stumps: { title: "Mark the stumps", body: "Tap the base of the batter's stumps, then the top. This gives the pitch scale.", skip: "Stumps not visible" },
   bounce: { title: "Find the bounce", body: "Scrub to the frame where the ball hits the pitch, then tap the ball.", skip: "Bounce not visible" },
   contact: { title: "Find contact", body: "Scrub to where bat meets ball, then tap the ball.", skip: "Can't see contact" },
-  after: { title: "Ball just after contact", body: "We jumped a few frames ahead. Tap the ball — this measures how dead the bat was.", skip: "Ball not visible" },
+  after: { title: "Ball just after contact", body: "We jumped a few frames ahead. Tap the ball: this measures how dead the bat was.", skip: "Ball not visible" },
   bat: { title: "Mark the bat", body: "On each suggested frame, tap the top hand on the handle, then the toe of the bat.", skip: "Bat not visible" },
 };
 
@@ -217,7 +217,7 @@ export function MarkEvidence({
 
       <div className="flex flex-wrap gap-2">
         {ready && <button className="btn btn-primary" onClick={() => next()}>Confirm and continue</button>}
-        {step === "stumps" && marks.stumpsBase && !marks.stumpsTop && <span className="text-sm text-brand self-center">Base marked — now tap the top.</span>}
+        {step === "stumps" && marks.stumpsBase && !marks.stumpsTop && <span className="text-sm text-brand self-center">Base marked. Now tap the top.</span>}
         {copy.skip && (
           <button
             className="btn btn-ghost"

@@ -108,7 +108,7 @@ export function MomentPicker({
 
       {windows.length > 0 && windows.every((w) => w.verified === false) && (
         <p className="rounded-xl border border-warn/40 bg-warn/10 p-3 text-sm">
-          We couldn&apos;t find a batter from head to feet anywhere in this clip. You can still try — the quality check will say exactly what&apos;s missing.
+          We couldn&apos;t find a batter from head to feet anywhere in this clip. You can still try: the quality check will say exactly what&apos;s missing.
         </p>
       )}
 

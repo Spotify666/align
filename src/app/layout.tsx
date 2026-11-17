@@ -10,7 +10,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "sw
 const archivo = Archivo({ subsets: ["latin"], variable: "--font-archivo", display: "swap", axes: ["wdth"] });
 
 export const metadata: Metadata = {
-  title: { default: "Aline — cricket shot analysis", template: "%s · Aline" },
+  title: { default: "Aline · Cricket shot analysis", template: "%s · Aline" },
   description:
     "Shot analysis for cricket: the front-foot and the back-foot defence. Reconstruct body, bat and ball, confirm the shot before grading it, then train one measurable priority.",
   applicationName: "Aline",

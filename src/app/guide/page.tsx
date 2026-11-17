@@ -57,7 +57,7 @@ export default function GuidePage() {
 
       <div className="mt-12">
         <Stage id="prepare" when="Before the nets" title="Prepare" time="Once">
-          <Do items={["A phone that records slow motion (most phones from the last few years)", "Something to hold it still: a tripod, a bag or a cone", "A bowler or throw-downs — one shot per clip works best", "Your batting hand and height saved in Profile (height scales distances)"]} />
+          <Do items={["A phone that records slow motion (most phones from the last few years)", "Something to hold it still: a tripod, a bag or a cone", "A bowler or throw-downs. One shot per clip works best", "Your batting hand and height saved in Profile (height scales distances)"]} />
         </Stage>
 
         <Stage id="film" when="At the nets" title="Film" time="1 minute to set up">
@@ -81,24 +81,24 @@ export default function GuidePage() {
           </div>
           <PitchGuide />
           <p className="text-sm text-fg-muted">
-            <Hold more={<p>Only able to film from behind the bowler? That works too — Aline recognises the camera position. Some distances become estimates and bounce, bat speed and ball speed aren&apos;t measured.</p>}>
+            <Hold more={<p>Only able to film from behind the bowler? That works too: Aline recognises the camera position. Some distances become estimates and bounce, bat speed and ball speed aren&apos;t measured.</p>}>
               From the bowler&apos;s end works too
             </Hold>
           </p>
           <div className="grid gap-4 md:grid-cols-2">
-            <Do items={["Square-on to the batter, at hip height", "6–8 m away, so head, feet, bat and stumps stay in frame", "The bounce area visible in the frame", "Phone fixed still — no hand-holding"]} />
+            <Do items={["Square-on to the batter, at hip height", "6–8 m away, so head, feet, bat and stumps stay in frame", "The bounce area visible in the frame", "Phone fixed still, not hand-held"]} />
             <Do dont items={["Filming from behind the keeper (the body hides bat and ball)", "Zooming in so the feet or head leave the frame", "People walking between the camera and batter", "Bright sun or nets lights behind the batter"]} />
           </div>
-          <Do items={["Start recording before the ball is released", "Play the defence as you normally would", "Stop after your follow-through — or keep filming a whole net session", "Record a few: your personal baseline needs 6 valid defences"]} />
+          <Do items={["Start recording before the ball is released", "Play the defence as you normally would", "Stop after your follow-through, or keep filming a whole net session", "Record a few: your personal baseline needs 6 valid defences"]} />
         </Stage>
 
 
-        <Stage id="upload" when="In Aline" title="Upload — the rest is automatic" time="About a minute">
+        <Stage id="upload" when="In Aline" title="Upload. The rest is automatic" time="About a minute">
           <p className="text-fg-muted">Choose the clip or a few photos. Aline then:</p>
           <ul className="grid gap-2 text-sm sm:grid-cols-2">
             {[
               ["Finds the shot", "Scans the whole clip and skips camera cuts, replays and close-ups."],
-              ["Finds the batter", "The person holding the bat with both hands — not the bowler, keeper or umpire."],
+              ["Finds the batter", "The person holding the bat with both hands, not the bowler, keeper or umpire."],
               ["Works out the camera position", "Side-on, from the bowler's end or from behind."],
               ["Checks the recording", "Frame rate, light, blur, shake and the whole batter in view. If the shot isn't usable it tries the next one, and tells you exactly what to change."],
               ["Tracks the body", "Frame by frame, following the batter through pans and zooms. The video never leaves your phone."],
@@ -177,14 +177,14 @@ export default function GuidePage() {
         <h2 className="text-2xl font-semibold tracking-tight">Common questions</h2>
         <div className="mt-4 divide-y divide-line rounded-2xl border border-line bg-surface">
           {[
-            ["Why was my shot called “different shot”?", "The evidence — ball length, contact height, bat angle, footwork — pointed to another shot, such as a pull or a drive. You'll see exactly which signals decided it."],
+            ["Why was my shot called “different shot”?", "The evidence (ball length, contact height, bat angle, footwork) pointed to another shot, such as a pull or a drive. You'll see exactly which signals decided it."],
             ["Why “uncertain”?", "Something needed to confirm a defence was missing: usually the ball or bat, which a phone can't always see. Tap “Add ball and bat” on the report to mark them, or follow the recording tips it lists."],
             ["Is my video uploaded?", "No. It's analysed on your phone. Only if you choose to save to your account do we store the small movement tracks, a few still frames and the report."],
             ["I bat left-handed.", "Set it in Profile. Aline works out “front” and “forward” from your batting hand and the bowler's side, not from the screen."],
             ["Which shots are supported?", "The front-foot defence and the back-foot defence are graded. You don't have to say which one you played: Aline tells. Other shots are recognised where possible and not graded; they will be once they pass the same validation."],
-            ["Can I film from behind the bowler?", "Yes. Aline recognises the camera position (you can change it if it's wrong). Forward distances then come from a 3D pose estimate, and bounce distance, bat speed and ball speed aren't measured — side-on gives the most complete report."],
+            ["Can I film from behind the bowler?", "Yes. Aline recognises the camera position (you can change it if it's wrong). Forward distances then come from a 3D pose estimate, and bounce distance, bat speed and ball speed aren't measured. Side-on gives the most complete report."],
             ["My clip is long, or has several shots or people in it.", "That's fine. Aline scans the whole clip, finds each shot, skips camera cuts and close-ups, and follows the person holding the bat. If it picks the wrong shot or person, tap “Change”."],
-            ["Can I upload photos instead?", "Yes — one or up to 12. A side-on photo at the moment of contact is checked against the front-foot defence position formula: stride, front knee, back leg, head over the knee, trunk lean, weight forward and hands ahead of the knee. A back-foot defence photo is checked on its own position: front foot alongside, head forward, standing tall, front elbow and hands. A photo can't show timing, the bat's path or the ball, so it never confirms the shot or gets a score."],
+            ["Can I upload photos instead?", "Yes, one or up to 12. A side-on photo at the moment of contact is checked against the front-foot defence position formula: stride, front knee, back leg, head over the knee, trunk lean, weight forward and hands ahead of the knee. A back-foot defence photo is checked on its own position: front foot alongside, head forward, standing tall, front elbow and hands. A photo can't show timing, the bat's path or the ball, so it never confirms the shot or gets a score."],
             ["My video won't open.", "Most phones record MP4 or MOV, which work. Some iPhones and new Android phones record HEVC: open Aline in Safari or recent Chrome, set iPhone Camera → Formats → Most Compatible, or send the clip to yourself on WhatsApp to convert it."],
           ].map(([q, a]) => (
             <details key={q} className="group p-4">

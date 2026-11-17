@@ -72,7 +72,7 @@ export function ProgressPage() {
           Show demo athlete
         </label>
       </header>
-      {demo && <p className="demo-badge inline-block">DEMO DATA — synthetic athlete, not your recordings</p>}
+      {demo && <p className="demo-badge inline-block">DEMO DATA: a synthetic athlete, not your recordings</p>}
 
       {data.length === 0 ? (
         <div className="card p-8 text-center space-y-3">

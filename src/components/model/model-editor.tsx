@@ -331,7 +331,7 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
                   {measures.filter((m) => m.plane === plane).map((m) => (
                     <div key={m.id} className="flex items-baseline justify-between gap-4 py-2 text-sm">
                       <dt className="text-fg-muted">{m.label}</dt>
-                      <dd className="num shrink-0 font-medium">{m.value === null ? "—" : valueInWords(m, m.value, model.heightCm)}</dd>
+                      <dd className="num shrink-0 font-medium">{m.value === null ? "–" : valueInWords(m, m.value, model.heightCm)}</dd>
                     </div>
                   ))}
                 </dl>
