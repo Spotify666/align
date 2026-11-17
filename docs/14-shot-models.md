@@ -147,3 +147,23 @@ Now each point belongs to one part only and a traced line is cut where it passes
 so every part (head, trunk, each upper arm, forearm, thigh, shin, foot) moves rigidly with its bone,
 like a cut-out pinned at the joints; at worst a small gap opens at a joint. In 3D a tracing is a flat
 cut-out on its own plane at the hips' depth.
+
+## The mannequin (2026-11-17, evening)
+
+The owner pointed to a 3D posing tool (posemaker.org/editor, a jointed wooden-style mannequin):
+"refer to this site for the accurate depiction of it. Try to blend this depiction with the current
+model so it becomes accessible and makes it easy for someone who is registering the data points of
+body." Nothing of that site is copied: Aline draws its own mannequin.
+
+- **A mannequin built from the joints** (`src/lib/mannequin.ts`, `components/model/mannequin-view.tsx`):
+  every limb hangs between two placed points, with a ball at each joint, an egg-shaped head behind
+  the nose, a chest, waist and hips, mitten hands, feet on the ground, and the bat when held. It is
+  the pose given a body, so it never tears or stretches, and it reads the same from the side, the
+  front and any 3D turn, for both shots and both batting sides (it is built, never mirrored).
+- **Drawn in 3D (three.js) under the joint dots**, with the same camera, so a dot sits on its joint.
+  Softly lit, a warm neutral in either theme; the parts the picked handle moves in the accent.
+  Drawn only when something changes; loaded only on the editor. Without WebGL the joints and bones
+  are shown.
+- **The traced batter stays** as the other choice ("Mannequin" / "Traced batter").
+- Tests: `tests/mannequin.test.ts` (every part on its placed points, at every moment of both
+  shots and after far drags of every handle; the bat only when held).

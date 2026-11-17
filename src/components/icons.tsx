@@ -1,5 +1,3 @@
-import { Logo } from "./brand/logo";
-import { VIEW } from "./brand/logo-geometry";
 import type { SVGProps } from "react";
 
 type P = SVGProps<SVGSVGElement> & { size?: number };
@@ -45,16 +43,3 @@ export const Layers = (p: P) => (<svg {...base(p)}><path d="M12 3l9 5-9 5-9-5z" 
 export const Target = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></svg>);
 export const Spark = (p: P) => (<svg {...base(p)}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6" /></svg>);
 
-/**
- * The Aline app mark: the logo in the two tones, paper on an ink tile (sage-cream on black,
- * inverted in the dark theme). Large enough to read, the name sits between the strokes, as
- * on the artwork; small, only the strokes.
- */
-export function Mark({ size = 24 }: { size?: number }) {
-  const pad = size * 0.16;
-  return (
-    <span className="inline-grid place-items-center rounded-[22%] bg-fg text-bg" style={{ width: size, height: size }} aria-hidden>
-      <Logo size={((size - 2 * pad) * VIEW.h) / VIEW.w} name={size >= 48} />
-    </span>
-  );
-}
