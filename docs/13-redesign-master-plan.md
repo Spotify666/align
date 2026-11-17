@@ -953,3 +953,8 @@ pages in both themes. It found, and this change fixed:
 
 After: "No problems." on all 22 pages. `tests/standards.test.ts` keeps the page list, the
 screen map and the Map in step with the app, and forbids milliseconds on report screens.
+
+The check's first run on CI found one more, which a sandbox could not: the Visitors page's
+table (drawn only when the database answers) had an empty column heading. Fixed, and the check
+now gives database-backed pages one sample answer on every machine instead of calling the live
+database, so it reads the same everywhere and writes no test visits.

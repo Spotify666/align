@@ -51,6 +51,11 @@ small.
 | Database touched | `scripts/db/check-rls.sh` locally, then `get_advisors` after applying | all checks pass, nothing new |
 | A screen added or changed | `scripts/design/capture*.mjs`, then `pdf.mjs` | the screen map and its PDF show today's app |
 
+A page that draws from the database is checked **with data in it**: an empty or unreachable
+state hides whatever only appears when the data does (the Visitors table's empty heading was
+found only where the database answered). `check:pages` gives such pages a sample answer; add
+one there for any new page that needs it.
+
 CI runs the first two on every push. A red check is fixed at its cause; it is never skipped,
 quarantined or re-run until it passes.
 

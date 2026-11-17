@@ -8,6 +8,8 @@
 //   - a page error or console error
 //   - more or fewer than one h1
 //   - an internal link that doesn't answer
+// The database is never called: pages that draw from it get one sample answer, the same on
+// every machine (see `database` below).
 // With TIMING=1 it also prints load numbers at 4× CPU slowdown (largest paint, blocking time,
 // layout shift, bytes); those are reported, not gated, because they vary between machines.
 //
@@ -42,6 +44,23 @@ const stop = () => {
   if (server) try { process.kill(-server.pid); } catch {}
 };
 
+// The check never calls the live database: it would see different things on different machines
+// (a sandbox can't reach it, CI can) and would write test visits into the visitor log. Pages
+// that draw from it get the same sample answer everywhere, so their tables are really checked.
+const TOTALS = { visits: 12, visitors: 7, median_ms: 95000 };
+const LIST = (k) => [{ k, n: 5 }, { k: "Other", n: 2 }];
+const OVERVIEW = {
+  day: TOTALS, week: TOTALS, month: TOTALS, analyses: 9,
+  lists: { countries: LIST("India"), devices: LIST("Phone"), systems: LIST("Android"), browsers: LIST("Chrome"), sources: LIST("Direct"), pages: LIST("/check"), results: LIST("valid"), failures: LIST("too short"), taps: LIST("Check your shot") },
+};
+const database = (route) => {
+  const url = route.request().url();
+  const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+  if (url.includes("/rpc/visits_overview")) return json(OVERVIEW);
+  if (url.includes("/auth/")) return json({ message: "not signed in" }, 401);
+  return json([]);
+};
+
 const problems = [];
 const links = new Set();
 const rows = [];
@@ -50,11 +69,11 @@ try {
   for (const theme of ["dark", "light"]) {
     for (const path of pages) {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+      await ctx.route(/supabase\.co/, database);
       const page = await ctx.newPage();
       const errors = [];
       page.on("pageerror", (e) => errors.push(`page error: ${e.message.slice(0, 140)}`));
-      // A page may fail to reach the database from a sandbox: that is the network, not the page.
-      page.on("console", (m) => m.type() === "error" && !/supabase|ERR_TUNNEL|ERR_CERT|Failed to load resource/.test(m.text()) && errors.push(`console: ${m.text().slice(0, 140)}`));
+      page.on("console", (m) => m.type() === "error" && !/Failed to load resource|ERR_CERT/.test(m.text()) && errors.push(`console: ${m.text().slice(0, 140)}`));
       let load = null;
       if (timing && theme === "dark") {
         const cdp = await ctx.newCDPSession(page);
