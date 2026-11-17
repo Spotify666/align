@@ -782,6 +782,9 @@
 /* Short on the page, complete on a long press (components/common/hold.tsx). The dotted line
    under it is the sign that there is more. */
 .hold {
+  /* Keeps the hidden screen-reader hint inside it: without a positioned box it is placed against
+     the page and can widen it from inside a sideways-scrolling strip. */
+  position: relative;
   display: flex;
   align-items: center;
   min-height: 2.75rem;
