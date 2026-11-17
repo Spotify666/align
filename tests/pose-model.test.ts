@@ -5,8 +5,8 @@ import { analyze } from "@/engine/analyze";
 import { bfdScript, ffdScript, pullScript } from "@/engine/fixtures";
 import { generate } from "@/engine/fixtures/generate";
 import {
-  BAT, BONES, FEATURES, HANDLES, MODEL_JOINTS, MOMENTS, POSE_MODEL_SCHEMA, STRICTNESS,
-  batDirection, checkAgainstModel, chestOf, clipInPlane, distance, dragHandle, ground, handlePoint, handlesOf, handsOf, measuresOf, modelFromText, modelLines, modelToText,
+  BAT, BONES, FEATURES, GRIP, HANDLES, MODEL_JOINTS, MOMENTS, POSE_MODEL_SCHEMA, STRICTNESS,
+  batDirection, checkAgainstModel, chestOf, clipInPlane, distance, dragHandle, ground, handlePoint, handlesOf, measuresOf, modelFromText, modelLines, modelToText,
   pelvisOf, placeBat, poseInPlane, segments, withSegments, withoutBat, type Pose, type PoseModel, type V3,
 } from "@/engine/pose-model";
 import { buildScene, semanticToJoint } from "@/engine/scene";
@@ -279,9 +279,17 @@ describe("the bat (optional)", () => {
     back_foot_defence: { backlift: [-0.35, 0.94, 0.1], foot_down: [-0.5, 0.6, 0.05], contact: [-0.2, -1, 0] },
   };
   const withBat = (shot: TargetShot, m: "backlift" | "foot_down" | "contact" = "contact") => placeBat(pose(shot, m), DIR[shot][m]);
+  /** Each wrist's distance from the handle's line, and where along it (from the handle point toward the toe). */
+  const onHandle = (p: Pose, w: V3) => {
+    const d = batDirection(p)!;
+    const r: V3 = [w[0] - p.bat_handle![0], w[1] - p.bat_handle![1], w[2] - p.bat_handle![2]];
+    const t = r[0] * d[0] + r[1] * d[1] + r[2] * d[2];
+    return { t, off: Math.hypot(r[0] - d[0] * t, r[1] - d[1] * t, r[2] - d[2] * t) };
+  };
+  // Held: each wrist a hand's length back from the handle (the hand runs from the wrist round it), the bat its own length.
   const held = (p: Pose, why: string) => {
-    expect(distance(p.bat_handle!, handsOf(p)), `${why}: in the hands`).toBeLessThan(1e-9);
     expect(distance(p.bat_handle!, p.bat_toe!), `${why}: its length`).toBeCloseTo(BAT.handsToToe, 9);
+    for (const w of [p.front_wrist, p.back_wrist]) expect(Math.abs(onHandle(p, w).off - GRIP.hand), `${why}: in the hands`).toBeLessThan(0.03);
   };
   it("starts in the hands at every moment, its toe above the ground", () => {
     for (const shot of ["front_foot_defence", "back_foot_defence"] as const)
@@ -316,16 +324,11 @@ describe("the bat (optional)", () => {
     for (const shot of ["front_foot_defence", "back_foot_defence"] as const)
       for (const m of MOMENTS) {
         const p = withBat(shot, m.id);
-        const d = batDirection(p)!;
-        const on = (w: V3) => {
-          const r: V3 = [w[0] - p.bat_handle![0], w[1] - p.bat_handle![1], w[2] - p.bat_handle![2]];
-          const t = r[0] * d[0] + r[1] * d[1] + r[2] * d[2];
-          return { t, off: Math.hypot(r[0] - d[0] * t, r[1] - d[1] * t, r[2] - d[2] * t) };
-        };
-        const top = on(p.front_wrist);
-        const bottom = on(p.back_wrist);
-        expect(top.off, `${shot} ${m.id} top`).toBeLessThan(0.02);
-        expect(bottom.off, `${shot} ${m.id} bottom`).toBeLessThan(0.02);
+        const top = onHandle(p, p.front_wrist);
+        const bottom = onHandle(p, p.back_wrist);
+        // Each wrist a hand's length back from the handle: the hand bends at the wrist to close round it.
+        expect(top.off, `${shot} ${m.id} top`).toBeCloseTo(GRIP.hand, 2);
+        expect(bottom.off, `${shot} ${m.id} bottom`).toBeCloseTo(GRIP.hand, 2);
         expect(top.t).toBeLessThan(bottom.t);
         // The bottom elbow below its shoulder, as a batter's is.
         expect(p.back_elbow[1]).toBeLessThan(p.back_shoulder[1]);

@@ -183,3 +183,8 @@ body." Nothing of that site is copied: Aline draws its own mannequin.
   body (`placeBat`, `GRIP` in `pose-model.ts`). A side-on clip of a right-hander can't see that arm
   (it is behind the body, where the tracker guesses), so it is solved, not copied. Tested on every
   moment of both shots.
+- **The wrist** (the owner: "There is no concept of wrist… that's why it's not matching the human
+  thing"): each wrist sits a hand's length (`GRIP.hand`, about 9 cm) back from the handle, on the side
+  its arm comes from, and the gloved hand runs from the wrist to the handle at its own angle before
+  closing round it, so the hand bends at the wrist as a batter's does. Where an arm can't reach that
+  far, the bat comes toward the hands until both hold it.

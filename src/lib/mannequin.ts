@@ -12,7 +12,7 @@
 // tests/mannequin.test.ts holds them to the pose. Sizes are an adult's, in body heights: drawing
 // only, never measured.
 
-import { chestOf, handsOf, pelvisOf, type Handle, type Pose, type V3 } from "@/engine/pose-model";
+import { chestOf, pelvisOf, type Handle, type Pose, type V3 } from "@/engine/pose-model";
 
 /** limb: a tapered cylinder between a and b; ball: a sphere at a; ellipsoid and box: between a and b, `r` wide and `depth` deep. */
 export type PartKind = "limb" | "ball" | "ellipsoid" | "box";
@@ -140,7 +140,8 @@ export function mannequinParts(p: Pose): Part[] {
   // The bat, when held: a rubber grip from above the top hand to the blade, the willow blade to the toe.
   if (held) {
     const dir = unit(sub(p.bat_toe!, p.bat_handle!), [0, -1, 0]);
-    const hands = handsOf(p);
+    // Where the hands hold the handle (each wrist sits a hand's length back from it: placeBat).
+    const hands = p.bat_handle!;
     const top = sub(hands, mul(dir, 0.075));
     const blade = sub(p.bat_toe!, mul(dir, 0.32));
     // The face looks toward the bowler, square to the bat.
@@ -151,15 +152,15 @@ export function mannequinParts(p: Pose): Part[] {
       { key: "bat-blade", kind: "box", tone: "willow", a: blade, b: p.bat_toe!, r: 0.031, r2: 0.031, depth: 0.017, across: width, moves: ["bat_toe"] },
     );
     // Both gloved hands close round the handle, touching: the top hand (the front wrist's) just
-    // above the bottom hand, as a batter holds it. Each fist sits on the handle, joined to its
-    // wrist by the palm.
+    // above the bottom hand, as a batter holds it. From each wrist the hand runs to the handle at
+    // its own angle (the wrist bends), and the fingers close round it.
     for (const [s, along] of [["front", -0.03], ["back", 0.03]] as const) {
       const wrist = p[`${s}_wrist`];
       const grip = add(hands, mul(dir, along));
-      // The back of the fist faces the way the forearm comes in.
-      const out = square(sub(grip, p[`${s}_elbow`]), dir, [0, 0, 1]);
+      // The back of the hand faces the wrist it comes from.
+      const out = square(sub(grip, wrist), dir, [0, 0, 1]);
       parts.push(
-        { key: `${s}-palm`, kind: "limb", tone: "glove", a: wrist, b: sub(grip, mul(out, 0.012)), r: SIZE.wrist, r2: SIZE.hand * 0.9, moves: [`${s}_wrist` as Handle] },
+        { key: `${s}-palm`, kind: "limb", tone: "glove", a: wrist, b: sub(grip, mul(out, 0.012)), r: SIZE.wrist * 1.15, r2: SIZE.hand * 0.95, moves: [`${s}_wrist` as Handle] },
         { key: `${s}-fist`, kind: "ellipsoid", tone: "glove", a: sub(add(grip, mul(dir, -0.028)), mul(out, 0.006)), b: sub(add(grip, mul(dir, 0.028)), mul(out, 0.006)), r: SIZE.hand * 1.2, r2: SIZE.hand * 1.2, depth: SIZE.hand * 1.15, across: out, moves: [`${s}_wrist` as Handle] },
       );
     }

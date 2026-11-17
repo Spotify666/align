@@ -1337,3 +1337,5 @@ Open:
   gloves, shoes, whites, willow bat), in the editor and on the home page.
 - "Right hand is not in sync with how a human holds the bat… similarly check the back-foot defence":
   both hands now sit on the handle, the bottom elbow down and back, in both shots (docs/14).
+- "There is no concept of wrist in the above; that's why it's not matching the human thing": each wrist
+  now sits a hand's length back from the handle and the hand bends at it to close round the bat.
