@@ -379,10 +379,11 @@ export const SCREENS: Screen[] = [
   },
   {
     id: "model-edit", name: "Place the joints", route: "/models/edit", href: null,
-    says: "Drag each joint on the figure. Bones keep their length; the orange line stands over the front toe.",
+    says: "Drag each joint on a real batter traced from a clip; the drawing bends with the joints. Bones keep their length; the orange line stands over the front toe.",
     options: [
       ["Contact, Foot down, Top of the backlift", "The moments a model can hold. Contact is always there."],
       ["Side, Front, 3D", "From the side a joint moves along the pitch and up; from the front, across and up; 3D turns the figure."],
+      ["Add a bat", "Optional. The bat stays in both hands; drag its toe to set its angle. Checked only on clips where the bat was tracked."],
       ["Undo", "Steps back one move."],
     ],
   },

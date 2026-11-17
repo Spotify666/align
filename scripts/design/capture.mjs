@@ -178,6 +178,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     await calm(p);
     await p.waitForTimeout(800);
     const edit = p.url();
+    await p.getByRole("switch", { name: "Add a bat" }).click();
     await save(p, "model-edit");
     await toText("What this pose measures", 330);
     await save(p, "model-measures");

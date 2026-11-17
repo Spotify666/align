@@ -1302,3 +1302,13 @@ Open:
 - "Give option to delete here, with a passcode of 1000": Delete on each model in `/models` and in
   the editor asks for the passcode (`DELETE_PASSCODE`, `components/model/delete-model.tsx`). A
   guard against deleting by mistake, not security (models are on the device). Shipped.
+
+## 2026-11-17 · The shot-model figure: a real batter, and a bat
+
+- "This thing doesn't feel like a human, it should be more close to human. And also here we should
+  be giving bat as an additional option." Then: "How many times should I tell you the base model
+  itself is wrong. Do not use this figure at all", with a line-art reference video (not the
+  owner's: not used).
+- Shipped: the figure is line art traced from the owner's own side-on clips; new models start
+  from that batter's real joints; the drawing bends as joints move. Optional bat. Details and
+  limits: docs/14 ("The figure, changed").

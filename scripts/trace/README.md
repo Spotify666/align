@@ -36,3 +36,20 @@ are frame positions in the traced sequence (0 is the first traced frame).
 
 Only trace clips the owner has the right to use. A left-handed batter needs their own clip:
 a tracing is never mirrored.
+
+## The shot-model figure (`rig.py`)
+
+The figure people place joints on (/models/edit) is traced the same way (`lib.py` is shared), at
+the moments a model holds, with the joints the drawing hangs on and the bat apart from the body:
+
+```bash
+python scripts/trace/rig.py <clip.mp4> public/models/pose_landmarker_full.task public/art/model-ffd-side.json front_foot_defence side side_on backlift=46,foot_down=55,contact=61
+```
+
+```bash
+node scripts/pose-starters.mjs > src/lib/pose-starters.json
+```
+
+The frames are the moments Aline found in the clip (its saved analysis). Made on 2026-11-17 from
+the owner's `side_ffd` (backlift 46, foot down 55, contact 61) and `side_bfd` (53, 59, 65, picked
+from its traced frames). `tests/traced-figure.test.ts` checks the files and the starting poses.

@@ -100,7 +100,7 @@ export function ModelsPage() {
             <p className="mt-2 text-sm text-fg-muted" aria-live="polite">{ANGLES.find((a) => a.id === angles)!.says}</p>
           </div>
           <p className="text-sm text-fg-subtle">
-            It starts from Aline&apos;s textbook pose at contact, for you to move. A model is never flipped for the other batting side: make one for each.
+            It starts from a real batter traced from a clip, at contact, for you to move. A model is never flipped for the other batting side: make one for each.
           </p>
           <div className="flex flex-wrap gap-2">
             <button className="btn btn-primary">Start placing joints</button>
