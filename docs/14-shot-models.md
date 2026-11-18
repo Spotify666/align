@@ -98,9 +98,10 @@ report.
 - Tracings exist side-on for both shots and from the bowler's end for the back-foot defence
   (traced at six times the clip's size: the batter is small in it). There is no front-foot
   defence from the bowler's end: that view shows the back-foot tracing, moved with the joints,
-  and says so, and the front-foot starting pose borrows its across positions from it (the side
-  clip's depth estimate put the head 29% of height to the off side). A front-on front-foot clip
-  would replace both. A left-hander sees joints and bones only (never mirrored).
+  and says so. Since 2026-11-18 the front-foot starting pose takes its across positions from its
+  own side clip's depth estimate (it put the head well to the off side: an estimate, said so in
+  the editor), no longer from the back-foot clip. A front-on front-foot clip would replace both.
+  A left-hander sees joints and bones only (never mirrored).
 - The side-on and bowler's-end clips are two different balls, so a tracing starts as traced,
   standing where the model stands, and moves only by how far each joint is moved from the start
   (`followFrom`); its joints sit near, not exactly on, its lines from the other take.
@@ -197,3 +198,10 @@ body." Nothing of that site is copied: Aline draws its own mannequin.
   hand as one line from the elbow to its grip, the wrist bent only a little (`GRIP.cock`, 15°) toward
   the back of the handle, both bones keeping their lengths. Tested: the wrist bend under 25° on every
   moment of both shots.
+
+### One rig (2026-11-18)
+
+The editor's bat and arms are now solved by the rig every figure shares (`src/engine/rig.ts`,
+docs/15): the grip anchors the gloves are drawn on, the wrist's bend from where the wrist is (no
+fixed 15°) within a grip's range, each elbow toward where it is blended with a preference measured
+in the trunk's frame (no fixed world direction), and the rig's two-bone reach for every drag.

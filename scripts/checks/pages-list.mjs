@@ -3,7 +3,7 @@
 
 export const PAGES = [
   "/", "/home", "/check", "/check/pair", "/sample", "/sample/valid_ffd", "/sample/pull", "/sample/valid_ffd/print", "/sessions", "/progress",
-  "/profile", "/coach", "/library", "/models", "/guide", "/science", "/privacy", "/signin", "/design", "/design-system", "/visitors", "/angles",
+  "/profile", "/coach", "/library", "/models", "/models/motion", "/guide", "/science", "/privacy", "/signin", "/design", "/design-system", "/visitors", "/angles",
 ];
 
 /** Pages the check can't open on its own, and why. Each is covered another way. */

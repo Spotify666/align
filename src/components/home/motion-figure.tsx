@@ -1,19 +1,21 @@
 "use client";
-// A real front-foot defence, played on Aline's mannequin: the owner's own side-on clip, traced
-// frame by frame (scripts/trace/rig.py, MOTION_OUT) and smoothed, at half speed. The orange line
-// joins the head, front shoulder, front knee and front toe, the line Aline reads, and the moments
-// light up as they come. Asked for on 2026-11-17 ("see how seamless the motion and action feel…
-// make sure it blends in with the app's use case"): the movement is the batter's own, not an
-// animation, and what is said under it is what Aline read on that clip.
+// A real front-foot defence, played on Aline's mannequin: the owner's own side-on clip, traced frame
+// by frame (scripts/trace/rig.py), fitted to the one rig every figure uses (src/lib/motion: every
+// bone one length, the hands on the bat's grip, the planted feet held, the frames between tracked
+// ones solved too), at half speed. The orange line joins the head, front shoulder, front knee and
+// front toe, the line Aline reads; the phase and its cue come from the shot's own file
+// (public/motion/shots), and change exactly at the take's events.
+//
+// The clip was filmed by one camera, so its depth is an estimate: it plays from where that camera
+// stood, never turned round (src/lib/motion/view.ts, `canOrbit`), and says so.
 //
 // Like the landing's batter: a still first (contact), and the movement only while on screen, in a
 // visible tab and with motion allowed; it stops on contact after three plays and plays again on a tap.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { placeBat, type Pose, type V3 } from "@/engine/pose-model";
-import { createMannequinScene, type Camera, type MannequinScene } from "@/components/model/mannequin-view";
-
-type Motion = { fps: number; moments: Record<string, number>; frames: Array<{ frame: number; pose: Record<string, V3>; bat: V3 }> };
+import { createMannequinScene, type MannequinScene } from "@/components/model/mannequin-view";
+import { fitTake, phaseAt, poseAt, type Fitted } from "@/lib/motion/fit";
+import { cameraFor, loadTake, toScreen, VIEW_YAW } from "@/lib/motion/view";
 
 const W = 360;
 const H = 380;
@@ -21,78 +23,44 @@ const SCALE = 300;
 const GROUND = 350;
 const SPEED = 0.5; // half speed: the movement is quick
 const PLAYS = 3;
-const MOMENTS = [
-  { id: "backlift", label: "Backlift" },
-  { id: "foot_down", label: "Foot down" },
-  { id: "contact", label: "Contact" },
-] as const;
+const TAKE = "real-ffd-side";
 const READ = [
   { ok: true, text: "Front knee bent" },
   { ok: true, text: "A good step" },
   { ok: false, text: "Front shoulder a little late" },
 ];
-
-const rad = (d: number) => (d * Math.PI) / 180;
-function cameraFor(yaw: number, pitch: number): Camera {
-  const t = rad(yaw);
-  const p = rad(pitch);
-  return {
-    W, H, scale: SCALE, groundY: GROUND, flip: 1, centre: [0.02, 0],
-    right: [Math.cos(t), 0, -Math.sin(t)],
-    up: [-Math.sin(p) * Math.sin(t), Math.cos(p), -Math.sin(p) * Math.cos(t)],
-    toward: [Math.cos(p) * Math.sin(t), Math.sin(p), Math.cos(p) * Math.cos(t)],
-  };
-}
-const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const toScreen = (c: Camera, p: V3) => {
-  const q: V3 = [p[0] - c.centre[0], p[1], p[2] - c.centre[1]];
-  return [W / 2 + dot(q, c.right) * SCALE, GROUND - dot(q, c.up) * SCALE] as const;
-};
-
-/** The pose at a time in the clip (frames, fractional), between its two nearest frames, holding the bat. */
-function poseAt(m: Motion, f: number): Pose {
-  const n = m.frames.length;
-  const i = Math.max(0, Math.min(n - 1, Math.floor(f)));
-  const j = Math.min(n - 1, i + 1);
-  const k = Math.max(0, Math.min(1, f - i));
-  const a = m.frames[i]!;
-  const b = m.frames[j]!;
-  const pose = Object.fromEntries(Object.keys(a.pose).map((key) => [key, a.pose[key]!.map((v, d) => v + (b.pose[key]![d]! - v) * k) as unknown as V3])) as Pose;
-  const bat = a.bat.map((v, d) => v + (b.bat[d]! - v) * k) as unknown as V3;
-  return placeBat(pose, bat);
-}
+const camera = cameraFor({ W, H, scale: SCALE, groundY: GROUND, yaw: VIEW_YAW.source, pitch: 0, centre: [0.02, 0] });
 
 export function MotionFigure() {
   const box = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
-  const [motion, setMotion] = useState<Motion | null>(null);
-  const [frame, setFrame] = useState<number | null>(null);
+  const [fit, setFit] = useState<Fitted | null>(null);
+  const [time, setTime] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
   const [plays, setPlays] = useState(0);
   const scene = useRef<MannequinScene | null>(null);
 
-  // Fetch the movement once the panel is near the screen.
+  // Fetch and fit the take once the panel is near the screen.
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
     const io = new IntersectionObserver((es) => {
       if (!es.some((e) => e.isIntersecting)) return;
       io.disconnect();
-      fetch("/art/motion-ffd-side.json")
-        .then((r) => (r.ok ? (r.json() as Promise<Motion>) : null))
-        .then((m) => m && setMotion(m))
+      loadTake(TAKE)
+        .then(({ take, shot }) => setFit(fitTake(take, shot)))
         .catch(() => setFailed(true));
     }, { rootMargin: "200px" });
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
-  const contactIndex = useMemo(() => (motion ? Math.max(0, motion.frames.findIndex((f) => f.frame === motion.moments.contact)) : 0), [motion]);
+  const contact = fit ? fit.take.events.contact! : 0;
 
   // The 3D scene, and the movement.
   useEffect(() => {
     const el = box.current;
-    if (!el || !motion) return;
+    if (!el || !fit) return;
     const s = createMannequinScene(el);
     if (!s) {
       setFailed(true);
@@ -100,23 +68,24 @@ export function MotionFigure() {
     }
     scene.current = s;
     const still = () => {
-      s.draw(poseAt(motion, contactIndex), cameraFor(20, 6));
-      setFrame(contactIndex);
+      s.draw(poseAt(fit, contact).pose, camera);
+      setTime(contact);
     };
     still();
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce || plays >= PLAYS) return () => s.dispose();
 
+    const t0 = fit.times[0]!;
+    const end = fit.times[fit.times.length - 1]!;
     let raf = 0;
     let visible = false;
     let start = 0;
     let played = plays;
     const loop = (now: number) => {
       if (!start) start = now;
-      const t = ((now - start) / 1000) * SPEED;
-      const f = t * motion.fps;
-      const n = motion.frames.length - 1;
-      if (f >= n + motion.fps * 0.4) {
+      // The take's own clock, slowed: a phase changes at its event whatever the speed.
+      const t = t0 + ((now - start) / 1000) * SPEED;
+      if (t >= end + 0.4) {
         // A breath at the end, then again; after the last play, rest on contact.
         played += 1;
         if (played >= PLAYS) {
@@ -126,11 +95,9 @@ export function MotionFigure() {
         }
         start = now;
       }
-      const at = Math.min(f, n);
-      // The camera drifts a little round the batter as the shot is played.
-      const yaw = 16 + 10 * Math.sin((at / n) * Math.PI);
-      s.draw(poseAt(motion, at), cameraFor(yaw, 6));
-      setFrame(at);
+      const at = Math.min(t, end);
+      s.draw(poseAt(fit, at).pose, camera);
+      setTime(at);
       if (visible && !document.hidden) raf = requestAnimationFrame(loop);
     };
     const go = () => {
@@ -153,18 +120,16 @@ export function MotionFigure() {
       s.dispose();
       scene.current = null;
     };
-  }, [motion, contactIndex, plays]);
+  }, [fit, contact, plays]);
 
   // The line Aline reads, over the figure: head, front shoulder, front knee, front toe.
   const line = useMemo(() => {
-    if (!motion || frame === null) return null;
-    const p = poseAt(motion, frame);
-    const n = motion.frames.length - 1;
-    const c = cameraFor(16 + 10 * Math.sin((Math.min(frame, n) / n) * Math.PI), 6);
-    return [p.head, p.front_shoulder, p.front_knee, p.front_foot].map((q) => toScreen(c, q));
-  }, [motion, frame]);
-  const reached = (id: string) => (motion && frame !== null ? frame >= motion.frames.findIndex((f) => f.frame === motion.moments[id]) : false);
-  const atContact = motion !== null && frame !== null && frame >= contactIndex;
+    if (!fit || time === null) return null;
+    const p = poseAt(fit, time).pose;
+    return [p.head, p.front_shoulder, p.front_knee, p.front_foot].map((q) => toScreen(camera, q));
+  }, [fit, time]);
+  const phase = fit && time !== null ? phaseAt(fit.shot, { events: fit.take.events, times: fit.times }, time) : null;
+  const atContact = fit !== null && time !== null && time >= contact;
 
   return (
     <div ref={wrap} className="panel overflow-hidden p-5 sm:p-6">
@@ -186,11 +151,18 @@ export function MotionFigure() {
         {failed && <p className="absolute inset-0 grid place-items-center text-sm text-fg-muted">The figure couldn&apos;t be drawn on this device.</p>}
       </div>
       <ol className="mt-4 flex flex-wrap gap-2" aria-label="Moments">
-        {MOMENTS.map((m) => (
-          <li key={m.id} className={`chip text-xs ${reached(m.id) ? "border-brand text-fg" : "text-fg-subtle"}`}>{m.label}</li>
+        {(fit?.shot.events ?? []).map((e) => (
+          <li key={e.id} className={`chip text-xs ${fit && time !== null && time >= fit.take.events[e.id]! ? "border-brand text-fg" : "text-fg-subtle"}`}>{e.label}</li>
         ))}
       </ol>
-      <ul className="mt-3 space-y-1 text-sm">
+      <p className="mt-3 min-h-[2.75rem] text-sm" aria-live="off">
+        {phase && (
+          <>
+            <span className="font-semibold">{phase.label}.</span> <span className="text-fg-muted">{phase.cue}</span>
+          </>
+        )}
+      </p>
+      <ul className="mt-2 space-y-1 text-sm">
         {READ.map((r) => (
           <li key={r.text} className={atContact ? "text-fg-muted" : "text-fg-subtle"}>
             <span aria-hidden className={r.ok ? "text-ok" : "text-warn"}>{r.ok ? "✓ " : "! "}</span>
@@ -198,6 +170,7 @@ export function MotionFigure() {
           </li>
         ))}
       </ul>
+      <p className="mt-3 text-xs text-fg-subtle">Filmed by one camera, so shown from where it stood.</p>
       {plays >= PLAYS && (
         <button type="button" className="btn btn-ghost mt-4" onClick={() => setPlays(0)}>Play again</button>
       )}

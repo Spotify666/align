@@ -6,12 +6,18 @@ import { TRACED } from "@/lib/traced-batter";
 
 const W = TRACED.width;
 const H = TRACED.height;
+// Each moment is a phase of the shot, with the traced frame it begins on (read off the tracing:
+// the bat starts up at 8, is at the top of the backlift by 15 and comes down from there, meets the
+// ball about 24). The caption names the phase the frame is in, so "Backlift" is never shown over a
+// bat already on its way down (2026-11-18). A button stops on its moment's frame (`TRACED.moments`).
 const MOMENTS = [
-  { name: "Stance", cue: "Bat held ready, hands together, eyes on the ball." },
-  { name: "Backlift", cue: "The hands lift the bat as the weight starts forward." },
-  { name: "Stride", cue: "The front foot goes to the ball and the bat starts down." },
-  { name: "Contact", cue: "Front knee bent, arms long, bat angled down beside the front leg." },
+  { name: "Stance", from: 0, cue: "Bat held ready, hands together, eyes on the ball." },
+  { name: "Backlift", from: 8, cue: "The hands lift the bat as the weight starts forward." },
+  { name: "Stride", from: 15, cue: "The front foot goes to the ball and the bat starts down." },
+  { name: "Contact", from: 24, cue: "Front knee bent, arms long, bat angled down beside the front leg." },
 ] as const;
+/** The moment (phase) a traced frame is in. */
+export const phaseOfFrame = (frame: number) => MOMENTS.reduce((at, m, i) => (frame >= m.from ? i : at), 0);
 const CONTACT = MOMENTS.length - 1;
 
 interface Traced {
@@ -143,10 +149,7 @@ export function BatterFigure() {
     };
 
     const show = (frame: number) => {
-      let i = 0;
-      TRACED.moments.forEach((f, m) => {
-        if (frame >= f - 1) i = m;
-      });
+      const i = phaseOfFrame(Math.round(frame));
       if (i !== shownMoment) {
         shownMoment = i;
         setMoment(i);

@@ -1,0 +1,51 @@
+{
+ "schema": "aline.motion-shot/1",
+ "shot": "cut",
+ "label": "Square cut",
+ "events": [
+  {
+   "id": "backlift_top",
+   "label": "Top of the backlift"
+  },
+  {
+   "id": "foot_down",
+   "label": "Foot down"
+  },
+  {
+   "id": "contact",
+   "label": "Contact"
+  }
+ ],
+ "phases": [
+  {
+   "id": "backlift",
+   "label": "Backlift",
+   "cue": "A high backlift; the back foot goes back and across.",
+   "from": "start",
+   "to": "backlift_top"
+  },
+  {
+   "id": "swing",
+   "label": "Swing",
+   "cue": "The arms extend toward the ball outside off; the bat comes down and across.",
+   "from": "backlift_top",
+   "to": "contact"
+  },
+  {
+   "id": "follow",
+   "label": "Follow-through",
+   "cue": "The bat finishes over the shoulder toward point.",
+   "from": "contact",
+   "to": "end"
+  }
+ ],
+ "grip": [
+  {
+   "from": "start",
+   "state": "both"
+  }
+ ],
+ "impacts": [
+  "contact"
+ ]
+}

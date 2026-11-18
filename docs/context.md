@@ -1345,3 +1345,21 @@ Open:
   the bat's face), a little toward its own arm, so the hands keep their angle as the bat swings.
 - "See right side wrist facing upwards, left side wrist downwards, the core human motion logic is
   missing": each hand now carries on the line of its forearm, the wrist cocked only a little.
+
+## 2026-11-18 · One motion system for any shot
+
+- Asked: "Build one motion system for any cricket batting shot… the same human skeleton, equipment
+  model, camera model and physical constraints… adding [a shot] should require data and annotations
+  only", with the front- and back-foot defences as regressions, a held-out shot, MyoSuite as a
+  reference for clarity, and the defects named: the landing's Backlift caption over a bat already
+  coming down, the home figure's back upper arm changing length (11.7–19.6% of height), its bat with
+  no depth, `placeBat`'s fixed wrist and elbow, the grip offset the solver and the gloves disagreed
+  on, front-foot starters borrowing back-foot depth.
+- Built: docs/15. One rig (`src/engine/rig.ts`) for the editor, the gloves and every fitted take;
+  the fit (`src/lib/motion`); five shot files and nine takes (the owner's traced front-foot defence;
+  eight generated, two calibrated cameras each, with truth); the inspector `/models/motion`; the
+  home figure fitted and played from its own camera; the landing caption by phase; front-foot
+  starters from their own clip. The drive, cut and pull were held out and fitted with no solver
+  change. Measured before and after in docs/15.
+- Not possible here: MyoSuite and Brave (the network refuses them; Chromium used), the owner's
+  source clips, a real second camera, a left-handed reference, a coach's review.

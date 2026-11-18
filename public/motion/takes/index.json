@@ -1,0 +1,65 @@
+[
+ {
+  "id": "real-ffd-side",
+  "label": "The owner's front-foot defence (side-on, traced)",
+  "shot": "front_foot_defence",
+  "source": "traced",
+  "battingSide": "right"
+ },
+ {
+  "id": "gen-ffd",
+  "label": "Front-foot defence (generated)",
+  "shot": "front_foot_defence",
+  "source": "generated",
+  "battingSide": "right"
+ },
+ {
+  "id": "gen-ffd-pivot",
+  "label": "Front-foot defence, back heel lifting (generated)",
+  "shot": "front_foot_defence",
+  "source": "generated",
+  "battingSide": "right"
+ },
+ {
+  "id": "gen-bfd",
+  "label": "Back-foot defence (generated)",
+  "shot": "back_foot_defence",
+  "source": "generated",
+  "battingSide": "right"
+ },
+ {
+  "id": "gen-bfd-b",
+  "label": "Back-foot defence, another batter (generated)",
+  "shot": "back_foot_defence",
+  "source": "generated",
+  "battingSide": "right"
+ },
+ {
+  "id": "gen-ffd-c",
+  "label": "Front-foot defence, another batter (generated)",
+  "shot": "front_foot_defence",
+  "source": "generated",
+  "battingSide": "right"
+ },
+ {
+  "id": "gen-drive",
+  "label": "Front-foot drive (generated)",
+  "shot": "drive",
+  "source": "generated",
+  "battingSide": "right"
+ },
+ {
+  "id": "gen-cut",
+  "label": "Square cut (generated)",
+  "shot": "cut",
+  "source": "generated",
+  "battingSide": "right"
+ },
+ {
+  "id": "gen-pull",
+  "label": "Pull, bottom wrist hidden at contact (generated)",
+  "shot": "pull",
+  "source": "generated",
+  "battingSide": "right"
+ }
+]

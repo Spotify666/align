@@ -193,6 +193,29 @@ function projectBehind(p: V3): [number, number] {
   return [xu / BEHIND.aspect, yu];
 }
 
+/**
+ * The generator's side-on and bowler's-end cameras as calibrated pinhole matrices (3 × 4, row by
+ * row): world metres (forward, up, across) to image pixels (1920 × 1080 side-on, 1080 × 1920 from
+ * the bowler's end). The same projections as `project` and `projectFront`, written so a motion fit
+ * can triangulate the two views of one generated ball (src/lib/motion). Read by no analysis.
+ */
+export const FIXTURE_CAMERAS = (() => {
+  const fx = (ASPECT / CAMERA.viewWidthM) * CAMERA.depth;
+  const k = (FRONT.f - 0.5) / FRONT.viewHeightM;
+  return {
+    side_on: {
+      width: 1920,
+      height: 1080,
+      P: [1080 * fx, 0, -960, 960 * CAMERA.depth - 1080 * fx * CAMERA.centreF, 0, -1080 * fx, -540, 540 * CAMERA.depth + 1080 * fx * CAMERA.height, 0, 0, -1, CAMERA.depth],
+    },
+    front_on: {
+      width: 1080,
+      height: 1920,
+      P: [-540, 0, -1920 * k, 540 * FRONT.f, -960, -1920 * k, 0, 960 * FRONT.f + 1920 * k * FRONT.height, -1, 0, 0, FRONT.f],
+    },
+  } as const;
+})();
+
 export const FIXTURE_CALIBRATION = (() => {
   const fx = (ASPECT / CAMERA.viewWidthM) * CAMERA.depth;
   const [sx, gy] = project([0, 0, 0]);

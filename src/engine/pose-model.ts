@@ -21,12 +21,13 @@
 // Units: body heights (1 = the batter's standing height).
 
 import { buildScene, type Scene, type SemanticJoint } from "./scene";
+import { BAT, GRIP, add, armToGrip, twoBone, cross, distance, dot, gripPoint, len, mid, mul, perpTo, sub, unit, type V3 } from "./rig";
 import type { AnalysisPayload, CaptureObservation, EventType, Handedness, TargetShot } from "./types";
 
 export const POSE_MODEL_SCHEMA = "aline.pose-model/1" as const;
 export const MODEL_CHECK_SCHEMA = "aline.model-check/1" as const;
 
-export type V3 = readonly [number, number, number];
+export type { V3 };
 export const MODEL_JOINTS = [
   "head",
   "front_shoulder", "back_shoulder",
@@ -99,18 +100,7 @@ export const STRICTNESS = [
 
 // ---------- Vectors ----------
 
-const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const mul = (a: V3, k: number): V3 => [a[0] * k, a[1] * k, a[2] * k];
-const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const len = (a: V3) => Math.hypot(a[0], a[1], a[2]);
-const mid = (a: V3, b: V3): V3 => mul(add(a, b), 0.5);
-const unit = (a: V3): V3 | null => {
-  const l = len(a);
-  return l > 1e-9 ? mul(a, 1 / l) : null;
-};
-export const distance = (a: V3, b: V3) => len(sub(a, b));
+export { distance };
 
 /** Turns `p` about `pivot` by the rotation that takes direction `from` to direction `to` (the shortest way). */
 function turn(p: V3, pivot: V3, from: V3, to: V3): V3 {
@@ -137,19 +127,9 @@ function aim(parent: V3, child: V3, target: V3): V3 {
   return d ? add(parent, mul(d, distance(parent, child))) : child;
 }
 
-/**
- * Two bones of lengths `a` and `b` from `root`, reaching for `target`: the end goes to the
- * target, or as far toward it as the two bones reach; the middle joint bends toward `pole`
- * (the way it bends now).
- */
+/** Two bones reaching for `target`, the middle joint bending toward `pole`: the rig's own (`twoBone`, src/engine/rig.ts). */
 function reach(root: V3, a: number, b: number, pole: V3, target: V3): { mid: V3; end: V3 } {
-  const span = sub(target, root);
-  const dir = unit(span) ?? [0, -1, 0];
-  const d = Math.min(Math.max(len(span), Math.abs(a - b) + 1e-6), a + b - 1e-6);
-  const x = (a * a - b * b + d * d) / (2 * d);
-  const h = Math.sqrt(Math.max(a * a - x * x, 0));
-  const perp = unit(sub(pole, mul(dir, dot(pole, dir)))) ?? unit(cross(dir, Math.abs(dir[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]))!;
-  return { mid: add(add(root, mul(dir, x)), mul(perp, h)), end: add(root, mul(dir, d)) };
+  return twoBone(root, a, b, target, pole);
 }
 /** `reach` for a limb as it stands in `pose`, from a root that may have moved. */
 function reachLimb(pose: Pose, rootJ: SemanticJoint, midJ: SemanticJoint, endJ: SemanticJoint, root: V3, target: V3) {
@@ -172,65 +152,69 @@ export const handlePoint = (p: Pose, h: Handle): V3 =>
 
 // ---------- The bat ----------
 
-/**
- * A full-size bat (86 cm) on a 175 cm batter, in body heights: from the top hand to the toe,
- * the handle above the top hand, the blade's length, width and depth. The drawing's sizes and
- * where the toe sits; not a measure and not an engine threshold.
- */
-export const BAT = { handsToToe: 0.43, aboveHands: 0.06, blade: 0.32, width: 0.062, depth: 0.034 } as const;
 /** Where the hands hold the bat: between the two wrists. */
 export const handsOf = (p: Pose): V3 => mid(p.front_wrist, p.back_wrist);
 /** Which way the bat points, from the handle to the toe; null without a bat. */
 export const batDirection = (p: Pose): V3 | null => (p.bat_handle && p.bat_toe ? unit(sub(p.bat_toe, p.bat_handle)) : null);
-/** The pose holding a bat that points `dir` (handle to toe), in the hands. */
 /**
- * The pose holding a bat that points `dir` (handle to toe), as a batter holds it (the owner,
- * 2026-11-17: "right hand is not in sync with how a human holds the bat"): both hands on the
- * handle, the top hand (front wrist) just above the bottom hand, each arm reaching from its
- * shoulder with its bones' own lengths. The top arm keeps the way its elbow bends; the bottom
- * arm's elbow drops down and a little forward, tucked in front of the hip, as a batter's does (and as a side-on clip of a
- * right-hander can't see: that arm is behind the body, where the tracker guesses).
+ * The pose holding a bat that points `dir` (handle to toe), as a batter holds it: both hands on the
+ * handle at the rig's grip anchors (`GRIP`, the same anchors the gloves are drawn on), each wrist a
+ * hand's length back from its grip, each arm reaching from its shoulder with its own bones' lengths
+ * (src/engine/rig.ts, the one rig every figure is solved with).
+ *
+ * Nothing is a fixed angle any more (2026-11-18). The wrist goes where it is now, or was tracked,
+ * on the circle round its grip, within a wrist's range; each elbow bends toward where it is now,
+ * blended with the body's own preference (down, and for the bottom arm a little forward, tucked in
+ * front of the hip: the owner's "bottom elbow" of 2026-11-17), measured in the trunk's frame so it
+ * turns and leans with the batter instead of pointing one way in the world. The bottom arm leans
+ * more on that preference (`ELBOW_HINT`): in a side-on clip of a right-hander it is behind the body,
+ * where the tracker guesses.
  */
 export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(p)): Pose {
   const d = unit(dir) ?? ([0, -1, 0] as V3);
   const next: Pose = { ...p };
-  // Each hand closes round the handle a hand's length beyond its wrist (the owner: "there is no
-  // concept of wrist"), and the hand carries on the line of its forearm (the owner: "right wrist
-  // facing upwards, left wrist downwards, the core human motion logic is missing"): the arm reaches
-  // as forearm-and-hand together from the elbow to its grip, and the wrist only cocks a little,
-  // toward the back of the handle (the face looks toward the bowler).
-  const hold = (side: Side, along: number, pole: V3) => {
-    const grip = add(handle, mul(d, along));
-    const shoulder = p[j(side, "shoulder")];
-    const forearm = distance(p[j(side, "elbow")], p[j(side, "wrist")]);
-    // Elbow to grip, with the wrist bent by `cock`: the forearm and hand as one slightly bent line.
-    const span = Math.sqrt(forearm ** 2 + GRIP.hand ** 2 + 2 * forearm * GRIP.hand * Math.cos((GRIP.cock * Math.PI) / 180));
-    const arm = reach(shoulder, distance(shoulder, p[j(side, "elbow")]), span, pole, grip);
-    // The wrist bends toward the back of the handle (the face looks toward the bowler).
-    const fwd: V3 = [1, 0, 0];
-    const face = unit(sub(fwd, mul(d, dot(fwd, d)))) ?? ([0, 1, 0] as V3);
-    const hand = reach(arm.mid, forearm, GRIP.hand, mul(face, -1), arm.end);
-    next[j(side, "elbow")] = arm.mid;
-    next[j(side, "wrist")] = hand.mid;
-    return sub(arm.end, grip);
-  };
+  const pref = elbowPreference(p);
   // Where an arm can't reach that far, the bat comes toward the hands until both hold it: it is never let go.
   let held = handle;
-  for (let i = 0; i < 12; i++) {
-    handle = held;
-    const short = mul(add(hold("front", -GRIP.top, sub(p.front_elbow, p.front_shoulder)), hold("back", GRIP.bottom, GRIP.bottomElbow)), 0.5);
+  for (let i = 0; i < 40; i++) {
+    let short: V3 = [0, 0, 0];
+    for (const side of SIDES) {
+      const shoulder = p[j(side, "shoulder")];
+      const arm = armToGrip({
+        shoulder,
+        upper: distance(shoulder, p[j(side, "elbow")]),
+        fore: distance(p[j(side, "elbow")], p[j(side, "wrist")]),
+        grip: gripPoint(held, d, side),
+        wristHint: p[j(side, "wrist")],
+        elbowHint: p[j(side, "elbow")],
+        hintWeight: ELBOW_HINT[side],
+        preferred: pref[side],
+      });
+      next[j(side, "elbow")] = arm.elbow;
+      next[j(side, "wrist")] = arm.wrist;
+      short = add(short, mul(arm.short, 0.5));
+    }
     held = add(held, short);
-    if (len(short) < 1e-5) break;
+    if (len(short) < 1e-9) break;
   }
   return { ...next, bat_handle: held, bat_toe: add(held, mul(d, BAT.handsToToe)) };
 }
+/** How much each elbow follows where it is now against the body's preference (0 to 1). */
+export const ELBOW_HINT = { front: 0.9, back: 0.4 } as const;
 /**
- * How a batter holds the bat (body heights): the top and bottom hands either side of the handle
- * point (the two gloves touching), each wrist a hand's length back from its grip on the line of
- * its forearm, cocked a little (`cock`, degrees) toward the back of the handle, and which way the bottom
- * elbow bends (down and a little forward, tucked in front of the hip, as a batter's is).
+ * The way each elbow prefers to bend, in the trunk's own frame (up the spine, along the shoulders
+ * toward the front one, and the way the chest faces): the top elbow down and toward the bowler, the
+ * bottom one down, a little forward and out of the chest, tucked in front of the hip.
  */
-export const GRIP = { top: 0.03, bottom: 0.035, hand: 0.05, cock: 15, bottomElbow: [0.35, -1, 0.15] as V3 } as const;
+export function elbowPreference(p: Pose): Record<"front" | "back", V3> {
+  const up = unit(sub(chestOf(p), pelvisOf(p))) ?? ([0, 1, 0] as V3);
+  const along = unit(perpTo(sub(p.front_shoulder, p.back_shoulder), up)) ?? ([1, 0, 0] as V3);
+  const facing = unit(cross(along, up)) ?? ([0, 0, 1] as V3);
+  const mix = (u: number, a: number, f: number): V3 => add(add(mul(up, u), mul(along, a)), mul(facing, f));
+  return { front: mix(-0.7, 0.5, 0.2), back: mix(-1, 0.35, 0.15) };
+}
+/** The rig's grip, as the editor has always exported it (`GRIP.top`, `bottom`, `hand`). */
+export { GRIP, BAT };
 export function withoutBat(p: Pose): Pose {
   const { bat_handle: _h, bat_toe: _t, ...rest } = p;
   void _h;

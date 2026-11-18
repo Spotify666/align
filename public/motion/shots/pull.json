@@ -1,0 +1,51 @@
+{
+ "schema": "aline.motion-shot/1",
+ "shot": "pull",
+ "label": "Pull",
+ "events": [
+  {
+   "id": "backlift_top",
+   "label": "Top of the backlift"
+  },
+  {
+   "id": "foot_down",
+   "label": "Foot down"
+  },
+  {
+   "id": "contact",
+   "label": "Contact"
+  }
+ ],
+ "phases": [
+  {
+   "id": "backlift",
+   "label": "Backlift",
+   "cue": "The bat goes up high as the back foot goes back.",
+   "from": "start",
+   "to": "backlift_top"
+  },
+  {
+   "id": "swing",
+   "label": "Swing",
+   "cue": "The hips and shoulders turn to leg; the bat swings across, arms extended.",
+   "from": "backlift_top",
+   "to": "contact"
+  },
+  {
+   "id": "follow",
+   "label": "Follow-through",
+   "cue": "The wrists roll the bat over; it finishes round the body.",
+   "from": "contact",
+   "to": "end"
+  }
+ ],
+ "grip": [
+  {
+   "from": "start",
+   "state": "both"
+  }
+ ],
+ "impacts": [
+  "contact"
+ ]
+}

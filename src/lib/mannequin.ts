@@ -13,6 +13,7 @@
 // only, never measured.
 
 import { chestOf, pelvisOf, type Handle, type Pose, type V3 } from "@/engine/pose-model";
+import { BAT, GRIP, gripPoint } from "@/engine/rig";
 
 /** limb: a tapered cylinder between a and b; ball: a sphere at a; ellipsoid and box: between a and b, `r` wide and `depth` deep. */
 export type PartKind = "limb" | "ball" | "ellipsoid" | "box";
@@ -142,8 +143,8 @@ export function mannequinParts(p: Pose): Part[] {
     const dir = unit(sub(p.bat_toe!, p.bat_handle!), [0, -1, 0]);
     // Where the hands hold the handle (each wrist sits a hand's length back from it: placeBat).
     const hands = p.bat_handle!;
-    const top = sub(hands, mul(dir, 0.075));
-    const blade = sub(p.bat_toe!, mul(dir, 0.32));
+    const top = sub(hands, mul(dir, BAT.aboveHands + GRIP.top));
+    const blade = sub(p.bat_toe!, mul(dir, BAT.blade));
     // The face looks toward the bowler, square to the bat.
     const batFace = square([1, 0, 0], dir, [0, 0, 1]);
     const width = unit(cross(dir, batFace), [0, 0, 1]);
@@ -152,11 +153,11 @@ export function mannequinParts(p: Pose): Part[] {
       { key: "bat-blade", kind: "box", tone: "willow", a: blade, b: p.bat_toe!, r: 0.031, r2: 0.031, depth: 0.017, across: width, moves: ["bat_toe"] },
     );
     // Both gloved hands close round the handle, touching: the top hand (the front wrist's) just
-    // above the bottom hand, as a batter holds it. From each wrist the hand runs to the handle at
-    // its own angle (the wrist bends), and the fingers close round it.
-    for (const [s, along] of [["front", -0.03], ["back", 0.03]] as const) {
+    // above the bottom hand, as a batter holds it, each on the rig's own grip anchor (the anchor the
+    // solver put the wrist a hand's length from: one source, so the glove and the arm agree).
+    for (const s of ["front", "back"] as const) {
       const wrist = p[`${s}_wrist`];
-      const grip = add(hands, mul(dir, along));
+      const grip = gripPoint(hands, dir, s);
       // The back of the hand faces the wrist it comes from.
       const out = square(sub(grip, wrist), dir, [0, 0, 1]);
       parts.push(
