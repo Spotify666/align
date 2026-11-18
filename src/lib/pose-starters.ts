@@ -16,10 +16,11 @@ const round = (n: number) => Math.round(n * 10000) / 10000;
 
 /**
  * The starting poses from the traced figures: forward and up from the side-on clip, which sees
- * them; across from the clip filmed from the bowler's end, which sees across (the side clip's
- * depth estimate is too noisy: it put the head 29% of the batter's height to the off side). There
- * is no front-foot defence from the bowler's end yet, so that shot borrows the back-foot one's
- * across until a clip is sent. And the bat's direction (hands to toe, in the side plane).
+ * them; across from a clip of the same shot filmed from the bowler's end where there is one (the
+ * back-foot defence). The front-foot defence has no such clip, so its across is its own side clip's
+ * depth estimate: an estimate from one camera, said so in the editor, and never another shot's
+ * footage (until 2026-11-18 it borrowed the back-foot clip's, a different movement). And the bat's
+ * direction (hands to toe, in the side plane: one camera doesn't see its across).
  */
 export function startersFrom(side: Record<TargetShot, TracedFigure>, front: Partial<Record<TargetShot, TracedFigure>> = {}): Starters {
   const out = {} as Starters;

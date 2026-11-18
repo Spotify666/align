@@ -284,6 +284,9 @@ export function ModelEditor({ initial }: { initial: PoseModel }) {
                       : `This model is placed from the ${model.angles} only, so it is checked only against clips filmed from there.`}{" "}
                     Bones keep their length. {moment !== "contact" && has ? "The dotted figure is your contact pose." : ""}
                   </p>
+                  {model.shot === "front_foot_defence" && (
+                    <p className="mt-2">The starting pose was filmed side-on by one camera, so how far each joint sits across (toward the off side) is that camera&apos;s estimate.</p>
+                  )}
                   <p className="mt-2">
                     The bat is optional. It stays in both hands: move a hand and the bat goes with it; drag its toe to set its angle. It is checked only on clips where the bat was tracked (marked, or found).
                   </p>

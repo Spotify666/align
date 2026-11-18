@@ -58,7 +58,14 @@ describe("the traced figures", () => {
 describe("a new model starts from the traced batter", () => {
   it("its stored poses are the traced ones (else run: node scripts/pose-starters.mjs > src/lib/pose-starters.json)", () => {
     const side = { front_foot_defence: read("/art/model-ffd-side.json"), back_foot_defence: read("/art/model-bfd-side.json") };
-    expect(JSON.parse(JSON.stringify(startersFrom(side, { front_foot_defence: read("/art/model-bfd-front.json"), back_foot_defence: read("/art/model-bfd-front.json") })))).toEqual(stored);
+    expect(JSON.parse(JSON.stringify(startersFrom(side, { back_foot_defence: read("/art/model-bfd-front.json") })))).toEqual(stored);
+  });
+  it("takes a shot's depth only from its own footage: the front-foot defence never from the back-foot clip", () => {
+    const ffd = read("/art/model-ffd-side.json");
+    for (const m of MOMENTS) {
+      const t = ffd.moments[m.id] ?? ffd.moments.contact!;
+      for (const k of MODEL_JOINTS) expect(stored.front_foot_defence[m.id].joints[k]![2], `${m.id} ${k}`).toBe(t.pose[k]![2]);
+    }
   });
   it("stands on the ground, the bat in its traced direction", () => {
     for (const shot of ["front_foot_defence", "back_foot_defence"] as const)

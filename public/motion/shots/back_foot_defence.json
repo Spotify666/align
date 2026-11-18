@@ -1,0 +1,58 @@
+{
+ "schema": "aline.motion-shot/1",
+ "shot": "back_foot_defence",
+ "label": "Back-foot defence",
+ "events": [
+  {
+   "id": "backlift_top",
+   "label": "Top of the backlift"
+  },
+  {
+   "id": "foot_down",
+   "label": "Foot down"
+  },
+  {
+   "id": "contact",
+   "label": "Contact"
+  }
+ ],
+ "phases": [
+  {
+   "id": "backlift",
+   "label": "Backlift",
+   "cue": "The hands lift the bat; the back foot starts back and across.",
+   "from": "start",
+   "to": "backlift_top"
+  },
+  {
+   "id": "step",
+   "label": "Back and across",
+   "cue": "Weight onto the back foot, head over it, the bat comes down straight.",
+   "from": "backlift_top",
+   "to": "contact"
+  },
+  {
+   "id": "contact",
+   "label": "Contact",
+   "cue": "Tall over the back foot, top hand in control, the ball played down under the eyes.",
+   "from": "contact",
+   "to": "end"
+  }
+ ],
+ "grip": [
+  {
+   "from": "start",
+   "state": "both"
+  }
+ ],
+ "impacts": [
+  "contact"
+ ],
+ "contacts": [
+  {
+   "kind": "bat_pad",
+   "from": "contact",
+   "to": "end"
+  }
+ ]
+}

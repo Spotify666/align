@@ -1,0 +1,58 @@
+{
+ "schema": "aline.motion-shot/1",
+ "shot": "front_foot_defence",
+ "label": "Front-foot defence",
+ "events": [
+  {
+   "id": "backlift_top",
+   "label": "Top of the backlift"
+  },
+  {
+   "id": "foot_down",
+   "label": "Foot down"
+  },
+  {
+   "id": "contact",
+   "label": "Contact"
+  }
+ ],
+ "phases": [
+  {
+   "id": "backlift",
+   "label": "Backlift",
+   "cue": "The hands lift the bat as the weight starts forward.",
+   "from": "start",
+   "to": "backlift_top"
+  },
+  {
+   "id": "stride",
+   "label": "Stride",
+   "cue": "The front foot goes to the ball, head and front shoulder leading; the bat comes down.",
+   "from": "backlift_top",
+   "to": "contact"
+  },
+  {
+   "id": "contact",
+   "label": "Contact",
+   "cue": "Front knee bent, head over the front foot, the bat angled down beside the pad, held.",
+   "from": "contact",
+   "to": "end"
+  }
+ ],
+ "grip": [
+  {
+   "from": "start",
+   "state": "both"
+  }
+ ],
+ "impacts": [
+  "contact"
+ ],
+ "contacts": [
+  {
+   "kind": "bat_pad",
+   "from": "contact",
+   "to": "end"
+  }
+ ]
+}

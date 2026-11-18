@@ -154,10 +154,12 @@ export interface ArmToGrip {
 
 /**
  * One arm holding the bat at `grip`: the hand runs `GRIP.hand` from the wrist to the grip, the arm
- * reaches from the shoulder to the wrist. Where the wrist goes on the circle round the grip comes
- * from `wristHint` (the tracked wrist, or the wrist where it is now: never a fixed angle), held to
- * the wrist's range against the forearm. The elbow bends toward `elbowHint` blended with the body's
- * own preference (`preferred`), by `hintWeight` (the hint's confidence).
+ * reaches from the shoulder. Solved directly, not by iterating: forearm and hand reach together as
+ * one bone bent at the wrist by the evidence's own bend (the angle between the hinted forearm and
+ * hand: the tracked wrist, or the wrist where it is now; never a fixed angle), held to the wrist's
+ * range; then the wrist is placed on that bend, cocked the way the hint is. The elbow bends toward
+ * `elbowHint` blended with the body's own preference (`preferred`), by `hintWeight` (the hint's
+ * confidence), keeping its side through straight positions (`prevNormal`).
  */
 export function armToGrip(o: {
   shoulder: V3;
@@ -171,35 +173,20 @@ export function armToGrip(o: {
   prevNormal?: V3 | null;
 }): ArmToGrip {
   const { shoulder, upper, fore, grip } = o;
-  const elbowPole = (): V3 => {
-    const pref = unit(o.preferred) ?? ([0, -1, 0] as V3);
-    const hint = o.elbowHint ? unit(sub(o.elbowHint, shoulder)) : null;
-    const w = hint ? Math.max(0, Math.min(1, o.hintWeight)) : 0;
-    return add(mul(hint ?? pref, w), mul(pref, 1 - w));
-  };
-  // The hand's direction (wrist to grip): from the hint, else pointing away from the shoulder.
-  let handDir = unit(sub(grip, o.wristHint ?? shoulder)) ?? unit(sub(grip, shoulder)) ?? ([0, -1, 0] as V3);
-  let wrist = sub(grip, mul(handDir, GRIP.hand));
-  // Out of reach: the wrist slides round the grip toward the shoulder first.
-  if (distance(shoulder, wrist) > upper + fore - 1e-6) {
-    handDir = unit(sub(grip, shoulder)) ?? handDir;
-    wrist = sub(grip, mul(handDir, GRIP.hand));
-  }
-  let r = twoBone(shoulder, upper, fore, wrist, elbowPole(), o.prevNormal ?? null);
-  let bend = angleDeg(sub(r.end, r.mid), handDir);
-  // The wrist's limit: turn the hand toward the forearm's line by what is past it, then solve again.
-  for (let i = 0; i < 12 && bend > WRIST.maxBendDeg - 0.01; i++) {
-    const forearm = unit(sub(r.end, r.mid))!;
-    const axis = unit(cross(handDir, forearm));
-    if (!axis) break;
-    handDir = rotate(handDir, axis, ((bend - WRIST.maxBendDeg + 0.5) * Math.PI) / 180);
-    wrist = sub(grip, mul(handDir, GRIP.hand));
-    r = twoBone(shoulder, upper, fore, wrist, elbowPole(), r.normal);
-    bend = angleDeg(sub(r.end, r.mid), handDir);
-  }
-  const reachedWrist = r.end;
-  const gripReached = add(reachedWrist, mul(handDir, GRIP.hand));
-  return { elbow: r.mid, wrist: reachedWrist, short: sub(gripReached, grip), normal: r.normal, bendDeg: bend };
+  const H = GRIP.hand;
+  const pref = unit(o.preferred) ?? ([0, -1, 0] as V3);
+  const hint = o.elbowHint ? unit(sub(o.elbowHint, shoulder)) : null;
+  const w = hint ? Math.max(0, Math.min(1, o.hintWeight)) : 0;
+  const elbowPole = add(mul(hint ?? pref, w), mul(pref, 1 - w));
+  // The wrist's bend, from the hint, within the wrist's range.
+  const seen = o.wristHint && o.elbowHint ? angleDeg(sub(o.wristHint, o.elbowHint), sub(grip, o.wristHint)) : 0;
+  const beta = (Math.min(seen, WRIST.maxBendDeg - 0.01) * Math.PI) / 180;
+  const span = Math.sqrt(fore * fore + H * H + 2 * fore * H * Math.cos(beta));
+  const r = twoBone(shoulder, upper, span, grip, elbowPole, o.prevNormal ?? null);
+  // The wrist on the elbow-to-grip line's bend, toward the hinted wrist (else toward the elbow's pole).
+  const wristPole = o.wristHint ? sub(o.wristHint, r.mid) : elbowPole;
+  const h = twoBone(r.mid, fore, H, r.end, perpTo(wristPole, unit(sub(r.end, r.mid)) ?? pref));
+  return { elbow: r.mid, wrist: h.mid, short: sub(r.end, grip), normal: r.normal, bendDeg: angleDeg(sub(h.mid, r.mid), sub(r.end, h.mid)) };
 }
 
 /**
@@ -222,4 +209,27 @@ export function forearmTwistDeg(elbow: V3, wrist: V3, bendNormal: V3, palm: V3):
   if (!a || !b) return 0;
   const s = dot(cross(a, b), axis);
   return (Math.atan2(s, dot(a, b)) * 180) / Math.PI;
+}
+
+// ---------- Points held at fixed distances ----------
+
+/** The point `r` from `c` nearest `p`. */
+export function onSphere(c: V3, r: number, p: V3): V3 {
+  return add(c, mul(unit(sub(p, c)) ?? ([0, 1, 0] as V3), r));
+}
+/**
+ * The point `r1` from `c1` and `r2` from `c2` nearest `p` (on the circle where the two spheres
+ * meet); where they don't meet, the nearest point between them on their line. Used to hang an
+ * ankle above a foot planted at its heel and toe, so both stay exactly where they are planted.
+ */
+export function onTwoSpheres(c1: V3, r1: number, c2: V3, r2: number, p: V3): V3 {
+  const axisV = sub(c2, c1);
+  const d = len(axisV);
+  const axis = unit(axisV);
+  if (!axis || d > r1 + r2 || d < Math.abs(r1 - r2)) return axis ? add(c1, mul(axis, Math.max(0, Math.min(d, (d * d + r1 * r1 - r2 * r2) / (2 * d))))) : onSphere(c1, r1, p);
+  const x = (d * d + r1 * r1 - r2 * r2) / (2 * d);
+  const h = Math.sqrt(Math.max(0, r1 * r1 - x * x));
+  const centre = add(c1, mul(axis, x));
+  const toward = unit(perpTo(sub(p, centre), axis)) ?? anyPerp(axis);
+  return add(centre, mul(toward, h));
 }

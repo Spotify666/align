@@ -1,0 +1,51 @@
+{
+ "schema": "aline.motion-shot/1",
+ "shot": "drive",
+ "label": "Front-foot drive",
+ "events": [
+  {
+   "id": "backlift_top",
+   "label": "Top of the backlift"
+  },
+  {
+   "id": "foot_down",
+   "label": "Foot down"
+  },
+  {
+   "id": "contact",
+   "label": "Contact"
+  }
+ ],
+ "phases": [
+  {
+   "id": "backlift",
+   "label": "Backlift",
+   "cue": "The bat goes up as the front foot starts toward the ball.",
+   "from": "start",
+   "to": "backlift_top"
+  },
+  {
+   "id": "swing",
+   "label": "Swing",
+   "cue": "Head over the front knee, the bat swings through straight.",
+   "from": "backlift_top",
+   "to": "contact"
+  },
+  {
+   "id": "follow",
+   "label": "Follow-through",
+   "cue": "The arms and bat carry on toward the target.",
+   "from": "contact",
+   "to": "end"
+  }
+ ],
+ "grip": [
+  {
+   "from": "start",
+   "state": "both"
+  }
+ ],
+ "impacts": [
+  "contact"
+ ]
+}
