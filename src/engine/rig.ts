@@ -104,6 +104,13 @@ export function batFrame(dir: V3, faceHint: V3 | null = null): { along: V3; face
 
 // ---------- Two bones ----------
 
+/**
+ * How straight (1 - the middle joint's offset from the root-to-end line, as a share of the first
+ * bone) a limb must be before its bend stays in the plane it was in, whatever the pole says:
+ * 0.7, an elbow about 5 cm off the line on an adult, within a phone tracker's noise at the elbow.
+ */
+export const STRAIGHT = 0.7;
+
 export interface Reach {
   mid: V3;
   end: V3;
@@ -131,7 +138,8 @@ export function twoBone(root: V3, a: number, b: number, target: V3, pole: V3, pr
     // The pole's direction implied by the previous bend plane, in this frame.
     const fromPrev = unit(cross(prevNormal, dir));
     const straightness = 1 - h / Math.max(a, 1e-9); // 0 bent square, 1 straight
-    if (fromPrev && (!perp || (dot(perp, fromPrev) < 0 && straightness > 0.85))) perp = fromPrev;
+    // Nearly straight, the bend's direction isn't seen: it stays in the plane it was in.
+    if (fromPrev && (!perp || straightness > STRAIGHT)) perp = fromPrev;
   }
   if (!perp) perp = anyPerp(dir);
   const m = add(add(root, mul(dir, x)), mul(perp, h));

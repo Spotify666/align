@@ -442,7 +442,7 @@ export function solveFrame(L: Lengths, x: FrameInput): { pose: Pose; normals: No
     const holding = SIDES.filter((s) => holds(x.grip, s));
     for (const s of SIDES) if (!holding.includes(s)) free(s);
     let handle = x.bat.handle ?? mid(t.front_wrist.p, t.back_wrist.p);
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 40; i++) {
       let short: V3 = [0, 0, 0];
       for (const s of holding) {
         const arm = armToGrip({
@@ -462,7 +462,7 @@ export function solveFrame(L: Lengths, x: FrameInput): { pose: Pose; normals: No
         short = add(short, mul(arm.short, 1 / holding.length));
       }
       handle = add(handle, short);
-      if (len(short) < 1e-6) break;
+      if (len(short) < 1e-9) break;
     }
     out = { ...pose, bat_handle: handle, bat_toe: add(handle, mul(d, BAT.handsToToe)) };
   } else {

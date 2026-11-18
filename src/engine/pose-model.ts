@@ -21,7 +21,7 @@
 // Units: body heights (1 = the batter's standing height).
 
 import { buildScene, type Scene, type SemanticJoint } from "./scene";
-import { BAT, GRIP, add, armToGrip, cross, distance, dot, gripPoint, len, mid, mul, perpTo, sub, unit, type V3 } from "./rig";
+import { BAT, GRIP, add, armToGrip, twoBone, cross, distance, dot, gripPoint, len, mid, mul, perpTo, sub, unit, type V3 } from "./rig";
 import type { AnalysisPayload, CaptureObservation, EventType, Handedness, TargetShot } from "./types";
 
 export const POSE_MODEL_SCHEMA = "aline.pose-model/1" as const;
@@ -127,19 +127,9 @@ function aim(parent: V3, child: V3, target: V3): V3 {
   return d ? add(parent, mul(d, distance(parent, child))) : child;
 }
 
-/**
- * Two bones of lengths `a` and `b` from `root`, reaching for `target`: the end goes to the
- * target, or as far toward it as the two bones reach; the middle joint bends toward `pole`
- * (the way it bends now).
- */
+/** Two bones reaching for `target`, the middle joint bending toward `pole`: the rig's own (`twoBone`, src/engine/rig.ts). */
 function reach(root: V3, a: number, b: number, pole: V3, target: V3): { mid: V3; end: V3 } {
-  const span = sub(target, root);
-  const dir = unit(span) ?? [0, -1, 0];
-  const d = Math.min(Math.max(len(span), Math.abs(a - b) + 1e-6), a + b - 1e-6);
-  const x = (a * a - b * b + d * d) / (2 * d);
-  const h = Math.sqrt(Math.max(a * a - x * x, 0));
-  const perp = unit(sub(pole, mul(dir, dot(pole, dir)))) ?? unit(cross(dir, Math.abs(dir[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]))!;
-  return { mid: add(add(root, mul(dir, x)), mul(perp, h)), end: add(root, mul(dir, d)) };
+  return twoBone(root, a, b, target, pole);
 }
 /** `reach` for a limb as it stands in `pose`, from a root that may have moved. */
 function reachLimb(pose: Pose, rootJ: SemanticJoint, midJ: SemanticJoint, endJ: SemanticJoint, root: V3, target: V3) {
@@ -186,7 +176,7 @@ export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(
   const pref = elbowPreference(p);
   // Where an arm can't reach that far, the bat comes toward the hands until both hold it: it is never let go.
   let held = handle;
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 40; i++) {
     let short: V3 = [0, 0, 0];
     for (const side of SIDES) {
       const shoulder = p[j(side, "shoulder")];
@@ -205,7 +195,7 @@ export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(
       short = add(short, mul(arm.short, 0.5));
     }
     held = add(held, short);
-    if (len(short) < 1e-6) break;
+    if (len(short) < 1e-9) break;
   }
   return { ...next, bat_handle: held, bat_toe: add(held, mul(d, BAT.handsToToe)) };
 }
