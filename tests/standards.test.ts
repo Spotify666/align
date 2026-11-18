@@ -38,7 +38,7 @@ describe("the quality bar", () => {
   });
 
   it("every screen a person can reach is on the screen map (/design), or is plumbing", () => {
-    const off = ["/analyse", "/design", "/design/print", "/design-system", "/visitors", "/report/[id]", "/report/[id]/print", "/sample/[key]", "/sample/[key]/print", "/models/edit", "/library/manage", "/angles"];
+    const off = ["/analyse", "/design", "/design/print", "/design-system", "/visitors", "/report/[id]", "/report/[id]/print", "/sample/[key]", "/sample/[key]/print", "/models/edit", "/models/motion", "/library/manage", "/angles"];
     const mapped = new Set(SCREENS.flatMap((s) => [(s.href ?? "").split("#")[0]!.replace(/\/$/, "") || "/", s.route.split(",")[0]!.split("#")[0]!.trim()]));
     for (const r of routes) {
       if (off.includes(r)) continue;

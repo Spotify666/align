@@ -5,7 +5,7 @@
 // Read by no part of the analysis.
 
 import type { Pose } from "@/engine/pose-model";
-import { BAT, GRIP, WRIST, angleDeg, cross, distance, dot, gripPoint, holds, len, palmNormal, sub, unit, type GripState, type V3 } from "@/engine/rig";
+import { BAT, GRIP, angleDeg, cross, distance, dot, gripPoint, holds, palmNormal, sub, unit, type GripState, type V3 } from "@/engine/rig";
 import { FIT, JOINTS, frameAt, phaseAt, wristFromGrip, type Fitted, type FootState } from "./fit";
 import type { Take } from "./types";
 
@@ -112,7 +112,10 @@ export function measure(play: Played, fit: Fitted, take: Take | null, sub_ = 4):
         const ang = angleDeg(sub(p[b], p[a]), sub(p[c], p[b]));
         const nrm = ang > 15 && ang < 165 ? unit(cross(sub(p[c], p[a]), sub(p[b], p[a]))) : null;
         bend[key] = nrm;
-        if (nrm && prevBend[key] && dot(nrm, prevBend[key]!) < 0) key.startsWith("elbow") ? elbowFlips++ : kneeFlips++;
+        if (nrm && prevBend[key] && dot(nrm, prevBend[key]!) < 0) {
+          if (key.startsWith("elbow")) elbowFlips++;
+          else kneeFlips++;
+        }
       }
       if (dir && p.bat_handle && holds(g, s)) {
         const grip = gripPoint(p.bat_handle, dir, s);
