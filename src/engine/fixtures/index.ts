@@ -10,8 +10,25 @@ const H = 1.75;
 
 const setupHands: V3 = [0.98, 0.92, 0.26];
 const setupBat: V3 = [-0.22, -0.97, 0];
+/**
+ * The demonstration front-foot defence's hands (`ffdScript({ hold: true })`, 2026-11-20): the top
+ * of the backlift back and out from the body as it strides, so the rear elbow bends instead of
+ * folding shut; a short follow-through within the rear arm's reach (metres past contact); the lead
+ * elbow's pole at contact (up and forward: the high front elbow guiding the handle); the ball's line
+ * (lateral, m) a little outside the front pad, so the blade meets it clear of the pad.
+ */
+const DEMO = { handsTop: [1.15, 1.1, 0.48] as V3, follow: 0.07, leadPole: [1, 0.35, 0.35] as V3, lateral: 0.16 } as const;
 
-export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: number; contactAhead: number; hipDrop: number; sideLean: number; settle: number }> = {}): ShotScript {
+/**
+ * A front-foot defence. `hold: true` is the demonstration (the sample report, its siblings, the
+ * landing's line figure): both hands on one rigid bat, arms of fixed length (generate.ts, `grip`),
+ * and the hand path and ball line that keep both hands on the handle and the blade clear of the
+ * pad (`DEMO`). Without it, the movement the engine's validation population and metamorphic suite
+ * were built on, unchanged: its wrist marks sit on the handle and an arm folds or stretches to
+ * meet them (docs/16; changing it would change the benchmark the thresholds were judged against).
+ */
+export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: number; contactAhead: number; hipDrop: number; sideLean: number; settle: number; hold: boolean }> = {}): ShotScript {
+  const hold = v.hold ?? false;
   const stride = v.stride ?? 0.66;
   const plantF = 1.15 + stride;
   const contactF = plantF + 0.02 + (v.contactAhead ?? 0);
@@ -65,16 +82,35 @@ export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: nu
       [0.84, v.headFwd ?? 0.18],
       [2, (v.headFwd ?? 0.18) - 0.02],
     ],
-    hands: [
-      [0, setupHands],
-      [0.5, setupHands],
-      [0.7, [1.05, 1.18, 0.2]],
-      [0.92, [contactF + 0.12, 0.92, 0.1]],
-      // Real defences often lift the hands a little after the bottom of the downswing as
-      // the face is presented and the ball deadened (settle, metres); a dead bat has none.
-      [1.05, [contactF + 0.16, 0.92 + (v.settle ?? 0), 0.1]],
-      [2, [contactF + 0.16, 0.93 + (v.settle ?? 0), 0.1]],
-    ],
+    hands: hold
+      ? [
+          [0, setupHands],
+          [0.5, setupHands],
+          [0.7, DEMO.handsTop],
+          [0.92, [contactF + 0.12, 0.92, 0.1]],
+          // A short follow-through: the hands give a little at contact height, within the rear arm's reach.
+          [1.05, [contactF + DEMO.follow, 0.95 + (v.settle ?? 0), 0.1]],
+          [2, [contactF + DEMO.follow, 0.95 + (v.settle ?? 0), 0.1]],
+        ]
+      : [
+          [0, setupHands],
+          [0.5, setupHands],
+          [0.7, [1.05, 1.18, 0.2]],
+          [0.92, [contactF + 0.12, 0.92, 0.1]],
+          // Real defences often lift the hands a little after the bottom of the downswing as
+          // the face is presented and the ball deadened (settle, metres); a dead bat has none.
+          [1.05, [contactF + 0.16, 0.92 + (v.settle ?? 0), 0.1]],
+          [2, [contactF + 0.16, 0.93 + (v.settle ?? 0), 0.1]],
+        ],
+    // The lead elbow starts down and comes up and forward as the bat comes down; the rear elbow
+    // stays down and tucked.
+    ...(hold
+      ? {
+          grip: "rigid" as const,
+          frontElbowPole: [[0, [0.2, -1, 0.6]], [0.62, [0.2, -1, 0.6]], [0.84, DEMO.leadPole], [2, DEMO.leadPole]] as Array<[number, V3]>,
+          backElbowPole: [[0, [-0.3, -1, 0.5]], [2, [-0.3, -1, 0.5]]] as Array<[number, V3]>,
+        }
+      : {}),
     batDir: [
       [0, setupBat],
       [0.5, setupBat],
@@ -83,7 +119,7 @@ export function ffdScript(v: Partial<{ stride: number; headFwd: number; lean: nu
       [1.05, [-0.15, -0.99, 0]],
       [2, [-0.15, -0.99, 0]],
     ],
-    ball: { releaseT: 0.3, speed: 30, bounceF: 4.6, contactF, contactU: 0.36, lateral: 0.05, exit: [2.2, -1.2, 0.2], visible: true },
+    ball: { releaseT: 0.3, speed: 30, bounceF: 4.6, contactF, contactU: 0.36, lateral: hold ? DEMO.lateral : 0.05, exit: [2.2, -1.2, 0.2], visible: true },
   };
 }
 
@@ -406,7 +442,8 @@ export function halfDriveScript(): ShotScript {
 // ---------- Fixture definitions ----------
 
 /** The athlete's "current attempt": head arrives slightly behind the front knee. */
-const ATTEMPT = { headFwd: -0.08 };
+/** The sample batter's attempt; a demonstration, so both hands hold one rigid bat (`hold`). */
+const ATTEMPT = { headFwd: -0.08, hold: true };
 
 export interface FixtureSpec {
   key: string;
@@ -531,7 +568,7 @@ export function baselineSeries(count = 8): CaptureObservation[] {
       label: `Baseline delivery ${k + 1}`,
       seed: 100 + k,
       handedness: "right",
-      script: ffdScript({ stride: wobble(0.66, 0.04), headFwd: wobble(0.13, 0.04), lean: wobble(24, 3) }),
+      script: ffdScript({ stride: wobble(0.66, 0.04), headFwd: wobble(0.13, 0.04), lean: wobble(24, 3), hold: true }),
     });
   });
 }
