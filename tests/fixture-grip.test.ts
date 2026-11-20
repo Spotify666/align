@@ -42,8 +42,9 @@ describe("the demonstrations' hands on the bat", () => {
         const i = r.frames.indexOf(at);
         const before = r.frames[i - 2]!.ball!;
         const after = r.frames[i + 3]!.ball!;
-        const v1 = [at.ball![0] - before[0], at.ball![2] - before[2]];
-        const v2 = [after[0] - at.ball![0], after[2] - at.ball![2]];
+        const b = at.ball!;
+        const v1 = [b[0] - before[0], b[2] - before[2]] as const;
+        const v2 = [after[0] - b[0], after[2] - b[2]] as const;
         expect(v1[0] * v2[0] + v1[1] * v2[1]).toBeLessThan(0); // it was coming at the batter; it goes back
       });
     });

@@ -120,9 +120,22 @@ export function HeroFigure({ data }: { data: HeroData }) {
       path([[m.backFoot[0] - 9, m.groundY - 3], [m.backFoot[0] + 9, m.groundY - 3]]);
       ctx.strokeStyle = col.fg;
       path([[m.frontFoot[0] - 9, m.groundY - 3], [m.frontFoot[0] + 9, m.groundY - 3]]);
+      // The bat, quieter than the hands that hold it; then each arm to its hand on the handle.
       if (m.bat) {
-        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = col.dim;
+        ctx.lineWidth = 2.5;
         path(m.bat);
+      }
+      for (const a of m.arms) {
+        ctx.strokeStyle = a.lead ? col.fg : col.dim;
+        ctx.lineWidth = a.lead ? 2.5 : 2;
+        path(a.points);
+        if (a.grip) {
+          ctx.fillStyle = col.fg;
+          ctx.beginPath();
+          ctx.arc(a.grip[0], a.grip[1], 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       // The line: front foot, knee, shoulder, head.
       ctx.strokeStyle = col.brand;
@@ -238,7 +251,13 @@ export function HeroFigure({ data }: { data: HeroData }) {
           ))}
           <line x1={still.backFoot[0] - 9} y1={still.groundY - 3} x2={still.backFoot[0] + 9} y2={still.groundY - 3} stroke="var(--fg-subtle)" strokeWidth="5" strokeLinecap="round" />
           <line x1={still.frontFoot[0] - 9} y1={still.groundY - 3} x2={still.frontFoot[0] + 9} y2={still.groundY - 3} stroke="var(--fg)" strokeWidth="5" strokeLinecap="round" />
-          {still.bat && <polyline points={pts(still.bat)} fill="none" stroke="var(--fg)" strokeWidth="3.5" strokeLinecap="round" />}
+          {still.bat && <polyline points={pts(still.bat)} fill="none" stroke="var(--fg-subtle)" strokeWidth="2.5" strokeLinecap="round" />}
+          {still.arms.map((a) => (
+            <g key={a.lead ? "lead" : "rear"}>
+              <polyline points={pts(a.points)} fill="none" stroke={a.lead ? "var(--fg)" : "var(--fg-subtle)"} strokeWidth={a.lead ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round" />
+              {a.grip && <circle cx={a.grip[0]} cy={a.grip[1]} r="4.5" fill="var(--fg)" />}
+            </g>
+          ))}
           {still.ball && <circle cx={still.ball[0]} cy={still.ball[1]} r="3.5" fill="var(--fg)" />}
           <polyline points={pts([[still.frontFoot[0], still.groundY - 3], ...[...still.parts].reverse().map((p) => p.at)])} fill="none" stroke="var(--brand)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           {still.parts.map((p) =>
@@ -260,7 +279,7 @@ export function HeroFigure({ data }: { data: HeroData }) {
           ))}
         </ul>
         <p className="mt-1 text-xs text-fg-subtle">
-          <Hold more={<p>Side-on, to scale: stumps, both feet, bat and ball. The brackets are the range each part should be in. A generated example, measured by the same engine that checks your shot.</p>}>Illustration: a generated example, to scale</Hold>
+          <Hold more={<p>Side-on, to scale: stumps, both feet, both arms with the hands on the bat, and the ball. The brackets are the range each part should be in. A generated example, measured by the same engine that checks your shot.</p>}>Illustration: a generated example, to scale</Hold>
         </p>
       </figcaption>
     </figure>

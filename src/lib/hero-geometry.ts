@@ -2,6 +2,7 @@
 // engine's own 3D track of a generated defence. Pure: the server draws the still (SVG) and the
 // browser draws the moving one (canvas) from the same numbers.
 
+import { GRIP } from "@/engine/rig";
 import { JOINTS, type CaptureObservation } from "@/engine/types";
 
 export type V3 = readonly [number, number, number]; // forward (toward the bowler), up, lateral: metres
@@ -166,6 +167,12 @@ export interface Instrument {
   /** The path each part and each foot took to get here. */
   trails: XY[][];
   bat: [XY, XY] | null;
+  /**
+   * The arms and the hands on the bat: shoulder, elbow, wrist and the hand's grip on the handle
+   * (the top hand's at the handle mark, the bottom hand's the rig's spacing below it), the lead arm
+   * first. Drawn so the hands holding the bat read before the bat itself (2026-11-20).
+   */
+  arms: Array<{ lead: boolean; points: XY[]; grip: XY | null }>;
   ball: XY | null;
   ballPath: XY[];
 }
@@ -198,6 +205,17 @@ export function instrument(data: HeroData, pos: number, w: number, h: number, ca
   const path = (joint: number) => [...data.frames.slice(0, i0 + 1).map((f) => P(f[joint]!)), P(frame[joint]!)];
   const bat = data.bat[near];
   const ballAt = data.ball[near];
+  const grip = (k: number): number[] | null => {
+    if (!bat) return null;
+    const d = [bat[1]![0]! - bat[0]![0]!, bat[1]![1]! - bat[0]![1]!, bat[1]![2]! - bat[0]![2]!];
+    const l = Math.hypot(d[0]!, d[1]!, d[2]!) || 1;
+    return [0, 1, 2].map((i) => bat[0]![i]! + (d[i]! / l) * k);
+  };
+  const arm = (lead: boolean) => {
+    const [sh, el, wr] = lead ? [1, 3, 5] : [2, 4, 6];
+    const g = grip(lead ? 0 : (GRIP.top + GRIP.bottom) * S);
+    return { lead, points: [P(frame[sh]!), P(frame[el]!), P(frame[wr]!), ...(g ? [P(g)] : [])], grip: g ? P(g) : null };
+  };
   return {
     groundY: P([0, 0, 0])[1],
     plumb: { x: P([foot[0]!, 0, foot[2]!])[0], top: P([foot[0]!, S * 1.02, foot[2]!])[1] },
@@ -206,6 +224,8 @@ export function instrument(data: HeroData, pos: number, w: number, h: number, ca
     backFoot: P([frame[12]![0]!, 0, frame[12]![2]!]),
     trails: [...LINE_PARTS.map(({ joint }) => path(joint)), path(11), path(12)],
     bat: bat ? [P(bat[0]), P(bat[1])] : null,
+    // The rear arm first, so the lead arm is drawn over it.
+    arms: [arm(false), arm(true)],
     ball: ballAt ? P(ballAt) : null,
     ballPath: data.ball.slice(0, near + 1).filter((b): b is number[] => !!b).map(P),
   };

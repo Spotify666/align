@@ -300,6 +300,45 @@ function plantLegs(next: Pose, before: Pose) {
  * - head, heel, toe: swing about the neck or the ankle.
  */
 export function dragHandle(pose: Pose, handle: Handle, target: V3): Pose {
+  const next = dragFree(pose, handle, target);
+  // With a bat, an edit that would leave it held as no batter can (the forearms crossed, or the blade
+  // through a leg) is refused: the last pose the batter can hold stays (2026-11-20). A pose that is
+  // already outside them (an old saved model) moves freely, so it can always be brought back.
+  return batDirection(next) && heldNaturally(pose) && !heldNaturally(next) ? pose : next;
+}
+
+/** How close the blade may come to a shin or thigh's line (body heights): a pad's or a thigh's half-thickness and the blade's. */
+export const LEG_CLEARANCE = 0.035;
+/**
+ * Whether a pose holds its bat as a batter can: the top hand's wrist above the bottom hand's along
+ * the handle (the forearms not crossed), and the blade clear of both legs. True without a bat.
+ */
+export function heldNaturally(p: Pose): boolean {
+  const dir = batDirection(p);
+  if (!dir || !p.bat_toe) return true;
+  if (dot(sub(p.back_wrist, p.front_wrist), dir) <= 0) return false;
+  const top = sub(p.bat_toe, mul(dir, BAT.blade));
+  for (const side of SIDES)
+    for (const [a, b] of [[j(side, "knee"), j(side, "ankle")], [j(side, "hip"), j(side, "knee")]] as const)
+      if (segmentGap(top, p.bat_toe, p[a], p[b]) < LEG_CLEARANCE) return false;
+  return true;
+}
+/** Closest distance between segments ab and cd. */
+function segmentGap(a: V3, b: V3, c: V3, d: V3): number {
+  const u = sub(b, a);
+  const v = sub(d, c);
+  const w = sub(a, c);
+  const A = dot(u, u), B = dot(u, v), C = dot(v, v), D = dot(u, w), E = dot(v, w);
+  const den = A * C - B * B;
+  let s = den > 1e-12 ? Math.min(1, Math.max(0, (B * E - C * D) / den)) : 0;
+  let t = C > 1e-12 ? Math.min(1, Math.max(0, (B * s + E) / C)) : 0;
+  s = A > 1e-12 ? Math.min(1, Math.max(0, (B * t - D) / A)) : 0;
+  t = C > 1e-12 ? Math.min(1, Math.max(0, (B * s + E) / C)) : 0;
+  return distance(add(a, mul(u, s)), add(c, mul(v, t)));
+}
+
+/** `dragHandle` without the check that the bat is still held naturally. */
+function dragFree(pose: Pose, handle: Handle, target: V3): Pose {
   const dir = batDirection(pose);
   if (handle === "bat_toe") return dir ? placeBat(pose, sub(target, pose.bat_handle!)) : pose;
   if (!dir) return moveBody(pose, handle, target);

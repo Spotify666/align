@@ -31,16 +31,25 @@ describe("the traced batter", () => {
     expect(data.lines).toHaveLength(TRACED.frames);
     expect(data.fps).toBe(TRACED.fps);
     expect(data.ground).toBe(TRACED.ground);
-    const contact = TRACED.moments[TRACED.moments.length - 1]!;
+    const contact = TRACED.moments[TRACED.contact]!;
     expect(data.paths[contact]).toBe(TRACED.still);
     expect(data.lines[contact]).toEqual([...TRACED.stillLine]);
   });
 
-  it("stops on four moments, in order, inside the clip", () => {
-    expect(TRACED.moments).toHaveLength(4);
-    expect(TRACED.moments[0]).toBe(0);
-    for (let i = 1; i < TRACED.moments.length; i++) expect(TRACED.moments[i]!).toBeGreaterThan(TRACED.moments[i - 1]!);
-    expect(TRACED.moments[3]!).toBeLessThan(TRACED.frames);
+  it("names six phases in order and stops once in each after the stance, contact among them", () => {
+    // Stance, backlift, stride, downswing, contact, follow-through: a stop in each, so nothing
+    // between a raised bat and a lowered one is skipped (2026-11-20).
+    const phases = TRACED.phases as readonly number[];
+    expect(phases).toHaveLength(6);
+    expect(phases[0]).toBe(0);
+    for (let i = 1; i < phases.length; i++) expect(phases[i]!).toBeGreaterThan(phases[i - 1]!);
+    expect(TRACED.moments).toHaveLength(5);
+    TRACED.moments.forEach((f, i) => {
+      expect(f).toBeGreaterThanOrEqual(phases[i + 1]!);
+      if (i + 2 < phases.length) expect(f).toBeLessThan(phases[i + 2]!);
+      expect(f).toBeLessThan(TRACED.frames);
+    });
+    expect(TRACED.moments[TRACED.contact]!).toBeGreaterThanOrEqual(phases[4]!);
   });
 
   it("holds only shapes a browser can fill, inside the picture", () => {
