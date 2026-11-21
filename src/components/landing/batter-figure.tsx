@@ -309,7 +309,7 @@ export function BatterFigure() {
               type="button"
               aria-pressed={held === i}
               onClick={() => hold(held === i ? null : i)}
-              className={`min-h-11 rounded-full border px-0.5 text-[0.74rem] font-medium leading-tight transition-colors duration-150 ${moment === phaseOfFrame(m.frame) ? "border-fg text-fg" : "border-line-strong text-fg-muted hover:text-fg"} ${held === i ? "bg-tint" : ""}`}
+              className={`min-h-11 rounded-full border px-0 text-[0.7rem] font-medium leading-tight tracking-tight transition-colors duration-150 ${moment === phaseOfFrame(m.frame) ? "border-fg text-fg" : "border-line-strong text-fg-muted hover:text-fg"} ${held === i ? "bg-tint" : ""}`}
             >
               {m.name === "Follow-through" ? "Follow" : m.name}
             </button>

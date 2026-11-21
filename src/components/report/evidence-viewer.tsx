@@ -6,7 +6,7 @@ import type { AnalysisPayload, CaptureObservation, ImgPoint } from "@/engine/typ
 import { J } from "@/engine/types";
 import { bodyCentre, buildScene, semanticToJoint } from "@/engine/scene";
 import { angleAt } from "@/engine/math";
-import { BONES, EVENT_LABEL, SEEN_MIN, SURE_MIN } from "@/lib/viz";
+import { BONES, EVENT_LABEL, SEEN_MIN, SURE_MIN, handOnBat } from "@/lib/viz";
 import { PhaseTimeline } from "./phase-timeline";
 import { buildResult, type AnalysisResult } from "@/engine/result";
 import { Pause, Play } from "../icons";
@@ -268,6 +268,24 @@ export const EvidenceViewer = forwardRef<EvidenceViewerHandle, Props>(function E
         ctx.stroke();
       }
       ctx.setLineDash([]);
+      // Each hand on the bat: from the wrist to where it holds the handle (dotted when unsure).
+      if (layers.bat) {
+        const bh = pt(obs.bat.handle[frame] ?? undefined);
+        const bt = pt(obs.bat.toe[frame] ?? undefined);
+        for (const w of ["left_wrist", "right_wrist"] as const) {
+          const wq = pt(fr[J[w]] ?? undefined);
+          const hand = handOnBat(wq ?? null, bh ?? null, bt ?? null);
+          if (!wq || !hand) continue;
+          ctx.setLineDash(hand.sure ? [] : [2, 3]);
+          ctx.strokeStyle = hand.sure ? COL.body : COL.low;
+          ctx.lineWidth = hand.sure ? 4 : 2;
+          ctx.beginPath();
+          ctx.moveTo(wq[0], wq[1]);
+          ctx.lineTo(hand.grip[0], hand.grip[1]);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      }
       fr.forEach((p) => {
         const q = pt(p ?? undefined);
         if (!q || q[2] < SEEN_MIN) return;

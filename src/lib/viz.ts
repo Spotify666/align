@@ -313,3 +313,26 @@ export function smoothWorld(w: WorldFrames, fps: number | null): WorldFrames {
     centre: smoothAxes(bridge(w.centre, gap), body, w.estimatedAxis, est),
   };
 }
+
+/**
+ * The hand on a tracked bat, as the evidence viewer draws it (2026-11-20): from a tracked wrist to
+ * the nearest point of the bat's handle, where a hand holds it. A pose tracker's wrist sits a hand's
+ * length behind the grip, so without it the wrist reads as floating off the handle. Drawn only when
+ * both the wrist and the bat were tracked and the wrist is within a hand and a half of the handle
+ * (about 0.15 of the bat's length, from the handle mark to a third of the way down); otherwise
+ * nothing, so a hand that isn't on the bat is never drawn on it. `sure` is false when the wrist or
+ * the bat is below the sure confidence: the hand is drawn dotted. It joins two measured things and
+ * adds no landmark: nothing reads it but the drawing.
+ */
+export function handOnBat(wrist: readonly [number, number, number] | null, handle: readonly [number, number, number] | null, toe: readonly [number, number, number] | null): { grip: [number, number]; sure: boolean } | null {
+  if (!wrist || !handle || !toe || wrist[2] < SEEN_MIN || Math.min(handle[2], toe[2]) < SEEN_MIN) return null;
+  const d = [toe[0] - handle[0], toe[1] - handle[1]];
+  const L2 = d[0]! * d[0]! + d[1]! * d[1]!;
+  if (L2 < 1e-9) return null;
+  const s = Math.max(-0.08, Math.min(0.33, ((wrist[0] - handle[0]) * d[0]! + (wrist[1] - handle[1]) * d[1]!) / L2));
+  const grip: [number, number] = [handle[0] + d[0]! * s, handle[1] + d[1]! * s];
+  if (Math.hypot(wrist[0] - grip[0], wrist[1] - grip[1]) > HAND_REACH * Math.sqrt(L2)) return null;
+  return { grip, sure: Math.min(wrist[2], handle[2], toe[2]) >= SURE_MIN };
+}
+/** How far a wrist may be from the handle and still be drawn holding it, as a share of the bat's length (a hand and a half). */
+export const HAND_REACH = 0.15;

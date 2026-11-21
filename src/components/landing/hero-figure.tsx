@@ -123,7 +123,7 @@ export function HeroFigure({ data }: { data: HeroData }) {
       // The bat, quieter than the hands that hold it; then each arm to its hand on the handle.
       if (m.bat) {
         ctx.strokeStyle = col.dim;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 3;
         path(m.bat);
       }
       for (const a of m.arms) {
@@ -251,7 +251,7 @@ export function HeroFigure({ data }: { data: HeroData }) {
           ))}
           <line x1={still.backFoot[0] - 9} y1={still.groundY - 3} x2={still.backFoot[0] + 9} y2={still.groundY - 3} stroke="var(--fg-subtle)" strokeWidth="5" strokeLinecap="round" />
           <line x1={still.frontFoot[0] - 9} y1={still.groundY - 3} x2={still.frontFoot[0] + 9} y2={still.groundY - 3} stroke="var(--fg)" strokeWidth="5" strokeLinecap="round" />
-          {still.bat && <polyline points={pts(still.bat)} fill="none" stroke="var(--fg-subtle)" strokeWidth="2.5" strokeLinecap="round" />}
+          {still.bat && <polyline points={pts(still.bat)} fill="none" stroke="var(--fg-subtle)" strokeWidth="3" strokeLinecap="round" />}
           {still.arms.map((a) => (
             <g key={a.lead ? "lead" : "rear"}>
               <polyline points={pts(a.points)} fill="none" stroke={a.lead ? "var(--fg)" : "var(--fg-subtle)"} strokeWidth={a.lead ? 2.5 : 2} strokeLinecap="round" strokeLinejoin="round" />
