@@ -205,3 +205,9 @@ The editor's bat and arms are now solved by the rig every figure shares (`src/en
 docs/15): the grip anchors the gloves are drawn on, the wrist's bend from where the wrist is (no
 fixed 15°) within a grip's range, each elbow toward where it is blended with a preference measured
 in the trunk's frame (no fixed world direction), and the rig's two-bone reach for every drag.
+
+### Held as a batter can (2026-11-20)
+
+An edit that would cross the forearms (the bottom hand's wrist above the top hand's on the handle)
+or put the blade through a leg is refused, and the last pose the batter can hold stays
+(`heldNaturally`, docs/16). A model saved outside that can still be moved back.

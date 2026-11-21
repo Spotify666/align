@@ -1363,3 +1363,17 @@ Open:
   change. Measured before and after in docs/15.
 - Not possible here: MyoSuite and Brave (the network refuses them; Chromium used), the owner's
   source clips, a real second camera, a left-handed reference, a coach's review.
+
+## 2026-11-20 · Hands, wrists, elbows and bat moving together
+
+- Asked: the front-foot defence's hands, wrists, elbows and bat to move together convincingly in
+  the sample's evidence (a wrist marker floating off the handle at frame 85), on the landing (the
+  grip hard to read at contact, poses skipping from Stride to Contact, the card's bat clearer than
+  its hands) and in the editor's bat (toe dragged in every view, near reach limits). Also "/models
+  is not available on browser": it loads on both sites at phone and desktop widths with no errors
+  in Chromium (2026-11-20); not reproduced, asked what was seen.
+- Done (docs/16): the generator's demonstrations hold one rigid bat with fixed-length arms (the
+  sample's hands were 6-9 cm off their grips, an arm stretched 13 cm, the rear elbow folded to 164°;
+  now 0, 0 and 125°); the viewer draws each hand on the handle; the landing stops on every phase,
+  contact on the frame where the grip reads; the card draws both arms; the editor refuses a bat
+  held as no batter can. The engine's validation set is unchanged (a finding about it is in docs/16).

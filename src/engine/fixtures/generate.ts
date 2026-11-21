@@ -4,6 +4,7 @@
 // It exists to exercise every engine path, not to stand in for real athletes.
 
 import { clamp, gaussian, rng } from "../math";
+import { GRIP, armToGrip } from "../rig";
 import { JOINTS, type CameraPoint, type CaptureObservation, type ImgPoint, type Joint, type TrackSource, type WorldPoint } from "../types";
 
 type V3 = [number, number, number]; // forward (toward bowler), up, lateral (+ = off side), metres
@@ -126,6 +127,15 @@ export interface ShotScript {
   backElbowPole?: Key<V3>;
   /** "pchip": shape-preserving interpolation between keys (demonstrations); otherwise Catmull–Rom. */
   smooth?: "pchip";
+  /**
+   * "rigid": the hands hold one rigid bat as a batter does (2026-11-20). Two grip points on the
+   * handle (the top hand's at the handle mark, the bottom hand's the rig's spacing below it), each
+   * wrist a hand's length behind its grip, and each arm of fixed length reaching it with an elbow
+   * that keeps its bend direction from frame to frame (src/engine/rig.ts, the rig every figure
+   * uses). Without it (older scripts) the wrist marks sit on the handle line and each elbow is fitted
+   * afterwards, so an arm folds or stretches wherever the scripted hands are out of its reach.
+   */
+  grip?: "rigid";
   ball: BallScript;
 }
 
@@ -156,11 +166,19 @@ export interface GenerateOptions {
    * estimate (like MediaPipe world landmarks) and no pitch calibration.
    */
   view?: "side_on" | "front_on" | "behind";
+  /**
+   * Called with each frame's truth (world metres, anatomical joint names, the bat's handle mark
+   * and toe) before any noise or projection: for checking the generated movement itself
+   * (`gripReport`). Changes nothing generated.
+   */
+  onFrame?: (t: number, world: Record<Joint, V3>, bat: { handle: V3; toe: V3 }, ball: V3 | null, contactT: number) => void;
 }
 
 const CAMERA = { depth: 7.2, centreF: 2.9, height: 1.0, viewWidthM: 8.4 };
 const ASPECT = 16 / 9;
 const BAT_LEN = 0.86;
+/** How far a shoulder may come forward on the chest toward a grip just out of reach (m): about a third of a shoulder girdle's travel. */
+const PROTRACT = 0.05;
 const SWEET = 0.7;
 const G = 9.81;
 
@@ -321,6 +339,8 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     return [p[0] + (gaussian(R) * sd) / aspect, p[1] + gaussian(R) * sd, c];
   };
 
+  // The rigid grip's state from frame to frame: each elbow's bend plane, kept on its side.
+  const armNormals: { front: V3 | null; back: V3 | null } = { front: null, back: null };
   for (const t of times) {
     const fa = interpV(s.frontAnkle, t, sm);
     const lift = s.backHeelLift ? interp(s.backHeelLift, t, sm) : 0;
@@ -336,8 +356,8 @@ export function generate(opts: GenerateOptions): CaptureObservation {
     const shC = add(hip, mul(trunkDir, seg.trunk));
     const shAxis: V3 = [Math.cos(yaw), 0, -Math.sin(yaw)];
     const hipAxis: V3 = [Math.cos(hyaw), 0, -Math.sin(hyaw)];
-    const fSh = add(shC, mul(shAxis, seg.shoulderW / 2));
-    const bSh = sub(shC, mul(shAxis, seg.shoulderW / 2));
+    let fSh = add(shC, mul(shAxis, seg.shoulderW / 2));
+    let bSh = sub(shC, mul(shAxis, seg.shoulderW / 2));
     const fHip = add(hip, mul(hipAxis, seg.hipW / 2));
     const bHip = sub(hip, mul(hipAxis, seg.hipW / 2));
     const headC = add(add(shC, mul(trunkDir, 0.17 * H)), [interp(s.headFwd, t, sm), 0, 0]);
@@ -350,12 +370,34 @@ export function generate(opts: GenerateOptions): CaptureObservation {
 
     const hd = interpV(hands, t, sm);
     const bd = unit(interpV(batDir, t, sm));
-    const fWrist = hd;
-    const bWrist = add(hd, mul(bd, 0.09));
     const fPole: V3 = s.frontElbowPole ? interpV(s.frontElbowPole, t, sm) : [0.2, -1, 0.6];
     const bPole: V3 = s.backElbowPole ? interpV(s.backElbowPole, t, sm) : [-0.3, -1, 0.5];
-    const fElbow = ik(fSh, fWrist, seg.upperArm, seg.forearm, fPole);
-    const bElbow = ik(bSh, bWrist, seg.upperArm, seg.forearm, bPole);
+    let fWrist: V3, bWrist: V3, fElbow: V3, bElbow: V3;
+    if (s.grip === "rigid") {
+      // Both hands on one rigid bat: the rig's arm solve, in body heights, its elbows kept on their side.
+      const k = 1 / H;
+      const arm = (sh: V3, grip: V3, pole: V3, prev: V3 | null) =>
+        armToGrip({ shoulder: mul(sh, k), upper: seg.upperArm * k, fore: seg.forearm * k, grip: mul(grip, k), wristHint: null, elbowHint: null, hintWeight: 0, preferred: pole, prevNormal: prev });
+      // A grip just beyond the arm's reach brings the shoulder forward on the chest (the shoulder
+      // girdle protracts) by at most PROTRACT; the hands never let go and no bone stretches.
+      const reachFrom = (sh: V3, grip: V3): V3 => {
+        const toGrip = sub(grip, sh);
+        const over = norm(toGrip) - (seg.upperArm + seg.forearm + GRIP.hand * H) * 0.999;
+        return over > 0 ? add(sh, mul(unit(toGrip), Math.min(over, PROTRACT))) : sh;
+      };
+      const rearGrip = add(hd, mul(bd, (GRIP.top + GRIP.bottom) * H));
+      [fSh, bSh] = [reachFrom(fSh, hd), reachFrom(bSh, rearGrip)];
+      const lead = arm(fSh, hd, fPole, armNormals.front);
+      const rear = arm(bSh, rearGrip, bPole, armNormals.back);
+      armNormals.front = [...lead.normal];
+      armNormals.back = [...rear.normal];
+      [fWrist, fElbow, bWrist, bElbow] = [mul([...lead.wrist], H), mul([...lead.elbow], H), mul([...rear.wrist], H), mul([...rear.elbow], H)];
+    } else {
+      fWrist = hd;
+      bWrist = add(hd, mul(bd, 0.09));
+      fElbow = ik(fSh, fWrist, seg.upperArm, seg.forearm, fPole);
+      bElbow = ik(bSh, bWrist, seg.upperArm, seg.forearm, bPole);
+    }
 
     const heel = (a: V3): V3 => [a[0] - 0.05, Math.max(0.02, a[1] - 0.05), a[2]];
     const foot = (a: V3, dir: V3): V3 => [a[0] + dir[0] * 0.15, Math.max(0.02, a[1] - 0.06), a[2] + dir[2] * 0.15];
@@ -380,6 +422,7 @@ export function generate(opts: GenerateOptions): CaptureObservation {
       right_foot: lift ? [ba[0] + 0.03, 0.02, ba[2] + 0.147] : foot(ba, [0.2, 0, 0.98]),
     };
 
+    opts.onFrame?.(t, world, { handle: hd, toe: add(hd, mul(bd, BAT_LEN)) }, ballAt(s.ball, t, contactT, contactP), contactT);
     const occluded = (j: Joint) =>
       !!opts.occlusion && t >= opts.occlusion.fromT && t <= opts.occlusion.toT && opts.occlusion.joints.includes(j);
     const frame: ImgPoint[] = [];

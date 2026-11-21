@@ -6,19 +6,25 @@ import { TRACED } from "@/lib/traced-batter";
 
 const W = TRACED.width;
 const H = TRACED.height;
-// Each moment is a phase of the shot, with the traced frame it begins on (read off the tracing:
-// the bat starts up at 8, is at the top of the backlift by 15 and comes down from there, meets the
-// ball about 24). The caption names the phase the frame is in, so "Backlift" is never shown over a
-// bat already on its way down (2026-11-18). A button stops on its moment's frame (`TRACED.moments`).
-const MOMENTS = [
-  { name: "Stance", from: 0, cue: "Bat held ready, hands together, eyes on the ball." },
-  { name: "Backlift", from: 8, cue: "The hands lift the bat as the weight starts forward." },
-  { name: "Stride", from: 15, cue: "The front foot goes to the ball and the bat starts down." },
-  { name: "Contact", from: 24, cue: "Front knee bent, arms long, bat angled down beside the front leg." },
+// The phases of the shot, each beginning on the traced frame `TRACED.phases` gives (read off the
+// tracing: the bat starts up at 8, the stride lands by 15, the blade comes down from 19, stands
+// upright beside the front pad at 24 and gives back along it from 27). The caption names the phase
+// the frame is in, so no label sits over a pose from another phase (2026-11-18, 2026-11-20); the
+// buttons stop on one frame in each phase after the stance (`TRACED.moments`), the downswing and the
+// follow-through included, so nothing between a raised bat and a lowered one is skipped.
+const PHASES = [
+  { name: "Stance", cue: "Bat held ready, hands together, eyes on the ball." },
+  { name: "Backlift", cue: "The hands lift the bat as the weight starts forward." },
+  { name: "Stride", cue: "The front foot goes to the ball, head and front shoulder leading." },
+  { name: "Downswing", cue: "The top hand guides the bat down, the bottom elbow bent." },
+  { name: "Contact", cue: "Front knee bent, the bat angled down beside the front pad, hands soft." },
+  { name: "Follow-through", cue: "The hands give a little; the bat stays down and close." },
 ] as const;
-/** The moment (phase) a traced frame is in. */
-export const phaseOfFrame = (frame: number) => MOMENTS.reduce((at, m, i) => (frame >= m.from ? i : at), 0);
-const CONTACT = MOMENTS.length - 1;
+/** The phase (index into PHASES) a traced frame is in. */
+export const phaseOfFrame = (frame: number): number => (TRACED.phases as readonly number[]).reduce((at: number, from: number, i: number) => (frame >= from ? i : at), 0);
+/** The buttons: one stop per phase after the stance. */
+const MOMENTS = (TRACED.moments as readonly number[]).map((frame) => ({ frame, ...(PHASES as readonly (typeof PHASES)[number][])[phaseOfFrame(frame)]! }));
+const CONTACT = TRACED.contact;
 
 interface Traced {
   paths: string[];
@@ -41,7 +47,8 @@ export function BatterFigure() {
   const box = useRef<HTMLDivElement>(null);
   const [live, setLive] = useState(false);
   const [moving, setMoving] = useState(false);
-  const [moment, setMoment] = useState(CONTACT);
+  /** The phase shown in the caption (index into PHASES). */
+  const [moment, setMoment] = useState(phaseOfFrame(TRACED.moments[CONTACT]!));
   const [held, setHeld] = useState<number | null>(null);
   const heldRef = useRef<number | null>(null);
   const wakeRef = useRef<() => void>(() => {});
@@ -49,7 +56,7 @@ export function BatterFigure() {
   const hold = (i: number | null) => {
     heldRef.current = i;
     setHeld(i);
-    if (i !== null) setMoment(i);
+    if (i !== null) setMoment(phaseOfFrame(TRACED.moments[i]!));
     wakeRef.current();
   };
 
@@ -90,7 +97,7 @@ export function BatterFigure() {
     let then = 0;
     let clock = REST + TRACED.moments[CONTACT]! * FRAME; // start where the still is
     let at = TRACED.moments[CONTACT] as number;
-    let shownMoment = CONTACT;
+    let shownMoment = phaseOfFrame(TRACED.moments[CONTACT]!);
     let idleAt = performance.now();
     let dead = false;
 
@@ -295,21 +302,21 @@ export function BatterFigure() {
         <canvas ref={canvas} className={`absolute inset-0 h-full w-full ${live ? "opacity-100" : "opacity-0"}`} aria-hidden />
       </div>
       <figcaption className="px-4 pb-4">
-        <div role="group" aria-label="Moments of the shot" className="grid grid-cols-4 gap-1.5">
+        <div role="group" aria-label="Moments of the shot" className="grid grid-cols-5 gap-1">
           {MOMENTS.map((m, i) => (
             <button
-              key={m.name}
+              key={m.frame}
               type="button"
               aria-pressed={held === i}
               onClick={() => hold(held === i ? null : i)}
-              className={`min-h-11 rounded-full border px-1 text-[0.82rem] font-medium transition-colors duration-150 ${moment === i ? "border-fg text-fg" : "border-line-strong text-fg-muted hover:text-fg"} ${held === i ? "bg-tint" : ""}`}
+              className={`min-h-11 rounded-full border px-0 text-[0.7rem] font-medium leading-tight tracking-tight transition-colors duration-150 ${moment === phaseOfFrame(m.frame) ? "border-fg text-fg" : "border-line-strong text-fg-muted hover:text-fg"} ${held === i ? "bg-tint" : ""}`}
             >
-              {m.name}
+              {m.name === "Follow-through" ? "Follow" : m.name}
             </button>
           ))}
         </div>
         <p className="mt-3 min-h-[2.75rem] text-sm text-fg" aria-live={held === null ? "off" : "polite"}>
-          <span className="font-semibold">{MOMENTS[moment]!.name}.</span> <span className="text-fg-muted">{MOMENTS[moment]!.cue}</span>
+          <span className="font-semibold">{(PHASES as readonly (typeof PHASES)[number][])[moment]!.name}.</span> <span className="text-fg-muted">{(PHASES as readonly (typeof PHASES)[number][])[moment]!.cue}</span>
         </p>
         <p className="text-xs text-fg-subtle">
           <Hold more={<p>A real batter&apos;s front-foot defence, traced frame by frame from a phone clip. Aline read this clip as a front-foot defence: front knee bent, a good step, front shoulder a little late.</p>}>
