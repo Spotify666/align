@@ -17,6 +17,7 @@ import { openTransport, type PairTransport } from "@/lib/pair-channel";
 import {
   clockOffset,
   cleanCode,
+  clipSincePairing,
   COUNTDOWN_S,
   fromBase64,
   newCode,
@@ -24,6 +25,7 @@ import {
   PAIR_PROTOCOL,
   readResult,
   Reassembler,
+  RESEND_EVERY_MS,
   resultMessage,
   ROLE_NAME,
   SESSION_MINUTES,
@@ -41,6 +43,8 @@ interface Session {
   host: boolean;
   role: Role;
   startedAt: number;
+  /** The phone this one is paired with, kept so that leaving to check a clip and coming back keeps the pairing. */
+  peer?: string;
 }
 
 const KEY = "aline.pair";
@@ -172,13 +176,23 @@ function RolePicker({ value, onChange, label, disabled }: { value: Role; onChang
   );
 }
 
-type Outcome = { kind: "same"; a: string; b: string } | { kind: "not_confirmed"; why: string };
+type Outcome = ({ kind: "same"; a: string; b: string } | { kind: "not_confirmed"; why: string }) & {
+  /** On the first phone: the two clips it was decided on. A different pair is decided again. */
+  on?: string;
+};
 
 function Paired({ s, onEnd }: { s: Session; onEnd: () => void }) {
   const [status, setStatus] = useState<"connecting" | "open" | "failed">("connecting");
   const [peer, setPeer] = useState<{ id: string; role: Role; lastSeen: number } | null>(null);
   const [candidate, setCandidate] = useState<{ id: string; role: Role } | null>(null);
-  const [accepted, setAccepted] = useState<string | null>(null);
+  const [accepted, setAcceptedNow] = useState<string | null>(s.peer ?? null);
+  const setAccepted = useCallback(
+    (id: string) => {
+      setAcceptedNow(id);
+      if (s.peer !== id) saveSession({ ...s, peer: id });
+    },
+    [s],
+  );
   const [samples, setSamples] = useState<ClockSample[]>([]);
   const [startAt, setStartAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -188,6 +202,16 @@ function Paired({ s, onEnd }: { s: Session; onEnd: () => void }) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [sent, setSent] = useState<"no" | "sending" | "sent" | "failed">("no");
   const [error, setError] = useState<string | null>(null);
+  // The second phone's last result, kept to send again until the first phone confirms it (it may
+  // have been away checking its own clip when it was sent: a broadcast isn't kept for anyone).
+  const lastSent = useRef<{ pieces: PairMessage[]; at: number } | null>(null);
+  // The first phone's answer and the clip it is set against, for messages that arrive later.
+  const decided = useRef<Outcome | null>(null);
+  const chosenRef = useRef("");
+  useEffect(() => {
+    decided.current = outcome;
+    chosenRef.current = chosen;
+  }, [outcome, chosen]);
   const transport = useRef<PairTransport | null>(null);
   const pings = useRef(new Map<number, number>());
   const pingId = useRef(0);
@@ -220,6 +244,11 @@ function Paired({ s, onEnd }: { s: Session; onEnd: () => void }) {
           if (s.host && !accepted) setCandidate({ id: m.from, role: m.role });
           // The paired phone came back (reloaded, or after checking its clip): accept it again.
           if (s.host && accepted === m.from) void send({ t: "accept", from: s.me, peer: m.from });
+          // The first phone is there and hasn't confirmed this phone's result: send it again.
+          if (!s.host && accepted === m.from && lastSent.current && Date.now() - lastSent.current.at > RESEND_EVERY_MS) {
+            lastSent.current.at = Date.now();
+            for (const p of lastSent.current.pieces) await send(p);
+          }
           setPeer({ id: m.from, role: m.role, lastSeen: Date.now() });
           return;
         case "accept":
@@ -260,16 +289,20 @@ function Paired({ s, onEnd }: { s: Session; onEnd: () => void }) {
             representative: false,
             cloud: null,
           };
+          // Sent again (the other phone hadn't heard back) and already decided on: answer again.
+          const was = decided.current;
+          if (was && was.on === `${chosenRef.current}|${r.id}`) return void send({ t: "received", from: s.me, id: r.id, outcome: was.kind });
           await saveAnalysis(stored, fromBase64(r.tracks), {});
           setIncoming(stored);
           return;
         }
         case "received":
+          lastSent.current = null;
           setOutcome(m.outcome === "same" ? { kind: "same", a: "", b: "" } : { kind: "not_confirmed", why: "The first phone couldn't confirm the two clips show the same ball." });
           return;
       }
     },
-    [accepted, s, send],
+    [accepted, s, send, setAccepted],
   );
   const onMessageRef = useRef(onMessage);
   useEffect(() => {
@@ -317,31 +350,33 @@ function Paired({ s, onEnd }: { s: Session; onEnd: () => void }) {
       .then((all) => {
         const own = all.filter((a) => !a.tags.includes("two-phones") && a.payload.mode !== "posture_screen").sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6);
         setMine(own);
-        setChosen((c) => c || own[0]?.id || "");
+        setChosen((c) => c || clipSincePairing(own, s.startedAt));
       })
       .catch(() => {});
   }, [startAt, now > (startAt ?? Infinity) + 10_000]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The first phone checks the same ball once it has both results.
   useEffect(() => {
-    if (!s.host || !incoming || !chosen || outcome) return;
+    const on = `${chosen}|${incoming?.id ?? ""}`;
+    if (!s.host || !incoming || !chosen) return;
+    if (decided.current?.on === on) return;
     (async () => {
       const own = await getAnalysis(chosen);
       const [ta, tb] = await Promise.all([getTracks(chosen), getTracks(incoming.id)]);
-      if (!own || !ta || !tb) return setOutcome({ kind: "not_confirmed", why: "One of the two results couldn't be read on this phone." });
+      if (!own || !ta || !tb) return setOutcome({ kind: "not_confirmed", why: "One of the two results couldn't be read on this phone.", on });
       const [oa, ob] = await Promise.all([decodeTracks(ta), decodeTracks(tb)]);
       const r = pairOutcome({ payload: own.payload, obs: oa }, { payload: incoming.payload, obs: ob });
       if (r.together) {
         await updateAnalysis(own.id, { otherAngle: incoming.id });
         await updateAnalysis(incoming.id, { otherAngle: own.id });
-        setOutcome({ kind: "same", a: own.id, b: incoming.id });
+        setOutcome({ kind: "same", a: own.id, b: incoming.id, on });
         void send({ t: "received", from: s.me, id: incoming.id, outcome: "same" });
       } else {
-        setOutcome({ kind: "not_confirmed", why: r.why });
+        setOutcome({ kind: "not_confirmed", why: r.why, on });
         void send({ t: "received", from: s.me, id: incoming.id, outcome: "not_confirmed" });
       }
-    })().catch(() => setOutcome({ kind: "not_confirmed", why: "The two clips couldn't be compared on this phone." }));
-  }, [s, incoming, chosen, outcome, send]);
+    })().catch(() => setOutcome({ kind: "not_confirmed", why: "The two clips couldn't be compared on this phone.", on }));
+  }, [s, incoming, chosen, send]);
 
   const left = startAt === null ? null : Math.ceil((startAt - now) / 1000);
   const check = accepted ? pairCheck(s.me, accepted) : candidate ? pairCheck(s.me, candidate.id) : null;
@@ -433,6 +468,7 @@ function Paired({ s, onEnd }: { s: Session; onEnd: () => void }) {
             <label className="block text-sm">
               <span className="font-medium">This phone&apos;s clip</span>
               <select className="field mt-1 w-full" value={chosen} onChange={(e) => setChosen(e.target.value)}>
+                {!chosen && <option value="">Choose the clip of this ball</option>}
                 {mine.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.title || "Shot"} · {new Date(a.createdAt).toLocaleTimeString()}
@@ -454,7 +490,10 @@ function Paired({ s, onEnd }: { s: Session; onEnd: () => void }) {
                     const t = await getTracks(chosen);
                     if (!a || !t) throw new Error("This clip's result isn't on this phone.");
                     const text = JSON.stringify(resultMessage(a, t));
-                    for (const p of toPieces(s.me, `${a.id}-${Date.now()}`, text)) await transport.current?.send(p);
+                    const list = toPieces(s.me, `${a.id}-${Date.now()}`, text);
+                    setOutcome(null);
+                    for (const p of list) await transport.current?.send(p);
+                    lastSent.current = { pieces: list, at: Date.now() };
                     setSent("sent");
                   } catch (e) {
                     setSent("failed");
@@ -465,10 +504,13 @@ function Paired({ s, onEnd }: { s: Session; onEnd: () => void }) {
                 {sent === "sending" ? "Sending…" : sent === "sent" ? "Send again" : "Send to the first phone"}
               </button>
               <p className="text-xs text-fg-subtle">Sends Aline&apos;s result for this clip and the body points it tracked. Not the video, not pictures.</p>
-              {sent === "sent" && !outcome && <p role="status" className="text-sm">Sent. The first phone puts both angles together.</p>}
+              {sent === "sent" && !outcome && <p role="status" className="text-sm">Sent. Waiting for the first phone to get it: keep this page open, it is sent again when the first phone is back here.</p>}
             </>
           )}
           {s.host && !incoming && <p className="text-sm text-fg-muted">Waiting for the other phone&apos;s result…</p>}
+          {s.host && incoming && !chosen && (
+            <p role="status" className="text-sm">The other phone&apos;s result is here. Check this phone&apos;s clip of the same ball, then choose it above.</p>
+          )}
           {outcome?.kind === "same" && (
             <div role="status" className="space-y-2">
               <p className="font-medium text-ok">Same ball: both angles are together.</p>
