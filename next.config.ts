@@ -5,6 +5,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
 ];
 
 // Which build this is: open pages compare it with the live one and reload after a deploy.
@@ -31,7 +32,9 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
       {
-        source: "/models/:path*",
+        // Only the pose model files. "/models/:path*" also matched the /models pages, so browsers
+        // kept a year-old page after every release.
+        source: "/models/:file((?:.+)\\.(?:task|tflite))",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
     ];

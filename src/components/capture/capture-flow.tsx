@@ -1619,7 +1619,11 @@ export function CaptureFlow() {
                   <p className="eyebrow">Recording check</p>
                   <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">We can&apos;t analyse this clip yet</h1>
                   <p className="mt-2 text-fg-muted">
-                    {gate.checks.find((c) => c.status === "fail")?.correction ?? "The recording doesn't show enough of the batter."} Nothing has been processed or saved.
+                    {/* No person in any frame: "move the camera back" would be the wrong advice. */}
+                    {gate.checks.some((c) => c.id === "chk_body_visible" && c.value.startsWith("0%"))
+                      ? "We couldn't see a batter in any frame. Film the whole batter, head to feet."
+                      : (gate.checks.find((c) => c.status === "fail")?.correction ?? "The recording doesn't show enough of the batter.")}{" "}
+                    Nothing has been processed or saved.
                   </p>
                 </div>
                 <dl className="grid grid-cols-3 gap-3 text-sm">

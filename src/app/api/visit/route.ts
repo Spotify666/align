@@ -1,21 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/config";
+import { burstLimiter, callerIp, sameOrigin } from "@/lib/rate-limit";
 import { cleanBeacon, isBot, LIMITS, placeName, readAgent } from "@/lib/visit-shared";
 
 export const runtime = "nodejs";
 
 // A short burst limit per IP on this instance (the database also limits new visits per IP).
-const recent = new Map<string, { n: number; since: number }>();
-function tooMany(ip: string): boolean {
-  const now = Date.now();
-  const r = recent.get(ip);
-  if (!r || now - r.since > 60_000) {
-    if (recent.size > 5000) recent.clear();
-    recent.set(ip, { n: 1, since: now });
-    return false;
-  }
-  return ++r.n > 30;
-}
+const limit = burstLimiter(30);
 
 const done = () => new NextResponse(null, { status: 204 });
 
@@ -26,14 +17,7 @@ export async function POST(req: NextRequest) {
   const ua = h.get("user-agent");
   if (isBot(ua)) return done();
   // Only the site's own pages send visits.
-  const origin = h.get("origin");
-  if (origin) {
-    try {
-      if (new URL(origin).host !== h.get("host")) return done();
-    } catch {
-      return done();
-    }
-  }
+  if (!sameOrigin(h)) return done();
   const site = h.get("sec-fetch-site");
   if (site && site !== "same-origin") return done();
   // Only the live site is logged (not previews or a laptop), unless asked to print instead.
@@ -50,8 +34,8 @@ export async function POST(req: NextRequest) {
   }
   if (!beacon) return done();
 
-  const ip = (h.get("x-real-ip") ?? h.get("x-forwarded-for")?.split(",")[0] ?? "").trim().slice(0, 64) || null;
-  if (ip && tooMany(ip)) return done();
+  const ip = callerIp(h);
+  if (ip && limit.over(ip)) return done();
   const agent = readAgent(ua!, { model: beacon.m, platformVersion: beacon.pv });
   const row = {
     p_session: beacon.s,

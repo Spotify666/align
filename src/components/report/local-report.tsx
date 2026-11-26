@@ -12,7 +12,7 @@ import { checkAgainstModel, modelLines, type PoseModel } from "@/engine/pose-mod
 import { readingLevel } from "@/engine/summary";
 import { listModels } from "@/lib/pose-models";
 import { deleteAnalysis, getAnalysis, getKeyframes, getTracks, listAnalyses, loadProfile, saveAnalysis, updateAnalysis, type StoredAnalysis } from "@/lib/store";
-import { deleteFromCloud, loadCloudAnalysis } from "@/lib/cloud";
+import { ANALYSIS_ID, deleteFromCloud, loadCloudAnalysis } from "@/lib/cloud";
 import { Annotations } from "../coach/annotations";
 import { CoachFeedback } from "../coach/coach-feedback";
 import { sessionCapture, sessionMedia } from "@/lib/session-media";
@@ -26,6 +26,8 @@ import { holdUpdates } from "@/lib/fresh";
 type State =
   | { kind: "loading" }
   | { kind: "missing" }
+  /** Not on this device, and the account didn't answer in time (offline, or the service is busy). */
+  | { kind: "unreachable" }
   | {
       kind: "ready";
       stored: StoredAnalysis;
@@ -37,6 +39,9 @@ type State =
       /** The same ball from the other angle, when added and still on this device. */
       other?: { id: string; payload: AnalysisPayload } | null;
     };
+
+// How long a report not on this device waits for the account before saying it couldn't reach it.
+const CLOUD_WAIT_MS = 15_000;
 
 export function LocalReport({ id }: { id: string }) {
   const router = useRouter();
@@ -68,7 +73,9 @@ export function LocalReport({ id }: { id: string }) {
     (async () => {
       const [stored, tracks] = await Promise.all([getAnalysis(id), getTracks(id)]);
       if (!stored || !tracks) {
-        const cloud = await loadCloudAnalysis(id).catch(() => null);
+        const timeout = new Promise<"timeout">((r) => setTimeout(() => r("timeout"), CLOUD_WAIT_MS));
+        const cloud = await Promise.race([loadCloudAnalysis(id).catch(() => "timeout" as const), timeout]);
+        if (cloud === "timeout") return alive && setState({ kind: ANALYSIS_ID.test(id) ? "unreachable" : "missing" });
         if (!cloud) return alive && setState({ kind: "missing" });
         const stub: StoredAnalysis = { id, createdAt: cloud.payload.created_at, recordedAt: cloud.recordedAt, payload: cloud.payload, title: cloud.title, notes: "", tags: [], representative: false, cloud: { syncedAt: cloud.recordedAt } };
         return alive && setState({ kind: "ready", stored: stub, obs: cloud.obs, keyframes: cloud.keyframes, baseline: [], reference: null, remote: true });
@@ -108,6 +115,17 @@ export function LocalReport({ id }: { id: string }) {
   }, [id]);
 
   if (state.kind === "loading") return <ReportSkeleton />;
+  if (state.kind === "unreachable")
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 space-y-4">
+        <h1 className="display text-4xl">Couldn&apos;t reach your account</h1>
+        <p className="text-fg-muted">This report isn&apos;t on this device. Check your connection and try again.</p>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" className="btn btn-primary" onClick={() => location.reload()}>Try again</button>
+          <Link href="/sessions" className="btn btn-ghost">Open sessions</Link>
+        </div>
+      </div>
+    );
   if (state.kind === "missing")
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 space-y-4">

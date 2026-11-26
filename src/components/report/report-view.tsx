@@ -112,6 +112,8 @@ export function ReportView({ payload: stored, obs, videoUrl, mediaTimes, keyfram
     setAiState("loading");
     try {
       const r = await fetch("/api/report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payload: p, audience }) });
+      // Busy or refused: keep the written report as it is.
+      if (!r.ok) throw new Error(String(r.status));
       const j = (await r.json()) as { configured: boolean; report: Report; fellBackToTemplate: boolean };
       setAiReport(j.report);
       setAiState(!j.configured ? "unavailable" : j.fellBackToTemplate ? "fallback" : "idle");
