@@ -1377,3 +1377,42 @@ Open:
   now 0, 0 and 125°); the viewer draws each hand on the handle; the landing stops on every phase,
   contact on the frame where the grip reads; the card draws both arms; the editor refuses a bat
   held as no batter can. The engine's validation set is unchanged (a finding about it is in docs/16).
+
+## 2026-11-26 · "Complete testing on all cases… fix the bugs… 50k users simultaneously"
+
+- Tested: lint, types, 751 tests, build, the page check (23 pages, both themes, every section
+  opened); in Chromium at phone size: every address (46, including bad ids, odd links and
+  redirects), every kind of wrong file (fake, empty, HEVC, blank video, blank photo, text), the
+  three real tracked clips saved as reports and driven through sessions, every report section,
+  print, progress, delete, the library, profile, a new shot model, two phones paired over the
+  local channel (and refused when both film from one place).
+- Fixed:
+  - `/models` pages were sent with a one-year "never changes" cache (the rule meant for the pose
+    model files matched the pages too), so a phone could keep an old page after a release: a
+    likely cause of "/models is not available on browser" (2026-11-20). Now only the model
+    files; `tests/cache-headers.test.ts` holds it.
+  - No page of its own for a wrong address or a page that fails: now "This page isn't here" and
+    "This page didn't load" with a way back (`src/app/not-found.tsx`, `error.tsx`, `global-error.tsx`).
+  - The written-report service crashed on a malformed request (now refused), had no limit per
+    person and wrote the same report again for the same request: now a few a minute per
+    person, the same answer reused (`src/lib/rate-limit.ts`, `api/report`).
+  - A report link not on this device waited on the account with no end: now 15 s, then
+    "Couldn't reach your account" with Try again; a malformed link never reaches the database;
+    a saved report's pictures are signed in one request instead of one each.
+  - A clip with nobody in it said "move the camera back": now "We couldn't see a batter".
+  - Screen readers heard internal words ("not_applicable") on the recording checks.
+- For 50,000 people at once (the analysis runs on each phone, pages come from the CDN, so the
+  servers only see small calls):
+  - The public Visitors totals were worked out over every visit on each view: 14 s on a copy
+    with 500,000 visits, past the 3 s a signed-out call may take. Now a background job keeps
+    them, refreshed each minute: 0.3 ms per view, the same answer
+    (`supabase/migrations/20261126000100_visits_overview_cached.sql`, applied; rollback in
+    `supabase/rollback/`).
+  - Each open page reported the visit every 30 s (about 1,700 database writes a second at
+    50,000 people); now every 2 minutes, and always when the page is hidden or closed.
+  - The "is there a new release" check is kept by the CDN for 30 s instead of running the
+    server for every open page.
+- Not verified: a real load test of 50,000 people (not possible from this session; the numbers
+  above are measured per call), real phones, Safari, a new real clip through the camera (none
+  in the session; the three real tracks were used), a coach's and an admin's signed-in pages
+  against the live database (this session can't reach it over the web).

@@ -13,7 +13,9 @@ const VISIT = "align:visit";
 export const VISITS_OFF = "align:visits";
 const NEW_VISIT_AFTER = 30 * 60 * 1000;
 const IDLE_AFTER = 5 * 60 * 1000;
-const SEND_EVERY = 30 * 1000;
+// An open page reports at most every two minutes (and always when it is hidden or closed):
+// at 50,000 people at once, every 30 s would be about 1,700 database writes a second.
+const SEND_EVERY = 2 * 60 * 1000;
 
 interface Visit {
   s: string;
