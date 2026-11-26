@@ -82,12 +82,14 @@ import {
   fmtTime,
   grabKeyframes,
   loaded,
+  noPerson,
   pictureAreaOf,
   rank,
   resultWords,
   shotNote,
   snapshot,
   trackPlan,
+  unseenChecks,
   verifyCandidates,
   type Attempt,
   type Meta,
@@ -1141,8 +1143,12 @@ export function CaptureFlow() {
           // same moments in both). Neither: not the same ball.
           stage("report", "active", "Checking it's the same ball, from your movement and the sound");
           const [ea, eb] = await Promise.all([soundEnvelope(first?.media), soundEnvelope(fileRef.current)]);
-          const two = first?.shot != null && shotB != null ? sameBallTwoVideos({ a: ea, b: eb }, { a: first.move ?? null, b: handsHeight(attempt.obs) }, first.shot, shotB) : null;
-          if (two?.verdict !== "same")
+          // Without the moment of the shot in one of them there is nothing to line the two up by:
+          // say that, not "different ball" (pair-decide.ts says the same for two phones).
+          if (first?.shot == null || shotB == null)
+            return fail("Can't check it's the same ball", "Aline couldn't find the moment of the shot in one of the two videos, so it can't line them up. Film the whole shot in both, from before the bowler's run-up ends until after the follow-through.");
+          const two = sameBallTwoVideos({ a: ea, b: eb }, { a: first.move ?? null, b: handsHeight(attempt.obs) }, first.shot, shotB);
+          if (two.verdict !== "same")
             return fail("Not the same ball", "Aline couldn't match these two videos as one ball: your movement doesn't line up between them at the moment of the shot, and neither does the sound. Film one ball with two phones at the same time, one from the side and one from the front (the bowler's end).");
         } else {
           // The report's "Add the other angle": both phones heard the same sounds, lined up with the shot.
@@ -1616,11 +1622,11 @@ export function CaptureFlow() {
             {phase === "blocked" && gate && meta && win && (
               <>
                 <div>
-                  <p className="eyebrow">Recording check</p>
+                  <p className="eyebrow">Recording check{twoStep ? ` · Video ${twoStep} of 2${file ? ` · ${file.name}` : ""}` : ""}</p>
                   <h1 className="display mt-2 text-[2.2rem] sm:text-5xl">We can&apos;t analyse this clip yet</h1>
                   <p className="mt-2 text-fg-muted">
                     {/* No person in any frame: "move the camera back" would be the wrong advice. */}
-                    {gate.checks.some((c) => c.id === "chk_body_visible" && c.value.startsWith("0%"))
+                    {noPerson(gate.checks)
                       ? "We couldn't see a batter in any frame. Film the whole batter, head to feet."
                       : (gate.checks.find((c) => c.status === "fail")?.correction ?? "The recording doesn't show enough of the batter.")}{" "}
                     Nothing has been processed or saved.
@@ -1629,9 +1635,9 @@ export function CaptureFlow() {
                 <dl className="grid grid-cols-3 gap-3 text-sm">
                   <div className="card p-3"><dt className="text-fg-subtle">Frame rate</dt><dd className="num text-lg">{realFps ? `${Math.round(realFps)} fps` : "unknown"}</dd></div>
                   <div className="card p-3"><dt className="text-fg-subtle">Resolution</dt><dd className="num text-lg">{meta.width}×{meta.height}</dd></div>
-                  <div className="card p-3"><dt className="text-fg-subtle">Shot</dt><dd className="num text-lg">{fmtTime(win.start)}</dd><dd className="text-xs text-fg-subtle">of {fmtTime(meta.durationSec)}</dd></div>
+                  <div className="card p-3"><dt className="text-fg-subtle">Shot</dt><dd className="num text-lg">{meta.durationSec < 10 ? `${win.start.toFixed(1)} s` : fmtTime(win.start)}</dd><dd className="text-xs text-fg-subtle">of {meta.durationSec < 10 ? `${meta.durationSec.toFixed(1)} s` : fmtTime(meta.durationSec)}</dd></div>
                 </dl>
-                <div className="card px-4"><CaptureChecklist checks={gate.checks} /></div>
+                <div className="card px-4"><CaptureChecklist checks={noPerson(gate.checks) ? unseenChecks(gate.checks) : gate.checks} /></div>
                 <div className="flex flex-wrap gap-3">
                   {scan && scan.windows.length > 1 && <button className="btn btn-primary" onClick={() => openChange("shot")}>Pick the shot myself</button>}
                   {cands.length > 1 && <button className="btn btn-ghost" onClick={() => openChange("batter")}>Pick the batter</button>}

@@ -173,3 +173,16 @@ export function syncWords(c: ClockOffset | null): string {
   if (s <= 0.5) return `In time with each other within about ${s.toFixed(1)} seconds.`;
   return "The connection is slow: the countdowns may differ by more than half a second. Start together by voice if needed.";
 }
+
+/**
+ * The clip a phone offers by default: its newest one checked since this pairing started. An older
+ * clip (another session's ball) is never chosen for the batter: it would be compared with the
+ * other phone's clip and read as "not the same ball". None yet: "" (the batter checks theirs first).
+ */
+export function clipSincePairing(own: ReadonlyArray<{ id: string; createdAt: string }>, startedAt: number): string {
+  const since = own.filter((a) => Date.parse(a.createdAt) >= startedAt).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return since[0]?.id ?? "";
+}
+
+/** The second phone sends its result again while the first hasn't confirmed it, at most this often. */
+export const RESEND_EVERY_MS = 10_000;

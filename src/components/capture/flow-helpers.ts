@@ -4,7 +4,7 @@
 // state; the flow itself is `capture-flow.tsx`.
 
 import { TARGET_NAME } from "@/engine/analyze";
-import { J, type AnalysisPayload, type CaptureObservation, type TargetShot } from "@/engine/types";
+import { J, type AnalysisPayload, type CaptureObservation, type QualityCheck, type TargetShot } from "@/engine/types";
 import type { VideoTrackInfo } from "@/lib/capture/mp4";
 import { batterLikeness, detectStill, loadStillPose, roiAround, seek, type Box, type Roi } from "@/lib/capture/pose";
 import { boxAt, type BatterCandidate, type ScanResult } from "@/lib/capture/scan";
@@ -265,3 +265,12 @@ export async function grabKeyframes(video: HTMLVideoElement, mediaTimes: number[
   }
   return out;
 }
+
+/** No person was found in any frame of the recording check. */
+export const noPerson = (checks: QualityCheck[]) => checks.some((c) => c.id === "chk_body_visible" && c.value.startsWith("0%"));
+
+// With nobody in the picture, the checks that describe the batter (how many people, which way
+// the camera faces them) have nothing to read: shown as not checked, never as a pass.
+const ABOUT_THE_BATTER = new Set(["chk_single_batter", "chk_camera_view"]);
+export const unseenChecks = (checks: QualityCheck[]): QualityCheck[] =>
+  checks.map((c) => (ABOUT_THE_BATTER.has(c.id) ? { ...c, status: "not_applicable", value: "No one seen", correction: undefined } : c));

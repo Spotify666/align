@@ -1416,3 +1416,25 @@ Open:
   above are measured per call), real phones, Safari, a new real clip through the camera (none
   in the session; the three real tracks were used), a coach's and an admin's signed-in pages
   against the live database (this session can't reach it over the web).
+
+## 2026-11-26 · "check the dual angle feature if it's working fine"
+
+- Checked, on the same ball generated from the side and from the bowler's end (no real
+  two-phone clips in the session): the engine's tests (41), the combined report (`/angles`, also
+  with missing, repeated and wrong ids), each report's link to its other angle, two phones paired
+  over the local channel (check number, clock, countdown in step on both, result sent, same-ball
+  decision, combined report), and the two-video picker with wrong files.
+- Fixed (two phones, `pair-session.tsx`):
+  - The first phone compared the incoming result with its newest clip even from an earlier
+    session, could say "not the same ball" against an old clip, and then never changed its
+    answer. Now it offers only a clip checked since the pairing started (`clipSincePairing`,
+    tested), asks for it if there is none, and decides again when the clip or the result changes.
+  - "Check my clip" took the first phone away and it forgot its pairing (the check number had to
+    be confirmed again); a result sent meanwhile was lost while the second phone said "Sent". Now
+    the pairing is kept, and the second phone sends again every 10 s until the first confirms.
+- Fixed (two videos): the same video in both slots was taken as two (now refused, with why); a
+  file that isn't a video was ignored without a word; a refused video didn't say which of the two
+  it was; a video with no one in it still ticked "One person" and "Side-on"; with no shot moment
+  found, it said "not the same ball" instead of that; the screen said live pairing "isn't built
+  yet" beside the link to it.
+- Not verified: two real phones over the live connection, a real same-ball pair of clips.

@@ -31,6 +31,10 @@ const SESSION_STEPS = [
   "Share the other phone's video to this phone, then add both here.",
 ];
 
+const isVideo = (f: File) => f.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(f.name);
+/** The same file chosen twice (a phone gives a new File object each time it is picked). */
+const sameFile = (a: File, b: File) => a === b || (a.name === b.name && a.size === b.size && a.lastModified === b.lastModified);
+
 const seconds = (s: number) => (Number.isFinite(s) && s > 0 ? `${s < 10 ? s.toFixed(1) : Math.round(s)} s` : "");
 
 const thumbs = new WeakMap<File, Promise<{ src: string | null; duration: number }>>();
@@ -203,9 +207,17 @@ export function TwoVideoPicker({
   const [next, setNext] = useState<File | null>(null);
   // Recording one angle with this phone: the line-up screen, opened for that camera position.
   const [recording, setRecording] = useState<Slot | null>(null);
+  // Why the last choice wasn't taken (not a video, or the same video as the other slot).
+  const [note, setNote] = useState<string | null>(null);
   if (done) {
     const other: Slot = done.slot === "side" ? "front" : "side";
-    const pickNext = (files: File[]) => setNext(files.find((f) => f.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(f.name)) ?? null);
+    const pickNext = (files: File[]) => {
+      const video = files.find(isVideo) ?? null;
+      if (!video) return setNote(files.length ? "That file isn't a video. Choose a video." : null);
+      if (done.file && sameFile(done.file, video)) return setNote(`That's the ${done.slot} video again. Choose the video from the other phone.`);
+      setNote(null);
+      setNext(video);
+    };
     const cards = [<DoneCard key="done" slot={done.slot} file={done.file} title={done.title} />, <SlotCard key="next" slot={other} file={next} disabled={disabled} onPick={pickNext} />];
     return (
       <section aria-labelledby="two-h" className="card space-y-4 p-4 sm:p-5">
@@ -220,7 +232,9 @@ export function TwoVideoPicker({
         </div>
         <div className="grid grid-cols-2 gap-3">{done.slot === "side" ? cards : [...cards].reverse()}</div>
         <p className="text-sm" aria-live="polite">
-          {next ? (
+          {note ? (
+            <span className="font-medium text-warn">{note}</span>
+          ) : next ? (
             <span className="font-medium">2 of 2 videos chosen.</span>
           ) : (
             <span className="text-fg-muted">{`${SLOT_NAME[done.slot]} checked. Now choose the ${other} video again.`}</span>
@@ -233,8 +247,12 @@ export function TwoVideoPicker({
     );
   }
   const pick = (slot: Slot) => (files: File[]) => {
-    const video = files.find((f) => f.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|3gp)$/i.test(f.name));
-    if (video) onChange({ ...slots, [slot]: video });
+    const video = files.find(isVideo);
+    if (!video) return setNote(files.length ? "That file isn't a video. Choose a video." : null);
+    const other = slots[slot === "side" ? "front" : "side"];
+    if (other && sameFile(other, video)) return setNote(`That's the same video as the ${slot === "side" ? "front" : "side"} one. Choose the video from the other phone.`);
+    setNote(null);
+    onChange({ ...slots, [slot]: video });
   };
   const both = slots.side && slots.front;
   const missing = !slots.side && !slots.front ? null : !slots.side ? "side" : !slots.front ? "front" : null;
@@ -281,7 +299,9 @@ export function TwoVideoPicker({
         />
       )}
       <p className="text-sm" aria-live="polite">
-        {both ? (
+        {note ? (
+          <span className="font-medium text-warn">{note}</span>
+        ) : both ? (
           <span className="font-medium">2 of 2 videos chosen.</span>
         ) : (
           <span className="text-fg-muted">
@@ -292,7 +312,7 @@ export function TwoVideoPicker({
       <button type="button" className="btn btn-primary w-full" disabled={!both || disabled} onClick={() => both && onStart([slots.side!, slots.front!])}>
         Check both videos
       </button>
-      <p className="text-xs text-fg-subtle">2 videos only. Linking the two phones live, with one countdown for both, isn&apos;t built yet: for now the second video is shared to this phone.</p>
+      <p className="text-xs text-fg-subtle">2 videos only, both of the same ball.</p>
     </section>
   );
 }

@@ -1,7 +1,7 @@
 // Two phones, one ball: the pairing protocol (`src/lib/pair.ts`). Codes, the clock between the
 // phones, long messages in pieces, and that a result carries only what is declared.
 import { describe, expect, it } from "vitest";
-import { CODE_LENGTH, cleanCode, pairCheck, clockOffset, fromBase64, newCode, readResult, Reassembler, RESULT_KEYS, resultMessage, toBase64, toPieces } from "@/lib/pair";
+import { CODE_LENGTH, cleanCode, pairCheck, clockOffset, fromBase64, newCode, readResult, Reassembler, RESULT_KEYS, resultMessage, toBase64, toPieces, clipSincePairing } from "@/lib/pair";
 
 describe("pairing two phones", () => {
   it("makes codes that can't be misheard and reads them back however they're typed", () => {
@@ -90,5 +90,21 @@ describe("the first phone's decision", () => {
   it("never silently pairs two different balls", () => {
     const r = pairOutcome(shot("valid_ffd", "side_on"), shot("drive", "front_on"));
     expect(r.together).toBe(false);
+  });
+});
+
+describe("the clip a phone offers by default", () => {
+  const started = Date.parse("2026-11-26T09:00:00Z");
+  it("is the newest one checked since the pairing started", () => {
+    const own = [
+      { id: "old", createdAt: "2026-11-25T18:00:00Z" },
+      { id: "first", createdAt: "2026-11-26T09:03:00Z" },
+      { id: "latest", createdAt: "2026-11-26T09:07:00Z" },
+    ];
+    expect(clipSincePairing(own, started)).toBe("latest");
+  });
+  it("is none when every clip is from before the pairing (an old ball is never compared)", () => {
+    expect(clipSincePairing([{ id: "old", createdAt: "2026-11-25T18:00:00Z" }], started)).toBe("");
+    expect(clipSincePairing([], started)).toBe("");
   });
 });
