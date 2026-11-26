@@ -113,7 +113,11 @@ export async function saveToCloud(id: string, keyframeBlobs: Record<number, Blob
 }
 
 /** Load a saved analysis from the account (owner or a linked coach), for any device. */
+/** Every saved analysis id is a UUID: anything else is a mistyped link, never a database query. */
+export const ANALYSIS_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function loadCloudAnalysis(id: string) {
+  if (!ANALYSIS_ID.test(id)) return null;
   const sb = supabase();
   const [{ data: row }, { data: payloadRow }, { data: obsRow }] = await Promise.all([
     sb.from("analyses").select("id, title, recorded_at, owner_id").eq("id", id).maybeSingle(),
@@ -126,11 +130,18 @@ export async function loadCloudAnalysis(id: string) {
   const obs = await decodeTracks(new Uint8Array(await file.data.arrayBuffer()));
   const { data: media } = await sb.from("media_objects").select("path").eq("analysis_id", id).eq("bucket", "evidence");
   const keyframes: Record<number, string> = {};
-  for (const m of media ?? []) {
+  // One request for every picture, not one each.
+  const frames = (media ?? []).flatMap((m) => {
     const f = /frame_(\d+)\.webp$/.exec(m.path)?.[1];
-    if (!f) continue;
-    const signed = await sb.storage.from("evidence").createSignedUrl(m.path, 3600);
-    if (signed.data) keyframes[Number(f)] = signed.data.signedUrl;
+    return f ? [{ path: m.path as string, frame: Number(f) }] : [];
+  });
+  if (frames.length) {
+    const signed = await sb.storage.from("evidence").createSignedUrls(frames.map((f) => f.path), 3600);
+    const frameOf = new Map(frames.map((f) => [f.path, f.frame]));
+    for (const s of signed.data ?? []) {
+      const frame = s.path ? frameOf.get(s.path) : undefined;
+      if (frame !== undefined && s.signedUrl) keyframes[frame] = s.signedUrl;
+    }
   }
   return { title: row.title ?? "Saved shot", recordedAt: row.recorded_at as string, ownerId: row.owner_id as string, payload: payloadRow.payload as import("@/engine/types").AnalysisPayload, obs, keyframes };
 }

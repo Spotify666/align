@@ -30,6 +30,9 @@ export function ShotProbabilityPanel({ probs, coverage }: { probs: Record<ShotCl
   );
 }
 
+// What a screen reader hears for each check (the stored status is an internal word).
+const CHECK_SPOKEN: Record<QualityCheck["status"], string> = { pass: "passed", warn: "a note", fail: "failed", not_applicable: "not checked" };
+
 export function CaptureChecklist({ checks, compact = false }: { checks: QualityCheck[]; compact?: boolean }) {
   return (
     <ul className="divide-y divide-line" aria-label="Capture checks">
@@ -44,7 +47,7 @@ export function CaptureChecklist({ checks, compact = false }: { checks: QualityC
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="text-sm font-medium">
-                  {c.label} <span className="sr-only">{c.status}</span>
+                  {c.label} <span className="sr-only">: {CHECK_SPOKEN[c.status]}</span>
                 </span>
                 <span className="num text-xs text-fg-muted">{c.value}</span>
               </div>

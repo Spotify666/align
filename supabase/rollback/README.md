@@ -5,6 +5,7 @@ Not migrations: nothing here runs on its own. Each file undoes one migration of
 
 | File | Undoes | What is lost |
 |---|---|---|
+| `20261126000100_visits_overview_cached.down.sql` | The Visitors page's totals kept for a minute (and the job that refreshes them) | Only the kept copy: totals are worked out on every view again |
 | `20261114000300_guardian_consent.down.sql` | The guardian rule for players under 18 | Nothing stored. **Coaches linked to a player under 18 see that player's shots again without a parent's agreement**: roll back only with the owner's decision |
 | `20261114000200_coach_workspace.down.sql` | Squads, assessments, assignments | Every squad, coach assessment and assignment (export them from `/coach` first). The audit rows they wrote stay |
 | `20261114000100_reference_library.down.sql` | The reference library tables (after the coach workspace: an assignment may point to a reference) | Every recorded reference and its permission record |
