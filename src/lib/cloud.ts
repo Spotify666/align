@@ -137,7 +137,11 @@ export async function loadCloudAnalysis(id: string) {
   });
   if (frames.length) {
     const signed = await sb.storage.from("evidence").createSignedUrls(frames.map((f) => f.path), 3600);
-    for (const [i, s] of (signed.data ?? []).entries()) if (s.signedUrl) keyframes[frames[i].frame] = s.signedUrl;
+    const frameOf = new Map(frames.map((f) => [f.path, f.frame]));
+    for (const s of signed.data ?? []) {
+      const frame = s.path ? frameOf.get(s.path) : undefined;
+      if (frame !== undefined && s.signedUrl) keyframes[frame] = s.signedUrl;
+    }
   }
   return { title: row.title ?? "Saved shot", recordedAt: row.recorded_at as string, ownerId: row.owner_id as string, payload: payloadRow.payload as import("@/engine/types").AnalysisPayload, obs, keyframes };
 }
