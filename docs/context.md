@@ -1438,3 +1438,15 @@ Open:
   found, it said "not the same ball" instead of that; the screen said live pairing "isn't built
   yet" beside the link to it.
 - Not verified: two real phones over the live connection, a real same-ball pair of clips.
+
+## 2026-11-28 · "the illustrations videos still don't have real human reactions… nth time I am asking"
+
+- Said plainly: every moving figure is joints moved along a recorded path (the home batter and
+  the landing tracing come from the owner's own clip, the report's playback from generated
+  movement). None carries what a person does that joints don't: eyes on the ball, balance,
+  soft hands, muscle. Only a real video carries those; the planned better hero (docs/13) is the
+  owner's clip itself with Aline's line over it, and it needs that clip file (only its tracing
+  is in the repo).
+- Fixed: the home figure drew the body from the animation loop and the line on the next React
+  paint, so the line ran a frame behind and, on each restart, hung beside the batter. Both are
+  now drawn from one time in one paint (checked over 24 frames through a restart).
