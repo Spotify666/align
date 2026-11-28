@@ -68,6 +68,23 @@ describe("the mannequin", () => {
         expect(bottom.d).toBeLessThan(0.01);
         expect(top.t).toBeLessThan(bottom.t);
         expect(bottom.t - top.t).toBeLessThan(0.08);
+        // Fingers closed round the handle (the owner, 2026-11-28): every finger joint sits just off
+        // the handle's surface, within the hand's width of its grip, and each finger wraps more than
+        // half way round.
+        for (const side of ["front", "back"] as const) {
+          const grip = offAxis(mid(`${side}-fist`));
+          const joints = parts.filter((x) => x.key.startsWith(`${side}-finger-`) && x.kind === "ball");
+          expect(joints.length).toBe(16);
+          for (const j of joints) {
+            const q = offAxis(j.a);
+            expect(q.d).toBeGreaterThan(0.0135);
+            expect(q.d).toBeLessThan(0.03);
+            expect(Math.abs(q.t - grip.t)).toBeLessThan(0.035);
+          }
+          const first = offAxis(parts.find((x) => x.key === `${side}-finger-1-0`)!.a);
+          const last = offAxis(parts.find((x) => x.key === `${side}-finger-1-3`)!.a);
+          expect(Math.abs(first.t - last.t)).toBeLessThan(1e-9);
+        }
         // No open hands when holding a bat.
         expect(parts.some((x) => x.key.endsWith("-hand"))).toBe(false);
         // In kit: a helmet with its grille, pads on both shins, gloves, shoes with soles.

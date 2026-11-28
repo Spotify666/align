@@ -93,3 +93,21 @@ here: changing the benchmark or a detector needs labelled real clips (CLAUDE.md,
 - Other shots' scripts (drive, pull, cut) put the hands up to 69 cm beyond a rigid arm's reach;
   they were not rewritten.
 - The bat's face (roll) is still never shown as measured. A real phone's touch drag, Safari.
+
+## Fingers round the handle (2026-11-28)
+
+The owner: "See fingers on wrist give a different feel of the hold. I guess that's what you are
+missing, focus on that." Each gloved hand was a cuff, a palm and one round fist on the handle:
+nothing showed it holding. Now (`fingersRound` in `src/lib/mannequin.ts`) four fingers lie side by
+side along the handle, little finger toward the top for both hands, each in three segments curling
+from the knuckles behind the handle round its far side (250 to 285 degrees); the thumb comes round
+the other way onto them. The two hands are mirror images, so both wrap the same way round the
+handle. They are drawn on the grip anchor the arm reaches, so they turn with the bat.
+`tests/mannequin.test.ts` holds every finger joint just off the handle's surface, within the hand's
+width of its grip. Drawing only: no measure, fit or analysis reads it.
+
+Tried the same day and not kept: holding the hand's line at a set angle to the handle in the
+motion fit. With the owner's clip it bent the wrists up to 166 degrees and flipped palms in the
+held-out shots (drive 1 to 12), so the tracked forearms and the bat's direction can't both hold with
+it. The clip has no hand points (the pose model gives a wrist only); a hand tracker on the clip would
+give how the hands really turned. Needs the clip file.

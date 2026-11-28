@@ -149,7 +149,7 @@ export function mannequinParts(p: Pose): Part[] {
     const batFace = square([1, 0, 0], dir, [0, 0, 1]);
     const width = unit(cross(dir, batFace), [0, 0, 1]);
     parts.push(
-      { key: "bat-handle", kind: "limb", tone: "grip", a: top, b: blade, r: 0.0135, r2: 0.0135, moves: ["bat_toe"] },
+      { key: "bat-handle", kind: "limb", tone: "grip", a: top, b: blade, r: HANDLE_R, r2: HANDLE_R, moves: ["bat_toe"] },
       { key: "bat-blade", kind: "box", tone: "willow", a: blade, b: p.bat_toe!, r: 0.031, r2: 0.031, depth: 0.017, across: width, moves: ["bat_toe"] },
     );
     // Both gloved hands close round the handle, touching: the top hand (the front wrist's) just
@@ -158,14 +158,56 @@ export function mannequinParts(p: Pose): Part[] {
     for (const s of ["front", "back"] as const) {
       const wrist = p[`${s}_wrist`];
       const grip = gripPoint(hands, dir, s);
+      const moves = [`${s}_wrist` as Handle];
       // The back of the hand faces the wrist it comes from.
       const out = square(sub(grip, wrist), dir, [0, 0, 1]);
       parts.push(
-        { key: `${s}-palm`, kind: "limb", tone: "glove", a: wrist, b: sub(grip, mul(out, 0.012)), r: SIZE.wrist * 1.15, r2: SIZE.hand * 0.95, moves: [`${s}_wrist` as Handle] },
-        { key: `${s}-fist`, kind: "ellipsoid", tone: "glove", a: sub(add(grip, mul(dir, -0.028)), mul(out, 0.006)), b: sub(add(grip, mul(dir, 0.028)), mul(out, 0.006)), r: SIZE.hand * 1.2, r2: SIZE.hand * 1.2, depth: SIZE.hand * 1.15, across: out, moves: [`${s}_wrist` as Handle] },
+        { key: `${s}-palm`, kind: "limb", tone: "glove", a: wrist, b: sub(grip, mul(out, HANDLE_R + FINGER.r)), r: SIZE.wrist * 1.15, r2: SIZE.hand * 0.95, moves },
+        // The closed hand round the handle, under the fingers.
+        { key: `${s}-fist`, kind: "ellipsoid", tone: "glove", a: add(grip, mul(dir, -FINGER.span / 2)), b: add(grip, mul(dir, FINGER.span / 2)), r: HANDLE_R + 0.004, r2: HANDLE_R + 0.004, depth: HANDLE_R + 0.004, across: out, moves },
       );
+      parts.push(...fingersRound(s, grip, dir, out, moves));
     }
   }
+  return parts;
+}
+
+/** The handle's half-width, body heights. */
+const HANDLE_R = 0.0135;
+
+/**
+ * A gloved hand's fingers and thumb, closed round the handle (the owner, 2026-11-28: "fingers on
+ * wrist give a different feel of the hold"). Four fingers side by side along the handle, the little
+ * finger toward the top for both hands, each in three segments curling from the knuckles behind the
+ * handle round its far side; the thumb comes round the other way and rests on them. The top and
+ * bottom hands are mirror images, so both wrap the same way round the handle, as a batter's do.
+ * Drawn on the grip anchor the arm reaches, so they move with the bat. Body heights.
+ */
+const FINGER = { r: 0.0072, span: 0.052, arcs: [270, 285, 280, 250] } as const;
+function fingersRound(side: "front" | "back", grip: V3, dir: V3, out: V3, moves: Handle[]): Part[] {
+  // Round the handle: `back` toward the wrist (where the knuckles are), `wrap` the way the fingers go.
+  const back = mul(out, -1);
+  const wrap = mul(unit(cross(dir, out), [0, 0, 1]), side === "front" ? 1 : -1);
+  const R = HANDLE_R + FINGER.r;
+  const at = (c: V3, deg: number, r = R): V3 => {
+    const a = (deg * Math.PI) / 180;
+    return add(c, add(mul(back, r * Math.cos(a)), mul(wrap, r * Math.sin(a))));
+  };
+  const parts: Part[] = [];
+  FINGER.arcs.forEach((arc, i) => {
+    // Little finger (i = 0) toward the top of the handle, the forefinger toward the blade.
+    const c = add(grip, mul(dir, -FINGER.span / 2 + (FINGER.span * (i + 0.5)) / FINGER.arcs.length));
+    const r = FINGER.r * (i === 0 ? 0.85 : 1);
+    const joints = [-25, -25 + arc / 3, -25 + (2 * arc) / 3, -25 + arc].map((d) => at(c, d));
+    joints.forEach((q, k) => parts.push({ key: `${side}-finger-${i}-${k}`, kind: "ball", tone: "glove", a: q, b: q, r, r2: r, moves }));
+    for (let k = 0; k < 3; k++) parts.push({ key: `${side}-finger-${i}-seg-${k}`, kind: "limb", tone: "glove", a: joints[k]!, b: joints[k + 1]!, r, r2: r * 0.92, moves });
+  });
+  // The thumb: from the heel of the hand, round the other way, its tip on the middle fingers.
+  const base = add(grip, mul(dir, -FINGER.span * 0.15));
+  const tip = add(grip, mul(dir, FINGER.span * 0.12));
+  const thumb = [at(base, -40, R + 0.004), at(lerp(base, tip, 0.5), -95, R + 0.002), at(tip, -150, R)];
+  thumb.forEach((q, k) => parts.push({ key: `${side}-thumb-${k}`, kind: "ball", tone: "glove", a: q, b: q, r: FINGER.r * 1.1, r2: FINGER.r * 1.1, moves }));
+  for (let k = 0; k < 2; k++) parts.push({ key: `${side}-thumb-seg-${k}`, kind: "limb", tone: "glove", a: thumb[k]!, b: thumb[k + 1]!, r: FINGER.r * 1.1, r2: FINGER.r, moves });
   return parts;
 }
 

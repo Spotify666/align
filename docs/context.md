@@ -1459,3 +1459,12 @@ Open:
 - Fixed: from one camera, each pair of limbs is one length (docs/15). Contact now 132° and 118°,
   closer to the clip; the generated two-camera takes are unchanged. Not changed: the stance's
   flared elbows, which are what the clip shows.
+
+## 2026-11-28 · "Wrist of left arm still doesn't match… Right arm wrist as well… fingers on wrist give a different feel of the hold"
+
+- The wrists: the clip has no hand points (the pose model gives one wrist point), so how the hands
+  turned isn't in the data. Two rule changes measured worse and were not kept (docs/16). A hand
+  tracker on the clip would give it; asked for the clip file.
+- Done: fingers. Each glove now closes round the handle with four fingers and a thumb, both hands
+  wrapping the same way, on the grip the arm reaches, so they turn with the bat (docs/16).
+- Not refreshed: the screen map's pictures (`scripts/design/capture.mjs`).
