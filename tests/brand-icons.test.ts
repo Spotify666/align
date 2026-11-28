@@ -57,6 +57,10 @@ describe("the app's icons", () => {
     expect(pixel("public/icon-maskable-512.png", 4, 4)).toBe(FIELD.toUpperCase());
     expect(pixel("public/icon-512.png", 256, 30)).toBe(FIELD.toUpperCase());
   });
+  it("every icon address carries the drawing's version, so phones fetch a redrawn icon", () => {
+    for (const icon of manifest().icons ?? []) expect(icon.src).toMatch(/\?v=\w+$/);
+    expect(readFileSync("src/app/layout.tsx", "utf8")).toContain('iconUrl("/apple-touch-icon.png")');
+  });
   it("the installed app opens on the same black", () => {
     expect(manifest().background_color).toBe(FIELD);
     expect(manifest().theme_color).toBe(FIELD);

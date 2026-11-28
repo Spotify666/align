@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { iconUrl } from "@/lib/icon-version";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -13,10 +14,10 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#050505",
     categories: ["sports", "health", "education"],
     icons: [
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
-      { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-      { src: "/icon.svg", sizes: "any", type: "image/svg+xml" },
+      { src: iconUrl("/icon-192.png"), sizes: "192x192", type: "image/png" },
+      { src: iconUrl("/icon-512.png"), sizes: "512x512", type: "image/png" },
+      { src: iconUrl("/icon-maskable-512.png"), sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: iconUrl("/icon.svg"), sizes: "any", type: "image/svg+xml" },
     ],
   };
 }
