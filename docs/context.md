@@ -1478,3 +1478,11 @@ Open:
   twists." Read back and approved. Built: each glove faces by its role, a guard on the top forearm,
   the straight top wrist in the editor too (docs/16). Not possible from the one clip: turning the
   hands round the handle in the motion itself (wrists up to 177 degrees: its depth is an estimate).
+
+## 2026-11-28 · "Why is there still old logo in favicon"
+
+- Cause: the icons (favicon, the phone's home-screen and install icons) were drawn by
+  `scripts/brand-icons.mjs` in the first design's sage and black and never redrawn after the
+  redesign; the install colours in `manifest.ts` were the sage too. Now the warm-white mark on the
+  black field, as in the header; `tests/brand-icons.test.ts` reads the files and fails on the old colours.
+- A phone may keep showing the old icon until its browser cache expires or the site's data is cleared.
