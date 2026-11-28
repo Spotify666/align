@@ -12,8 +12,10 @@ const src = readFileSync(new URL("../src/components/brand/logo-geometry.ts", imp
   .replace(/: P\[\]\[\]/g, "")
   .replace(/export /g, "");
 const { MARK, LETTERS, LETTER_STROKE, VIEW } = new Function(`${src}; return { MARK, LETTERS, LETTER_STROKE, VIEW };`)();
-const BG = "#e3eadf"; // two tones: black mark on sage-cream
-const FG = "#000000";
+// Today's design (docs/13, 2026-11-11): the warm-white mark on the black field, as in the header.
+// Held to the design's tokens by tests/brand-icons.test.ts.
+const BG = "#050505";
+const FG = "#F4F1E8";
 const pts = (ps) => ps.map(([x, y]) => `${x},${y}`).join(" ");
 
 /** A square icon: the mark centred at `scale` of the side, with or without the name. */
