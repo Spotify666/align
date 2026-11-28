@@ -156,6 +156,17 @@ bowler's end: 5.5–12.3 / 30–185 and 10.0–19.2 / 57–247. Fit time 4–70 
 - **Front-foot starters** (`pose-starters.ts`): across positions from the front-foot clip itself,
   labelled an estimate in the editor, no longer the back-foot clip's.
 
+## One length for each pair of limbs, from one camera (2026-11-28)
+
+The owner: "Left arm right arm motion don't work like that in real world when in sync." From one
+camera with estimated depth, the far (back) arm of the side-on clip measured 6% shorter than the
+near one (upper 0.159 against 0.171, forearm 0.152 against 0.160, body heights). Held to that, the
+back arm had to go straight to reach the bat at contact (148°) while the front stayed bent (118°);
+the clip itself shows 123° and 130°. Now, when depth is only estimated, each pair of limbs takes the
+longer of its two measures (foreshortening only shortens). Contact: 132° and 118°; the fit's gap to
+the clip 3.8/12.3 → 3.7/11.4 cm (mean/max). Two-camera takes keep each side as measured: every one
+of them is unchanged (`node scripts/motion/report.mjs`, before and after). Test: `tests/motion-fit.test.ts`.
+
 ## Not done, not verified, and why
 
 - **MyoSuite and Brave**: the MyoSuite demo, its model pages and the paper could not be opened

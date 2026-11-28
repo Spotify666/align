@@ -140,6 +140,24 @@ describe("what a shot file decides, with nothing in the solver changed", () => {
     expect(a.lengths.upper.front).toBeGreaterThan(0.1);
   });
 
+  it("from one camera, left and right limbs are one length, so both arms can bend together on the bat", () => {
+    // The owner's side-on clip read the far (back) arm 6% short; with it, the back arm had to go
+    // straight at contact (148°) while the front stayed bent (118°). The clip shows 123° and 130°.
+    const real = fitTake(load("real-ffd-side").take, load("real-ffd-side").shot);
+    for (const bone of ["upper", "fore", "thigh", "shin"] as const) expect(real.lengths[bone].front).toBe(real.lengths[bone].back);
+    const at = poseAt(real, real.take.events.contact!).pose;
+    const bend = (s: "front" | "back") => {
+      const u = unit(sub(at[`${s}_shoulder`], at[`${s}_elbow`]))!;
+      const v = unit(sub(at[`${s}_wrist`], at[`${s}_elbow`]))!;
+      return (Math.acos(u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) * 180) / Math.PI;
+    };
+    expect(bend("back")).toBeLessThan(140);
+    expect(Math.abs(bend("front") - bend("back"))).toBeLessThan(20);
+    // Seen by two cameras, each side is measured as it is (the generator's forearms differ by grip).
+    const two = fitTake(load("gen-ffd").take, load("gen-ffd").shot);
+    expect(two.lengths.fore.front).not.toBe(two.lengths.fore.back);
+  });
+
   it("a one-camera take is never turned round; a two-camera take may be", () => {
     expect(canOrbit(fitTake(load("real-ffd-side").take, load("real-ffd-side").shot))).toBe(false);
     expect(canOrbit(fitTake(load("gen-ffd").take, load("gen-ffd").shot))).toBe(true);

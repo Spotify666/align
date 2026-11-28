@@ -191,8 +191,20 @@ function boneLength(raw: Targets[], f: (t: Targets) => [Target, Target] | null):
 }
 const midT = (a: Target, b: Target): Target => (a && b ? { p: mid(a.p, b.p), c: Math.min(a.c, b.c) } : null);
 
-export function fitLengths(raw: Targets[]): Lengths {
-  const per = (a: string, b: string) => Object.fromEntries(SIDES.map((s) => [s, boneLength(raw, (t) => [t[J(s, a)], t[J(s, b)]])])) as Record<Side, number>;
+export function fitLengths(raw: Targets[], depth: Fitted["depth"] = "estimated"): Lengths {
+  // From one camera whose depth is only estimated, the limb turned more along the camera's line
+  // reads short: in the owner's side-on clip the far (back) arm read 6% shorter than the near one.
+  // A short arm has to straighten to reach the bat while the other stays bent, so the arms couldn't
+  // bend together as a batter's do (at contact 148° against 118°; the clip itself shows 123° and
+  // 130°). A person's left and right limbs are one length, so there each pair takes the longer of
+  // its two measures (foreshortening only ever shortens). Seen by two cameras, each side is
+  // measured as it is and kept.
+  const per = (a: string, b: string) => {
+    const m = Object.fromEntries(SIDES.map((s) => [s, boneLength(raw, (t) => [t[J(s, a)], t[J(s, b)]])])) as Record<Side, number>;
+    if (depth !== "estimated") return m;
+    const v = Math.max(m.front, m.back);
+    return { front: v, back: v };
+  };
   return {
     hipWidth: boneLength(raw, (t) => [t.front_hip, t.back_hip]),
     trunk: boneLength(raw, (t) => [midT(t.front_hip, t.back_hip), midT(t.front_shoulder, t.back_shoulder)]),
@@ -504,7 +516,7 @@ export function fitTake(take: Take, shot: Shot): Fitted {
   const { raw, bat, depth, batDepth } = evidence(take);
   const times = take.times;
   const stretch = stretches(times, shot.impacts.map((id) => eventTime(take, id)!).filter((x) => x !== undefined));
-  const L = fitLengths(raw);
+  const L = fitLengths(raw, depth);
   const targets = smoothTargets(times, stretch, raw);
   const handles = smoothSeries(times, stretch, bat.map((b) => (b.handle ? { v: [...b.handle], c: 1 } : null)), FIT.smoothS);
   const dirs = smoothSeries(times, stretch, bat.map((b) => (b.dir ? { v: [...b.dir], c: 1 } : null)), FIT.smoothS);

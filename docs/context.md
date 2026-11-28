@@ -1450,3 +1450,12 @@ Open:
 - Fixed: the home figure drew the body from the animation loop and the line on the next React
   paint, so the line ran a frame behind and, on each restart, hung beside the batter. Both are
   now drawn from one time in one paint (checked over 24 frames through a restart).
+
+## 2026-11-28 · "Left arm right arm motion don't work like that in real world when in sync"
+
+- Found: on the home batter the back arm was fitted 6% shorter than the front one (the far arm in
+  a side-on clip looks short), so at contact it went nearly straight (148°) while the front arm
+  stayed bent (118°). The owner's clip shows both bent together (123°, 130°).
+- Fixed: from one camera, each pair of limbs is one length (docs/15). Contact now 132° and 118°,
+  closer to the clip; the generated two-camera takes are unchanged. Not changed: the stance's
+  flared elbows, which are what the clip shows.
