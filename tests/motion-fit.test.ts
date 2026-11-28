@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MODEL_JOINTS, dragHandle, placeBat, type Pose } from "@/engine/pose-model";
-import { BAT, GRIP, distance, gripPoint, sub, unit } from "@/engine/rig";
+import { BAT, GRIP, HOLD, distance, gripPoint, sub, unit } from "@/engine/rig";
 import { playedBefore, playedTruth } from "@/lib/motion/baseline";
 import { FIT, fitTake, frameAt, gripAt, phaseAt, poseAt } from "@/lib/motion/fit";
 import { measure, playedFit } from "@/lib/motion/quality";
@@ -151,11 +151,35 @@ describe("what a shot file decides, with nothing in the solver changed", () => {
       const v = unit(sub(at[`${s}_wrist`], at[`${s}_elbow`]))!;
       return (Math.acos(u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) * 180) / Math.PI;
     };
+    // Neither arm goes straight to reach the bat. (Within 20 degrees of each other until the top
+    // wrist was held straight, as the owner's reference shows, 2026-11-28: that folds the front
+    // elbow to about 107 degrees whatever the bottom hand does; the back arm stays at about 132.)
     expect(bend("back")).toBeLessThan(140);
-    expect(Math.abs(bend("front") - bend("back"))).toBeLessThan(20);
+    expect(bend("front")).toBeLessThan(140);
     // Seen by two cameras, each side is measured as it is (the generator's forearms differ by grip).
     const two = fitTake(load("gen-ffd").take, load("gen-ffd").shot);
     expect(two.lengths.fore.front).not.toBe(two.lengths.fore.back);
+  });
+
+  it("holds the bat as a batter does: the top hand firm with a straight wrist, the bottom hand loose", () => {
+    // The owner's reference photo (approved 2026-11-28): the top glove carries on the forearm's
+    // line with the handle across its fingers; the bottom hand gives at the wrist behind the handle.
+    expect(HOLD.top).toBeLessThanOrEqual(10);
+    for (const id of ["real-ffd-side", "gen-ffd", "gen-bfd"]) {
+      const fit = fitTake(load(id).take, load(id).shot);
+      for (const t of fit.times) {
+        const p = poseAt(fit, t).pose;
+        if (!p.bat_handle || !p.bat_toe || fit.grip[frameAt(fit.times, t).i] !== "both") continue;
+        const dir = unit(sub(p.bat_toe, p.bat_handle))!;
+        const bend = (s: "front" | "back") => {
+          const a = unit(sub(p[`${s}_wrist`], p[`${s}_elbow`]))!;
+          const b = unit(sub(gripPoint(p.bat_handle!, dir, s), p[`${s}_wrist`]))!;
+          return (Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * 180) / Math.PI;
+        };
+        expect(bend("front"), `${id} ${t}`).toBeLessThanOrEqual(HOLD.top + 0.5);
+        expect(bend("back"), `${id} ${t}`).toBeLessThanOrEqual(HOLD.bottom + 0.5);
+      }
+    }
   });
 
   it("a one-camera take is never turned round; a two-camera take may be", () => {

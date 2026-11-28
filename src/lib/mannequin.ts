@@ -181,14 +181,15 @@ const HANDLE_R = 0.0135;
  * A gloved hand's fingers and thumb, closed round the handle (the owner, 2026-11-28: "fingers on
  * wrist give a different feel of the hold"). Four fingers side by side along the handle, the little
  * finger toward the top for both hands, each in three segments curling from the knuckles behind the
- * handle round its far side; the thumb comes round the other way and rests on them. The top and
+ * handle round its far side (the bottom hand's only part way: it holds loosely, in its fingers);
+ * the thumb comes round the other way and rests on them. The top and
  * bottom hands are mirror images, so both wrap the same way round the handle, as a batter's do.
  * Drawn on the grip anchor the arm reaches, so they move with the bat. Body heights.
  */
 // Batting gloves are padded: each finger a roll about 3 cm across, the four side by side filling the
 // hand's grip on the handle so the two gloves touch (GRIP.top + GRIP.bottom apart), as in a batter's
 // hold (the owner's reference, 2026-11-28: big gloves together on the handle, wrists straight).
-const FINGER = { r: 0.0092, span: GRIP.top + GRIP.bottom, arcs: [235, 255, 250, 225] } as const;
+const FINGER = { r: 0.0092, span: GRIP.top + GRIP.bottom, arcs: [235, 255, 250, 225], looseArcs: [150, 175, 185, 170] } as const;
 function fingersRound(side: "front" | "back", grip: V3, dir: V3, out: V3, moves: Handle[]): Part[] {
   // Round the handle: `back` toward the wrist (where the knuckles are), `wrap` the way the fingers go.
   const back = mul(out, -1);
@@ -199,7 +200,8 @@ function fingersRound(side: "front" | "back", grip: V3, dir: V3, out: V3, moves:
     return add(c, add(mul(back, r * Math.cos(a)), mul(wrap, r * Math.sin(a))));
   };
   const parts: Part[] = [];
-  FINGER.arcs.forEach((arc, i) => {
+  // The top hand closes round the handle; the bottom hand holds it loosely in its fingers.
+  (side === "front" ? FINGER.arcs : FINGER.looseArcs).forEach((arc, i) => {
     // Little finger (i = 0) toward the top of the handle, the forefinger toward the blade.
     const c = add(grip, mul(dir, -FINGER.span / 2 + (FINGER.span * (i + 0.5)) / FINGER.arcs.length));
     const r = FINGER.r * (i === 0 ? 0.85 : 1);

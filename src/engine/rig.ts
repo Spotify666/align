@@ -85,6 +85,15 @@ export const GRIP = { top: 0.03, bottom: 0.035, hand: 0.05 } as const;
  */
 export const WRIST = { maxBendDeg: 25 } as const;
 
+/**
+ * How far each wrist may bend in the motion fit, degrees (the owner's reference photo, approved
+ * 2026-11-28): the top hand firm, its wrist straight, the glove carrying on the forearm's line with
+ * the handle across its fingers; the bottom hand keeps the usual range (`WRIST.maxBendDeg`). Its
+ * looseness is in the fingers, not the wrist (`mannequin.ts`): letting that wrist give more only
+ * straightened the bottom arm (contact 132 to 146 degrees). The generator and the editor keep `WRIST`.
+ */
+export const HOLD = { top: 6, bottom: WRIST.maxBendDeg } as const;
+
 export type GripSide = "front" | "back";
 /** Which hands hold the bat: both, one, or none (released). Annotated per shot, never guessed. */
 export type GripState = "both" | "top" | "bottom" | "none";
@@ -179,6 +188,8 @@ export function armToGrip(o: {
   hintWeight: number;
   preferred: V3;
   prevNormal?: V3 | null;
+  /** The wrist's largest bend here, degrees (default `WRIST.maxBendDeg`). */
+  maxBendDeg?: number;
 }): ArmToGrip {
   const { shoulder, upper, fore, grip } = o;
   const H = GRIP.hand;
@@ -188,7 +199,7 @@ export function armToGrip(o: {
   const elbowPole = add(mul(hint ?? pref, w), mul(pref, 1 - w));
   // The wrist's bend, from the hint, within the wrist's range.
   const seen = o.wristHint && o.elbowHint ? angleDeg(sub(o.wristHint, o.elbowHint), sub(grip, o.wristHint)) : 0;
-  const beta = (Math.min(seen, WRIST.maxBendDeg - 0.01) * Math.PI) / 180;
+  const beta = (Math.min(seen, (o.maxBendDeg ?? WRIST.maxBendDeg) - 0.01) * Math.PI) / 180;
   const span = Math.sqrt(fore * fore + H * H + 2 * fore * H * Math.cos(beta));
   const r = twoBone(shoulder, upper, span, grip, elbowPole, o.prevNormal ?? null);
   // The wrist on the elbow-to-grip line's bend, toward the hinted wrist (else toward the elbow's pole).

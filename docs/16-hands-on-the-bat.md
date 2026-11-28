@@ -121,3 +121,21 @@ along the handle. The mannequin had thin rings on a narrow palm and a gap betwee
 the back of each glove is a padded mitt from the wrist to the knuckles, as broad along the handle
 as its fingers; the fingers are rolls about 3 cm across that fill the hand's grip, so the two gloves
 touch (`GRIP.top + GRIP.bottom` apart); the thumb is thicker. Drawing only.
+
+## The hold, as approved (2026-11-28)
+
+Read back to the owner and approved ("Yeah") before any change: the top hand firm with its wrist
+straight, the glove carrying on the forearm's line and the handle across its fingers; the bottom
+hand loose behind the handle, held in the fingers; the hands together at the top of the handle; the
+bat hanging from the hands, forearms, gloves and bat moving as one.
+
+- Motion fit (`HOLD` in `src/engine/rig.ts`, `armToGrip`'s `maxBendDeg`): the top wrist bends at
+  most 6 degrees (was 25). The bottom wrist keeps 25: letting it give 40 only straightened the
+  bottom arm (contact 132 to 136 degrees, 146 at 60), the fault the owner raised earlier.
+- Gloves (`src/lib/mannequin.ts`): the bottom hand's fingers close only part way round the handle
+  (150 to 185 degrees against the top hand's 225 to 255).
+- Measured (`node scripts/motion/report.mjs`): generated takes within 0.1 cm of before against
+  their truth; the real take's elbows at contact front 107, back 132 degrees (the straight top
+  wrist folds the front elbow; it was 118), so the earlier "within 20 degrees of each other" test
+  now asks that neither arm goes straight (both under 140). `tests/motion-fit.test.ts` holds the
+  top wrist within `HOLD.top` on the real take and two generated ones.

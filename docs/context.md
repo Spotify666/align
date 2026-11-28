@@ -1471,3 +1471,6 @@ Open:
 - Later: a photo of a batter's hands on the handle, "See the difference is a lot here". The gloves
   are now padded mitts, touching on the handle, each carrying on from its forearm, the fingers thick
   rolls (docs/16). The photo is not kept in the repo.
+- Then the owner asked for the reading first, approval after: read back as "top hand firm, wrist
+  straight; bottom hand loose behind the handle; hands together at the top; the bat hanging from
+  the hands, all one unit"; approved ("Yeah"). Done that way (docs/16, "The hold, as approved").
