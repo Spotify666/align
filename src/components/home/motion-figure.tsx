@@ -12,7 +12,7 @@
 // Like the landing's batter: a still first (contact), and the movement only while on screen, in a
 // visible tab and with motion allowed; it stops on contact after three plays and plays again on a tap.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createMannequinScene, type MannequinScene } from "@/components/model/mannequin-view";
 import { fitTake, phaseAt, poseAt, type Fitted } from "@/lib/motion/fit";
 import { cameraFor, loadTake, toScreen, VIEW_YAW } from "@/lib/motion/view";
@@ -67,10 +67,9 @@ export function MotionFigure() {
       return;
     }
     scene.current = s;
-    const still = () => {
-      s.draw(poseAt(fit, contact).pose, camera);
-      setTime(contact);
-    };
+    // The figure is drawn from `time` (below), in the same paint as the line over it.
+    s.draw(poseAt(fit, contact).pose, camera);
+    const still = () => setTime(contact);
     still();
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce || plays >= PLAYS) return () => s.dispose();
@@ -95,9 +94,7 @@ export function MotionFigure() {
         }
         start = now;
       }
-      const at = Math.min(t, end);
-      s.draw(poseAt(fit, at).pose, camera);
-      setTime(at);
+      setTime(Math.min(t, end));
       if (visible && !document.hidden) raf = requestAnimationFrame(loop);
     };
     const go = () => {
@@ -121,6 +118,12 @@ export function MotionFigure() {
       scene.current = null;
     };
   }, [fit, contact, plays]);
+
+  // Figure and line from one time, in one paint. Drawn straight from the animation loop, the
+  // figure ran a frame ahead of the line, and on each restart the line hung beside the batter.
+  useLayoutEffect(() => {
+    if (fit && time !== null) scene.current?.draw(poseAt(fit, time).pose, camera);
+  }, [fit, time]);
 
   // The line Aline reads, over the figure: head, front shoulder, front knee, front toe.
   const line = useMemo(() => {
