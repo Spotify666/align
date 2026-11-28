@@ -2,6 +2,7 @@ import { HoldSheet } from "@/components/common/hold";
 import type { Metadata, Viewport } from "next";
 import { Archivo, Geist } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
+import { iconUrl } from "@/lib/icon-version";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
     "Shot analysis for cricket: the front-foot and the back-foot defence. Reconstruct body, bat and ball, confirm the shot before grading it, then train one measurable priority.",
   applicationName: "Aline",
   appleWebApp: { capable: true, title: "Aline", statusBarStyle: "default" },
-  icons: { apple: "/apple-touch-icon.png" },
+  icons: { apple: iconUrl("/apple-touch-icon.png"), icon: [{ url: iconUrl("/icon.svg"), type: "image/svg+xml" }] },
   formatDetection: { telephone: false },
   // Which build this page is (the version watch compares it with the live one).
   other: { "aline-build": process.env.NEXT_PUBLIC_BUILD_ID ?? "" },

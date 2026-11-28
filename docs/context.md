@@ -1486,3 +1486,6 @@ Open:
   redesign; the install colours in `manifest.ts` were the sage too. Now the warm-white mark on the
   black field, as in the header; `tests/brand-icons.test.ts` reads the files and fails on the old colours.
 - A phone may keep showing the old icon until its browser cache expires or the site's data is cleared.
+- Then "Still seeing old logo": the live site served only the new icons; the phone kept its own copy,
+  because the icons' addresses hadn't changed. Every icon address now carries the drawing's version
+  (`src/lib/icon-version.ts`, `?v=2`), so a phone fetches the redrawn icon on its next visit.
