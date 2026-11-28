@@ -1468,3 +1468,13 @@ Open:
 - Done: fingers. Each glove now closes round the handle with four fingers and a thumb, both hands
   wrapping the same way, on the grip the arm reaches, so they turn with the bat (docs/16).
 - Not refreshed: the screen map's pictures (`scripts/design/capture.mjs`).
+- Later: a photo of a batter's hands on the handle, "See the difference is a lot here". The gloves
+  are now padded mitts, touching on the handle, each carrying on from its forearm, the fingers thick
+  rolls (docs/16). The photo is not kept in the repo.
+- Then the owner asked for the reading first, approval after: read back as "top hand firm, wrist
+  straight; bottom hand loose behind the handle; hands together at the top; the bat hanging from
+  the hands, all one unit"; approved ("Yeah"). Done that way (docs/16, "The hold, as approved").
+- "I am mainly talking about how the bat is held: the wrists, elbow, fingers positioning with the
+  twists." Read back and approved. Built: each glove faces by its role, a guard on the top forearm,
+  the straight top wrist in the editor too (docs/16). Not possible from the one clip: turning the
+  hands round the handle in the motion itself (wrists up to 177 degrees: its depth is an estimate).

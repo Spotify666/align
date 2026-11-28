@@ -21,7 +21,7 @@
 
 import { elbowPreference, type Pose } from "@/engine/pose-model";
 import {
-  BAT, GRIP, add, armToGrip, onSphere, onTwoSpheres, batFrame, distance, gripPoint, holds, len, lerp, mid, mul, slerpDir, sub, twoBone, unit,
+  BAT, GRIP, HOLD, add, armToGrip, onSphere, onTwoSpheres, batFrame, distance, gripPoint, holds, len, lerp, mid, mul, slerpDir, sub, twoBone, unit,
   type GripState, type V3,
 } from "@/engine/rig";
 import type { SemanticJoint } from "@/engine/scene";
@@ -467,6 +467,8 @@ export function solveFrame(L: Lengths, x: FrameInput): { pose: Pose; normals: No
           hintWeight: t[J(s, "elbow")].c,
           preferred: pref[s],
           prevNormal: x.prev?.elbow[s] ?? null,
+          // The top hand (the front arm's) firm with a straight wrist, the bottom hand loose.
+          maxBendDeg: s === "front" ? HOLD.top : HOLD.bottom,
         });
         p[J(s, "elbow")] = arm.elbow;
         p[J(s, "wrist")] = arm.wrist;

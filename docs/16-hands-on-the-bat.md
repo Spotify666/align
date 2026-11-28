@@ -111,3 +111,51 @@ motion fit. With the owner's clip it bent the wrists up to 166 degrees and flipp
 held-out shots (drive 1 to 12), so the tracked forearms and the bat's direction can't both hold with
 it. The clip has no hand points (the pose model gives a wrist only); a hand tracker on the clip would
 give how the hands really turned. Needs the clip file.
+
+## Gloves as a batter wears them (2026-11-28)
+
+The owner sent a photo of a batter's hands on the handle beside the mannequin: "See the difference
+is a lot here." The photo (broadcast, not kept in the repo) showed big padded gloves touching each
+other on the handle, each carrying on from its forearm, the fingers as thick rolls side by side
+along the handle. The mannequin had thin rings on a narrow palm and a gap between the hands. Now:
+the back of each glove is a padded mitt from the wrist to the knuckles, as broad along the handle
+as its fingers; the fingers are rolls about 3 cm across that fill the hand's grip, so the two gloves
+touch (`GRIP.top + GRIP.bottom` apart); the thumb is thicker. Drawing only.
+
+## The hold, as approved (2026-11-28)
+
+Read back to the owner and approved ("Yeah") before any change: the top hand firm with its wrist
+straight, the glove carrying on the forearm's line and the handle across its fingers; the bottom
+hand loose behind the handle, held in the fingers; the hands together at the top of the handle; the
+bat hanging from the hands, forearms, gloves and bat moving as one.
+
+- Motion fit (`HOLD` in `src/engine/rig.ts`, `armToGrip`'s `maxBendDeg`): the top wrist bends at
+  most 6 degrees (was 25). The bottom wrist keeps 25: letting it give 40 only straightened the
+  bottom arm (contact 132 to 136 degrees, 146 at 60), the fault the owner raised earlier.
+- Gloves (`src/lib/mannequin.ts`): the bottom hand's fingers close only part way round the handle
+  (150 to 185 degrees against the top hand's 225 to 255).
+- Measured (`node scripts/motion/report.mjs`): generated takes within 0.1 cm of before against
+  their truth; the real take's elbows at contact front 107, back 132 degrees (the straight top
+  wrist folds the front elbow; it was 118), so the earlier "within 20 degrees of each other" test
+  now asks that neither arm goes straight (both under 140). `tests/motion-fit.test.ts` holds the
+  top wrist within `HOLD.top` on the real take and two generated ones.
+
+## Each glove by its role, and what the clip can't give (2026-11-28)
+
+Read back and approved: the top hand's back and the arm guard toward the bowler, fingers round the
+front curling back, the thumb round the batter's side, the V down the back of the handle; the
+bottom hand turned the other way, palm toward the bowler, holding lightly; top elbow high, bottom
+tucked; the same for a left-hander by role, never mirrored.
+
+- Built (drawing, `src/lib/mannequin.ts`): each glove's back faces by its role from the bat's face
+  (top: toward the face's side; bottom: away), so the two face opposite ways round the handle; the
+  fingers curl from the knuckles round the side away from the wrist; a guard on the top forearm's
+  outside shows its turn. Worked out from the bat, not the batting side, so a left-hander's own model
+  gets its own hold. The editor (`placeBat`) now keeps the top wrist straight too (`HOLD`).
+- Tried and not kept: turning each hand round the handle by role inside the motion fit
+  (`node scripts/motion/report.mjs`). With the elbows where the tracker saw them, wrists bent up to
+  177 degrees and palms flipped (up to 8 a take); letting the elbow follow the hand instead still bent
+  them up to 158 degrees and moved the body up to 38 cm off the clip. The reason: from one camera the
+  clip's depth is an estimate that puts the hands about level with the body, not out in front of it,
+  and no proper grip fits that. Needs the clip itself (a hand tracker, and a second camera or a
+  better depth) to show how the owner's hands really turned.
