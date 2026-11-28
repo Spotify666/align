@@ -1474,3 +1474,7 @@ Open:
 - Then the owner asked for the reading first, approval after: read back as "top hand firm, wrist
   straight; bottom hand loose behind the handle; hands together at the top; the bat hanging from
   the hands, all one unit"; approved ("Yeah"). Done that way (docs/16, "The hold, as approved").
+- "I am mainly talking about how the bat is held: the wrists, elbow, fingers positioning with the
+  twists." Read back and approved. Built: each glove faces by its role, a guard on the top forearm,
+  the straight top wrist in the editor too (docs/16). Not possible from the one clip: turning the
+  hands round the handle in the motion itself (wrists up to 177 degrees: its depth is an estimate).

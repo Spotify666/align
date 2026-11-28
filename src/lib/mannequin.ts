@@ -159,16 +159,27 @@ export function mannequinParts(p: Pose): Part[] {
       const wrist = p[`${s}_wrist`];
       const grip = gripPoint(hands, dir, s);
       const moves = [`${s}_wrist` as Handle];
-      // The back of the hand faces the wrist it comes from.
-      const out = square(sub(grip, wrist), dir, [0, 0, 1]);
+      // Each glove faces by its role, from the bat's face (the owner's reference, approved
+      // 2026-11-28): the top hand's back toward the bowler, the bottom hand's palm toward the bowler,
+      // so their backs face opposite ways round the handle and the Vs of thumb and forefinger line up
+      // down its back. Worked out from the bat, not the batting side: a left-hander's own hold.
+      const back = s === "front" ? batFace : mul(batFace, -1);
+      const knuckles = add(grip, mul(back, HANDLE_R + FINGER.r * 0.6));
       parts.push(
-        // The back of the glove: a padded mitt from the wrist to the knuckles, as broad along the
-        // handle as the fingers it carries, carrying on the forearm's line into the grip.
-        { key: `${s}-palm`, kind: "ellipsoid", tone: "glove", a: wrist, b: sub(grip, mul(out, HANDLE_R + FINGER.r * 0.6)), r: FINGER.span * 0.5, r2: FINGER.span * 0.5, depth: FINGER.r * 2.8, across: dir, moves },
+        // The back of the glove: a padded mitt from the wrist to the knuckle row, as broad along the
+        // handle as the fingers it carries.
+        { key: `${s}-palm`, kind: "ellipsoid", tone: "glove", a: wrist, b: knuckles, r: FINGER.span * 0.5, r2: FINGER.span * 0.5, depth: FINGER.r * 2.6, across: dir, moves },
         // The closed hand round the handle, under the fingers.
-        { key: `${s}-fist`, kind: "ellipsoid", tone: "glove", a: add(grip, mul(dir, -FINGER.span / 2)), b: add(grip, mul(dir, FINGER.span / 2)), r: HANDLE_R + 0.006, r2: HANDLE_R + 0.006, depth: HANDLE_R + 0.006, across: out, moves },
+        { key: `${s}-fist`, kind: "ellipsoid", tone: "glove", a: add(grip, mul(dir, -FINGER.span / 2)), b: add(grip, mul(dir, FINGER.span / 2)), r: HANDLE_R + 0.006, r2: HANDLE_R + 0.006, depth: HANDLE_R + 0.006, across: back, moves },
       );
-      parts.push(...fingersRound(s, grip, dir, out, moves));
+      parts.push(...fingersRound(s, grip, dir, back, sub(grip, wrist), moves));
+      // The top forearm's guard, on its outside (toward the bowler): it shows the forearm's turn.
+      if (s === "front") {
+        const el = p.front_elbow;
+        const fa = sub(wrist, el);
+        const outside = square(back, unit(fa, [0, -1, 0]), back);
+        parts.push({ key: "front-guard", kind: "ellipsoid", tone: "pad", a: add(add(el, mul(fa, 0.3)), mul(outside, SIZE.forearm[0] * 0.75)), b: add(add(el, mul(fa, 0.92)), mul(outside, SIZE.forearm[1] * 0.75)), r: SIZE.forearm[0] * 1.15, r2: SIZE.forearm[0] * 1.15, depth: SIZE.forearm[0] * 0.55, across: unit(cross(unit(fa, [0, -1, 0]), outside), [0, 0, 1]), moves: ["front_wrist", "front_elbow"] });
+      }
     }
   }
   return parts;
@@ -190,10 +201,10 @@ const HANDLE_R = 0.0135;
 // hand's grip on the handle so the two gloves touch (GRIP.top + GRIP.bottom apart), as in a batter's
 // hold (the owner's reference, 2026-11-28: big gloves together on the handle, wrists straight).
 const FINGER = { r: 0.0092, span: GRIP.top + GRIP.bottom, arcs: [235, 255, 250, 225], looseArcs: [150, 175, 185, 170] } as const;
-function fingersRound(side: "front" | "back", grip: V3, dir: V3, out: V3, moves: Handle[]): Part[] {
-  // Round the handle: `back` toward the wrist (where the knuckles are), `wrap` the way the fingers go.
-  const back = mul(out, -1);
-  const wrap = mul(unit(cross(dir, out), [0, 0, 1]), side === "front" ? 1 : -1);
+function fingersRound(side: "front" | "back", grip: V3, dir: V3, back: V3, fromWrist: V3, moves: Handle[]): Part[] {
+  // Round the handle from the knuckles (`back`): the fingers curl round the side away from the wrist
+  // (`wrap`) to the palm's side; the thumb comes round the wrist's side the other way.
+  const wrap = square(square(fromWrist, dir, unit(cross(dir, back), [0, 0, 1])), back, unit(cross(dir, back), [0, 0, 1]));
   const R = HANDLE_R + FINGER.r;
   const at = (c: V3, deg: number, r = R): V3 => {
     const a = (deg * Math.PI) / 180;

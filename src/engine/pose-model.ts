@@ -21,7 +21,7 @@
 // Units: body heights (1 = the batter's standing height).
 
 import { buildScene, type Scene, type SemanticJoint } from "./scene";
-import { BAT, GRIP, add, armToGrip, twoBone, cross, distance, dot, gripPoint, len, mid, mul, perpTo, sub, unit, type V3 } from "./rig";
+import { BAT, GRIP, HOLD, add, armToGrip, twoBone, cross, distance, dot, gripPoint, len, mid, mul, perpTo, sub, unit, type V3 } from "./rig";
 import type { AnalysisPayload, CaptureObservation, EventType, Handedness, TargetShot } from "./types";
 
 export const POSE_MODEL_SCHEMA = "aline.pose-model/1" as const;
@@ -189,6 +189,8 @@ export function placeBat(p: Pose, dir: V3, handle: V3 = p.bat_handle ?? handsOf(
         elbowHint: p[j(side, "elbow")],
         hintWeight: ELBOW_HINT[side],
         preferred: pref[side],
+        // The hold the owner approved (2026-11-28): the top wrist straight, the bottom as before.
+        maxBendDeg: side === "front" ? HOLD.top : HOLD.bottom,
       });
       next[j(side, "elbow")] = arm.elbow;
       next[j(side, "wrist")] = arm.wrist;
