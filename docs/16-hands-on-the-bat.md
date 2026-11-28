@@ -111,3 +111,13 @@ motion fit. With the owner's clip it bent the wrists up to 166 degrees and flipp
 held-out shots (drive 1 to 12), so the tracked forearms and the bat's direction can't both hold with
 it. The clip has no hand points (the pose model gives a wrist only); a hand tracker on the clip would
 give how the hands really turned. Needs the clip file.
+
+## Gloves as a batter wears them (2026-11-28)
+
+The owner sent a photo of a batter's hands on the handle beside the mannequin: "See the difference
+is a lot here." The photo (broadcast, not kept in the repo) showed big padded gloves touching each
+other on the handle, each carrying on from its forearm, the fingers as thick rolls side by side
+along the handle. The mannequin had thin rings on a narrow palm and a gap between the hands. Now:
+the back of each glove is a padded mitt from the wrist to the knuckles, as broad along the handle
+as its fingers; the fingers are rolls about 3 cm across that fill the hand's grip, so the two gloves
+touch (`GRIP.top + GRIP.bottom` apart); the thumb is thicker. Drawing only.

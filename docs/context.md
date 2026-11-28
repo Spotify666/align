@@ -1468,3 +1468,6 @@ Open:
 - Done: fingers. Each glove now closes round the handle with four fingers and a thumb, both hands
   wrapping the same way, on the grip the arm reaches, so they turn with the bat (docs/16).
 - Not refreshed: the screen map's pictures (`scripts/design/capture.mjs`).
+- Later: a photo of a batter's hands on the handle, "See the difference is a lot here". The gloves
+  are now padded mitts, touching on the handle, each carrying on from its forearm, the fingers thick
+  rolls (docs/16). The photo is not kept in the repo.
